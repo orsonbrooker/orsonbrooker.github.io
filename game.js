@@ -3,6 +3,8 @@
 // The ball is simulated in 3D court space (metres) and projected onto the
 // isometric court art. Screen units are "court pixels": the 2048px court image.
 
+import { pickPhrase } from "./phrases.js";
+
 const COURT_PX = 2048;
 const PX_PER_M = 132;
 const ORIGIN = { x: 1024, y: 816 }; // back corner of the floor
@@ -47,6 +49,12 @@ const LAUNCH_ANGLE = (52 * Math.PI) / 180;
 const JUMP_FRAME_TIME = 0.085;
 const JUMP_APEX = 0.29;
 const TIMING_WINDOW = 0.13;
+
+// Like NBA Jam: two makes in a row heats him up, three puts him on fire until he misses.
+const ON_FIRE_STREAK = 3;
+const ON_FIRE_WINDOW = 1.4; // timing window is this much wider while on fire
+const ON_FIRE_BONUS = 1; // extra points per basket while on fire
+const BANNER_SECONDS = 1.7;
 
 const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16 };
 const DEFAULT_SPOT = { u: 4.6, v: 4.6 };
@@ -104,6 +112,11 @@ const sound = {
   muted: load("orson-hoops-muted", false),
 
   unlock() {
+    // iOS only allows speech that starts from a tap, so say nothing once to enable it.
+    if (!this.speechReady && "speechSynthesis" in window) {
+      speechSynthesis.speak(new SpeechSynthesisUtterance(""));
+      this.speechReady = true;
+    }
     if (!this.ctx) {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) this.ctx = new AudioCtx();
@@ -144,6 +157,16 @@ const sound = {
     src.start(t);
   },
 
+  say(text) {
+    if (this.muted || !("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();
+    const line = new SpeechSynthesisUtterance(text);
+    line.rate = 1.1;
+    line.pitch = 0.8;
+    line.lang = "en-US";
+    speechSynthesis.speak(line);
+  },
+
   bounce: (s) => sound.tone(140, 0.12, { volume: Math.min(0.5, s * 0.08), slide: 0.6 }),
   rim: (s) => sound.tone(620, 0.18, { type: "triangle", volume: Math.min(0.25, s * 0.05), slide: 0.9 }),
   board: (s) => sound.tone(220, 0.1, { type: "square", volume: Math.min(0.12, s * 0.03), slide: 0.7 }),
@@ -158,6 +181,7 @@ muteBtn.addEventListener("click", (e) => {
   save("orson-hoops-muted", sound.muted);
   muteBtn.textContent = sound.muted ? "🔇" : "🔊";
   muteBtn.setAttribute("aria-label", sound.muted ? "Unmute sound" : "Mute sound");
+  if (sound.muted && "speechSynthesis" in window) speechSynthesis.cancel();
   e.stopPropagation();
 });
 muteBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
@@ -200,6 +224,10 @@ const state = {
   overAt: 0,
   balls: [],
   popups: [],
+  particles: [],
+  banner: null,
+  streak: 0, // makes in a row
+  coldStreak: 0, // misses in a row
   pressed: false,
 };
 
@@ -260,6 +288,9 @@ function startGame() {
   state.timeLeft = GAME_SECONDS;
   state.balls = [];
   state.popups = [];
+  state.particles = [];
+  state.streak = 0;
+  state.coldStreak = 0;
   player.u = DEFAULT_SPOT.u;
   player.v = DEFAULT_SPOT.v;
   player.fade = 1;
@@ -268,6 +299,7 @@ function startGame() {
   setAnim("idle");
   overlay.hidden = true;
   updateHud();
+  announce("start", "#ffffff");
 }
 
 function endGame() {
@@ -278,6 +310,17 @@ function endGame() {
     state.best = state.score;
     save("orson-hoops-best", state.best);
   }
+  const verdict =
+    isBest && state.score > 0
+      ? "newBest"
+      : state.score >= 50
+        ? "overGoat"
+        : state.score >= 30
+          ? "overHigh"
+          : state.score >= 10
+            ? "overMid"
+            : "overLow";
+  announce(verdict, "#ffe066");
   overlayTitle.textContent = isBest && state.score > 0 ? "New high score!" : "Time's up!";
   overlayBody.innerHTML = `You scored <strong>${state.score}</strong> points. Best: ${state.best}<br>Press Space or tap to play again`;
   overlay.hidden = false;
@@ -323,7 +366,7 @@ function release() {
   if (!state.pressed) return;
   state.pressed = false;
   if (player.anim === "gather") shoot(-2.5);
-  else if (player.anim === "jump") shoot((player.t - JUMP_APEX) / TIMING_WINDOW);
+  else if (player.anim === "jump") shoot((player.t - JUMP_APEX) / timingWindow());
 }
 
 window.addEventListener("keydown", (e) => {
@@ -374,6 +417,14 @@ window.addEventListener("blur", () => {
 
 // ---------- Shooting ----------
 
+function onFire() {
+  return state.streak >= ON_FIRE_STREAK;
+}
+
+function timingWindow() {
+  return onFire() ? TIMING_WINDOW * ON_FIRE_WINDOW : TIMING_WINDOW;
+}
+
 function gaussian() {
   return (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
 }
@@ -419,9 +470,11 @@ function shoot(timing) {
     age: 0,
     scored: false,
     touchedRim: false,
+    touchedBoard: false,
     decided: false,
     bounces: 0,
-    points: isThreePointSpot(player.u, player.v) ? 3 : 2,
+    three: isThreePointSpot(player.u, player.v),
+    fire: onFire(),
     prevZ: z,
   };
   state.balls.push(ball);
@@ -431,6 +484,12 @@ function shoot(timing) {
 
 function addPopup(text, color, x, y) {
   state.popups.push({ text, color, x, y, age: 0 });
+}
+
+function announce(category, color) {
+  const text = pickPhrase(category);
+  state.banner = { text: text.toUpperCase(), color, age: 0 };
+  sound.say(text);
 }
 
 // ---------- Physics ----------
@@ -538,27 +597,52 @@ function collideBoard(b) {
       b.vv = -b.vv * 0.72;
       b.vu *= 0.9;
       b.vz *= 0.9;
-      b.touchedRim = true;
+      b.touchedBoard = true;
     }
   }
 }
 
 function scoreBasket(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
-  state.score += b.points;
+  const points = (b.three ? 3 : 2) + (b.fire ? ON_FIRE_BONUS : 0);
+  state.score += points;
+  state.streak++;
+  state.coldStreak = 0;
   updateHud();
   sound.swish();
   const p = project(RIM.u, RIM.v, RIM.z);
-  addPopup(`+${b.points}`, "#ffe066", p.x, p.y - 60);
-  if (!b.touchedRim) addPopup("SWISH!", "#7cf0ff", p.x, p.y - 140);
-  else if (b.points === 3) addPopup("3 POINTER!", "#ff9f43", p.x, p.y - 140);
+  addPopup(`+${points}`, b.fire ? "#ff9f43" : "#ffe066", p.x, p.y - 60);
+
+  const swish = !b.touchedRim && !b.touchedBoard;
+  if (state.phase === "ending") announce("buzzer", "#ff6b6b");
+  else if (state.streak === ON_FIRE_STREAK) announce("onFire", "#ff9f43");
+  else if (state.streak === ON_FIRE_STREAK - 1) announce("heatingUp", "#ffb86b");
+  else if (onFire() && Math.random() < 0.5) announce("stillOnFire", "#ff9f43");
+  else if (b.three) announce("three", "#ffe066");
+  else if (b.touchedBoard && !b.touchedRim) announce("bank", "#a0e7ff");
+  else if (swish) announce("swish", "#7cf0ff");
+  else announce("make", "#ffffff");
+}
+
+function missedShot(b) {
+  if (state.phase !== "playing" && state.phase !== "ending") return;
+  const wasOnFire = onFire();
+  state.streak = 0;
+  state.coldStreak++;
+  if (wasOnFire) announce("fireOut", "#a0e7ff");
+  else if (!b.touchedRim && !b.touchedBoard) announce("airball", "#c8b6ff");
+  else if (state.coldStreak >= 3 && state.coldStreak % 3 === 0) announce("cold", "#a0e7ff");
+  else if (Math.random() < 0.7) announce("miss", "#c8b6ff");
 }
 
 // A shot is decided once it has gone in or clearly missed.
 function checkDecided(b) {
   if (b.decided) return;
   const missed = b.bounces > 0 || (b.vz < 0 && b.z < RIM.z - 0.6) || b.age > 3;
-  if (b.scored || missed) b.decided = true;
+  if (b.scored || missed) {
+    b.decided = true;
+    if (!b.scored) missedShot(b);
+  }
 }
 
 // ---------- Update ----------
@@ -636,6 +720,31 @@ function update(dt) {
 
   for (const p of state.popups) p.age += dt;
   state.popups = state.popups.filter((p) => p.age < 1.2);
+
+  if (state.banner) {
+    state.banner.age += dt;
+    if (state.banner.age > BANNER_SECONDS) state.banner = null;
+  }
+
+  // Flame trail behind balls shot while on fire.
+  for (const b of state.balls) {
+    if (!b.fire || b.age > 2.5) continue;
+    const p = project(b.u, b.v, b.z);
+    for (let i = 0; i < 4; i++) {
+      state.particles.push({
+        x: p.x + (Math.random() - 0.5) * 50,
+        y: p.y + (Math.random() - 0.5) * 50,
+        vy: -80 - Math.random() * 120,
+        age: 0,
+        life: 0.35 + Math.random() * 0.35,
+      });
+    }
+  }
+  for (const p of state.particles) {
+    p.age += dt;
+    p.y += p.vy * dt;
+  }
+  state.particles = state.particles.filter((p) => p.age < p.life);
 }
 
 let accumulator = 0;
@@ -691,6 +800,12 @@ function drawBall(b) {
   ctx.save();
   ctx.globalAlpha = fade;
   ctx.translate(p.x, p.y);
+  if (b.fire && b.age < 2.5) {
+    ctx.fillStyle = "rgba(255, 140, 40, 0.45)";
+    ctx.beginPath();
+    ctx.arc(0, 0, size * 0.8, 0, Math.PI * 2);
+    ctx.fill();
+  }
   ctx.rotate(b.spin);
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(ballSprite, -size / 2, -size / 2, size, size);
@@ -709,12 +824,49 @@ function drawMeter() {
 
   ctx.fillStyle = "rgba(43, 22, 34, 0.85)";
   ctx.fillRect(x - 6, top - 6, 36, height + 12);
-  const zoneTop = top + height * (1 - (JUMP_APEX + TIMING_WINDOW * 0.5) / total);
-  const zoneH = (height * TIMING_WINDOW) / total;
-  ctx.fillStyle = "#3ddc84";
+  const zoneTop = top + height * (1 - (JUMP_APEX + timingWindow() * 0.5) / total);
+  const zoneH = (height * timingWindow()) / total;
+  ctx.fillStyle = onFire() ? "#ff9f43" : "#3ddc84";
   ctx.fillRect(x, zoneTop, 24, zoneH);
   ctx.fillStyle = "#fff";
   ctx.fillRect(x - 6, top + height * (1 - fill) - 4, 36, 8);
+}
+
+function drawFire() {
+  if (!state.particles.length) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  for (const p of state.particles) {
+    const t = p.age / p.life;
+    const size = 44 * (1 - t) + 8;
+    ctx.fillStyle = t < 0.3 ? "#ffe066" : t < 0.6 ? "#ff9f43" : "#ff4d2e";
+    ctx.globalAlpha = 1 - t;
+    ctx.fillRect(p.x - size / 2, p.y - size / 2, size, size);
+  }
+  ctx.restore();
+}
+
+function drawBanner() {
+  const b = state.banner;
+  if (!b) return;
+  const pop = b.age < 0.12 ? 0.6 + (b.age / 0.12) * 0.55 : b.age < 0.22 ? 1.15 - ((b.age - 0.12) / 0.1) * 0.15 : 1;
+  const fade = Math.min(1, (BANNER_SECONDS - b.age) / 0.3);
+  ctx.save();
+  ctx.font = '64px "Press Start 2P", monospace';
+  const width = ctx.measureText(b.text).width;
+  const fit = Math.min(1, 1800 / width);
+  ctx.translate(COURT_PX / 2, 120);
+  ctx.scale(pop * fit, pop * fit);
+  ctx.globalAlpha = fade;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 16;
+  ctx.strokeStyle = "#2b1622";
+  ctx.strokeText(b.text, 0, 0);
+  ctx.fillStyle = b.color;
+  ctx.fillText(b.text, 0, 0);
+  ctx.restore();
 }
 
 function drawPopups() {
@@ -847,6 +999,8 @@ function render() {
     drawShadow(b.u, b.v, 30 / (1 + lift * 0.15), 12 / (1 + lift * 0.15), 0.3 / (1 + lift * 0.3));
   }
 
+  drawFire(); // behind the ball, so the trail streams out from it
+
   // Back to front by isometric depth (u + v).
   const items = [{ depth: player.u + player.v, draw: drawPlayer }];
   items.push({ depth: RIM.u + RIM.v + RIM_R * 0.7, draw: () => ctx.drawImage(hoopFront, HOOP_FRONT_AT.x, HOOP_FRONT_AT.y) });
@@ -856,6 +1010,7 @@ function render() {
 
   drawMeter();
   drawPopups();
+  drawBanner();
   if (DEBUG) drawDebug();
 }
 
