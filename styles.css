@@ -81,10 +81,15 @@ header p {
   white-space: nowrap;
 }
 
-.mute {
+.sound-buttons {
   position: absolute;
   right: 3%;
   bottom: 3%;
+  display: flex;
+  gap: 8px;
+}
+
+.sound-buttons button {
   width: 44px;
   height: 44px;
   border: 0;
@@ -93,6 +98,11 @@ header p {
   color: #fff;
   font-size: 20px;
   cursor: pointer;
+}
+
+.sound-buttons button.off {
+  opacity: 0.45;
+  text-decoration: line-through;
 }
 
 .overlay {

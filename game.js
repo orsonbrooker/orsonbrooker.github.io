@@ -3,6 +3,7 @@
 // The ball is simulated in 3D court space (metres) and projected onto the
 // isometric court art. Screen units are "court pixels": the 2048px court image.
 
+import { sound } from "./audio.js";
 import { pickPhrase } from "./phrases.js";
 
 const COURT_PX = 2048;
@@ -69,6 +70,7 @@ const overlay = document.getElementById("overlay");
 const overlayTitle = document.getElementById("overlay-title");
 const overlayBody = document.getElementById("overlay-body");
 const muteBtn = document.getElementById("mute");
+const musicBtn = document.getElementById("music");
 
 // ---------- Projection ----------
 
@@ -105,86 +107,33 @@ function save(key, value) {
   }
 }
 
-// ---------- Sound ----------
+// ---------- Sound buttons ----------
 
-const sound = {
-  ctx: null,
-  muted: load("orson-hoops-muted", false),
+sound.muted = load("orson-hoops-muted", false);
+sound.musicOn = load("orson-hoops-music", true);
 
-  unlock() {
-    // iOS only allows speech that starts from a tap, so say nothing once to enable it.
-    if (!this.speechReady && "speechSynthesis" in window) {
-      speechSynthesis.speak(new SpeechSynthesisUtterance(""));
-      this.speechReady = true;
-    }
-    if (!this.ctx) {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) this.ctx = new AudioCtx();
-    }
-    if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
-  },
-
-  tone(freq, duration, { type = "sine", volume = 0.3, slide = 1 } = {}) {
-    if (this.muted || !this.ctx) return;
-    const t = this.ctx.currentTime;
-    const osc = this.ctx.createOscillator();
-    const gain = this.ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, t);
-    osc.frequency.exponentialRampToValueAtTime(freq * slide, t + duration);
-    gain.gain.setValueAtTime(volume, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
-    osc.connect(gain).connect(this.ctx.destination);
-    osc.start(t);
-    osc.stop(t + duration);
-  },
-
-  noise(duration, { volume = 0.2, freq = 3000 } = {}) {
-    if (this.muted || !this.ctx) return;
-    const t = this.ctx.currentTime;
-    const length = Math.floor(this.ctx.sampleRate * duration);
-    const buffer = this.ctx.createBuffer(1, length, this.ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / length);
-    const src = this.ctx.createBufferSource();
-    const filter = this.ctx.createBiquadFilter();
-    const gain = this.ctx.createGain();
-    src.buffer = buffer;
-    filter.type = "bandpass";
-    filter.frequency.value = freq;
-    gain.gain.value = volume;
-    src.connect(filter).connect(gain).connect(this.ctx.destination);
-    src.start(t);
-  },
-
-  say(text) {
-    if (this.muted || !("speechSynthesis" in window)) return;
-    speechSynthesis.cancel();
-    const line = new SpeechSynthesisUtterance(text);
-    line.rate = 1.1;
-    line.pitch = 0.8;
-    line.lang = "en-US";
-    speechSynthesis.speak(line);
-  },
-
-  bounce: (s) => sound.tone(140, 0.12, { volume: Math.min(0.5, s * 0.08), slide: 0.6 }),
-  rim: (s) => sound.tone(620, 0.18, { type: "triangle", volume: Math.min(0.25, s * 0.05), slide: 0.9 }),
-  board: (s) => sound.tone(220, 0.1, { type: "square", volume: Math.min(0.12, s * 0.03), slide: 0.7 }),
-  swish: () => sound.noise(0.35, { volume: 0.5, freq: 2500 }),
-  buzzer: () => sound.tone(160, 0.9, { type: "sawtooth", volume: 0.2 }),
-  tick: () => sound.tone(880, 0.05, { type: "square", volume: 0.05 }),
-};
-
-muteBtn.textContent = sound.muted ? "🔇" : "🔊";
-muteBtn.addEventListener("click", (e) => {
-  sound.muted = !sound.muted;
-  save("orson-hoops-muted", sound.muted);
+function syncSoundButtons() {
   muteBtn.textContent = sound.muted ? "🔇" : "🔊";
   muteBtn.setAttribute("aria-label", sound.muted ? "Unmute sound" : "Mute sound");
-  if (sound.muted && "speechSynthesis" in window) speechSynthesis.cancel();
+  musicBtn.classList.toggle("off", !sound.musicOn);
+  musicBtn.setAttribute("aria-label", sound.musicOn ? "Turn music off" : "Turn music on");
+  musicBtn.setAttribute("aria-pressed", String(sound.musicOn));
+}
+
+muteBtn.addEventListener("click", (e) => {
+  sound.setMuted(!sound.muted);
+  save("orson-hoops-muted", sound.muted);
+  syncSoundButtons();
   e.stopPropagation();
 });
-muteBtn.addEventListener("pointerdown", (e) => e.stopPropagation());
+musicBtn.addEventListener("click", (e) => {
+  sound.setMusic(!sound.musicOn);
+  save("orson-hoops-music", sound.musicOn);
+  syncSoundButtons();
+  e.stopPropagation();
+});
+for (const btn of [muteBtn, musicBtn]) btn.addEventListener("pointerdown", (e) => e.stopPropagation());
+syncSoundButtons();
 
 // ---------- Ball sprite (drawn in code so it can spin) ----------
 
@@ -246,6 +195,7 @@ let sprites, atlas, hoopFront, ballSprite;
 function setAnim(name) {
   player.anim = name;
   player.t = 0;
+  player.lastDribbleFrame = -1;
 }
 
 function spotDistance(u, v) {
@@ -299,6 +249,7 @@ function startGame() {
   setAnim("idle");
   overlay.hidden = true;
   updateHud();
+  sound.gameStart();
   announce("start", "#ffffff");
 }
 
@@ -358,8 +309,10 @@ function press() {
   }
   if (state.phase !== "playing" || player.moving) return;
 
-  if (player.anim === "idle") setAnim("turn");
-  else if (player.anim === "dribble") setAnim("gather");
+  if (player.anim === "idle") {
+    setAnim("turn");
+    sound.squeak();
+  } else if (player.anim === "dribble") setAnim("gather");
 }
 
 function release() {
@@ -397,7 +350,7 @@ stage.addEventListener("pointerdown", (e) => {
 stage.addEventListener(
   "touchstart",
   (e) => {
-    if (!muteBtn.contains(e.target)) e.preventDefault();
+    if (!e.target.closest("button")) e.preventDefault();
   },
   { passive: false },
 );
@@ -478,6 +431,7 @@ function shoot(timing) {
     prevZ: z,
   };
   state.balls.push(ball);
+  if (ball.fire) sound.fireWhoosh();
   player.activeBall = ball;
   setAnim("release");
 }
@@ -614,6 +568,9 @@ function scoreBasket(b) {
   addPopup(`+${points}`, b.fire ? "#ff9f43" : "#ffe066", p.x, p.y - 60);
 
   const swish = !b.touchedRim && !b.touchedBoard;
+  if (state.streak === ON_FIRE_STREAK) sound.fireIgnite();
+  else sound.cheer(state.phase === "ending" ? 2 : b.three || state.streak === ON_FIRE_STREAK - 1 ? 1.4 : 1);
+
   if (state.phase === "ending") announce("buzzer", "#ff6b6b");
   else if (state.streak === ON_FIRE_STREAK) announce("onFire", "#ff9f43");
   else if (state.streak === ON_FIRE_STREAK - 1) announce("heatingUp", "#ffb86b");
@@ -629,6 +586,8 @@ function missedShot(b) {
   const wasOnFire = onFire();
   state.streak = 0;
   state.coldStreak++;
+  if (!b.touchedRim && !b.touchedBoard) sound.groan();
+  else if (b.touchedRim) sound.ooh();
   if (wasOnFire) announce("fireOut", "#a0e7ff");
   else if (!b.touchedRim && !b.touchedBoard) announce("airball", "#c8b6ff");
   else if (state.coldStreak >= 3 && state.coldStreak % 3 === 0) announce("cold", "#a0e7ff");
@@ -677,8 +636,18 @@ function updatePlayer(dt) {
       if (player.t >= frameCount("turn") / ANIM_FPS.turn) setAnim(state.pressed ? "gather" : "dribble");
       break;
     case "gather":
-      if (player.t >= frameCount("gather") / ANIM_FPS.gather) setAnim("jump");
+      if (player.t >= frameCount("gather") / ANIM_FPS.gather) {
+        setAnim("jump");
+        sound.squeak();
+      }
       break;
+    case "dribble": {
+      // Bounce sound when the ball hits the floor (the first frame of the loop).
+      const frame = Math.floor(player.t * ANIM_FPS.dribble) % frameCount("dribble");
+      if (frame === 0 && player.lastDribbleFrame !== 0) sound.dribble();
+      player.lastDribbleFrame = frame;
+      break;
+    }
     case "jump":
       if (player.t >= frameCount("jump") * JUMP_FRAME_TIME) shoot(2.5);
       break;
@@ -704,7 +673,7 @@ function update(dt) {
       updateHud();
     }
     if (state.timeLeft <= 0) {
-      sound.buzzer();
+      sound.gameOver();
       state.phase = "ending";
       // A shot already in the air still counts.
       if (player.anim === "gather" || player.anim === "jump") setAnim("dribble");
@@ -726,9 +695,10 @@ function update(dt) {
     if (state.banner.age > BANNER_SECONDS) state.banner = null;
   }
 
-  // Flame trail behind balls shot while on fire.
+  // Flame trail (and crackle) behind balls shot while on fire.
   for (const b of state.balls) {
     if (!b.fire || b.age > 2.5) continue;
+    if (b.age < 1.5 && Math.random() < dt * 30) sound.crackle();
     const p = project(b.u, b.v, b.z);
     for (let i = 0; i < 4; i++) {
       state.particles.push({
@@ -1053,7 +1023,7 @@ async function boot() {
     console.error(err);
     return;
   }
-  if (DEBUG) window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM };
+  if (DEBUG) window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound };
   resize();
   new ResizeObserver(resize).observe(stage);
   showTitle();

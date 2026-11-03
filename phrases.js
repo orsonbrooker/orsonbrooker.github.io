@@ -32,7 +32,7 @@ export const PHRASES = {
   ],
 
   // Nothing but net.
-  swish: ["Swish!", "Nothing but net!", "Wet!", "Butter!", "Silky smooth!", "Splash!"],
+  swish: ["Swish!", "Nothing but net!", "Wet!", "Butter!", "Silky smooth!", "Splash!", "Cash money!", "Didn't even touch the rim!"],
 
   // Off the backboard and in.
   bank: ["Off the glass!", "Glass!", "Kiss off the glass!", "The bank is open!", "We take those!"],
@@ -49,7 +49,7 @@ export const PHRASES = {
   ],
 
   // Two in a row.
-  heatingUp: ["He's heating up!", "Somebody's warming up!", "He's getting cooking!"],
+  heatingUp: ["He's heating up!", "Somebody's warming up!", "He's getting cooking!", "Two in a row!", "Stay hot!"],
 
   // Three in a row: he's on fire until he misses.
   onFire: ["He's on fire!", "Too hot to handle!", "Call the fire department!"],
@@ -88,9 +88,21 @@ export const PHRASES = {
   newBest: ["New personal best!", "Record breaker!"],
 };
 
-const bags = {};
+// Specific moments only sometimes use their own list; otherwise they borrow from the
+// general one, so every phrase gets a turn. 0.3 = own list 30% of the time.
+const MIX = {
+  swish: ["make", 0.3],
+  bank: ["make", 0.4],
+  three: ["make", 0.5],
+  stillOnFire: ["make", 0.5],
+  airball: ["miss", 0.5],
+  cold: ["miss", 0.6],
+};
 
-export function pickPhrase(category) {
+const bags = {};
+let last = "";
+
+function draw(category) {
   let bag = bags[category];
   if (!bag || bag.length === 0) {
     bag = bags[category] = [...PHRASES[category]];
@@ -100,4 +112,13 @@ export function pickPhrase(category) {
     }
   }
   return bag.pop();
+}
+
+export function pickPhrase(category) {
+  const mix = MIX[category];
+  if (mix && Math.random() > mix[1]) category = mix[0];
+  let phrase = draw(category);
+  if (phrase === last && PHRASES[category].length > 1) phrase = draw(category); // never twice in a row
+  last = phrase;
+  return phrase;
 }
