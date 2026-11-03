@@ -2,19 +2,40 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#a6798e" />
     <title>Orson Brooker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <link rel="preload" href="assets/court.webp" as="image" />
+    <link rel="preload" href="assets/sprites.webp" as="image" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <h1>Orson Brooker</h1>
-    <p>This is my website</p>
-    <p>On my website you can find:</p>
-    <ul>
-      <li>Book reviews</li>
-      <li>A story of my life</li>
-      <li>My hobbys</li>
-    </ul>
+    <header>
+      <h1>Orson Brooker</h1>
+      <p>Hi, I'm Orson! Welcome to my website. Can you beat my high score?</p>
+    </header>
+
+    <main>
+      <div class="stage" id="stage" tabindex="0" aria-label="Basketball game. Press Space or tap to turn to the hoop, hold to jump, let go to shoot.">
+        <img class="court" src="assets/court.webp" alt="" width="2048" height="2048" />
+        <canvas id="game"></canvas>
+
+        <p class="sr-only">Score <span id="score">0</span>, <span id="time">60</span> seconds left</p>
+
+        <button class="mute" id="mute" type="button" aria-label="Mute sound">🔊</button>
+
+        <div class="overlay" id="overlay">
+          <div class="panel">
+            <h2 id="overlay-title">Loading…</h2>
+            <p id="overlay-body"></p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="game.js"></script>
   </body>
 </html>

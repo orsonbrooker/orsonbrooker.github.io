@@ -1,10 +1,151 @@
+:root {
+  --bg: #a6798e;
+  --ink: #2b1622;
+  --panel: rgba(43, 22, 34, 0.86);
+  --accent: #f08a3c;
+  --pixel: "Press Start 2P", ui-monospace, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
+  margin: 0;
   font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
-  background-color: #000;
+  background-color: var(--bg);
   color: #fff;
-  padding: 12px 24px;
+  padding: 12px 16px 32px;
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+header {
+  text-align: center;
 }
 
 h1 {
+  font-family: var(--pixel);
+  font-size: clamp(20px, 5vw, 40px);
   text-transform: uppercase;
+  margin: 12px 0 8px;
+  text-shadow: 3px 3px 0 var(--ink);
+}
+
+header p {
+  margin: 0 0 12px;
+  font-family: var(--pixel);
+  font-size: clamp(10px, 1.8vw, 14px);
+  line-height: 1.6;
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+.stage {
+  position: relative;
+  width: min(100%, calc(100svh - 120px), 960px);
+  min-width: 280px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  outline: none;
+  cursor: pointer;
+}
+
+.stage:focus-visible {
+  box-shadow: 0 0 0 3px #fff;
+  border-radius: 8px;
+}
+
+.court,
+#game {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.court {
+  pointer-events: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.mute {
+  position: absolute;
+  right: 3%;
+  bottom: 3%;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--panel);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 6%;
+  pointer-events: none;
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.panel {
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 16px 20px;
+  max-width: 78%;
+  text-align: center;
+  font-family: var(--pixel);
+  line-height: 1.7;
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: clamp(14px, 3vw, 24px);
+  color: var(--accent);
+}
+
+.panel p {
+  margin: 0;
+  font-size: clamp(9px, 1.6vw, 13px);
+}
+
+@media (max-width: 520px) {
+  .overlay {
+    padding-bottom: 2%;
+  }
+
+  .panel {
+    max-width: 96%;
+    padding: 10px 12px;
+    line-height: 1.6;
+  }
+
+  .panel h2 {
+    font-size: 12px;
+  }
+
+  .panel p {
+    font-size: 8px;
+  }
 }
