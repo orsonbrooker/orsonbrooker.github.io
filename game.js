@@ -3,7 +3,7 @@
 // The ball is simulated in 3D court space (metres) and projected onto the
 // isometric court art. Screen units are "court pixels": the 2048px court image.
 
-import { loadVoiceClips, sound } from "./audio.js?v=7b72fc5d";
+import { loadVoiceClips, sound } from "./audio.js?v=b614856c";
 import { pickPhrase } from "./phrases.js?v=e5110e70";
 import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
@@ -160,11 +160,14 @@ muteBtn.addEventListener("click", (e) => {
   e.stopPropagation();
 });
 musicBtn.addEventListener("click", (e) => {
+  sound.unlock(); // a click counts as the go-ahead browsers need before playing sound
   sound.setMusic(!sound.musicOn);
   save("orson-hoops-music", sound.musicOn);
   syncSoundButtons();
   e.stopPropagation();
 });
+// Browsers only allow sound after a tap or key press: the first one anywhere starts the music.
+for (const type of ["pointerdown", "keydown"]) window.addEventListener(type, () => sound.unlock(), { capture: true, once: true });
 for (const btn of [muteBtn, musicBtn, helpButton]) btn.addEventListener("pointerdown", (e) => e.stopPropagation());
 // Clicked with a mouse or finger, the sound buttons hand focus back to the game, or Space would
 // keep pressing them instead of shooting. (Keyboard users who tabbed to them keep their place.)
@@ -949,6 +952,13 @@ function update(dt) {
       if (after <= 5 && after > 0) sound.tick();
       updateHud();
     }
+    // The music builds as time runs down, and gets a lead line while he's on fire.
+    const fire = fireLevel();
+    sound.setIntensity({
+      stage: state.timeLeft > 40 ? 0 : state.timeLeft > 20 ? 1 : 2,
+      fire: fire ? FIRE_LEVELS.indexOf(fire) + 1 : 0,
+      final: state.timeLeft <= 10,
+    });
     if (state.timeLeft <= 0) {
       sound.gameOver();
       state.phase = "ending";

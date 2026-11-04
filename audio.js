@@ -1,12 +1,11 @@
 // Arena sound for the shootaround, all synthesised with Web Audio (no sound files).
 //
 // Everything plays through an arena mix: a compressor on the master, a big-room
-// reverb send, a crowd bed that swells with the action, and a 16-bit funk loop
-// that ducks under the announcer.
+// reverb send, a crowd bed that swells with the action, and music that builds
+// with the game and ducks under the announcer.
 
 const MUSIC_LEVEL = 0.2;
 const CROWD_LEVEL = 0.07;
-const BPM = 108;
 
 export const sound = {
   ctx: null,
@@ -27,6 +26,8 @@ export const sound = {
       buildGraph(this.ctx);
       this.setMuted(this.muted);
       preloadClips();
+      // The first tap or key press starts the menu music (browsers block sound before one).
+      if (this.musicOn && !music.timer) startMusic("menu");
     }
     if (this.ctx.state === "suspended") this.ctx.resume();
   },
@@ -41,8 +42,21 @@ export const sound = {
   setMusic(on) {
     this.musicOn = on;
     if (!this.ctx) return;
-    if (on && music.wanted) startMusic();
+    if (on) startMusic(music.mode ?? "menu");
     else stopMusic(false);
+  },
+
+  // What the music is doing (for ?debug in the console).
+  musicState() {
+    return { mode: music.mode, playing: !!music.timer, layers: { ...music.layers }, bpm: bpm() };
+  },
+
+  // How intense the game is right now (game.js calls this as it plays). The music catches up
+  // on the next bar.
+  setIntensity({ stage = 0, fire = 0, final = false }) {
+    const w = music.wanted;
+    if (w && w.stage === stage && w.fire === fire && w.final === final) return;
+    music.wanted = { stage, fire, final };
   },
 
   // Plays the recorded announcer clip for a phrase, or falls back to the device voice.
@@ -70,14 +84,26 @@ export const sound = {
     crowdLevel(1);
     horn(0.35);
     cheer(0.8);
-    music.wanted = true;
-    if (this.musicOn) startMusic();
+    music.wanted = { stage: 0, fire: 0, final: false };
+    music.mode = "game";
+    if (this.musicOn) {
+      stopMusic(false);
+      startMusic("game");
+    }
   },
 
   gameOver() {
     if (!this.ctx) return;
-    music.wanted = false;
-    stopMusic(true);
+    music.wanted = null;
+    if (music.timer) {
+      stopMusic(false);
+      ramp(bus.music.gain, MUSIC_LEVEL, 0.05);
+      outro();
+    }
+    music.mode = "menu";
+    setTimeout(() => {
+      if (this.musicOn && music.mode === "menu" && !music.timer) startMusic("menu");
+    }, 3500);
     horn(1.3);
     cheer(1.2);
     setTimeout(() => crowdLevel(0.35), 2500);
@@ -455,23 +481,56 @@ function horn(length) {
   }
 }
 
-// ---------- Music: a two-bar 16-bit funk vamp (Em7 to A7) ----------
+// ---------- Music ----------
+//
+// All made here, a step at a time, so it can change with the game:
+//   menu  a laid-back groove for the title and menus
+//   game  a 16-bit funk vamp (Em7 to A7) that builds as the game goes on:
+//         stage 0  kick, snare and bass
+//         stage 1  (40 seconds left) hi-hats and ghost notes
+//         stage 2  (20 seconds left) chord stabs, busier hats, a bit faster
+//         on fire  a lead melody joins in, an octave higher on purple fire
+//         final    (10 seconds left) faster still, pumping bass, snare rolls
+// Changes land on the next bar so it always stays in time, with a crash to mark them.
 
-const music = { wanted: false, timer: null, step: 0, next: 0 };
-const STEP = 60 / BPM / 4;
+const music = { mode: null, timer: null, step: 0, next: 0, layers: { stage: 0, fire: 0, final: false }, wanted: null };
 const midi = (m) => 440 * Math.pow(2, (m - 69) / 12);
-const BASS = { 0: [40, 2], 3: [40, 1], 6: [52, 1], 8: [43, 2], 10: [45, 1], 12: [47, 2], 14: [50, 1], 16: [45, 2], 19: [45, 1], 22: [57, 1], 24: [48, 2], 26: [49, 1], 28: [52, 2], 30: [55, 1] };
-const CHORDS = [[64, 67, 71, 74], [57, 61, 64, 67]];
-const STABS = [2, 7, 10];
-const KICK = [0, 3, 10, 16, 19, 26];
-const SNARE = [4, 12, 20, 28];
-const GHOST = [7, 15, 23, 31];
 
-function startMusic() {
-  if (music.timer || !sound.ctx) return;
+const GAME = {
+  bass: { 0: [40, 2], 3: [40, 1], 6: [52, 1], 8: [43, 2], 10: [45, 1], 12: [47, 2], 14: [50, 1], 16: [45, 2], 19: [45, 1], 22: [57, 1], 24: [48, 2], 26: [49, 1], 28: [52, 2], 30: [55, 1] },
+  chords: [[64, 67, 71, 74], [57, 61, 64, 67]],
+  stabs: [2, 7, 10],
+  kick: [0, 3, 10, 16, 19, 26],
+  snare: [4, 12, 20, 28],
+  ghost: [7, 15, 23, 31],
+  lead: { 0: 76, 2: 79, 3: 83, 6: 86, 8: 83, 10: 79, 12: 81, 14: 79, 16: 76, 18: 73, 19: 76, 22: 79, 24: 81, 26: 79, 28: 76, 30: 73 },
+};
+const MENU = {
+  bpm: 90,
+  bass: { 0: [40, 6], 7: [47, 2], 10: [43, 4], 16: [45, 6], 23: [52, 2], 26: [49, 4] },
+  chords: [[64, 67, 71, 74, 78], [57, 61, 64, 67, 71]], // Em9, A9
+  bell: { 2: 83, 5: 79, 9: 76, 13: 74, 18: 76, 21: 73, 25: 69, 29: 71 },
+};
+
+function bpm() {
+  if (music.mode === "menu") return MENU.bpm;
+  const { stage, final } = music.layers;
+  return final ? 124 : stage >= 2 ? 112 : 108;
+}
+
+function musicLevel() {
+  return MUSIC_LEVEL * (music.mode === "menu" ? 0.75 : 1) * bus.duck;
+}
+
+function startMusic(mode) {
+  if (!sound.ctx) return;
+  if (music.timer && music.mode === mode) return;
+  clearInterval(music.timer);
+  music.mode = mode;
   music.step = 0;
+  music.layers = { ...music.wanted ?? { stage: 0, fire: 0, final: false } };
   music.next = now() + 0.1;
-  ramp(bus.music.gain, MUSIC_LEVEL * bus.duck, 0.3);
+  ramp(bus.music.gain, musicLevel(), 0.3);
   music.timer = setInterval(scheduleMusic, 25);
 }
 
@@ -484,41 +543,98 @@ function stopMusic(fade) {
 
 function scheduleMusic() {
   while (music.next < now() + 0.12) {
-    playStep(music.step % 32, music.next);
-    music.next += STEP;
+    const s = music.step % 32;
+    // New layers come in on the downbeat of a bar, with a crash if things got bigger.
+    if (s % 16 === 0 && music.wanted && music.mode === "game") {
+      const before = music.layers;
+      const after = music.wanted;
+      const bigger = after.stage > before.stage || after.fire > before.fire || (after.final && !before.final);
+      music.layers = { ...after };
+      if (bigger) crash(music.next);
+    }
+    if (music.mode === "menu") playMenuStep(s, music.next);
+    else playGameStep(s, music.next);
+    music.next += 60 / bpm() / 4;
     music.step++;
   }
 }
 
-function playStep(s, t) {
+function crash(t) {
+  noise(t, 1.4, { type: "highpass", freq: 5000, peak: 0.16, out: bus.music });
+}
+
+function bassNote(note, t, len, { type = "square", bright = 1400, peak = 0.5 } = {}) {
+  const ctx = sound.ctx;
+  const stepLen = 60 / bpm() / 4;
+  const o = ctx.createOscillator();
+  o.type = type;
+  o.frequency.value = midi(note);
+  const f = ctx.createBiquadFilter();
+  f.type = "lowpass";
+  f.frequency.setValueAtTime(bright, t);
+  f.frequency.exponentialRampToValueAtTime(300, t + stepLen * len);
+  const g = ctx.createGain();
+  envelope(g, t, 0.005, peak, stepLen * len);
+  o.connect(f).connect(g).connect(bus.music);
+  o.start(t);
+  o.stop(t + stepLen * len + 0.05);
+}
+
+function playGameStep(s, t) {
   const out = bus.music;
+  const { stage, fire, final } = music.layers;
   const bar = s < 16 ? 0 : 1;
-  if (BASS[s]) {
-    const [note, len] = BASS[s];
-    const ctx = sound.ctx;
-    const o = ctx.createOscillator();
-    o.type = "square";
-    o.frequency.value = midi(note);
-    const f = ctx.createBiquadFilter();
-    f.type = "lowpass";
-    f.frequency.setValueAtTime(1400, t);
-    f.frequency.exponentialRampToValueAtTime(300, t + STEP * len);
-    const g = ctx.createGain();
-    envelope(g, t, 0.005, 0.5, STEP * len);
-    o.connect(f).connect(g).connect(out);
-    o.start(t);
-    o.stop(t + STEP * len + 0.05);
-  }
-  if (STABS.includes(s % 16)) {
-    for (const n of CHORDS[bar]) tone("sawtooth", midi(n), t, STEP * 0.9, { peak: 0.06, out });
-  }
-  if (KICK.includes(s)) tone("sine", 150, t, 0.18, { to: 45, peak: 0.7, out });
-  if (SNARE.includes(s)) {
+  const stepLen = 60 / bpm() / 4;
+
+  // Bass: the riff, and in the final seconds an eighth-note pump underneath it.
+  if (GAME.bass[s]) bassNote(GAME.bass[s][0], t, GAME.bass[s][1]);
+  else if (final && s % 2 === 0) bassNote(bar ? 45 : 40, t, 1, { peak: 0.3, bright: 900 });
+
+  // Drums.
+  if (GAME.kick.includes(s) || (final && s % 4 === 0)) tone("sine", 150, t, 0.18, { to: 45, peak: 0.7, out });
+  if (GAME.snare.includes(s)) {
     noise(t, 0.14, { type: "highpass", freq: 1500, peak: 0.35, out });
     tone("triangle", 190, t, 0.08, { peak: 0.25, out });
   }
-  if (GHOST.includes(s)) noise(t, 0.05, { type: "highpass", freq: 2000, peak: 0.08, out });
-  if (s % 2 === 0) noise(t, s % 4 === 2 ? 0.06 : 0.03, { type: "highpass", freq: 7000, peak: s % 4 === 2 ? 0.12 : 0.07, out });
+  // A snare roll into every other bar when time's nearly up.
+  if (final && s >= 28) noise(t, 0.06, { type: "highpass", freq: 1800, peak: 0.12 + (s - 28) * 0.06, out });
+  if (stage >= 1 && GAME.ghost.includes(s)) noise(t, 0.05, { type: "highpass", freq: 2000, peak: 0.08, out });
+  if (stage >= 1) {
+    const offbeat = s % 4 === 2;
+    if (stage >= 2 || s % 2 === 0) noise(t, offbeat ? 0.06 : 0.03, { type: "highpass", freq: 7000, peak: offbeat ? 0.12 : 0.06, out });
+  }
+  if (fire && s % 8 === 6) noise(t, 0.25, { type: "highpass", freq: 6000, peak: 0.09, out }); // open hat
+
+  // Chord stabs.
+  if (stage >= 2 && GAME.stabs.includes(s % 16)) {
+    for (const n of GAME.chords[bar]) tone("sawtooth", midi(n), t, stepLen * 0.9, { peak: 0.05, out });
+  }
+
+  // On fire: a lead line, up an octave on purple fire.
+  if (fire && GAME.lead[s]) {
+    const note = GAME.lead[s] + (fire >= 2 ? 12 : 0);
+    tone("square", midi(note), t, stepLen * 1.6, { peak: 0.045, out, vibrato: fire >= 2 ? 6 : 0 });
+  }
+}
+
+function playMenuStep(s, t) {
+  const out = bus.music;
+  const bar = s < 16 ? 0 : 1;
+  const stepLen = 60 / bpm() / 4;
+  // A soft pad on each bar, round sine bass, little bell melody and light drums.
+  if (s % 16 === 0) for (const n of MENU.chords[bar]) tone("triangle", midi(n), t, stepLen * 15, { peak: 0.028, attack: 0.25, out });
+  if (MENU.bass[s]) bassNote(MENU.bass[s][0], t, MENU.bass[s][1], { type: "triangle", bright: 700, peak: 0.55 });
+  if (MENU.bell[s]) tone("sine", midi(MENU.bell[s]), t, stepLen * 3, { peak: 0.05, out, reverb: 0.4 });
+  if (s % 16 === 0 || s % 16 === 10) tone("sine", 120, t, 0.16, { to: 45, peak: 0.45, out });
+  if (s % 8 === 4) noise(t, 0.05, { type: "bandpass", freq: 1800, q: 2, peak: 0.12, out }); // rim click
+  if (s % 2 === 0) noise(t, 0.025, { type: "highpass", freq: 8000, peak: s % 4 === 2 ? 0.05 : 0.025, out });
+}
+
+// The game's last chord rings out, then the menu groove comes back.
+function outro() {
+  const t = now() + 0.05;
+  for (const n of [52, 64, 67, 71, 74, 78]) tone("sawtooth", midi(n), t, 1.6, { peak: 0.035, out: bus.music });
+  crash(t);
 }
 
 // ---------- Recorded announcer ----------
@@ -585,7 +701,7 @@ async function playClip([start, duration]) {
 function duck(on) {
   if (!sound.ctx) return;
   bus.duck = on ? 0.4 : 1;
-  if (music.timer) ramp(bus.music.gain, MUSIC_LEVEL * bus.duck, 0.15);
+  if (music.timer) ramp(bus.music.gain, musicLevel(), 0.15);
   ramp(bus.crowd.gain, CROWD_LEVEL * crowdTarget * bus.duck, 0.15);
 }
 
