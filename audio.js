@@ -83,6 +83,15 @@ export const sound = {
     setTimeout(() => crowdLevel(0.35), 2500);
   },
 
+  buzzerBeater() {
+    if (!this.ctx) return;
+    // The place erupts: a huge roar, the crowd bed surges, and three arena horn blasts.
+    cheer(3);
+    crowdLevel(1.6);
+    setTimeout(() => crowdLevel(0.35), 4000);
+    [0, 0.45, 0.9].forEach((delay) => setTimeout(() => horn(0.3), delay * 1000));
+  },
+
   bounce(speed) {
     if (!this.ctx) return;
     const v = Math.min(1, speed / 7);

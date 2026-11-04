@@ -3,7 +3,7 @@
 // The ball is simulated in 3D court space (metres) and projected onto the
 // isometric court art. Screen units are "court pixels": the 2048px court image.
 
-import { loadVoiceClips, sound } from "./audio.js?v=40dde33e";
+import { loadVoiceClips, sound } from "./audio.js?v=7b72fc5d";
 import { pickPhrase } from "./phrases.js?v=e5110e70";
 
 const COURT_PX = 2048;
@@ -79,6 +79,8 @@ const FIRE_LEVELS = [
   },
 ];
 const BANNER_SECONDS = 1.7;
+const BUZZER_CELEBRATION = 3.2; // seconds to celebrate a buzzer beater before the game-over screen
+const SLOW_MO = 0.35; // game speed while a shot at the buzzer drops toward the hoop
 
 const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16 };
 const DEFAULT_SPOT = { u: 4.6, v: 4.6 };
@@ -197,6 +199,11 @@ const state = {
   balls: [],
   popups: [],
   particles: [],
+  confetti: [],
+  flash: 0,
+  timeScale: 1,
+  endAt: 0,
+  buzzerBeater: false,
   banner: null,
   streak: 0, // makes in a row
   coldStreak: 0, // misses in a row
@@ -262,6 +269,11 @@ function startGame() {
   state.balls = [];
   state.popups = [];
   state.particles = [];
+  state.confetti = [];
+  state.flash = 0;
+  state.timeScale = 1;
+  state.endAt = 0;
+  state.buzzerBeater = false;
   state.streak = 0;
   state.coldStreak = 0;
   player.u = DEFAULT_SPOT.u;
@@ -295,8 +307,10 @@ function endGame() {
             ? "overMid"
             : "overLow";
   announce(verdict, "#ffe066");
-  overlayTitle.textContent = isBest && state.score > 0 ? "New high score!" : "Time's up!";
-  overlayBody.innerHTML = `You scored <strong>${state.score}</strong> points. Best: ${state.best}<br>Press Space or tap to play again`;
+  overlayTitle.textContent = isBest && state.score > 0 ? "New high score!" : state.buzzerBeater ? "Buzzer beater!" : "Time's up!";
+  overlayBody.innerHTML =
+    (state.buzzerBeater ? "Won it at the buzzer!<br>" : "") +
+    `You scored <strong>${state.score}</strong> points. Best: ${state.best}<br>Press Space or tap to play again`;
   overlay.hidden = false;
 }
 
@@ -466,10 +480,30 @@ function addPopup(text, color, x, y) {
   state.popups.push({ text, color, x, y, age: 0 });
 }
 
-function announce(category, color) {
+function announce(category, color, { big = false } = {}) {
   const text = pickPhrase(category);
-  state.banner = { text: text.toUpperCase(), color, age: 0 };
+  state.banner = { text: text.toUpperCase(), color, age: 0, big, duration: big ? BUZZER_CELEBRATION : BANNER_SECONDS };
   sound.say(text);
+}
+
+// The biggest moment in the game: flash, confetti, a roar and a big gold call.
+function celebrateBuzzerBeater() {
+  state.buzzerBeater = true;
+  state.flash = 1;
+  for (let i = 0; i < 180; i++) {
+    state.confetti.push({
+      x: Math.random() * COURT_PX,
+      y: -40 - Math.random() * 600,
+      vx: (Math.random() - 0.5) * 200,
+      vy: 250 + Math.random() * 350,
+      rot: Math.random() * Math.PI,
+      spin: (Math.random() - 0.5) * 12,
+      size: 14 + Math.random() * 14,
+      color: ["#ffd700", "#ff6b6b", "#7cf0ff", "#ffffff", "#c77dff", "#3ddc84"][i % 6],
+    });
+  }
+  sound.buzzerBeater();
+  announce("buzzer", "#ffd700", { big: true });
 }
 
 // ---------- Physics ----------
@@ -596,11 +630,14 @@ function scoreBasket(b) {
   const swish = !b.touchedRim && !b.touchedBoard;
   const levelUp = FIRE_LEVELS.findIndex((l) => l.streak === state.streak);
   const fire = fireLevel();
+  if (state.phase === "ending") {
+    celebrateBuzzerBeater();
+    return;
+  }
   if (levelUp >= 0) sound.fireIgnite(levelUp);
-  else sound.cheer(state.phase === "ending" ? 2 : b.three || state.streak === FIRE_LEVELS[0].streak - 1 ? 1.4 : 1);
+  else sound.cheer(b.three || state.streak === FIRE_LEVELS[0].streak - 1 ? 1.4 : 1);
 
-  if (state.phase === "ending") announce("buzzer", "#ff6b6b");
-  else if (levelUp >= 0) announce(fire.phrase, fire.color);
+  if (levelUp >= 0) announce(fire.phrase, fire.color);
   else if (state.streak === FIRE_LEVELS[0].streak - 1) announce("heatingUp", "#ffb86b");
   else if (fire && Math.random() < 0.5) announce(fire.stillPhrase, fire.color);
   else if (b.three) announce("three", "#ffe066");
@@ -703,11 +740,17 @@ function update(dt) {
     if (state.timeLeft <= 0) {
       sound.gameOver();
       state.phase = "ending";
+      for (const b of state.balls) if (!b.decided) b.atBuzzer = true;
       // A shot already in the air still counts.
       if (player.anim === "gather" || player.anim === "jump") setAnim("dribble");
     }
   } else if (state.phase === "ending") {
-    if (state.balls.every((b) => b.decided)) endGame();
+    // Let the last shot's reaction play out before the game-over screen.
+    if (state.balls.every((b) => b.decided)) {
+      const now = performance.now() / 1000;
+      if (!state.endAt) state.endAt = now + (state.buzzerBeater ? BUZZER_CELEBRATION : 1.2);
+      if (now >= state.endAt) endGame();
+    }
   }
 
   updatePlayer(dt);
@@ -720,7 +763,7 @@ function update(dt) {
 
   if (state.banner) {
     state.banner.age += dt;
-    if (state.banner.age > BANNER_SECONDS) state.banner = null;
+    if (state.banner.age > state.banner.duration) state.banner = null;
   }
 
   // Flame trail (and crackle) behind balls shot while on fire.
@@ -845,15 +888,26 @@ function drawFire() {
   ctx.restore();
 }
 
+function drawConfetti() {
+  for (const c of state.confetti) {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    ctx.rotate(c.rot);
+    ctx.fillStyle = c.color;
+    ctx.fillRect(-c.size / 2, -c.size / 4, c.size, c.size / 2);
+    ctx.restore();
+  }
+}
+
 function drawBanner() {
   const b = state.banner;
   if (!b) return;
   const pop = b.age < 0.12 ? 0.6 + (b.age / 0.12) * 0.55 : b.age < 0.22 ? 1.15 - ((b.age - 0.12) / 0.1) * 0.15 : 1;
-  const fade = Math.min(1, (BANNER_SECONDS - b.age) / 0.3);
+  const fade = Math.min(1, (b.duration - b.age) / 0.3);
   ctx.save();
   ctx.font = '64px "Press Start 2P", monospace';
   const width = ctx.measureText(b.text).width;
-  const fit = Math.min(1, 1800 / width);
+  const fit = Math.min(b.big ? 1.6 : 1, 1800 / width);
   ctx.translate(COURT_PX / 2, 120);
   ctx.scale(pop * fit, pop * fit);
   ctx.globalAlpha = fade;
@@ -1009,16 +1063,46 @@ function render() {
 
   drawMeter();
   drawPopups();
+  drawConfetti();
   drawBanner();
+  if (state.flash > 0) {
+    ctx.fillStyle = `rgba(255, 255, 255, ${state.flash * 0.6})`;
+    ctx.fillRect(0, 0, COURT_PX, COURT_PX);
+  }
   if (DEBUG) drawDebug();
 }
 
 let last = performance.now();
+// Slow motion while a shot released before the buzzer drops toward the hoop.
+function updateSlowMo(dt) {
+  const dropping = state.phase === "ending" && state.balls.some(
+    (b) => b.atBuzzer && !b.decided && b.vz < 0 && b.z < RIM.z + 1.8 && Math.hypot(b.u - RIM.u, b.v - RIM.v) < 1.6,
+  );
+  if (dropping && state.timeScale === 1) sound.ooh();
+  const target = dropping ? SLOW_MO : 1;
+  state.timeScale += (target - state.timeScale) * Math.min(1, dt * 8);
+  if (Math.abs(target - state.timeScale) < 0.01) state.timeScale = target;
+}
+
+function updateCelebration(dt) {
+  state.flash = Math.max(0, state.flash - dt * 2.5);
+  for (const c of state.confetti) {
+    c.vy += 300 * dt;
+    c.vx *= 1 - dt;
+    c.x += c.vx * dt + Math.sin(c.y / 60) * 40 * dt;
+    c.y += c.vy * dt;
+    c.rot += c.spin * dt;
+  }
+  state.confetti = state.confetti.filter((c) => c.y < COURT_PX + 50);
+}
+
 function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  stepPhysics(dt);
-  update(dt);
+  updateSlowMo(dt);
+  stepPhysics(dt * state.timeScale);
+  update(dt * state.timeScale);
+  updateCelebration(dt);
   render();
   requestAnimationFrame(frame);
 }
