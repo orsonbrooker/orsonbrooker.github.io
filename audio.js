@@ -26,6 +26,7 @@ export const sound = {
       this.ctx = new AudioCtx();
       buildGraph(this.ctx);
       this.setMuted(this.muted);
+      preloadClips();
     }
     if (this.ctx.state === "suspended") this.ctx.resume();
   },
@@ -33,6 +34,7 @@ export const sound = {
   setMuted(muted) {
     this.muted = muted;
     if (muted && "speechSynthesis" in window) speechSynthesis.cancel();
+    if (muted && voice.playing) voice.playing.stop();
     if (this.ctx) ramp(bus.master.gain, muted ? 0 : 0.9, 0.05);
   },
 
@@ -43,8 +45,14 @@ export const sound = {
     else stopMusic(false);
   },
 
+  // Plays the recorded announcer clip for a phrase, or falls back to the device voice.
   say(text) {
-    if (this.muted || !("speechSynthesis" in window)) return;
+    if (this.muted) return;
+    if (voice.clips[text] && this.ctx) {
+      playClip(voice.clips[text]);
+      return;
+    }
+    if (!("speechSynthesis" in window)) return;
     speechSynthesis.cancel();
     const line = new SpeechSynthesisUtterance(text);
     line.rate = 1.1;
@@ -196,6 +204,7 @@ function buildGraph(ctx) {
   bus.sfx = send(ctx, 1, 0.25);
   bus.crowd = send(ctx, 0, 0.35);
   bus.music = send(ctx, 0, 0.08);
+  bus.voice = send(ctx, 1.1, 0.22);
   bus.duck = 1;
 
   noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
@@ -501,6 +510,66 @@ function playStep(s, t) {
   }
   if (GHOST.includes(s)) noise(t, 0.05, { type: "highpass", freq: 2000, peak: 0.08, out });
   if (s % 2 === 0) noise(t, s % 4 === 2 ? 0.06 : 0.03, { type: "highpass", freq: 7000, peak: s % 4 === 2 ? 0.12 : 0.07, out });
+}
+
+// ---------- Recorded announcer ----------
+
+// All the clips live in one small file; voice.json says where each phrase starts and how long
+// it runs (made by tools/build_voice.py).
+const voice = { file: null, clips: {}, buffer: null, loading: null, playing: null, shift: 0 };
+
+export async function loadVoiceClips() {
+  try {
+    const res = await fetch("assets/voice/voice.json");
+    if (res.ok) Object.assign(voice, await res.json());
+  } catch {
+    // No clips: the device voice is used instead.
+  }
+  if (sound.ctx) preloadClips();
+}
+
+// Download and decode the clip file once audio is unlocked.
+function preloadClips() {
+  if (!voice.file || voice.loading) return voice.loading;
+  voice.loading = fetch(`assets/voice/${voice.file}`)
+    .then((r) => r.arrayBuffer())
+    .then((data) => sound.ctx.decodeAudioData(data))
+    .then((buffer) => {
+      voice.shift = encoderDelay(buffer);
+      return (voice.buffer = buffer);
+    })
+    .catch(() => null);
+  return voice.loading;
+}
+
+// Some decoders keep the encoder's few ms of lead-in silence and some drop it, so find where the
+// first line really starts and shift every clip by the same amount.
+function encoderDelay(buffer) {
+  const data = buffer.getChannelData(0);
+  const first = Math.min(...Object.values(voice.clips).map(([start]) => start));
+  for (let i = 0; i < data.length; i++) {
+    if (Math.abs(data[i]) > 0.02) return Math.max(-0.1, Math.min(0.4, i / buffer.sampleRate - first));
+  }
+  return 0;
+}
+
+async function playClip([start, duration]) {
+  const buffer = voice.buffer || (await preloadClips());
+  if (!buffer || sound.muted) return;
+  if (voice.playing) voice.playing.stop();
+  const src = sound.ctx.createBufferSource();
+  src.buffer = buffer;
+  src.connect(bus.voice);
+  src.onended = () => {
+    if (voice.playing === src) {
+      voice.playing = null;
+      duck(false);
+    }
+  };
+  voice.playing = src;
+  duck(true);
+  // A little early and late, inside the silence between clips, so no word gets clipped.
+  src.start(0, Math.max(0, start + voice.shift - 0.03), duration + 0.1);
 }
 
 // The announcer cuts through: music and crowd dip while he talks.

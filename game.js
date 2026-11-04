@@ -3,7 +3,7 @@
 // The ball is simulated in 3D court space (metres) and projected onto the
 // isometric court art. Screen units are "court pixels": the 2048px court image.
 
-import { sound } from "./audio.js";
+import { loadVoiceClips, sound } from "./audio.js";
 import { pickPhrase } from "./phrases.js";
 
 const COURT_PX = 2048;
@@ -1035,6 +1035,7 @@ function loadImage(src) {
 }
 
 async function boot() {
+  loadVoiceClips();
   try {
     const [meta, atlasImg, hoopImg] = await Promise.all([
       fetch("assets/sprites.json").then((r) => r.json()),

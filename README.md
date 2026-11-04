@@ -22,3 +22,13 @@ python3 tools/build_icons.py <orson.jpg> <court-with-orson.jpg> <PressStart2P-Re
 ## Adding a new game or app
 
 Give it its own folder (e.g. `spelling/index.html`), copy the `<head>` tags from `index.html` and update the title, description, canonical and `og:url`, then add the page to `sitemap.xml`.
+
+## Announcer voice
+
+The announcer's lines are made from `phrases.js` with [Chatterbox](https://github.com/resemble-ai/chatterbox), a free voice generator that runs on the Mac, and packed into one small file in `assets/voice/`. After adding phrases, run:
+
+```
+~/.venvs/announcer/bin/python tools/build_voice.py
+```
+
+Setup steps are at the top of `tools/build_voice.py`. Phrases without a clip use the device's voice.
