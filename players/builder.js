@@ -34,6 +34,7 @@ let bases = [];
 let current; // the loaded base
 let sheet; // its sprite sheet in the chosen colours
 const colours = {};
+const picked = new Set(); // parts the player has chosen a colour for, kept when they switch bodies
 
 function button(props, ...children) {
   const b = Object.assign(document.createElement("button"), { type: "button", ...props });
@@ -47,7 +48,8 @@ function press(group, chosen) {
 
 async function chooseBase(base, keepColours) {
   current = await loadBase(base);
-  if (!keepColours) Object.assign(colours, base.colours, { number: colours.number, teamName: colours.teamName });
+  // A new body brings its own colours for anything the player hasn't picked yet; their picks stay.
+  if (!keepColours) for (const part of PARTS) if (!picked.has(part)) colours[part] = base.colours[part];
   for (const part of PARTS) markSwatch(part);
   repaint();
 }
@@ -90,6 +92,7 @@ async function setup() {
       b.style.background = colour;
       b.addEventListener("click", () => {
         colours[part] = colour;
+        picked.add(part);
         markSwatch(part);
         repaint();
       });
@@ -122,7 +125,10 @@ async function setup() {
   Object.assign(colours, start.colours);
   for (const part of PARTS) {
     const c = params.get(part);
-    if (c && /^[0-9a-f]{6}$/i.test(c)) colours[part] = `#${c.toLowerCase()}`;
+    if (c && /^[0-9a-f]{6}$/i.test(c)) {
+      colours[part] = `#${c.toLowerCase()}`;
+      picked.add(part);
+    }
   }
   if (/^\d{1,2}$/.test(params.get("number") ?? "")) numberInput.value = colours.number = params.get("number");
   teamInput.value = colours.teamName = (params.get("teamName") ?? DEFAULT_TEAM).toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, 10);

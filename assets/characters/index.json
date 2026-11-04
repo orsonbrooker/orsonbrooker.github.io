@@ -1,16 +1,16 @@
 [
  {
-  "id": "orson",
-  "name": "Orson",
-  "atlas": "assets/sprites.webp?v=6477e177",
-  "meta": "assets/sprites.json?v=0786ed77",
-  "thumb": "assets/characters/orson/thumb.webp?v=c432e378"
- },
- {
   "id": "jethro",
   "name": "Jethro",
-  "atlas": "assets/characters/jethro/sprites.webp?v=9da56654",
-  "meta": "assets/characters/jethro/sprites.json?v=16c0750d",
-  "thumb": "assets/characters/jethro/thumb.webp?v=bdbd5947"
+  "atlas": "assets/characters/jethro/sprites.webp?v=0a08912f",
+  "meta": "assets/characters/jethro/sprites.json?v=344c9771",
+  "thumb": "assets/characters/jethro/thumb.webp?v=e5f64c53"
+ },
+ {
+  "id": "orson",
+  "name": "Orson",
+  "atlas": "assets/sprites.webp?v=5a806c8d",
+  "meta": "assets/sprites.json?v=0786ed77",
+  "thumb": "assets/characters/orson/thumb.webp?v=dedbdad0"
  }
 ]

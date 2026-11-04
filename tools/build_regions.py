@@ -72,6 +72,34 @@ def classify_colours(rgb, alpha):
     return ball, team, white, warm
 
 
+def neighbours(regions, value):
+    """How many of each pixel's 8 neighbours have the given region."""
+    pad = np.pad(regions == value, 1).astype(np.uint8)
+    h, w = regions.shape
+    return sum(pad[1 + dy:h + 1 + dy, 1 + dx:w + 1 + dx] for dy in (-1, 0, 1) for dx in (-1, 0, 1) if dy or dx)
+
+
+def tidy(regions, alpha, vals, near_ball):
+    """Fills shading holes inside regions and clears lone specks.
+
+    A pixel left as drawn but surrounded by one region (a grey fold in a jersey, a highlight on a shoe) joins
+    it, unless it's dark outline or part of the ball. A labelled pixel with at most one neighbour like it,
+    sitting among another region, takes that region.
+    """
+    labels = (SKIN, HAIR, JERSEY, TEAM, SHOES)
+    for _ in range(2):
+        counts = {r: neighbours(regions, r) for r in labels}
+        holes = (regions == KEEP) & (alpha > 0) & (vals[..., 2] > 0.35) & ~near_ball
+        for r in labels:
+            regions[holes & (counts[r] >= 6)] = r
+        counts = {r: neighbours(regions, r) for r in labels}
+        for r in labels:
+            alone = (regions == r) & (counts[r] <= 1)
+            for other in labels:
+                if other != r:
+                    regions[alone & (counts[other] >= 5)] = other
+
+
 def main():
     base = sys.argv[1]
     folder = os.path.join(ROOT, 'assets', 'characters', 'bases', base)
@@ -90,6 +118,14 @@ def main():
     ball, team, white, warm = classify_colours(rgb, alpha)
     regions[team] = TEAM
     labs = lab(rgb)
+    vals = hsv(rgb)
+    # Round the ball: its shaded side is less orange than the colour test above, so look near it too.
+    near_ball = ball.copy()
+    for _ in range(4):
+        near_ball |= np.roll(near_ball, 1, 0) | np.roll(near_ball, -1, 0) | np.roll(near_ball, 1, 1) | np.roll(near_ball, -1, 1)
+    ball_zone = near_ball.copy()
+    for _ in range(10):
+        ball_zone |= np.roll(ball_zone, 1, 0) | np.roll(ball_zone, -1, 0) | np.roll(ball_zone, 1, 1) | np.roll(ball_zone, -1, 1)
 
     # Jersey: big patches of white. Small white bits (eyes, socks, soles, stripes) stay as drawn.
     for x, y, w, h, *_ in poses:
@@ -133,27 +169,53 @@ def main():
         ys = np.nonzero(m)[0] / h
         is_hair &= ys < 0.5  # no hair below the shoulders
         cls = np.where(is_hair, HAIR, SKIN).astype(np.uint8)
+        # The ball: a disc round each patch of ball colour. Inside it, only pixels that closely match skin or
+        # hair (a hand or head in front of the ball) are recoloured; its shaded side, outline and seams stay.
+        # A hand often hides the top or bottom of the ball, so the disc is sized from its width and placed
+        # wherever it covers the most ball. Its outer band is the ball's dark outline, which can be as brown as
+        # shaded skin: dark pixels there, and the sprite's edge, stay as drawn unless they look like hair.
+        disc = np.zeros((h, w), bool)
+        rim = np.zeros((h, w), bool)
+        comp, sizes = components(ball[sl])
+        yy, xx = np.mgrid[0:h, 0:w]
+        for c in np.nonzero(sizes > 80)[0]:
+            ys_, xs_ = np.nonzero(comp == c)
+            r = (xs_.max() - xs_.min()) / 2 + 3
+            cx = (xs_.max() + xs_.min()) / 2
+            best = None
+            for cy in (ys_.min() - 1 + r, ys_.max() + 1 - r, ys_.mean()):
+                inside = ((ys_ - cy) ** 2 + (xs_ - cx) ** 2 <= r * r).sum()
+                if best is None or inside > best[0]:
+                    best = (inside, cy)
+            d2 = (yy - best[1]) ** 2 + (xx - cx) ** 2
+            disc |= d2 <= r * r
+            rim |= (d2 <= r * r) & (d2 >= (r - 5) ** 2)
+        close = np.minimum(d_hair, d_skin) < 100
+        op = alpha[sl] > 0
+        pad = np.pad(op, 1)
+        cut = op & ~(pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:])  # the sprite's own edge
+        outline = rim[m] & ((vals[sl][..., 2][m] < 0.55) | cut[m]) & (d_skin <= d_hair)
+        is_ball = disc[m] & (~close | outline)
         block = np.zeros((h, w), np.uint8)
         block[m] = cls
         # Tidy speckles: each warm pixel takes the majority of its warm neighbours.
         padded = np.pad(block, 1)
         votes_hair = sum(np.roll(np.roll(padded, dy, 0), dx, 1)[1:-1, 1:-1] == HAIR for dy in (-1, 0, 1) for dx in (-1, 0, 1))
         votes_skin = sum(np.roll(np.roll(padded, dy, 0), dx, 1)[1:-1, 1:-1] == SKIN for dy in (-1, 0, 1) for dx in (-1, 0, 1))
-        tidy = np.where(votes_hair > votes_skin, HAIR, SKIN)
+        tidied = np.where(votes_hair > votes_skin, HAIR, SKIN)
+        tidied[m] = np.where(is_ball, KEEP, tidied[m])
         region_block = regions[sl]
-        region_block[m] = tidy[m]
+        region_block[m] = tidied[m]
 
     # Shoes: the dark parts of the feet (white soles and socks stay white, and the ball's
     # black seams are left alone when it's bounced low).
-    vals = hsv(rgb)
-    near_ball = ball.copy()
-    for _ in range(4):
-        near_ball |= np.roll(near_ball, 1, 0) | np.roll(near_ball, -1, 0) | np.roll(near_ball, 1, 1) | np.roll(near_ball, -1, 1)
     for x, y, w, h, *_ in poses:
         feet = (slice(y + int(h * 0.85), y + h), slice(x, x + w))
         block = regions[feet]
         dark = (alpha[feet] > 0) & (vals[feet][..., 2] < 0.62) & (vals[feet][..., 1] < 0.5) & ~near_ball[feet]
         block[(block == KEEP) & dark] = SHOES
+
+    tidy(regions, alpha, vals, ball_zone & ~(regions == SHOES))
 
     # Where a number goes on each pose: the middle of the jersey, higher up on the back.
     numbers = {}

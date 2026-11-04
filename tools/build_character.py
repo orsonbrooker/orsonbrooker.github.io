@@ -2,6 +2,7 @@
 
 Usage: python3 tools/build_character.py <sheet.png|jpg> <id> "<Name>" [--base]
   e.g. python3 tools/build_character.py art/characters/jethro.jpg jethro "Jethro"
+       python3 tools/build_character.py --clean-orson   (tidies the edges of Orson's video-made sprites)
 Writes assets/characters/<id>/sprites.webp + sprites.json + thumb.webp and adds the character to
 assets/characters/index.json, which the game reads for its character picker.
 
@@ -70,6 +71,58 @@ def key(cell, backdrop):
     return keep[lab]
 
 
+def clean_edges(img):
+    """Tidies a pose's cut-out edge (RGBA, alpha 0 or 255, edited in place).
+
+    Cutting a character off a light backdrop leaves a fringe of paler pixels where the dark outline blended
+    into it, and resizing leaves a few loose specks. A pixel on the edge that is clearly lighter than the
+    pixels just inside it is fringe, so it's cleared (twice, for two-pixel fringes); white jerseys and caps
+    stay, because the pixels inside them are just as light. Then any loose bit under 12 pixels goes.
+    """
+    rgb = img[..., :3].astype(int)
+    luma = rgb @ np.array([299, 587, 114]) / 1000
+    for _ in range(2):
+        op = img[..., 3] > 0
+        pad = np.pad(op, 1)
+        edge = op & ~(pad[:-2, 1:-1] & pad[2:, 1:-1] & pad[1:-1, :-2] & pad[1:-1, 2:])
+        # Average lightness of each pixel's solid neighbours that aren't on the edge themselves.
+        inner = op & ~edge
+        lsum = np.zeros(op.shape)
+        n = np.zeros(op.shape)
+        pl, pi = np.pad(luma * inner, 1), np.pad(inner, 1).astype(int)
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if dy or dx:
+                    lsum += pl[1 + dy:pl.shape[0] - 1 + dy, 1 + dx:pl.shape[1] - 1 + dx]
+                    n += pi[1 + dy:pi.shape[0] - 1 + dy, 1 + dx:pi.shape[1] - 1 + dx]
+        fringe = edge & (luma > 90) & (n > 0) & (luma - lsum / np.maximum(n, 1) > 45)
+        img[fringe, 3] = 0
+    lab, sizes = components(img[..., 3] > 0)
+    small = sizes < 12
+    small[0] = False
+    img[small[lab], 3] = 0
+    return img
+
+
+def clean_orson():
+    """Orson's sprites come from video (build_assets.py) and can't be rebuilt here; tidy his atlas in place."""
+    path = os.path.join(ROOT, 'assets', 'sprites.webp')
+    atlas = np.asarray(Image.open(path).convert('RGBA')).copy()
+    atlas[..., 3] = np.where(atlas[..., 3] > 110, 255, 0)
+    meta = json.load(open(os.path.join(ROOT, 'assets', 'sprites.json')))
+    done = set()
+    for frame in [f for anim in meta['frames'].values() for f in anim]:
+        x, y, w, h = frame[:4]
+        if (x, y) in done:
+            continue
+        done.add((x, y))
+        atlas[y:y + h, x:x + w] = clean_edges(atlas[y:y + h, x:x + w].copy())
+    tmp = os.path.join(tempfile.mkdtemp(), 'atlas.png')
+    Image.fromarray(atlas).save(tmp)
+    subprocess.run(['cwebp', '-quiet', '-q', '86', '-sharp_yuv', '-alpha_q', '100', '-exact', tmp, '-o', path], check=True)
+    print('Orson tidied:', os.path.relpath(path, ROOT))
+
+
 def main():
     sheet_path, cid, name = sys.argv[1], sys.argv[2], sys.argv[3]
     is_base = '--base' in sys.argv
@@ -93,6 +146,7 @@ def main():
         w, h = round(img.width / sx * to_atlas), round(img.height / sy * to_atlas)
         img = np.asarray(img.resize((w, h), Image.LANCZOS).convert('RGBA')).copy()
         img[..., 3] = np.where(img[..., 3] > 110, 255, 0)
+        clean_edges(img)
         ys, xs = np.nonzero(img[..., 3])
         bx0, bx1, by0, by1 = xs.min(), xs.max() + 1, ys.min(), ys.max() + 1
         # Ground point: middle of the cell, on the template's feet line.
@@ -170,7 +224,9 @@ def register(cid, name, sprites, thumb):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1 and sys.argv[1] == '--register-orson':
+    if len(sys.argv) > 1 and sys.argv[1] == '--clean-orson':
+        clean_orson()
+    elif len(sys.argv) > 1 and sys.argv[1] == '--register-orson':
         # Orson's sprites come from build_assets.py (video frames); this just adds him to the list.
         atlas = Image.open(os.path.join(ROOT, 'assets', 'sprites.webp')).convert('RGBA')
         meta = json.load(open(os.path.join(ROOT, 'assets', 'sprites.json')))
