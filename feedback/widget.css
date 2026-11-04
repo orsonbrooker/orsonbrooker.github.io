@@ -2,7 +2,8 @@
 
 .fb-bar,
 .fb-board,
-.fb-dialog {
+.fb-dialog,
+.builder {
   --fb-ink: var(--ink, #2b1622);
   --fb-panel: var(--panel, rgba(43, 22, 34, 0.86));
   --fb-accent: var(--accent, #f08a3c);

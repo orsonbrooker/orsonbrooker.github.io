@@ -1,9 +1,13 @@
 """Turns a redrawn pose sheet (made from art/character-template.png) into a playable character.
 
-Usage: python3 tools/build_character.py <sheet.png|jpg> <id> "<Name>"
+Usage: python3 tools/build_character.py <sheet.png|jpg> <id> "<Name>" [--base]
   e.g. python3 tools/build_character.py art/characters/jethro.jpg jethro "Jethro"
 Writes assets/characters/<id>/sprites.webp + sprites.json + thumb.webp and adds the character to
 assets/characters/index.json, which the game reads for its character picker.
+
+With --base it builds a base body for the player builder instead: files go to
+assets/characters/bases/<id>/, it isn't added to the picker, and a lossless copy of the atlas is
+kept in .character-cache/ for tools/build_regions.py to map its colours.
 Needs: Pillow, numpy, cwebp.
 """
 import hashlib, json, os, subprocess, sys, tempfile
@@ -68,6 +72,7 @@ def key(cell, backdrop):
 
 def main():
     sheet_path, cid, name = sys.argv[1], sys.argv[2], sys.argv[3]
+    is_base = '--base' in sys.argv
     sheet = Image.open(sheet_path).convert('RGB')
     a = np.asarray(sheet)
     sx, sy = sheet.width / (COLS * CELL_W), sheet.height / (ROWS * CELL_H)  # sheet px per template px
@@ -114,7 +119,7 @@ def main():
     for p, (x, y, w, h) in zip(poses, rects):
         atlas[y:y + h, x:x + w] = p['img']
 
-    out = os.path.join(CHARACTERS, cid)
+    out = os.path.join(CHARACTERS, 'bases', cid) if is_base else os.path.join(CHARACTERS, cid)
     os.makedirs(out, exist_ok=True)
     frames = {anim: [list(rects[i]) + [poses[i]['ox'], poses[i]['oy']] for i in idx] for anim, idx in ANIMS.items()}
     meta = {'res': SPRITE_RES, 'frames': frames, 'releaseOffset': release}
@@ -124,9 +129,14 @@ def main():
     with open(os.path.join(out, 'sprites.json'), 'w') as f:
         json.dump(meta, f, separators=(',', ':'))
     make_thumb(Image.fromarray(poses[0]['img']), os.path.join(out, 'thumb.webp'))
-    register(cid, name, f'assets/characters/{cid}/sprites', f'assets/characters/{cid}/thumb.webp')
+    if is_base:
+        cache = os.path.join(ROOT, '.character-cache')
+        os.makedirs(cache, exist_ok=True)
+        Image.fromarray(atlas).save(os.path.join(cache, f'{cid}.png'))
+    else:
+        register(cid, name, f'assets/characters/{cid}/sprites', f'assets/characters/{cid}/thumb.webp')
     kb = os.path.getsize(os.path.join(out, 'sprites.webp')) / 1024
-    print(f'{name}: 14 poses -> assets/characters/{cid}/ ({kb:.0f} KB), release offset {release}')
+    print(f'{name}: 14 poses -> {os.path.relpath(out, ROOT)}/ ({kb:.0f} KB), release offset {release}')
 
 
 def make_thumb(img, path):

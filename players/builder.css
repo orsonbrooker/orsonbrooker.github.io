@@ -1,0 +1,134 @@
+/* Player builder page. Colours come from styles.css. */
+
+.builder {
+  display: grid;
+  grid-template-columns: minmax(220px, 360px) minmax(0, 480px);
+  justify-content: center;
+  gap: 24px;
+  max-width: 900px;
+  margin: 8px auto 0;
+}
+
+@media (max-width: 720px) {
+  .builder {
+    grid-template-columns: 1fr;
+  }
+}
+
+.builder-preview {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .builder-preview {
+    position: static;
+  }
+}
+
+.builder-preview canvas {
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  aspect-ratio: 360 / 460;
+}
+
+.builder-name {
+  font-family: var(--pixel);
+  font-size: 14px;
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  color: var(--accent);
+}
+
+.builder-form fieldset {
+  min-width: 0;
+  border: 0;
+  background: var(--panel);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 0 0 10px;
+}
+
+.builder-form legend {
+  padding: 0;
+  font-family: var(--pixel);
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.choices button {
+  border: 3px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.choices button[aria-pressed="true"] {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+/* Bodies: equal cards in a grid that fills the panel (5 across, 2 rows for 10 bodies). */
+#bases {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+#bases button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px 4px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-family: var(--pixel);
+  font-size: clamp(6px, 1.6vw, 8px);
+}
+
+#bases img {
+  width: 100%;
+  max-width: 72px;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+/* One row of colours that shrinks to fit rather than wrapping. */
+.swatches {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 40px);
+  gap: 6px;
+}
+
+.swatches button {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+}
+
+.builder-form input[type="text"] {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  padding: 10px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+}
+
+.builder-form .fb-button {
+  width: 100%;
+  font-size: 12px;
+}

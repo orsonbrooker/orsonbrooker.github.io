@@ -95,6 +95,27 @@ function openForm(app, defaultApp) {
 		),
 	);
 
+	// Friendly words: checked while typing (the server checks again when sending).
+	const RUDE = "Let's keep it friendly. Try different words.";
+	let checkTimer;
+	const checkWords = () => {
+		clearTimeout(checkTimer);
+		checkTimer = setTimeout(async () => {
+			const words = `${text.value} ${nickname.value}`.trim();
+			let ok = true;
+			try {
+				if (words) ok = (await fetch(`${API}/check?text=${encodeURIComponent(words)}`).then((r) => r.json())).ok;
+			} catch {
+				// Offline: the server checks again when sending.
+			}
+			send.disabled = !ok;
+			if (!ok) message.textContent = RUDE;
+			else if (message.textContent === RUDE) message.textContent = "";
+		}, 400);
+	};
+	text.addEventListener("input", checkWords);
+	nickname.addEventListener("input", checkWords);
+
 	dialog.querySelector("form").addEventListener("submit", async (e) => {
 		e.preventDefault();
 		if (!token) {
@@ -150,7 +171,7 @@ function mountFeedback(node) {
 	node.replaceChildren(
 		el("button", { type: "button", className: "fb-button fb-primary", textContent: "💡 Got an idea?", onclick: () => openForm(app, node.dataset.defaultApp) }),
 	);
-	if (!onBoard) node.append(el("a", { className: "fb-button", href: "/ideas/", textContent: "Ideas board ▸" }));
+	if (!onBoard) node.append(el("a", { className: "fb-button", href: "/ideas/", textContent: "Ideas board >" }));
 }
 
 // ---------- Ideas board ----------

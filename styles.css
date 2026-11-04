@@ -173,6 +173,48 @@ header p {
   background: rgba(240, 138, 60, 0.25);
 }
 
+.char-pick {
+  max-height: 40vh;
+  overflow-y: auto;
+  padding-top: 8px; /* room for the remove buttons */
+}
+
+.char-pick .star {
+  font-family: system-ui, sans-serif;
+  color: var(--accent);
+}
+
+.char-pick .mine {
+  position: relative;
+  display: flex;
+}
+
+.char-pick .remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ink);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.char-pick .make-player {
+  align-self: center;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--ink);
+  font-family: var(--pixel);
+  font-size: 9px;
+  text-decoration: none;
+}
+
 .char-pick img {
   width: 56px;
   height: 56px;

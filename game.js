@@ -5,6 +5,7 @@
 
 import { loadVoiceClips, sound } from "./audio.js?v=7b72fc5d";
 import { pickPhrase } from "./phrases.js?v=e5110e70";
+import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=72f03939";
 
 const COURT_PX = 2048;
 const PX_PER_M = 132;
@@ -225,17 +226,28 @@ let sprites, atlas, hoopFront, ballSprite;
 
 // ---------- Characters ----------
 
-// assets/characters/index.json lists the players (made by tools/build_character.py).
+// assets/characters/index.json lists the hand-made players (tools/build_character.py). Players
+// made with the builder (/players/) come from the API once approved, drawn from a base body in
+// their chosen colours.
+const PLAYERS_API = ["localhost", "127.0.0.1"].includes(location.hostname) ? "http://localhost:8787/api/players" : "/api/players";
 const characters = {
   list: [{ id: "orson", name: "Orson", atlas: "assets/sprites.webp", meta: "assets/sprites.json", thumb: "" }],
   loaded: new Map(),
   selected: load("orson-hoops-character", "orson"),
 };
 
+async function loadBuilt(entry) {
+  const base = (await loadBases()).find((b) => b.id === entry.base);
+  const loaded = await loadBase(base);
+  return { meta: loaded.meta, img: recolor(loaded, entry.colours), loaded };
+}
+
 async function loadCharacter(id) {
   if (!characters.loaded.has(id)) {
     const entry = characters.list.find((c) => c.id === id) ?? characters.list[0];
-    const loading = Promise.all([fetch(entry.meta).then((r) => r.json()), loadImage(entry.atlas)]).then(([meta, img]) => ({ meta, img }));
+    const loading = entry.base
+      ? loadBuilt(entry)
+      : Promise.all([fetch(entry.meta).then((r) => r.json()), loadImage(entry.atlas)]).then(([meta, img]) => ({ meta, img }));
     characters.loaded.set(id, loading);
     loading.catch(() => characters.loaded.delete(id));
   }
@@ -253,7 +265,7 @@ async function selectCharacter(id) {
 
 // Player choice, shown on the start and game-over screens.
 function renderPicker() {
-  const show = characters.list.length > 1 && (state.phase === "title" || state.phase === "over");
+  const show = state.phase === "title" || state.phase === "over";
   charPick.hidden = !show;
   if (!show) return;
   charPick.replaceChildren(
@@ -262,18 +274,71 @@ function renderPicker() {
       button.type = "button";
       button.setAttribute("aria-pressed", String(c.id === characters.selected));
       const img = document.createElement("img");
-      img.src = c.thumb;
       img.alt = "";
+      img.src = c.thumb;
       button.append(img, c.name);
+      if (c.base) {
+        // Builder players: show their own colours once their base body has loaded.
+        loadBuilt(c)
+          .then(({ loaded }) => (img.src = thumbnail(loaded, c.colours).toDataURL()))
+          .catch(() => {});
+      }
       button.addEventListener("pointerdown", (e) => e.stopPropagation());
       button.addEventListener("click", async (e) => {
         e.stopPropagation();
         await selectCharacter(c.id);
         stage.focus({ preventScroll: true }); // so Space starts the game rather than re-pressing this
       });
-      return button;
+      if (!c.mine) return button;
+      // Players saved on this device get a star and a way to remove them.
+      const star = Object.assign(document.createElement("span"), { className: "star", textContent: "★ " }); // not in the pixel font
+      button.lastChild.before(star);
+      const remove = Object.assign(document.createElement("button"), { type: "button", className: "remove", textContent: "✕" });
+      remove.setAttribute("aria-label", `Remove ${c.name} from this device`);
+      remove.addEventListener("pointerdown", (e) => e.stopPropagation());
+      remove.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!confirm(`Remove ${c.name} from this device?`)) return;
+        removeMyPlayer(c.id);
+        characters.list = characters.list.filter((p) => p.id !== c.id);
+        characters.loaded.delete(c.id);
+        if (characters.selected === c.id) selectCharacter(characters.list[0].id);
+        else renderPicker();
+      });
+      const card = Object.assign(document.createElement("span"), { className: "mine" });
+      card.append(button, remove);
+      return card;
     }),
+    Object.assign(document.createElement("a"), { href: "/players/", className: "make-player", textContent: "+ Make your player" }),
   );
+  for (const a of charPick.querySelectorAll("a")) a.addEventListener("pointerdown", (e) => e.stopPropagation());
+}
+
+// Players made on this device (saved by the builder's "Play now"), then approved builder players.
+async function loadBuiltPlayers() {
+  const bases = await loadBases().catch(() => []);
+  for (const p of myPlayers()) {
+    const base = bases.find((b) => b.id === p.base);
+    if (base) characters.list.push({ ...p, mine: true, thumb: "/" + base.thumb, colours: { teamName: DEFAULT_TEAM, ...p.colours } });
+  }
+  try {
+    const res = await fetch(PLAYERS_API);
+    if (!res.ok) return;
+    const { players } = await res.json();
+    for (const p of players) {
+      const base = bases.find((b) => b.id === p.base);
+      if (!base) continue;
+      characters.list.push({
+        id: `p${p.id}`,
+        name: p.name,
+        base: p.base,
+        thumb: "/" + base.thumb,
+        colours: { skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name ?? DEFAULT_TEAM },
+      });
+    }
+  } catch {
+    // Offline or the API is down: the hand-made players still work.
+  }
 }
 
 function setAnim(name) {
@@ -1187,6 +1252,7 @@ async function boot() {
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null);
     if (list?.length) characters.list = list;
+    await loadBuiltPlayers();
     if (!characters.list.some((c) => c.id === characters.selected)) characters.selected = characters.list[0].id;
     const [hoopImg] = await Promise.all([
       loadImage("assets/hoop-front.webp"),

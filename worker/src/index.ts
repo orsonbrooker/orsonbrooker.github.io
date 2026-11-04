@@ -4,12 +4,23 @@
 //          GET  /api/ideas          approved ideas (?app= to filter, &device= to mark own votes)
 //          POST /api/submit         a visitor's idea; goes to the admin inbox, never straight to the board
 //          POST /api/vote           upvote or un-upvote an idea
+//          GET  /api/check?text=    is this text OK? (live checks while typing)
+//          GET  /api/players        approved players made with the builder
+//          POST /api/players        a new player; waits for approval before it's in the game
 // Admin:   GET  /admin              triage page (behind Cloudflare Access)
 //          GET  /api/admin/inbox    new submissions, all ideas and apps
 //          POST /api/admin/submissions/:id   approve as a new idea, merge into an idea, or reject
 //          POST /api/admin/ideas/:id         edit an idea or change its status
+//          POST /api/admin/players/:id       approve, hide, rename or delete a player
 
+import { englishDataset, englishRecommendedTransformers, RegExpMatcher } from "obscenity";
 import adminPage from "./admin.html?raw";
+
+// Rude-word check for everything people type. It sees through tricks like "a$$" and spacing,
+// without blocking innocent words that happen to contain rude ones.
+const rudeWords = new RegExpMatcher({ ...englishDataset.build(), ...englishRecommendedTransformers });
+const isRude = (...texts: (string | null | undefined)[]) => texts.some((t) => !!t && rudeWords.hasMatch(t));
+const RUDE = "Let's keep it friendly. Try different words.";
 
 interface Env {
 	DB: D1Database;
@@ -27,6 +38,10 @@ const STATUSES = ["idea", "planned", "building", "done", "hidden"];
 const MAX_TEXT = 500;
 const MAX_NICKNAME = 20;
 const SUBMISSIONS_PER_HOUR = 5;
+const PLAYERS_PER_HOUR = 3;
+const MAX_PLAYER_NAME = 12;
+const MAX_TEAM_NAME = 10;
+const PLAYER_PARTS = ["skin", "hair", "jersey", "team", "shoes"] as const;
 const VOTES_PER_DAY = 60;
 
 export default {
@@ -48,12 +63,18 @@ export default {
 	async scheduled(_controller, env): Promise<void> {
 		if (!env.NTFY_TOPIC) return;
 		const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM submissions WHERE status = 'new'").first<{ n: number }>();
+		const players = await env.DB.prepare("SELECT COUNT(*) AS n FROM players WHERE status = 'new'").first<{ n: number }>();
 		const votes = await env.DB.prepare("SELECT COUNT(*) AS n FROM votes WHERE created_at > datetime('now', '-7 days')").first<{ n: number }>();
-		if (!row?.n) return;
+		const ideas = row?.n ?? 0;
+		const newPlayers = players?.n ?? 0;
+		if (!ideas && !newPlayers) return;
+		const waiting = [ideas && `${ideas} new idea${ideas === 1 ? "" : "s"}`, newPlayers && `${newPlayers} new player${newPlayers === 1 ? "" : "s"}`]
+			.filter(Boolean)
+			.join(" and ");
 		await fetch(`https://ntfy.sh/${env.NTFY_TOPIC}`, {
 			method: "POST",
-			headers: { Title: "New ideas to check", Click: `${env.SITE_URL}/admin`, Tags: "basketball" },
-			body: `${row.n} new idea${row.n === 1 ? "" : "s"} waiting, and ${votes?.n ?? 0} votes this week.`,
+			headers: { Title: "Things to check", Click: `${env.SITE_URL}/admin`, Tags: "basketball" },
+			body: `${waiting} waiting, and ${votes?.n ?? 0} votes this week.`,
 		});
 	},
 } satisfies ExportedHandler<Env>;
@@ -73,6 +94,18 @@ async function publicApi(request: Request, env: Env, url: URL): Promise<Response
 			return submit(request, env);
 		case "POST /api/vote":
 			return vote(request, env);
+		case "GET /api/check": {
+			const text = (url.searchParams.get("text") ?? "").slice(0, 600);
+			return json({ ok: !isRude(text) });
+		}
+		case "GET /api/players": {
+			const players = await env.DB.prepare(
+				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name FROM players WHERE status = 'approved' ORDER BY name COLLATE NOCASE",
+			).all();
+			return json({ players: players.results }, 200, 60);
+		}
+		case "POST /api/players":
+			return createPlayer(request, env);
 	}
 	throw new HttpError(404, "Not found.");
 }
@@ -107,6 +140,7 @@ async function submit(request: Request, env: Env): Promise<Response> {
 	if (/https?:|www\.|\.(com|net|org|io)\b/i.test(`${text} ${nickname ?? ""}`)) {
 		throw new HttpError(400, "Please leave out web links.");
 	}
+	if (isRude(text, nickname)) throw new HttpError(400, RUDE);
 	const known = await env.DB.prepare("SELECT 1 FROM apps WHERE slug = ?").bind(app).first();
 	if (!known) throw new HttpError(400, "Unknown game.");
 	await checkTurnstile(request, env, body.turnstileToken);
@@ -147,6 +181,38 @@ async function vote(request: Request, env: Env): Promise<Response> {
 	}
 	const row = await env.DB.prepare("SELECT votes FROM ideas WHERE id = ?").bind(ideaId).first<{ votes: number }>();
 	return json({ votes: row?.votes ?? 0, up: !!body.up });
+}
+
+// A player from the builder: a base body, four colours and a nickname. Waits for approval.
+async function createPlayer(request: Request, env: Env): Promise<Response> {
+	const body = await readJson(request);
+	const name = clean(body.name, MAX_PLAYER_NAME);
+	if (!/^[\p{L}\p{N}][\p{L}\p{N} '-]*$/u.test(name)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
+	const base = clean(body.base, 30);
+	if (!/^[a-z0-9-]+$/.test(base)) throw new HttpError(400, "Pick a body.");
+	const colours = (body.colours ?? {}) as Record<string, unknown>;
+	for (const part of PLAYER_PARTS) {
+		if (typeof colours[part] !== "string" || !/^#[0-9a-f]{6}$/i.test(colours[part] as string)) throw new HttpError(400, "Pick all the colours.");
+	}
+	const number = body.number === undefined || body.number === null || body.number === "" ? null : String(body.number);
+	if (number !== null && !/^\d{1,2}$/.test(number)) throw new HttpError(400, "Numbers go from 0 to 99.");
+	const teamName = clean(body.teamName, MAX_TEAM_NAME).toUpperCase();
+	if (teamName && !/^[A-Z0-9 ]+$/.test(teamName)) throw new HttpError(400, "Team names use letters and numbers.");
+	if (isRude(name, teamName)) throw new HttpError(400, RUDE);
+	await checkTurnstile(request, env, body.turnstileToken);
+
+	const ipHash = await ipKey(request, env);
+	const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM players WHERE ip_hash = ? AND created_at > datetime('now', '-1 hour')")
+		.bind(ipHash)
+		.first<{ n: number }>();
+	if ((recent?.n ?? 0) >= PLAYERS_PER_HOUR) throw new HttpError(429, "That's a lot of players! Try again in a bit.");
+
+	await env.DB.prepare(
+		"INSERT INTO players (name, base, skin, hair, jersey, team, shoes, number, team_name, ip_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	)
+		.bind(name, base, ...PLAYER_PARTS.map((p) => (colours[p] as string).toLowerCase()), number, teamName || "KINGS", ipHash)
+		.run();
+	return json({ ok: true });
 }
 
 function recount(env: Env, ideaId: number) {
@@ -190,15 +256,19 @@ async function admin(request: Request, env: Env, url: URL): Promise<Response> {
 	await requireAdmin(request, env);
 	const parts = url.pathname.split("/").filter(Boolean); // api, admin, ...
 	if (request.method === "GET" && parts[2] === "inbox") {
-		const [submissions, ideas, apps] = await env.DB.batch([
+		const [submissions, ideas, apps, players] = await env.DB.batch([
 			env.DB.prepare("SELECT id, app, text, nickname, created_at FROM submissions WHERE status = 'new' ORDER BY id"),
 			env.DB.prepare("SELECT id, app, title, description, credit, status, votes FROM ideas ORDER BY app, votes DESC"),
 			env.DB.prepare("SELECT slug, name FROM apps ORDER BY name"),
+			env.DB.prepare(
+				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
+			),
 		]);
-		return json({ submissions: submissions.results, ideas: ideas.results, apps: apps.results }, 200, 0);
+		return json({ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results }, 200, 0);
 	}
 	if (request.method === "POST" && parts[2] === "submissions") return triage(env, Number(parts[3]), await readJson(request));
 	if (request.method === "POST" && parts[2] === "ideas") return editIdea(env, Number(parts[3]), await readJson(request));
+	if (request.method === "POST" && parts[2] === "players") return editPlayer(env, Number(parts[3]), await readJson(request));
 	throw new HttpError(404, "Not found.");
 }
 
@@ -238,6 +308,23 @@ async function editIdea(env: Env, id: number, body: Record<string, unknown>): Pr
 		.bind(title, clean(body.description, MAX_TEXT), clean(body.credit, MAX_NICKNAME) || null, status, id)
 		.run();
 	if (!result.meta.changes) throw new HttpError(404, "No such idea.");
+	return json({ ok: true }, 200, 0);
+}
+
+async function editPlayer(env: Env, id: number, body: Record<string, unknown>): Promise<Response> {
+	if (body.action === "delete") {
+		await env.DB.prepare("DELETE FROM players WHERE id = ?").bind(id).run();
+		return json({ ok: true }, 200, 0);
+	}
+	const status = body.action === "approve" ? "approved" : body.action === "hide" ? "hidden" : null;
+	const name = clean(body.name, MAX_PLAYER_NAME);
+	if (!name) throw new HttpError(400, "Players need a name.");
+	const result = await env.DB.prepare(
+		"UPDATE players SET name = ?, status = COALESCE(?, status), updated_at = datetime('now') WHERE id = ?",
+	)
+		.bind(name, status, id)
+		.run();
+	if (!result.meta.changes) throw new HttpError(404, "No such player.");
 	return json({ ok: true }, 200, 0);
 }
 

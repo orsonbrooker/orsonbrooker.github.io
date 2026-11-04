@@ -66,6 +66,13 @@
 			.check { display: flex; gap: 6px; align-items: center; font-size: 14px; margin-top: 8px; }
 			.empty { text-align: center; padding: 32px; font-family: var(--pixel); font-size: 12px; line-height: 1.8; }
 			.votes { font-family: var(--pixel); font-size: 12px; color: var(--accent); }
+			.player { display: flex; gap: 12px; align-items: flex-start; }
+			.player img { background: rgba(255, 255, 255, 0.1); border-radius: 6px; flex: none; }
+			.player-info { flex: 1; min-width: 0; }
+			.player a { color: #fff; font-size: 14px; }
+			.chips { display: flex; gap: 6px; margin: 4px 0 8px; }
+			.chips .number { font-family: var(--pixel); font-size: 12px; align-self: center; margin-left: 4px; }
+			.chips span { width: 24px; height: 24px; border-radius: 4px; border: 2px solid rgba(255, 255, 255, 0.7); }
 			#toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); }
 		</style>
 	</head>
@@ -75,15 +82,19 @@
 			<nav>
 				<button type="button" id="tab-inbox" aria-selected="true">Inbox <span id="inbox-count"></span></button>
 				<button type="button" id="tab-ideas" aria-selected="false">Ideas</button>
+				<button type="button" id="tab-players" aria-selected="false">Players <span id="players-count"></span></button>
 			</nav>
 			<section id="inbox"></section>
 			<section id="ideas" hidden></section>
+			<section id="players" hidden></section>
 			<div id="toast" class="card pixel" hidden></div>
 		</main>
 
 		<script type="module">
 			const STATUSES = ["idea", "planned", "building", "done", "hidden"];
-			let data = { submissions: [], ideas: [], apps: [] };
+			let data = { submissions: [], ideas: [], apps: [], players: [] };
+			// Pictures and the builder live on the main site (a different port when testing locally).
+			const SITE = location.hostname === "localhost" ? "http://localhost:5173" : "";
 
 			const el = (tag, props = {}, ...children) => {
 				const node = Object.assign(document.createElement(tag), props);
@@ -113,6 +124,7 @@
 				data = await api("inbox");
 				renderInbox();
 				renderIdeas();
+				renderPlayers();
 			}
 
 			function renderInbox() {
@@ -235,11 +247,71 @@
 				}
 			}
 
-			for (const [tab, section] of [["tab-inbox", "inbox"], ["tab-ideas", "ideas"]]) {
-				document.getElementById(tab).addEventListener("click", () => {
-					for (const t of ["tab-inbox", "tab-ideas"]) document.getElementById(t).setAttribute("aria-selected", String(t === tab));
-					document.getElementById("inbox").hidden = section !== "inbox";
-					document.getElementById("ideas").hidden = section !== "ideas";
+			// Players made with the builder: approve to put them in the game, hide to take them out.
+			function renderPlayers() {
+				const box = document.getElementById("players");
+				const waiting = data.players.filter((p) => p.status === "new").length;
+				document.getElementById("players-count").textContent = waiting ? `(${waiting})` : "";
+				box.replaceChildren();
+				if (!data.players.length) {
+					box.append(el("div", { className: "card empty", innerHTML: "No players yet.<br>They're made at /players/" }));
+					return;
+				}
+				for (const p of data.players) {
+					const name = el("input", { type: "text", value: p.name, maxLength: 12 });
+					const look = new URLSearchParams({ base: p.base, name: p.name });
+					for (const part of ["skin", "hair", "jersey", "team", "shoes"]) look.set(part, p[part].slice(1));
+					if (p.number) look.set("number", p.number);
+					look.set("teamName", p.team_name);
+					const act = (action) => async () => {
+						if (action === "delete" && !confirm(`Delete ${p.name} for good?`)) return;
+						try {
+							await api(`players/${p.id}`, { action, name: name.value });
+							toast(action === "approve" ? "In the game!" : action === "hide" ? "Hidden" : action === "delete" ? "Deleted" : "Saved");
+							await load();
+						} catch (err) {
+							toast(err.message);
+						}
+					};
+					box.append(
+						el(
+							"div",
+							{ className: "card player" },
+							el("img", { src: `${SITE}/assets/characters/bases/${p.base}/thumb.webp`, alt: "", width: 64, height: 64 }),
+							el(
+								"div",
+								{ className: "player-info" },
+								el("div", { className: "meta", textContent: `${p.status === "new" ? "Waiting" : p.status === "approved" ? "In the game" : "Hidden"} · ${p.base} · ${p.created_at.slice(0, 10)}` }),
+								el(
+									"div",
+									{ className: "chips" },
+									...["skin", "hair", "jersey", "team", "shoes"].map((part) => el("span", { title: part, style: `background:${p[part]}` })),
+									el("b", { className: "number", textContent: `${p.team_name} ${p.number ? `#${p.number}` : "(no number)"}` }),
+								),
+								el("a", { href: `${SITE}/players/?${look}`, target: "_blank", textContent: "See them move ▸" }),
+								el("label", { textContent: "Name" }),
+								name,
+								el(
+									"div",
+									{ className: "row" },
+									p.status !== "approved" ? el("button", { type: "button", className: "primary", textContent: "Put in game", onclick: act("approve") }) : null,
+									p.status === "approved" ? el("button", { type: "button", textContent: "Hide", onclick: act("hide") }) : null,
+									el("button", { type: "button", textContent: "Save name", onclick: act("rename") }),
+									el("button", { type: "button", className: "danger", textContent: "Delete", onclick: act("delete") }),
+								),
+							),
+						),
+					);
+				}
+			}
+
+			const TABS = ["inbox", "ideas", "players"];
+			for (const section of TABS) {
+				document.getElementById(`tab-${section}`).addEventListener("click", () => {
+					for (const t of TABS) {
+						document.getElementById(`tab-${t}`).setAttribute("aria-selected", String(t === section));
+						document.getElementById(t).hidden = t !== section;
+					}
 				});
 			}
 

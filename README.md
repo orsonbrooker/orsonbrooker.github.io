@@ -58,3 +58,22 @@ Setup steps are at the top of `tools/build_voice.py`. Phrases without a clip use
 ```
 git config core.hooksPath .githooks
 ```
+
+## Players
+
+Orson and Jethro are hand-made players: a 14-pose sheet drawn from `art/character-template.png` (16:9), turned into sprites with:
+
+```
+python3 tools/build_character.py art/characters/jethro.jpg jethro "Jethro"
+```
+
+Everyone else is made at [/players/](https://orsonbrooker.com/players/): pick a body, skin, hair, jersey and team colours, and a nickname. New players wait in the Players tab at `/admin` until approved, then show up in the game's player picker.
+
+To add a body to the builder, make a sheet with the bases prompt (plain white jersey, royal blue trim and shorts, no letters), save it in `art/characters/bases/`, then:
+
+```
+python3 tools/build_character.py art/characters/bases/braids.jpg braids "Braids" --base
+python3 tools/build_regions.py braids --preview /tmp/braids.png
+```
+
+The preview shows which pixels became skin, hair, jersey and team colour. The name shown in the builder can be changed in `assets/characters/bases/index.json`.
