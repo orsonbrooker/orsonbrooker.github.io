@@ -318,6 +318,12 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	if (device.length < 16) throw new HttpError(400, "Bad request.");
 	const player = clean(body.player, 40) || "orson";
 	const base = /^[a-z0-9-]{1,30}$/.test(String(body.base ?? "")) ? String(body.base) : null;
+	// A player made on their device: its colours, so others see the same face. Hex colours only.
+	const sent = body.colours && typeof body.colours === "object" ? (body.colours as Record<string, unknown>) : null;
+	const colours =
+		base && sent && PLAYER_PARTS.every((p) => /^#[0-9a-f]{6}$/i.test(String(sent[p])))
+			? JSON.stringify(Object.fromEntries(PLAYER_PARTS.map((p) => [p, String(sent[p]).toLowerCase()])))
+			: null;
 
 	// The shot log, and the score it adds up to.
 	const raw = Array.isArray(body.shots) ? body.shots : [];
@@ -357,14 +363,15 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	const status = flags.length ? "held" : "shown";
 
 	const inserted = await env.DB.prepare(
-		`INSERT OR IGNORE INTO scores (nickname, score, player, base, shots, made, threes, real_seconds, input, hidden_tab, version, log, flags, status, token, device, ip_hash)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		`INSERT OR IGNORE INTO scores (nickname, score, player, base, colours, shots, made, threes, real_seconds, input, hidden_tab, version, log, flags, status, token, device, ip_hash)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 	)
 		.bind(
 			nickname,
 			score,
 			player,
 			base,
+			colours,
 			shots.length,
 			made,
 			shots.filter((s) => s[1] && s[2]).length,
@@ -396,12 +403,13 @@ async function leaderboard(env: Env, url: URL): Promise<Response> {
 	const week = url.searchParams.get("range") !== "all";
 	// Each nickname on a device appears once, with its best game.
 	const rows = await env.DB.prepare(
-		`SELECT id, nickname, score, player, base FROM (
-		   SELECT id, nickname, score, player, base, ROW_NUMBER() OVER (PARTITION BY device, lower(nickname) ORDER BY score DESC, id) AS n
+		`SELECT id, nickname, score, player, base, colours FROM (
+		   SELECT id, nickname, score, player, base, colours, ROW_NUMBER() OVER (PARTITION BY device, lower(nickname) ORDER BY score DESC, id) AS n
 		   FROM scores WHERE status = 'shown' ${week ? "AND created_at > datetime('now', '-7 days')" : ""}
 		 ) WHERE n = 1 ORDER BY score DESC, id LIMIT 10`,
-	).all();
-	return json({ scores: rows.results }, 200, 30);
+	).all<{ colours: string | null }>();
+	const scores = rows.results.map((r) => ({ ...r, colours: r.colours ? JSON.parse(r.colours) : null }));
+	return json({ scores }, 200, 30);
 }
 
 // ---------- Admin ----------

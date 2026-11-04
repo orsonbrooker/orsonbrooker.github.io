@@ -543,6 +543,7 @@ async function postScore() {
     shots: state.shotLog,
     player: characters.selected,
     base: c?.base ?? null,
+    colours: c?.mine ? c.colours : null, // their own player, so everyone sees its face
     input: state.input,
     hiddenTab: state.hiddenTab,
     version: GAME_VERSION,
@@ -564,6 +565,7 @@ function boardFace(row, img) {
   const c = characters.list.find((p) => p.id === row.player);
   if (c) return setFace(img, c);
   img.src = characters.list[0].thumb;
+  if (row.base && row.colours) return setFace(img, { thumb: img.src, base: row.base, colours: row.colours });
   if (row.base)
     loadBases()
       .then((bases) => {
