@@ -251,7 +251,7 @@ const player = {
   moving: false,
 };
 
-let sprites, atlas, hoopFront, ballSprites;
+let sprites, atlas, hoopFront, ballSprites, shoeRegions;
 
 // ---------- Characters ----------
 
@@ -286,9 +286,10 @@ async function loadCharacter(id) {
 }
 
 async function selectCharacter(id) {
-  const { meta, img } = await loadCharacter(id);
+  const { meta, img, loaded } = await loadCharacter(id);
   sprites = meta;
   atlas = img;
+  shoeRegions = loaded?.regionsData ?? null; // builder players: which pixels are shoes
   characters.selected = id;
   save("orson-hoops-character", id);
   renderChip();
@@ -1071,10 +1072,13 @@ function resize() {
 }
 
 // Where the shoes are in each frame of a sprite sheet: for every frame, two [x, y] points (sprite pixels from the
-// frame's corner) at the bottom middle of each shoe. Found by looking at the lowest pixels in each column of the
-// bottom of the frame, skipping warm colours so the ball and skin aren't mistaken for shoes. Cached per sheet.
+// frame's corner) at the bottom middle of each shoe. Builder players have a colour map marking their shoe pixels
+// (region 5), which is exact whatever colour the shoes are. Hand-made players don't, so their shoes are found by
+// the lowest pixels in each column of the bottom of the frame, skipping warm colours so the ball and skin aren't
+// mistaken for shoes. Cached per sheet.
+const SHOES = 5;
 const feetCache = new WeakMap();
-function shoesIn(sheet, meta) {
+function shoesIn(sheet, meta, regions) {
   if (feetCache.has(sheet)) return feetCache.get(sheet);
   const c = document.createElement("canvas");
   c.width = sheet.width;
@@ -1085,13 +1089,17 @@ function shoesIn(sheet, meta) {
   for (const [anim, frames] of Object.entries(meta.frames)) {
     result[anim] = frames.map(([sx, sy, w, h]) => {
       const px = g.getImageData(sx, sy, w, h).data;
+      const isShoe = regions
+        ? (x, y) => regions.data[((sy + y) * regions.width + sx + x) * 4] === SHOES
+        : (x, y) => {
+            const i = (y * w + x) * 4;
+            const [r, gg, b, a] = [px[i], px[i + 1], px[i + 2], px[i + 3]];
+            return a >= 128 && !(r - b > 40 && r >= gg); // skip warm colours: ball, skin
+          };
       const bottom = new Array(w).fill(-1);
       for (let x = 0; x < w; x++) {
         for (let y = h - 1; y >= h * 0.6; y--) {
-          const i = (y * w + x) * 4;
-          const [r, gg, b, a] = [px[i], px[i + 1], px[i + 2], px[i + 3]];
-          if (a < 128) continue;
-          if (r - b > 40 && r >= gg) continue; // warm: ball, skin
+          if (!isShoe(x, y)) continue;
           bottom[x] = y;
           break;
         }
@@ -1099,7 +1107,7 @@ function shoesIn(sheet, meta) {
       // runs of columns that reach the bottom fifth of the frame
       const runs = [];
       for (let x = 0; x < w; x++) {
-        if (bottom[x] < h * 0.8) continue;
+        if (bottom[x] < (regions ? 0 : h * 0.8)) continue;
         const run = runs.at(-1);
         if (run && x - run.x1 <= 2) run.x1 = x;
         else runs.push({ x0: x, x1: x });
@@ -1126,7 +1134,7 @@ function shoePoints() {
   const p = project(player.u, player.v);
   const frames = sprites.frames[player.anim];
   const i = frames.indexOf(currentFrame());
-  const feet = shoesIn(atlas, sprites)[player.anim][i];
+  const feet = shoesIn(atlas, sprites, shoeRegions)[player.anim][i];
   return feet.map(([x, y]) => [p.x + (ox + x) * scale, p.y + (oy + y) * scale]);
 }
 

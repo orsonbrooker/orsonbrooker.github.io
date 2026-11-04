@@ -84,4 +84,12 @@ python3 tools/build_character.py art/characters/bases/braids.jpg braids "Braids"
 python3 tools/build_regions.py braids --preview /tmp/braids.png
 ```
 
+Before a new player or body goes live, check it:
+
+```
+uv run --with pillow --with numpy python3 tools/check_character.py braids
+```
+
+It writes a sheet of every pose lined up on the floor, with the shoes, colour regions and number spots marked, and lists poses whose feet or height don't match the standing pose.
+
 The preview shows which pixels became skin, hair, jersey and team colour. The name shown in the builder can be changed in `assets/characters/bases/index.json`.
