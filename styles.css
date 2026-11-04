@@ -978,3 +978,116 @@ header p {
   border: 2px solid var(--ink);
   border-radius: 4px;
 }
+
+/* ---------- 404 page ---------- */
+
+.lost {
+  max-width: 640px;
+  margin: 0 auto;
+  text-align: center;
+  font-family: var(--pixel);
+}
+
+/* "404" with a basketball for the 0. */
+.lost-code {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.15em;
+  margin: 16px 0 0;
+  font-size: clamp(56px, 16vw, 120px);
+  color: #fff;
+  text-shadow: 6px 6px 0 var(--ink);
+}
+
+.lost-ball {
+  width: 0.8em;
+  height: 0.8em;
+  border-radius: 50%;
+  background:
+    linear-gradient(90deg, transparent 46%, var(--ink) 46% 54%, transparent 54%),
+    linear-gradient(transparent 46%, var(--ink) 46% 54%, transparent 54%),
+    radial-gradient(circle at 35% 30%, #ffb27a 0 12%, #e8742c 13%);
+  box-shadow: 6px 6px 0 var(--ink);
+  animation: lost-bounce 0.9s cubic-bezier(0.3, 0, 0.7, 1) infinite alternate;
+}
+
+@keyframes lost-bounce {
+  from {
+    transform: translateY(-0.25em) rotate(-20deg);
+  }
+  to {
+    transform: translateY(0.05em) rotate(20deg) scaleY(0.92);
+  }
+}
+
+.lost h1 {
+  margin: 12px 0 8px;
+  color: var(--accent);
+  font-size: clamp(22px, 6vw, 40px);
+}
+
+.lost-line {
+  max-width: 34em;
+  margin: 0 auto 16px;
+  font-size: clamp(10px, 2vw, 14px);
+  line-height: 1.8;
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+.lost-court {
+  width: 100%;
+  max-width: 560px;
+  height: auto;
+  border-radius: 10px;
+  background: linear-gradient(#8d5b48, #a46a50 70%);
+  box-shadow: 6px 6px 0 var(--ink);
+  image-rendering: pixelated;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.lost-hint,
+.lost-tally {
+  margin: 10px 0 0;
+  font-size: 10px;
+}
+
+.lost-hint {
+  color: #ffe066;
+}
+
+.lost-tally {
+  min-height: 1.4em;
+  opacity: 0.8;
+}
+
+.lost-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin: 20px 0 8px;
+}
+
+.lost-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 12px;
+  text-decoration: none;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.lost-home {
+  background: var(--panel);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lost-ball {
+    animation: none;
+  }
+}

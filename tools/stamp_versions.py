@@ -22,7 +22,7 @@ IMPORTS = [
 ]
 # Scripts and stylesheets that pages load.
 ASSETS = ['game.js', 'styles.css', 'feedback/widget.js', 'feedback/widget.css', 'players/builder.js', 'players/builder.css', 'ui/nav.js', 'home/home.js']
-PAGES = ['index.html', 'games/shootaround/index.html', 'ideas/index.html', 'players/index.html']
+PAGES = ['404.html', 'index.html', 'games/shootaround/index.html', 'ideas/index.html', 'players/index.html']
 
 
 def read(name):

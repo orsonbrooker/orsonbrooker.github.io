@@ -1,4 +1,4 @@
 #!/bin/sh
 # Stamp script and stylesheet versions so visitors get new code straight away.
 # Enable once per clone with: git config core.hooksPath .githooks
-python3 tools/stamp_versions.py && git add index.html games/shootaround/index.html ideas/index.html players/index.html game.js players/builder.js feedback/widget.js ui/nav.js ui/confirm.js leaderboard.js ui/form.js
+python3 tools/stamp_versions.py && git add 404.html index.htmlgames/shootaround/index.html ideas/index.html players/index.html game.js players/builder.js feedback/widget.js ui/nav.js ui/confirm.js leaderboard.js ui/form.js
