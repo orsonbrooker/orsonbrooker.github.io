@@ -568,24 +568,31 @@ helpButton.addEventListener("click", () => (screens.help.hidden ? openHelp() : c
 $("help-close").addEventListener("click", closeHelp);
 fillIcons(stage);
 
+// The whole game area takes presses, not just the court: on a phone there's room below the
+// court for a thumb to hold down without covering the player.
+const pad = document.querySelector(".game-page") ?? stage;
+// Things on the page that are tapped for their own sake, not to shoot.
+const OWN_TAPS = "a, button, input, select, textarea, dialog, .panel-screen";
+
 let activePointer = null;
-stage.addEventListener("pointerdown", (e) => {
+pad.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "mouse" && e.button !== 0) return;
-  if (activePointer !== null) return;
+  if (activePointer !== null || e.target.closest(OWN_TAPS)) return;
   activePointer = e.pointerId;
   try {
-    stage.setPointerCapture(e.pointerId);
+    pad.setPointerCapture(e.pointerId);
   } catch {
-    // Capture is a nicety; pointerup on the stage still ends the press.
+    // Capture is a nicety; pointerup on the pad still ends the press.
   }
   e.preventDefault();
+  stage.focus({ preventScroll: true }); // so Space keeps working after a click below the court
   press();
 });
-// Stops iOS long-press callouts and text selection while holding to shoot.
-stage.addEventListener(
+// Stops iOS long-press callouts, text selection and scrolling while holding to shoot.
+pad.addEventListener(
   "touchstart",
   (e) => {
-    if (!e.target.closest("button")) e.preventDefault();
+    if (!e.target.closest(OWN_TAPS)) e.preventDefault();
   },
   { passive: false },
 );
@@ -594,10 +601,12 @@ function pointerEnd(e) {
   activePointer = null;
   release();
 }
-stage.addEventListener("pointerup", pointerEnd);
-stage.addEventListener("pointercancel", pointerEnd);
-stage.addEventListener("lostpointercapture", pointerEnd);
-stage.addEventListener("contextmenu", (e) => e.preventDefault());
+pad.addEventListener("pointerup", pointerEnd);
+pad.addEventListener("pointercancel", pointerEnd);
+pad.addEventListener("lostpointercapture", pointerEnd);
+pad.addEventListener("contextmenu", (e) => {
+  if (!e.target.closest(OWN_TAPS)) e.preventDefault();
+});
 window.addEventListener("blur", () => {
   activePointer = null;
   release();
