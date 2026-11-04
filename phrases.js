@@ -54,6 +54,9 @@ export const PHRASES = {
   // Three in a row: he's on fire until he misses.
   onFire: ["He's on fire!", "Too hot to handle!", "Call the fire department!"],
   stillOnFire: ["He's still on fire!", "Unstoppable!", "Can't be stopped!", "Somebody stop him!"],
+  // Six in a row: the flames turn purple.
+  purpleFire: ["Purple flames!", "He's on PURPLE fire!", "That's a different kind of fire!", "Fire so hot it turned purple!"],
+  stillPurpleFire: ["Still purple!", "The purple reign continues!", "Nobody can cool him down!", "Purple haze!"],
   fireOut: ["And the fire's out.", "He's cooled off.", "Fire's out!"],
 
   // Scored after the buzzer went.
@@ -95,6 +98,7 @@ const MIX = {
   bank: ["make", 0.4],
   three: ["make", 0.5],
   stillOnFire: ["make", 0.5],
+  stillPurpleFire: ["make", 0.6],
   airball: ["miss", 0.5],
   cold: ["miss", 0.6],
 };

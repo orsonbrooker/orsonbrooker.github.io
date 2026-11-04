@@ -51,10 +51,33 @@ const JUMP_FRAME_TIME = 0.085;
 const JUMP_APEX = 0.29;
 const TIMING_WINDOW = 0.13;
 
-// Like NBA Jam: two makes in a row heats him up, three puts him on fire until he misses.
-const ON_FIRE_STREAK = 3;
-const ON_FIRE_WINDOW = 1.4; // timing window is this much wider while on fire
-const ON_FIRE_BONUS = 1; // extra points per basket while on fire
+// Like NBA Jam: two makes in a row heats him up, three puts him on fire until he misses,
+// and keeping it going turns the flames purple. Add a level here to go even further.
+//   streak: makes in a row to reach it
+//   window: timing window is this much wider
+//   bonus:  extra points per basket
+const FIRE_LEVELS = [
+  {
+    streak: 3,
+    window: 1.4,
+    bonus: 1,
+    phrase: "onFire",
+    stillPhrase: "stillOnFire",
+    color: "#ff9f43",
+    glow: "rgba(255, 140, 40, 0.45)",
+    flame: ["#ffe066", "#ff9f43", "#ff4d2e"],
+  },
+  {
+    streak: 6,
+    window: 1.6,
+    bonus: 2,
+    phrase: "purpleFire",
+    stillPhrase: "stillPurpleFire",
+    color: "#c77dff",
+    glow: "rgba(170, 80, 255, 0.5)",
+    flame: ["#f6d6ff", "#c77dff", "#7b2cff"],
+  },
+];
 const BANNER_SECONDS = 1.7;
 
 const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16 };
@@ -370,12 +393,15 @@ window.addEventListener("blur", () => {
 
 // ---------- Shooting ----------
 
-function onFire() {
-  return state.streak >= ON_FIRE_STREAK;
+// The fire level for the current streak, or null when not on fire.
+function fireLevel() {
+  let level = null;
+  for (const l of FIRE_LEVELS) if (state.streak >= l.streak) level = l;
+  return level;
 }
 
 function timingWindow() {
-  return onFire() ? TIMING_WINDOW * ON_FIRE_WINDOW : TIMING_WINDOW;
+  return TIMING_WINDOW * (fireLevel()?.window ?? 1);
 }
 
 function gaussian() {
@@ -427,7 +453,7 @@ function shoot(timing) {
     decided: false,
     bounces: 0,
     three: isThreePointSpot(player.u, player.v),
-    fire: onFire(),
+    fire: fireLevel(),
     prevZ: z,
   };
   state.balls.push(ball);
@@ -558,23 +584,25 @@ function collideBoard(b) {
 
 function scoreBasket(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
-  const points = (b.three ? 3 : 2) + (b.fire ? ON_FIRE_BONUS : 0);
+  const points = (b.three ? 3 : 2) + (b.fire?.bonus ?? 0);
   state.score += points;
   state.streak++;
   state.coldStreak = 0;
   updateHud();
   sound.swish();
   const p = project(RIM.u, RIM.v, RIM.z);
-  addPopup(`+${points}`, b.fire ? "#ff9f43" : "#ffe066", p.x, p.y - 60);
+  addPopup(`+${points}`, b.fire?.color ?? "#ffe066", p.x, p.y - 60);
 
   const swish = !b.touchedRim && !b.touchedBoard;
-  if (state.streak === ON_FIRE_STREAK) sound.fireIgnite();
-  else sound.cheer(state.phase === "ending" ? 2 : b.three || state.streak === ON_FIRE_STREAK - 1 ? 1.4 : 1);
+  const levelUp = FIRE_LEVELS.findIndex((l) => l.streak === state.streak);
+  const fire = fireLevel();
+  if (levelUp >= 0) sound.fireIgnite(levelUp);
+  else sound.cheer(state.phase === "ending" ? 2 : b.three || state.streak === FIRE_LEVELS[0].streak - 1 ? 1.4 : 1);
 
   if (state.phase === "ending") announce("buzzer", "#ff6b6b");
-  else if (state.streak === ON_FIRE_STREAK) announce("onFire", "#ff9f43");
-  else if (state.streak === ON_FIRE_STREAK - 1) announce("heatingUp", "#ffb86b");
-  else if (onFire() && Math.random() < 0.5) announce("stillOnFire", "#ff9f43");
+  else if (levelUp >= 0) announce(fire.phrase, fire.color);
+  else if (state.streak === FIRE_LEVELS[0].streak - 1) announce("heatingUp", "#ffb86b");
+  else if (fire && Math.random() < 0.5) announce(fire.stillPhrase, fire.color);
   else if (b.three) announce("three", "#ffe066");
   else if (b.touchedBoard && !b.touchedRim) announce("bank", "#a0e7ff");
   else if (swish) announce("swish", "#7cf0ff");
@@ -583,7 +611,7 @@ function scoreBasket(b) {
 
 function missedShot(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
-  const wasOnFire = onFire();
+  const wasOnFire = fireLevel() !== null;
   state.streak = 0;
   state.coldStreak++;
   if (!b.touchedRim && !b.touchedBoard) sound.groan();
@@ -705,6 +733,7 @@ function update(dt) {
         x: p.x + (Math.random() - 0.5) * 50,
         y: p.y + (Math.random() - 0.5) * 50,
         vy: -80 - Math.random() * 120,
+        colors: b.fire.flame,
         age: 0,
         life: 0.35 + Math.random() * 0.35,
       });
@@ -771,7 +800,7 @@ function drawBall(b) {
   ctx.globalAlpha = fade;
   ctx.translate(p.x, p.y);
   if (b.fire && b.age < 2.5) {
-    ctx.fillStyle = "rgba(255, 140, 40, 0.45)";
+    ctx.fillStyle = b.fire.glow;
     ctx.beginPath();
     ctx.arc(0, 0, size * 0.8, 0, Math.PI * 2);
     ctx.fill();
@@ -796,7 +825,7 @@ function drawMeter() {
   ctx.fillRect(x - 6, top - 6, 36, height + 12);
   const zoneTop = top + height * (1 - (JUMP_APEX + timingWindow() * 0.5) / total);
   const zoneH = (height * timingWindow()) / total;
-  ctx.fillStyle = onFire() ? "#ff9f43" : "#3ddc84";
+  ctx.fillStyle = fireLevel()?.color ?? "#3ddc84";
   ctx.fillRect(x, zoneTop, 24, zoneH);
   ctx.fillStyle = "#fff";
   ctx.fillRect(x - 6, top + height * (1 - fill) - 4, 36, 8);
@@ -809,7 +838,7 @@ function drawFire() {
   for (const p of state.particles) {
     const t = p.age / p.life;
     const size = 44 * (1 - t) + 8;
-    ctx.fillStyle = t < 0.3 ? "#ffe066" : t < 0.6 ? "#ff9f43" : "#ff4d2e";
+    ctx.fillStyle = p.colors[t < 0.3 ? 0 : t < 0.6 ? 1 : 2];
     ctx.globalAlpha = 1 - t;
     ctx.fillRect(p.x - size / 2, p.y - size / 2, size, size);
   }

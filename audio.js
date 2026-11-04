@@ -143,12 +143,16 @@ export const sound = {
     if (this.ctx) groan();
   },
 
-  fireIgnite() {
+  // level 0 is the first (orange) fire; higher levels add a magic shimmer and a bigger roar.
+  fireIgnite(level = 0) {
     if (!this.ctx) return;
     const t = now();
-    noise(t, 0.6, { type: "lowpass", freq: 300, to: 5000, peak: 0.45, attack: 0.15 });
+    noise(t, 0.6, { type: "lowpass", freq: 300, to: 5000 + level * 3000, peak: 0.45, attack: 0.15 });
     tone("sine", 80, t, 0.5, { to: 40, peak: 0.4 });
-    cheer(2);
+    for (let i = 0; i < level * 4; i++) {
+      tone("triangle", 880 * Math.pow(1.26, i), t + 0.1 + i * 0.06, 0.4, { peak: 0.08, reverb: 0.6 });
+    }
+    cheer(2 + level * 0.8);
   },
 
   fireWhoosh() {
