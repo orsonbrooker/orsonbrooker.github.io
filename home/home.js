@@ -18,8 +18,9 @@ const frames = meta.frames.idle;
 const left = Math.min(...frames.map((f) => f[4]));
 const top = Math.min(...frames.map((f) => f[5]));
 const right = Math.max(...frames.map((f) => f[4] + f[2]));
+const bottom = Math.max(...frames.map((f) => f[5] + f[3])); // shoes reach a little below the floor point
 canvas.width = right - left;
-canvas.height = -top + 4;
+canvas.height = bottom - top;
 
 const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let frame = 0;
