@@ -235,6 +235,7 @@ play.addEventListener("click", () => {
   const id = saveMyPlayer({ name, base: current.id, colours: { ...colours, teamName: teamInput.value.trim() } });
   try {
     localStorage.setItem("orson-hoops-character", JSON.stringify(id));
+    localStorage.setItem("orson-hoops-chosen", "true"); // straight into a game, no player select
   } catch {
     // The game falls back to Orson.
   }

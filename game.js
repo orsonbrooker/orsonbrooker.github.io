@@ -264,8 +264,12 @@ const characters = {
   loaded: new Map(),
   selected: load("orson-hoops-character", "orson"),
 };
-// Anyone who picked a player before the select screen existed already has one saved.
-const pickedBefore = load("orson-hoops-character", null) !== null;
+// Whether to skip the player select on the first press. The saved player can't tell us (it's saved
+// on every page load, picked or not), so: they picked one, made one in the builder, or have
+// played before (a best score or the first-shot hints done).
+function hasChosenPlayer() {
+  return load("orson-hoops-chosen", false) || load("orson-hoops-best", null) !== null || load("orson-hoops-learned", false);
+}
 
 async function loadBuilt(entry) {
   const base = (await loadBases()).find((b) => b.id === entry.base);
@@ -512,7 +516,7 @@ function closeHelp() {
 }
 
 function begin() {
-  if (pickedBefore || load("orson-hoops-chosen", false)) startGame();
+  if (hasChosenPlayer()) startGame();
   else openSelect(true);
 }
 
