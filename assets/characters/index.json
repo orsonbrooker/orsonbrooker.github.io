@@ -1,0 +1,16 @@
+[
+ {
+  "id": "orson",
+  "name": "Orson",
+  "atlas": "assets/sprites.webp?v=6477e177",
+  "meta": "assets/sprites.json?v=0786ed77",
+  "thumb": "assets/characters/orson/thumb.webp?v=c432e378"
+ },
+ {
+  "id": "jethro",
+  "name": "Jethro",
+  "atlas": "assets/characters/jethro/sprites.webp?v=01682e88",
+  "meta": "assets/characters/jethro/sprites.json?v=7c4caf21",
+  "thumb": "assets/characters/jethro/thumb.webp?v=d9cc518c"
+ }
+]

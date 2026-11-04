@@ -96,6 +96,7 @@ const overlayTitle = document.getElementById("overlay-title");
 const overlayBody = document.getElementById("overlay-body");
 const muteBtn = document.getElementById("mute");
 const musicBtn = document.getElementById("music");
+const charPick = document.getElementById("char-pick");
 
 // ---------- Projection ----------
 
@@ -222,6 +223,59 @@ const player = {
 
 let sprites, atlas, hoopFront, ballSprite;
 
+// ---------- Characters ----------
+
+// assets/characters/index.json lists the players (made by tools/build_character.py).
+const characters = {
+  list: [{ id: "orson", name: "Orson", atlas: "assets/sprites.webp", meta: "assets/sprites.json", thumb: "" }],
+  loaded: new Map(),
+  selected: load("orson-hoops-character", "orson"),
+};
+
+async function loadCharacter(id) {
+  if (!characters.loaded.has(id)) {
+    const entry = characters.list.find((c) => c.id === id) ?? characters.list[0];
+    const loading = Promise.all([fetch(entry.meta).then((r) => r.json()), loadImage(entry.atlas)]).then(([meta, img]) => ({ meta, img }));
+    characters.loaded.set(id, loading);
+    loading.catch(() => characters.loaded.delete(id));
+  }
+  return characters.loaded.get(id);
+}
+
+async function selectCharacter(id) {
+  const { meta, img } = await loadCharacter(id);
+  sprites = meta;
+  atlas = img;
+  characters.selected = id;
+  save("orson-hoops-character", id);
+  renderPicker();
+}
+
+// Player choice, shown on the start and game-over screens.
+function renderPicker() {
+  const show = characters.list.length > 1 && (state.phase === "title" || state.phase === "over");
+  charPick.hidden = !show;
+  if (!show) return;
+  charPick.replaceChildren(
+    ...characters.list.map((c) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("aria-pressed", String(c.id === characters.selected));
+      const img = document.createElement("img");
+      img.src = c.thumb;
+      img.alt = "";
+      button.append(img, c.name);
+      button.addEventListener("pointerdown", (e) => e.stopPropagation());
+      button.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await selectCharacter(c.id);
+        stage.focus({ preventScroll: true }); // so Space starts the game rather than re-pressing this
+      });
+      return button;
+    }),
+  );
+}
+
 function setAnim(name) {
   player.anim = name;
   player.t = 0;
@@ -283,6 +337,7 @@ function startGame() {
   player.moving = false;
   setAnim("idle");
   overlay.hidden = true;
+  renderPicker();
   updateHud();
   sound.gameStart();
   announce("start", "#ffffff");
@@ -312,6 +367,7 @@ function endGame() {
     (state.buzzerBeater ? "Won it at the buzzer!<br>" : "") +
     `You scored <strong>${state.score}</strong> points. Best: ${state.best}<br>Press Space or tap to play again`;
   overlay.hidden = false;
+  renderPicker();
 }
 
 function showTitle() {
@@ -324,6 +380,7 @@ function showTitle() {
     "Let go at the top of the jump!" +
     (state.best ? `<br>Best: ${state.best}` : "");
   overlay.hidden = false;
+  renderPicker();
 }
 
 function updateHud() {
@@ -1126,14 +1183,16 @@ function loadImage(src) {
 async function boot() {
   loadVoiceClips();
   try {
-    const [meta, atlasImg, hoopImg] = await Promise.all([
-      fetch("assets/sprites.json").then((r) => r.json()),
-      loadImage("assets/sprites.webp"),
+    const list = await fetch("assets/characters/index.json")
+      .then((r) => (r.ok ? r.json() : null))
+      .catch(() => null);
+    if (list?.length) characters.list = list;
+    if (!characters.list.some((c) => c.id === characters.selected)) characters.selected = characters.list[0].id;
+    const [hoopImg] = await Promise.all([
       loadImage("assets/hoop-front.webp"),
+      selectCharacter(characters.selected),
       document.fonts?.load('48px "Press Start 2P"').catch(() => {}),
     ]);
-    sprites = meta;
-    atlas = atlasImg;
     hoopFront = hoopImg;
     ballSprite = makeBallSprite();
   } catch (err) {
@@ -1142,7 +1201,7 @@ async function boot() {
     console.error(err);
     return;
   }
-  if (DEBUG) window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound };
+  if (DEBUG) window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter };
   resize();
   new ResizeObserver(resize).observe(stage);
   showTitle();
