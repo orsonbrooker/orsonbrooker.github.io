@@ -238,7 +238,7 @@ play.addEventListener("click", () => {
   } catch {
     // The game falls back to Orson.
   }
-  location.href = "/";
+  location.href = "/games/shootaround/";
 });
 
 form.addEventListener("submit", async (e) => {

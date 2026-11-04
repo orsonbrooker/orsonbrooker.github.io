@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- The game's scripts and assets live at the site root; this makes their relative paths work here. -->
+    <base href="/" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#a6798e" />
+    <title>Shootaround | Orson Brooker</title>
+    <meta name="description" content="Hi, I'm Orson! Play my 60 second pixel-art basketball game and see if you can beat my high score." />
+    <link rel="canonical" href="https://orsonbrooker.com/games/shootaround/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Orson Brooker" />
+    <meta property="og:url" content="https://orsonbrooker.com/games/shootaround/" />
+    <meta property="og:title" content="Orson Brooker | Shootaround" />
+    <meta property="og:description" content="Play my 60 second pixel-art basketball game. Can you beat my high score?" />
+    <meta property="og:image" content="https://orsonbrooker.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Orson Brooker in a pixel-art basketball gym" />
+    <meta property="og:locale" content="en_AU" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Orson Brooker | Shootaround" />
+    <meta name="twitter:description" content="Play my 60 second pixel-art basketball game. Can you beat my high score?" />
+    <meta name="twitter:image" content="https://orsonbrooker.com/og-image.jpg" />
+
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="apple-mobile-web-app-title" content="Orson" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "Shootaround",
+        "url": "https://orsonbrooker.com/games/shootaround/",
+        "author": { "@type": "Person", "name": "Orson Brooker" },
+        "description": "A 60 second pixel-art basketball game. Can you beat Orson's high score?",
+        "gamePlatform": "Web browser"
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <link rel="preload" href="assets/court.webp" as="image" />
+    <link rel="preload" href="assets/sprites.webp" as="image" />
+    <link rel="stylesheet" href="styles.css?v=7a0d2377" />
+    <link rel="stylesheet" href="feedback/widget.css?v=94363a1e" />
+  </head>
+  <body>
+    <nav class="site-nav" data-site-nav></nav>
+    <main class="game-page">
+      <h1 class="sr-only">Shootaround</h1>
+      <div class="stage" id="stage" tabindex="0" aria-label="Basketball game. Press Space or tap to turn to the hoop, hold to jump, let go to shoot.">
+        <img class="court" src="assets/court.webp" alt="" width="2048" height="2048" />
+        <canvas id="game"></canvas>
+
+        <p class="sr-only">Score <span id="score">0</span>, <span id="time">60</span> seconds left</p>
+
+        <div class="sound-buttons">
+          <button id="help-button" type="button" aria-label="How to play"><span data-icon="help"></span></button>
+          <button id="music" type="button" aria-label="Turn music off" aria-pressed="true"><span data-icon="music"></span></button>
+          <button id="mute" type="button" aria-label="Mute sound"><span data-icon="sound"></span></button>
+        </div>
+
+        <!-- Title: tap anywhere (or press Space) to play. -->
+        <div class="screen title-screen" id="title-screen">
+          <h2 class="logo">Shootaround</h2>
+          <div class="title-bottom">
+            <p class="tap-to-play" id="tap-to-play">Loading…</p>
+            <button class="player-chip" id="player-chip" type="button" hidden>
+              <img id="chip-face" alt="" width="40" height="40" />
+              <span><span class="chip-label">Playing as </span><strong id="chip-name"></strong></span>
+              <span class="chip-change">Change</span>
+            </button>
+            <p class="best" id="title-best"></p>
+          </div>
+        </div>
+
+        <!-- Player select. -->
+        <div class="screen panel-screen" id="select-screen" hidden>
+          <div class="panel select-panel">
+            <div class="select-head">
+              <button class="screen-back" id="select-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+              <h2>Choose your player</h2>
+            </div>
+            <div class="char-pick" id="char-pick" role="group" aria-label="Players"></div>
+          </div>
+        </div>
+
+        <!-- Game over. -->
+        <div class="screen panel-screen" id="over-screen" hidden>
+          <div class="panel over-panel">
+            <h2 id="over-title">Time's up!</h2>
+            <p class="final-score"><span id="final-score">0</span> points</p>
+            <p id="over-detail"></p>
+            <div class="over-actions">
+              <button class="primary" id="again" type="button"><span data-icon="again"></span>Play again</button>
+              <button id="change-player" type="button"><span data-icon="players"></span>Change player</button>
+              <button id="got-idea" type="button"><span data-icon="idea"></span>Got an idea?</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- How to play. -->
+        <div class="screen panel-screen" id="help-screen" hidden>
+          <div class="panel help-panel">
+            <h2>How to play</h2>
+            <ol>
+              <li><strong>Tap</strong> (or press Space) to face the hoop.</li>
+              <li><strong>Hold</strong> to jump.</li>
+              <li><strong>Let go</strong> at the top of the jump to shoot. Watch the bar: let go in the green.</li>
+            </ol>
+            <p>Score as many points as you can in 60 seconds. Shots from behind the arc are worth 3. Make 3 in a row and you're on fire!</p>
+            <button class="primary" id="help-close" type="button">Got it</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="game.js?v=fbb6cfcc"></script>
+    <script type="module" src="feedback/widget.js?v=a828ad47"></script>
+    <script type="module" src="ui/nav.js?v=76697ca6"></script>
+  </body>
+</html>

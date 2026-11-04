@@ -20,6 +20,62 @@ body {
   touch-action: manipulation;
 }
 
+/* Pixel icons (ui/icons.js) take the text colour and sit on the text line. */
+.icon {
+  width: 1.6em;
+  height: 1.6em;
+  flex: none;
+  vertical-align: middle;
+  image-rendering: pixelated;
+}
+
+/* The bar across the top of every page (ui/nav.js). */
+.site-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  max-width: 1100px;
+  margin: -4px auto 4px;
+  font-family: var(--pixel);
+  font-size: 10px;
+}
+
+.site-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  color: #fff;
+  text-decoration: none;
+}
+
+.site-nav a:hover,
+.site-nav a[aria-current="page"] {
+  background: var(--panel);
+}
+
+.site-nav a[aria-current="page"] {
+  color: var(--accent);
+}
+
+.site-nav ul {
+  display: flex;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (max-width: 520px) {
+  .site-nav-home span,
+  .site-nav li span {
+    display: none; /* icons only on phones */
+  }
+}
+
 header {
   text-align: center;
 }
@@ -33,7 +89,8 @@ h1 {
 }
 
 header p {
-  margin: 0 0 12px;
+  max-width: 44em; /* long lines are hard to read in the pixel font */
+  margin: 0 auto 12px;
   font-family: var(--pixel);
   font-size: clamp(10px, 1.8vw, 14px);
   line-height: 1.6;
@@ -85,102 +142,260 @@ header p {
   position: absolute;
   right: 3%;
   bottom: 3%;
+  z-index: 2;
   display: flex;
   gap: 8px;
 }
 
 .sound-buttons button {
+  display: grid;
+  place-items: center;
   width: 44px;
   height: 44px;
   border: 0;
   border-radius: 6px;
   background: var(--panel);
   color: #fff;
-  font-size: 20px;
   cursor: pointer;
+}
+
+.sound-buttons .icon {
+  width: 26px;
+  height: 26px;
 }
 
 .sound-buttons button.off {
   opacity: 0.45;
-  text-decoration: line-through;
 }
 
-.overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  padding-bottom: 6%;
-  pointer-events: none;
-}
-
-.overlay[hidden] {
+/* No how-to button mid-game: it would cover the court. */
+.stage[data-phase="playing"] #help-button,
+.stage[data-phase="ending"] #help-button {
   display: none;
 }
 
-.panel {
-  background: var(--panel);
-  border-radius: 8px;
-  padding: 16px 20px;
-  max-width: 78%;
-  text-align: center;
+/* ---------- Screens over the court ---------- */
+
+.screen {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
   font-family: var(--pixel);
+  text-align: center;
+}
+
+.screen[hidden] {
+  display: none;
+}
+
+/* Title: the court and player show through, and a tap anywhere plays. */
+.title-screen {
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9% 4% 4%;
+  pointer-events: none;
+}
+
+.logo {
+  margin: 0;
+  font-size: clamp(22px, 6.4vw, 60px);
+  color: var(--accent);
+  text-shadow:
+    4px 4px 0 var(--ink),
+    -2px -2px 0 var(--ink),
+    2px -2px 0 var(--ink),
+    -2px 2px 0 var(--ink);
+  transform: rotate(-4deg);
+}
+
+.title-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 52px; /* clear of the sound buttons */
+}
+
+.tap-to-play {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: var(--panel);
+  font-size: clamp(11px, 2.4vw, 20px);
+  color: #ffe066;
+  animation: blink 1.2s steps(1) infinite;
+}
+
+@keyframes blink {
+  60% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tap-to-play {
+    animation: none;
+  }
+}
+
+.player-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--panel);
+  color: #fff;
+  font: inherit;
+  font-size: clamp(8px, 1.6vw, 12px);
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.player-chip[hidden] {
+  display: none;
+}
+
+.player-chip img {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.player-chip strong {
+  color: var(--accent);
+}
+
+.chip-change {
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.best {
+  margin: 0;
+  font-size: clamp(8px, 1.4vw, 11px);
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+/* Select, game over and help: a panel over a dimmed court. */
+.panel-screen {
+  display: grid;
+  place-items: center;
+  padding: 4%;
+  background: rgba(43, 22, 34, 0.45);
+}
+
+.panel {
+  width: 100%;
+  max-width: 560px;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 18px 20px;
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 4px 4px 0 var(--ink);
   line-height: 1.7;
 }
 
 .panel h2 {
-  margin: 0 0 8px;
-  font-size: clamp(14px, 3vw, 24px);
+  margin: 0 0 12px;
+  font-size: clamp(13px, 2.6vw, 22px);
   color: var(--accent);
 }
 
-.panel p {
-  margin: 0;
-  font-size: clamp(9px, 1.6vw, 13px);
+.panel p,
+.panel li {
+  font-size: clamp(9px, 1.5vw, 12px);
+}
+
+.panel button,
+.panel .card {
+  font: inherit;
+  cursor: pointer;
+}
+
+.select-panel {
+  max-width: 720px;
+}
+
+.select-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.select-head h2 {
+  flex: 1;
+  margin: 0 44px 0 0;
+}
+
+.screen-back {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
 }
 
 .char-pick {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 12px;
-  pointer-events: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  padding-top: 8px; /* room for the remove buttons */
 }
 
-.char-pick[hidden] {
-  display: none;
-}
-
-.char-pick button {
+.char-pick .card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 6px 8px 8px;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  padding: 8px 6px 10px;
   border: 3px solid transparent;
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.1);
   color: #fff;
-  font-family: var(--pixel);
   font-size: 9px;
-  cursor: pointer;
+  text-decoration: none;
+  overflow-wrap: anywhere;
 }
 
-.char-pick button[aria-pressed="true"] {
+.char-pick .card:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.char-pick .card[aria-pressed="true"] {
   border-color: var(--accent);
   background: rgba(240, 138, 60, 0.25);
 }
 
-.char-pick {
-  max-height: 40vh;
-  overflow-y: auto;
-  padding-top: 8px; /* room for the remove buttons */
+.char-pick img {
+  width: 100%;
+  max-width: 80px;
+  aspect-ratio: 1;
+  height: auto;
 }
 
-.char-pick .star {
-  font-family: system-ui, sans-serif;
+.char-pick .card .icon {
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -2px;
   color: var(--accent);
 }
 
@@ -191,52 +406,160 @@ header p {
 
 .char-pick .remove {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  width: 22px;
-  height: 22px;
+  top: -8px;
+  right: -8px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 2px solid var(--ink);
   border-radius: 50%;
   background: #fff;
   color: var(--ink);
-  font-size: 10px;
-  line-height: 1;
+}
+
+.char-pick .remove .icon {
+  width: 16px;
+  height: 16px;
 }
 
 .char-pick .make-player {
-  align-self: center;
-  padding: 10px;
-  border-radius: 6px;
-  background: var(--accent);
-  color: var(--ink);
-  font-family: var(--pixel);
-  font-size: 9px;
-  text-decoration: none;
+  border: 3px dashed rgba(255, 255, 255, 0.5);
+  background: transparent;
+  color: var(--accent);
 }
 
-.char-pick img {
-  width: 56px;
-  height: 56px;
+.char-pick .make-player .icon {
+  width: 40px;
+  height: 40px;
+  margin: 0;
+}
+
+.final-score {
+  margin: 0 0 4px;
+}
+
+.panel .final-score {
+  font-size: clamp(12px, 2.2vw, 18px);
+}
+
+#final-score {
+  display: block;
+  font-size: clamp(40px, 9vw, 80px);
+  line-height: 1.2;
+  color: #ffe066;
+  text-shadow: 4px 4px 0 var(--ink);
+}
+
+.over-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.panel .over-actions button,
+.help-panel .primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: clamp(9px, 1.5vw, 12px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.panel .over-actions .primary,
+.help-panel .primary {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.over-actions .primary {
+  flex-basis: 100%;
+  justify-content: center;
+  font-size: clamp(11px, 2vw, 15px) !important;
+}
+
+.panel button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.over-actions .icon {
+  width: 1.6em;
+  height: 1.6em;
+}
+
+.help-panel ol {
+  margin: 0 0 12px;
+  padding-left: 1.6em;
+  text-align: left;
+}
+
+.help-panel li {
+  margin-bottom: 8px;
+}
+
+.help-panel strong {
+  color: #ffe066;
+}
+
+.help-panel p {
+  margin: 0 0 14px;
+  text-align: left;
 }
 
 @media (max-width: 520px) {
-  .overlay {
-    padding-bottom: 2%;
+  .title-screen {
+    padding-top: 8%;
+  }
+
+  .title-bottom {
+    gap: 6px;
+    margin-bottom: 44px;
+  }
+
+  .player-chip {
+    padding: 4px 8px 4px 4px;
+    gap: 6px;
+  }
+
+  .player-chip img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .chip-label {
+    display: none;
+  }
+
+  /* The court is small on phones: panels get the whole screen. */
+  .panel-screen {
+    position: fixed;
+    z-index: 20;
+    padding: 16px;
+    background: rgba(43, 22, 34, 0.7);
   }
 
   .panel {
-    max-width: 96%;
-    padding: 10px 12px;
+    padding: 12px;
     line-height: 1.6;
   }
 
-  .panel h2 {
-    font-size: 12px;
+  .char-pick {
+    grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+    gap: 8px;
   }
 
-  .panel p {
-    font-size: 8px;
+  .sound-buttons button {
+    width: 38px;
+    height: 38px;
   }
 }
 
@@ -245,13 +568,285 @@ header p {
   margin: 16px auto 0;
 }
 
-.back {
-  text-align: center;
-  margin-top: 24px;
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 8px;
+  padding: 8px 12px 8px 6px;
+  border-radius: 6px;
+  background: var(--panel);
+  color: #fff;
+  font-family: var(--pixel);
+  font-size: 10px;
+  text-decoration: none;
+  box-shadow: 3px 3px 0 var(--ink);
 }
 
-.back a {
+/* ---------- Home page ---------- */
+
+.home {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 0 24px;
+}
+
+.intro-orson {
+  width: clamp(90px, 22vw, 150px);
+  height: auto;
+  image-rendering: pixelated;
+  filter: drop-shadow(4px 4px 0 rgba(43, 22, 34, 0.35));
+}
+
+.intro-bubble {
+  position: relative;
+  max-width: 520px;
+  margin-bottom: clamp(80px, 22vw, 170px);
+  padding: 16px 18px;
+  border-radius: 10px;
+  background: var(--panel);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+/* The bubble's tail points at Orson. */
+.intro-bubble::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  bottom: 18px;
+  border: 8px solid transparent;
+  border-right: 8px solid var(--panel);
+  border-bottom-color: var(--panel);
+}
+
+.intro-bubble h1 {
+  margin: 0 0 10px;
+  color: var(--accent);
+  text-transform: none;
+  font-size: clamp(16px, 4vw, 30px);
+}
+
+.intro-bubble p {
+  margin: 0;
   font-family: var(--pixel);
-  font-size: 11px;
+  font-size: clamp(9px, 1.7vw, 13px);
+  line-height: 1.8;
+}
+
+.home-heading {
+  margin: 0 0 12px;
+  font-family: var(--pixel);
+  font-size: clamp(11px, 2vw, 14px);
+  text-shadow: 2px 2px 0 var(--ink);
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 14px;
+  margin: 0 0 28px;
+  padding: 0;
+  list-style: none;
+}
+
+.tiles-small {
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 600px) {
+  .tiles,
+  .tiles-small {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tile {
+  display: flex;
+  height: 100%;
+  border-radius: 8px;
+  background: var(--panel);
   color: #fff;
+  font-family: var(--pixel);
+  font-size: 10px;
+  line-height: 1.7;
+  text-decoration: none;
+  box-shadow: 4px 4px 0 var(--ink);
+  overflow: hidden;
+}
+
+.tile:hover {
+  outline: 3px solid var(--accent);
+}
+
+.tile:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.tile strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.tile-game {
+  flex-direction: column;
+}
+
+.tile-game img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.tile-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 14px 16px 16px;
+}
+
+.tile-body strong {
+  font-size: 18px;
+}
+
+.tile-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px 14px 8px 8px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--ink);
+  font-size: 12px;
+}
+
+.tile-soon {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 20px;
+  text-align: center;
+  border: 3px dashed rgba(255, 255, 255, 0.4);
+  background: rgba(43, 22, 34, 0.4);
+  box-shadow: none;
+}
+
+.tile-soon > .icon,
+.tile-soon > [data-icon] .icon {
+  width: 40px;
+  height: 40px;
+  color: var(--accent);
+}
+
+.tile-link {
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.tile-link .icon {
+  width: 32px;
+  height: 32px;
+  color: var(--accent);
+}
+
+/* ---------- Game page ---------- */
+
+/* No page header here, so the court can be bigger. */
+.game-page .stage {
+  width: min(100%, calc(100svh - 72px), 960px);
+}
+
+/* ---------- Yes/no questions (ui/confirm.js) ---------- */
+
+.confirm-dialog {
+  width: min(92vw, 420px);
+  padding: 20px;
+  border: 0;
+  border-radius: 10px;
+  background: #3a1f2e;
+  color: #fff;
+  font-family: var(--pixel);
+  text-align: center;
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.confirm-dialog::backdrop {
+  background: rgba(43, 22, 34, 0.6);
+}
+
+.confirm-dialog[open] {
+  animation: confirm-pop 0.15s steps(3);
+}
+
+@keyframes confirm-pop {
+  from {
+    transform: scale(0.85);
+  }
+}
+
+.confirm-question {
+  margin: 0 0 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--accent);
+}
+
+.confirm-detail {
+  margin: 0 0 6px;
+  font-size: 10px;
+  line-height: 1.8;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.confirm-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font: inherit;
+  font-size: 11px;
+  box-shadow: 3px 3px 0 var(--ink);
+  cursor: pointer;
+}
+
+.confirm-actions .primary {
+  background: #d63a3a;
+}
+
+.confirm-actions button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.confirm-actions button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+.confirm-actions .icon {
+  width: 1.5em;
+  height: 1.5em;
 }

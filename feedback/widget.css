@@ -232,3 +232,15 @@
   line-height: 1.8;
   padding: 32px 0;
 }
+
+.fb-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.fb-button .icon {
+  width: 1.5em;
+  height: 1.5em;
+}

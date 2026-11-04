@@ -4,23 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#a6798e" />
-    <title>Orson Brooker | Shootaround basketball game</title>
-    <meta name="description" content="Hi, I'm Orson! Play my 60 second pixel-art basketball game and see if you can beat my high score." />
+    <title>Orson Brooker</title>
+    <meta name="description" content="Hi, I'm Orson! This is my website, with my pixel-art basketball game and more games to come." />
     <link rel="canonical" href="https://orsonbrooker.com/" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Orson Brooker" />
     <meta property="og:url" content="https://orsonbrooker.com/" />
-    <meta property="og:title" content="Orson Brooker | Shootaround" />
-    <meta property="og:description" content="Play my 60 second pixel-art basketball game. Can you beat my high score?" />
+    <meta property="og:title" content="Orson Brooker" />
+    <meta property="og:description" content="Hi, I'm Orson! Play my games and see if you can beat my high score." />
     <meta property="og:image" content="https://orsonbrooker.com/og-image.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Orson Brooker in a pixel-art basketball gym" />
     <meta property="og:locale" content="en_AU" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Orson Brooker | Shootaround" />
-    <meta name="twitter:description" content="Play my 60 second pixel-art basketball game. Can you beat my high score?" />
     <meta name="twitter:image" content="https://orsonbrooker.com/og-image.jpg" />
 
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
@@ -41,42 +39,53 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-    <link rel="preload" href="assets/court.webp" as="image" />
-    <link rel="preload" href="assets/sprites.webp" as="image" />
-    <link rel="stylesheet" href="styles.css?v=14d3d5be" />
-    <link rel="stylesheet" href="feedback/widget.css?v=9d7f2564" />
+    <link rel="stylesheet" href="styles.css?v=7a0d2377" />
   </head>
   <body>
-    <header>
-      <h1>Orson Brooker</h1>
-      <p>Hi, I'm Orson! Welcome to my website. Can you beat my high score?</p>
-    </header>
+    <nav class="site-nav" data-site-nav></nav>
 
-    <main>
-      <div class="stage" id="stage" tabindex="0" aria-label="Basketball game. Press Space or tap to turn to the hoop, hold to jump, let go to shoot.">
-        <img class="court" src="assets/court.webp" alt="" width="2048" height="2048" />
-        <canvas id="game"></canvas>
-
-        <p class="sr-only">Score <span id="score">0</span>, <span id="time">60</span> seconds left</p>
-
-        <div class="sound-buttons">
-          <button id="music" type="button" aria-label="Turn music off" aria-pressed="true">♫</button>
-          <button id="mute" type="button" aria-label="Mute sound">🔊</button>
+    <main class="home">
+      <section class="intro">
+        <canvas id="orson" class="intro-orson" role="img" aria-label="Orson, in pixel art, holding a basketball"></canvas>
+        <div class="intro-bubble">
+          <h1>Hi, I'm Orson!</h1>
+          <p>Welcome to my website. I make games. Play them, make your own player, and tell me your ideas!</p>
         </div>
+      </section>
 
-        <div class="overlay" id="overlay">
-          <div class="panel">
-            <h2 id="overlay-title">Loading…</h2>
-            <p id="overlay-body"></p>
-            <div class="char-pick" id="char-pick" role="group" aria-label="Choose your player" hidden></div>
-          </div>
-        </div>
-      </div>
+      <h2 class="home-heading">My games</h2>
+      <ul class="tiles">
+        <li>
+          <a class="tile tile-game" href="/games/shootaround/">
+            <img src="assets/games/shootaround.webp" alt="" width="1200" height="675" />
+            <span class="tile-body">
+              <strong>Shootaround</strong>
+              <span>60 seconds. How many can you score?</span>
+              <span class="tile-go"><span data-icon="play"></span>Play</span>
+            </span>
+          </a>
+        </li>
+        <li>
+          <a class="tile tile-soon" href="/ideas/">
+            <span data-icon="idea"></span>
+            <strong>More games coming</strong>
+            <span>Got an idea for one? Tell me!</span>
+          </a>
+        </li>
+      </ul>
 
-      <div data-feedback="basketball"></div>
+      <h2 class="home-heading">More stuff</h2>
+      <ul class="tiles tiles-small">
+        <li>
+          <a class="tile tile-link" href="/players/"><span data-icon="players"></span><span><strong>Make your player</strong><span>Then play as them in Shootaround</span></span></a>
+        </li>
+        <li>
+          <a class="tile tile-link" href="/ideas/"><span data-icon="ideas"></span><span><strong>Ideas board</strong><span>Vote for what I make next</span></span></a>
+        </li>
+      </ul>
     </main>
 
-    <script type="module" src="game.js?v=b30ca781"></script>
-    <script type="module" src="feedback/widget.js?v=5708bba1"></script>
+    <script type="module" src="home/home.js?v=2ef2f22e"></script>
+    <script type="module" src="ui/nav.js?v=76697ca6"></script>
   </body>
 </html>

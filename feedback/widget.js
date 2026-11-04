@@ -10,6 +10,8 @@
 // The value of data-feedback is the game or app the idea is about. New games need a row in
 // the apps table first (see worker/migrations).
 
+import { icon } from "../ui/icons.js?v=e5d9ee82";
+
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = LOCAL ? "http://localhost:8787/api" : "/api";
 const STATUSES = [
@@ -169,9 +171,9 @@ function mountFeedback(node) {
 	const onBoard = location.pathname.startsWith("/ideas");
 	node.classList.add("fb-bar");
 	node.replaceChildren(
-		el("button", { type: "button", className: "fb-button fb-primary", textContent: "💡 Got an idea?", onclick: () => openForm(app, node.dataset.defaultApp) }),
+		el("button", { type: "button", className: "fb-button fb-primary", innerHTML: `${icon("idea")}<span>Got an idea?</span>`, onclick: () => openForm(app, node.dataset.defaultApp) }),
 	);
-	if (!onBoard) node.append(el("a", { className: "fb-button", href: "/ideas/", textContent: "Ideas board >" }));
+	if (!onBoard) node.append(el("a", { className: "fb-button", href: "/ideas/", innerHTML: `<span>Ideas board</span>${icon("next")}` }));
 }
 
 // ---------- Ideas board ----------
@@ -277,3 +279,6 @@ async function mountBoard(node) {
 
 document.querySelectorAll("[data-feedback]").forEach(mountFeedback);
 document.querySelectorAll("[data-ideas-board]").forEach(mountBoard);
+
+// Other parts of the page can open the form, like the game's "Got an idea?" button.
+window.addEventListener("feedback:open", (e) => openForm(e.detail?.app ?? "", e.detail?.defaultApp));

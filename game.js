@@ -5,6 +5,8 @@
 
 import { loadVoiceClips, sound } from "./audio.js?v=7b72fc5d";
 import { pickPhrase } from "./phrases.js?v=e5110e70";
+import { confirmDialog } from "./ui/confirm.js?v=0fff5e71";
+import { fillIcons, icon } from "./ui/icons.js?v=e5d9ee82";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=72f03939";
 
 const COURT_PX = 2048;
@@ -92,9 +94,13 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const scoreEl = document.getElementById("score");
 const timeEl = document.getElementById("time");
-const overlay = document.getElementById("overlay");
-const overlayTitle = document.getElementById("overlay-title");
-const overlayBody = document.getElementById("overlay-body");
+const $ = (id) => document.getElementById(id);
+const screens = { title: $("title-screen"), select: $("select-screen"), over: $("over-screen"), help: $("help-screen") };
+const tapToPlay = $("tap-to-play");
+const playerChip = $("player-chip");
+const helpButton = $("help-button");
+// Keyboards say "press Space"; touch screens say "tap".
+const HAS_KEYS = matchMedia("(hover: hover) and (pointer: fine)").matches;
 const muteBtn = document.getElementById("mute");
 const musicBtn = document.getElementById("music");
 const charPick = document.getElementById("char-pick");
@@ -140,7 +146,7 @@ sound.muted = load("orson-hoops-muted", false);
 sound.musicOn = load("orson-hoops-music", true);
 
 function syncSoundButtons() {
-  muteBtn.textContent = sound.muted ? "🔇" : "🔊";
+  muteBtn.innerHTML = icon(sound.muted ? "mute" : "sound");
   muteBtn.setAttribute("aria-label", sound.muted ? "Unmute sound" : "Mute sound");
   musicBtn.classList.toggle("off", !sound.musicOn);
   musicBtn.setAttribute("aria-label", sound.musicOn ? "Turn music off" : "Turn music on");
@@ -159,7 +165,7 @@ musicBtn.addEventListener("click", (e) => {
   syncSoundButtons();
   e.stopPropagation();
 });
-for (const btn of [muteBtn, musicBtn]) btn.addEventListener("pointerdown", (e) => e.stopPropagation());
+for (const btn of [muteBtn, musicBtn, helpButton]) btn.addEventListener("pointerdown", (e) => e.stopPropagation());
 syncSoundButtons();
 
 // ---------- Ball sprite (drawn in code so it can spin) ----------
@@ -235,6 +241,8 @@ const characters = {
   loaded: new Map(),
   selected: load("orson-hoops-character", "orson"),
 };
+// Anyone who picked a player before the select screen existed already has one saved.
+const pickedBefore = load("orson-hoops-character", null) !== null;
 
 async function loadBuilt(entry) {
   const base = (await loadBases()).find((b) => b.id === entry.base);
@@ -260,45 +268,58 @@ async function selectCharacter(id) {
   atlas = img;
   characters.selected = id;
   save("orson-hoops-character", id);
-  renderPicker();
+  renderChip();
+  if (state.phase === "select") renderPicker();
 }
 
-// Player choice, shown on the start and game-over screens.
+// A player's face for the picker and the title screen's chip.
+function setFace(img, c) {
+  img.src = c.thumb;
+  if (c.base) {
+    // Builder players: show their own colours once their base body has loaded.
+    loadBuilt(c)
+      .then(({ loaded }) => (img.src = thumbnail(loaded, c.colours).toDataURL()))
+      .catch(() => {});
+  }
+}
+
+function renderChip() {
+  const c = characters.list.find((p) => p.id === characters.selected);
+  if (!c) return;
+  setFace($("chip-face"), c);
+  $("chip-name").textContent = c.name;
+  playerChip.hidden = false;
+}
+
+// The player select screen: a card per player, then one to make your own.
 function renderPicker() {
-  const show = state.phase === "title" || state.phase === "over";
-  charPick.hidden = !show;
-  if (!show) return;
   charPick.replaceChildren(
     ...characters.list.map((c) => {
       const button = document.createElement("button");
       button.type = "button";
+      button.className = "card";
       button.setAttribute("aria-pressed", String(c.id === characters.selected));
       const img = document.createElement("img");
       img.alt = "";
-      img.src = c.thumb;
-      button.append(img, c.name);
-      if (c.base) {
-        // Builder players: show their own colours once their base body has loaded.
-        loadBuilt(c)
-          .then(({ loaded }) => (img.src = thumbnail(loaded, c.colours).toDataURL()))
-          .catch(() => {});
-      }
-      button.addEventListener("pointerdown", (e) => e.stopPropagation());
-      button.addEventListener("click", async (e) => {
-        e.stopPropagation();
+      setFace(img, c);
+      const name = document.createElement("span");
+      name.textContent = c.name;
+      button.append(img, name);
+      button.addEventListener("click", async () => {
         await selectCharacter(c.id);
-        stage.focus({ preventScroll: true }); // so Space starts the game rather than re-pressing this
+        save("orson-hoops-chosen", true);
+        stage.focus({ preventScroll: true }); // so Space plays rather than pressing this card again
+        if (selectThenPlay) startGame();
+        else showTitle();
       });
       if (!c.mine) return button;
       // Players saved on this device get a star and a way to remove them.
-      const star = Object.assign(document.createElement("span"), { className: "star", textContent: "★ " }); // not in the pixel font
-      button.lastChild.before(star);
-      const remove = Object.assign(document.createElement("button"), { type: "button", className: "remove", textContent: "✕" });
+      name.insertAdjacentHTML("afterbegin", icon("star", "Made on this device"));
+      const remove = Object.assign(document.createElement("button"), { type: "button", className: "remove", innerHTML: icon("close") });
       remove.setAttribute("aria-label", `Remove ${c.name} from this device`);
-      remove.addEventListener("pointerdown", (e) => e.stopPropagation());
-      remove.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (!confirm(`Remove ${c.name} from this device?`)) return;
+      remove.addEventListener("click", async () => {
+        if (!(await confirmDialog(`Remove ${c.name}?`, { yes: "Remove", detail: "They'll be gone from this device. You can make them again any time." })))
+          return;
         removeMyPlayer(c.id);
         characters.list = characters.list.filter((p) => p.id !== c.id);
         characters.loaded.delete(c.id);
@@ -309,9 +330,8 @@ function renderPicker() {
       card.append(button, remove);
       return card;
     }),
-    Object.assign(document.createElement("a"), { href: "/players/", className: "make-player", textContent: "+ Make your player" }),
+    Object.assign(document.createElement("a"), { href: "/players/", className: "card make-player", innerHTML: `${icon("plus")}<span>Make your player</span>` }),
   );
-  for (const a of charPick.querySelectorAll("a")) a.addEventListener("pointerdown", (e) => e.stopPropagation());
 }
 
 // Players made on this device (saved by the builder's "Play now"), then approved builder players.
@@ -401,8 +421,7 @@ function startGame() {
   player.activeBall = null;
   player.moving = false;
   setAnim("idle");
-  overlay.hidden = true;
-  renderPicker();
+  showScreen(null);
   updateHud();
   sound.gameStart();
   announce("start", "#ffffff");
@@ -427,25 +446,50 @@ function endGame() {
             ? "overMid"
             : "overLow";
   announce(verdict, "#ffe066");
-  overlayTitle.textContent = isBest && state.score > 0 ? "New high score!" : state.buzzerBeater ? "Buzzer beater!" : "Time's up!";
-  overlayBody.innerHTML =
-    (state.buzzerBeater ? "Won it at the buzzer!<br>" : "") +
-    `You scored <strong>${state.score}</strong> points. Best: ${state.best}<br>Press Space or tap to play again`;
-  overlay.hidden = false;
-  renderPicker();
+  $("over-title").textContent = isBest && state.score > 0 ? "New high score!" : state.buzzerBeater ? "Buzzer beater!" : "Time's up!";
+  $("final-score").textContent = state.score;
+  $("over-detail").textContent = (state.buzzerBeater ? "Won it at the buzzer! " : "") + `Best: ${state.best}`;
+  showScreen("over");
+}
+
+// One screen over the court at a time (or none while playing). Help sits on top of the others.
+function showScreen(name) {
+  for (const [key, el] of Object.entries(screens)) el.hidden = key !== name;
+  stage.dataset.phase = state.phase;
 }
 
 function showTitle() {
   state.phase = "title";
-  overlayTitle.textContent = "Shootaround";
-  overlayBody.innerHTML =
-    "Score as many points as you can in 60 seconds.<br>" +
-    "<strong>Tap / Space</strong>: face the hoop<br>" +
-    "<strong>Hold</strong>: jump &nbsp; <strong>Let go</strong>: shoot<br>" +
-    "Let go at the top of the jump!" +
-    (state.best ? `<br>Best: ${state.best}` : "");
-  overlay.hidden = false;
+  tapToPlay.textContent = HAS_KEYS ? "Press Space to play" : "Tap to play";
+  $("title-best").textContent = state.best ? `Best: ${state.best}` : "";
+  renderChip();
+  showScreen("title");
+}
+
+// Pick a player. The first time someone plays, this comes first and then the game starts.
+let selectThenPlay = false;
+function openSelect(thenPlay = false) {
+  selectThenPlay = thenPlay;
+  state.phase = "select";
   renderPicker();
+  showScreen("select");
+  (charPick.querySelector('[aria-pressed="true"]') ?? charPick.querySelector("button"))?.focus({ preventScroll: true });
+}
+
+let helpReturn = null;
+function openHelp() {
+  helpReturn = Object.keys(screens).find((k) => !screens[k].hidden) ?? null;
+  showScreen("help");
+  $("help-close").focus({ preventScroll: true });
+}
+function closeHelp() {
+  showScreen(helpReturn);
+  stage.focus({ preventScroll: true });
+}
+
+function begin() {
+  if (pickedBefore || load("orson-hoops-chosen", false)) startGame();
+  else openSelect(true);
 }
 
 function updateHud() {
@@ -461,7 +505,8 @@ function press() {
   state.pressed = true;
   sound.unlock();
 
-  if (state.phase === "title") startGame();
+  if (!screens.help.hidden) return;
+  if (state.phase === "title") begin();
   else if (state.phase === "over") {
     if (performance.now() - state.overAt < 900) return;
     startGame();
@@ -485,6 +530,11 @@ function release() {
 const typing = (e) => e.target instanceof Element && e.target.closest("input, textarea, select, button, dialog");
 
 window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !document.querySelector("dialog[open]")) {
+    if (!screens.help.hidden) closeHelp();
+    else if (state.phase === "select") showTitle();
+    return;
+  }
   if (e.code !== "Space" && e.key !== " ") return;
   if (typing(e)) return;
   e.preventDefault();
@@ -496,6 +546,20 @@ window.addEventListener("keyup", (e) => {
   e.preventDefault();
   release();
 });
+
+// Taps on the screens' panels and buttons are theirs, not a shot. (The title screen lets taps through.)
+for (const el of [...Object.values(screens).filter((el) => el !== screens.title), playerChip])
+  el.addEventListener("pointerdown", (e) => e.stopPropagation());
+playerChip.addEventListener("click", () => openSelect());
+$("select-back").addEventListener("click", showTitle);
+$("again").addEventListener("click", () => {
+  if (performance.now() - state.overAt > 900) startGame();
+});
+$("change-player").addEventListener("click", () => openSelect());
+$("got-idea").addEventListener("click", () => window.dispatchEvent(new CustomEvent("feedback:open", { detail: { app: "basketball" } })));
+helpButton.addEventListener("click", () => (screens.help.hidden ? openHelp() : closeHelp()));
+$("help-close").addEventListener("click", closeHelp);
+fillIcons(stage);
 
 let activePointer = null;
 stage.addEventListener("pointerdown", (e) => {
@@ -551,6 +615,10 @@ function gaussian() {
 
 // `timing` is 0 for a perfect release, negative for early and positive for late.
 function shoot(timing) {
+  if (!hints.learned && ++hints.shots >= 3) {
+    hints.learned = true;
+    save("orson-hoops-learned", true);
+  }
   const ground = project(player.u, player.v);
   const [offX, offY] = sprites.releaseOffset;
   const dirU = RIM.u - player.u;
@@ -1049,6 +1117,38 @@ function drawBanner() {
   ctx.restore();
 }
 
+// First games: what to do next, in a bubble over the player. Gone after a few shots.
+const hints = { learned: load("orson-hoops-learned", false), shots: 0 };
+function drawHint() {
+  if (hints.learned || state.phase !== "playing" || player.moving || player.fade < 1) return;
+  const text =
+    player.anim === "idle" ? (HAS_KEYS ? "Press Space to face the hoop" : "Tap to face the hoop")
+    : player.anim === "turn" || player.anim === "dribble" ? (HAS_KEYS ? "Hold Space to jump" : "Hold to jump")
+    : player.anim === "gather" || player.anim === "jump" ? "Let go at the top!"
+    : "";
+  if (!text) return;
+  const p = project(player.u, player.v);
+  ctx.save();
+  ctx.font = '34px "Press Start 2P", monospace';
+  const w = ctx.measureText(text).width + 56;
+  const x = Math.max(w / 2 + 20, Math.min(COURT_PX - w / 2 - 20, p.x));
+  const y = p.y - 520;
+  const blink = 0.85 + 0.15 * Math.sin(performance.now() / 180);
+  ctx.globalAlpha = blink;
+  ctx.fillStyle = "rgba(43, 22, 34, 0.9)";
+  ctx.beginPath();
+  ctx.roundRect(x - w / 2, y - 40, w, 80, 14);
+  ctx.moveTo(p.x - 18, y + 40);
+  ctx.lineTo(p.x, y + 66);
+  ctx.lineTo(p.x + 18, y + 40);
+  ctx.fill();
+  ctx.fillStyle = "#ffe066";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(text, x, y + 3);
+  ctx.restore();
+}
+
 function drawPopups() {
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
@@ -1189,6 +1289,7 @@ function render() {
   for (const item of items) item.draw();
 
   drawMeter();
+  drawHint();
   drawPopups();
   drawConfetti();
   drawBanner();
@@ -1262,8 +1363,7 @@ async function boot() {
     hoopFront = hoopImg;
     ballSprite = makeBallSprite();
   } catch (err) {
-    overlayTitle.textContent = "Oops!";
-    overlayBody.textContent = "The game could not load. Try refreshing the page.";
+    tapToPlay.textContent = "Oops! The game could not load. Try refreshing the page.";
     console.error(err);
     return;
   }

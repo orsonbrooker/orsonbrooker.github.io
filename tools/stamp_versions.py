@@ -11,10 +11,16 @@ import hashlib, os, re
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 # Modules imported by other scripts: (importing file, imported files). Stamped first.
-IMPORTS = [('game.js', ['audio.js', 'phrases.js', 'players/recolor.js']), ('players/builder.js', ['players/recolor.js'])]
+IMPORTS = [
+    ('ui/confirm.js', ['ui/icons.js']),  # before game.js, which imports it
+    ('game.js', ['audio.js', 'phrases.js', 'players/recolor.js', 'ui/icons.js', 'ui/confirm.js']),
+    ('players/builder.js', ['players/recolor.js']),
+    ('feedback/widget.js', ['ui/icons.js']),
+    ('ui/nav.js', ['ui/icons.js']),
+]
 # Scripts and stylesheets that pages load.
-ASSETS = ['game.js', 'styles.css', 'feedback/widget.js', 'feedback/widget.css', 'players/builder.js', 'players/builder.css']
-PAGES = ['index.html', 'ideas/index.html', 'players/index.html']
+ASSETS = ['game.js', 'styles.css', 'feedback/widget.js', 'feedback/widget.css', 'players/builder.js', 'players/builder.css', 'ui/nav.js', 'home/home.js']
+PAGES = ['index.html', 'games/shootaround/index.html', 'ideas/index.html', 'players/index.html']
 
 
 def read(name):
