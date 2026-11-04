@@ -1585,6 +1585,7 @@ async function boot() {
   resize();
   new ResizeObserver(resize).observe(stage);
   showTitle();
+  if (location.hash === "#leaderboard") openBoard("week");
   updateHud();
   requestAnimationFrame((now) => {
     last = now;
