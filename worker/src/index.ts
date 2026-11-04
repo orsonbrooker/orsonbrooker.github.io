@@ -132,10 +132,10 @@ async function listIdeas(env: Env, url: URL): Promise<Response> {
 	const device = url.searchParams.get("device");
 	const query = app
 		? env.DB.prepare(
-				"SELECT id, app, title, description, credit, status, votes FROM ideas WHERE status != 'hidden' AND app = ? ORDER BY votes DESC, id DESC",
+				"SELECT id, app, title, description, credit, status, votes, done_at FROM ideas WHERE status != 'hidden' AND app = ? ORDER BY votes DESC, id DESC",
 			).bind(app)
 		: env.DB.prepare(
-				"SELECT id, app, title, description, credit, status, votes FROM ideas WHERE status != 'hidden' ORDER BY votes DESC, id DESC",
+				"SELECT id, app, title, description, credit, status, votes, done_at FROM ideas WHERE status != 'hidden' ORDER BY votes DESC, id DESC",
 			);
 	const ideas = (await query.all()).results;
 	let voted: number[] = [];
@@ -481,7 +481,10 @@ async function editIdea(env: Env, id: number, body: Record<string, unknown>): Pr
 	const title = clean(body.title, 80);
 	if (!title) throw new HttpError(400, "Give the idea a title.");
 	const result = await env.DB.prepare(
-		"UPDATE ideas SET title = ?, description = ?, credit = ?, status = ?, updated_at = datetime('now') WHERE id = ?",
+		// done_at is when it was released: set the first time it's marked done, cleared if it's moved back.
+		`UPDATE ideas SET title = ?1, description = ?2, credit = ?3, status = ?4, updated_at = datetime('now'),
+		   done_at = CASE WHEN ?4 = 'done' THEN COALESCE(done_at, datetime('now')) ELSE NULL END
+		 WHERE id = ?5`,
 	)
 		.bind(title, clean(body.description, MAX_TEXT), clean(body.credit, MAX_NICKNAME) || null, status, id)
 		.run();

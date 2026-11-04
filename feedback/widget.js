@@ -239,8 +239,8 @@ async function mountBoard(node) {
 				const count = list.length;
 				let more = null;
 				if (status === "done") {
-					// Newest first, and only a few unless they ask for all.
-					list = [...list].sort((a, b) => b.id - a.id);
+					// Most recently released first, and only a few unless they ask for all.
+					list = [...list].sort((a, b) => (b.done_at ?? "").localeCompare(a.done_at ?? "") || b.id - a.id);
 					if (!showAllDone && count > DONE_SHOWN) {
 						list = list.slice(0, DONE_SHOWN);
 						more = el("button", {
