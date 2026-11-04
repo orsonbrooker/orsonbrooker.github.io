@@ -4,6 +4,7 @@
 //   <script type="module" src="/feedback/widget.js"></script>
 //
 //   <div data-feedback="basketball"></div>   "Got an idea?" button plus a link to the board
+//   <div data-feedback="" data-default-app="basketball"></div>   lets them pick the game, starting on this one
 //   <div data-ideas-board></div>             the full voting board (used on /ideas/)
 //
 // The value of data-feedback is the game or app the idea is about. New games need a row in
@@ -58,7 +59,7 @@ function loadTurnstile() {
 	return turnstileLoading;
 }
 
-function openForm(app) {
+function openForm(app, defaultApp) {
 	const text = el("textarea", { maxLength: 500, required: true, placeholder: "What would make it more fun?" });
 	const nickname = el("input", { type: "text", maxLength: 20, placeholder: "Optional", autocomplete: "off" });
 	// With no game set (e.g. on the ideas board), let them pick which game it's for.
@@ -131,7 +132,7 @@ function openForm(app) {
 
 	Promise.all([getConfig(), loadTurnstile()])
 		.then(([{ turnstileSiteKey, apps }, turnstile]) => {
-			picker?.append(...apps.map((a) => el("option", { value: a.slug, textContent: a.name })));
+			picker?.append(...apps.map((a) => el("option", { value: a.slug, textContent: a.name, selected: a.slug === defaultApp })));
 			widgetId = turnstile.render(check, {
 				sitekey: turnstileSiteKey,
 				theme: "dark",
@@ -147,7 +148,7 @@ function mountFeedback(node) {
 	const onBoard = location.pathname.startsWith("/ideas");
 	node.classList.add("fb-bar");
 	node.replaceChildren(
-		el("button", { type: "button", className: "fb-button fb-primary", textContent: "💡 Got an idea?", onclick: () => openForm(app) }),
+		el("button", { type: "button", className: "fb-button fb-primary", textContent: "💡 Got an idea?", onclick: () => openForm(app, node.dataset.defaultApp) }),
 	);
 	if (!onBoard) node.append(el("a", { className: "fb-button", href: "/ideas/", textContent: "Ideas board ▸" }));
 }
