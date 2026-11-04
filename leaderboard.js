@@ -75,8 +75,11 @@ function robotCheck(into) {
 }
 
 // Asks for a nickname and sends the score. Resolves with the server's answer, or null if they
-// closed it.
-export function submitScore(game) {
+// closed it. The nickname starts as:
+//   their own player's name, if they made the player they played as
+//   otherwise the nickname they typed last time
+//   otherwise the name of who they played as (say "Orson"), selected so typing replaces it
+export function submitScore(game, { playerName = "", ownPlayer = false } = {}) {
   return new Promise((resolve) => {
     const dialog = document.createElement("dialog");
     dialog.className = "fb-dialog lb-dialog";
@@ -98,7 +101,9 @@ export function submitScore(game) {
     const message = dialog.querySelector(".fb-message");
     const send = dialog.querySelector("[type=submit]");
     dialog.querySelector(".lb-score span").textContent = game.score;
-    name.value = load(NICKNAME, "");
+    const typedBefore = load(NICKNAME, "");
+    const borrowed = !ownPlayer && !typedBefore && !!playerName; // who they played as, not their own name
+    name.value = (ownPlayer ? playerName : typedBefore || playerName).slice(0, 12);
     let token = "";
     let result = null;
     robotCheck(dialog.querySelector(".fb-check"))
@@ -122,7 +127,8 @@ export function submitScore(game) {
         });
         const out = await res.json();
         if (!res.ok) throw new Error(out.error);
-        save(NICKNAME, name.value.trim());
+        // Remember a nickname they chose, not just the name of who they happened to play as.
+        if (ownPlayer || name.value.trim().toLowerCase() !== playerName.toLowerCase()) save(NICKNAME, name.value.trim());
         save(MY_SCORES, [out.id, ...load(MY_SCORES, [])].slice(0, 50));
         result = out;
         dialog.close();
@@ -137,6 +143,10 @@ export function submitScore(game) {
     });
     document.body.append(dialog);
     dialog.showModal();
+    name.focus();
+    // A borrowed name (who they played as) is selected, so typing replaces it.
+    if (borrowed) name.setSelectionRange(0, name.value.length);
+    else name.setSelectionRange(name.value.length, name.value.length);
   });
 }
 

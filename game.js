@@ -8,7 +8,7 @@ import { createFxLayer } from "./fx.js?v=1b9ca74d";
 import { pickPhrase } from "./phrases.js?v=e5110e70";
 import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
-import { renderBoard, startToken, submitScore } from "./leaderboard.js?v=f7951004";
+import { renderBoard, startToken, submitScore } from "./leaderboard.js?v=9ebf3db6";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=72f03939";
 
 const COURT_PX = 2048;
@@ -546,7 +546,7 @@ async function postScore() {
     hiddenTab: state.hiddenTab,
     version: GAME_VERSION,
     debug: DEBUG,
-  });
+  }, { playerName: c?.name ?? "", ownPlayer: !!c?.mine });
   stage.focus({ preventScroll: true });
   if (!result) return;
   post.disabled = true;
