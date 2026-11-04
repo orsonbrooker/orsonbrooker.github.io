@@ -45,7 +45,7 @@ The API is a Cloudflare Worker in `worker/` with a D1 database. Run it locally w
 
 ## Leaderboard
 
-After a game, players can put their score on Shootaround's leaderboard (top 10 this week and all time, one row per nickname per device). `leaderboard.js` sends it; the Worker checks it first. Each game gets a signed start token from the server, and the score comes with its shot log. Impossible scores are turned away: too soon after the start, a reused token, a score that doesn't add up from its shots, shots closer together than the game allows, or test (`?debug`) mode. Odd-but-possible ones (script-like timing, near-perfect accuracy, a huge jump on the device's best, lots of nicknames on one device) are held in the Scores tab at `/admin` until you put them on the board or hide them. The Monday notification counts held scores too.
+After a game, players can put their score on Shootaround's leaderboard (top 10 this week and all time, one row per nickname per device). `leaderboard.js` sends it; the Worker checks it first. Each game gets a signed start token from the server, and the score comes with its shot log. Impossible scores are turned away: too soon after the start, a reused token, a score that doesn't add up from its shots, shots closer together than the game allows, or test (`?debug`) mode. Odd-but-possible ones (script-like timing, a perfect game of 30 or more shots, a huge jump on the device's best, lots of nicknames on one device) are held in the Scores tab at `/admin` until you put them on the board or hide them. The Monday notification counts held scores too.
 
 ## Announcer voice
 

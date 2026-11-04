@@ -258,7 +258,7 @@ async function checkTurnstile(request: Request, env: Env, token: unknown) {
 // its shot log and the server checks it hangs together:
 //   rejected  impossible: a bad or reused start token, sent too soon after the game started, the
 //             score doesn't match its shots, more shots than fit in a minute, or test (?debug) mode
-//   held      odd but possible: machine-like timing, near-perfect accuracy, a huge jump on the
+//   held      odd but possible: machine-like timing, a perfect game of 30+ shots, a huge jump on the
 //             device's best, lots of nicknames. Kept off the board until Orson approves it.
 //   shown     everything else, straight away.
 
@@ -350,7 +350,8 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	const flags: string[] = [];
 	if (shots.length >= 10 && spread(shots.map((s) => s[3])) < 0.03) flags.push("Every release timed the same, like a script");
 	if (gaps.length >= 9 && spread(gaps) < 0.05) flags.push("Shots taken at a machine-like steady rhythm");
-	if (shots.length >= 20 && made / shots.length >= 0.95) flags.push(`${made} of ${shots.length} made`);
+	// Great players really do make almost everything (Orson went 28 of 29), so only a long perfect game is odd.
+	if (shots.length >= 30 && made === shots.length) flags.push(`All ${made} shots made`);
 	if ((past.best ?? 0) >= 10 && score > past.best! * 2.5) flags.push(`${Math.round(score / past.best!)}x this device's best (${past.best})`);
 	if (!past.known && past.names >= 3) flags.push(`This device has used ${past.names + 1} nicknames`);
 	const status = flags.length ? "held" : "shown";
