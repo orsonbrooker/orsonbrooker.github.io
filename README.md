@@ -53,6 +53,12 @@ The announcer's lines are made from `phrases.js` with [Chatterbox](https://githu
 
 Setup steps are at the top of `tools/build_voice.py`. Phrases without a clip use the device's voice.
 
+## Pixel effects
+
+The fire trails, flaming shoes while you're on fire, rim sparks, the swish sparkle and the buzzer-beater fireworks come from [pixelfx](https://github.com/patch-gg/pixelfx) (MIT, commit a841596), copied into `vendor/pixelfx/` with only the effects in use; the ball trail and shoe flames in `effects/` are built from its fire pieces. `fx.js` draws them on a chunky low-res layer over the court. To add one, copy its file (and any `_lib.js` it imports) from the pixelfx repo into the same folder under `vendor/pixelfx/src/fx/`, then add a method to `fx.js`.
+
+To compare versions of an effect, add them to `/lab/` (a page that plays each one on a loop over the court) and open http://localhost:8000/lab/.
+
 ## Version tags
 
 `tools/stamp_versions.py` adds a version tag to the script and stylesheet addresses so visitors get new code straight away instead of a copy cached for up to 4 hours. A git hook runs it on every commit; turn the hook on once per computer with:

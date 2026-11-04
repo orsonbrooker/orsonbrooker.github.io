@@ -13,7 +13,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 # Modules imported by other scripts: (importing file, imported files). Stamped first.
 IMPORTS = [
     ('ui/confirm.js', ['ui/icons.js']),  # before game.js, which imports it
-    ('game.js', ['audio.js', 'phrases.js', 'players/recolor.js', 'ui/icons.js', 'ui/confirm.js']),
+    ('game.js', ['fx.js', 'audio.js', 'phrases.js', 'players/recolor.js', 'ui/icons.js', 'ui/confirm.js']),
     ('players/builder.js', ['players/recolor.js']),
     ('feedback/widget.js', ['ui/icons.js']),
     ('ui/nav.js', ['ui/icons.js']),

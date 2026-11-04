@@ -4,6 +4,7 @@
 // isometric court art. Screen units are "court pixels": the 2048px court image.
 
 import { loadVoiceClips, sound } from "./audio.js?v=b614856c";
+import { createFxLayer } from "./fx.js?v=1b9ca74d";
 import { pickPhrase } from "./phrases.js?v=e5110e70";
 import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
@@ -67,8 +68,7 @@ const FIRE_LEVELS = [
     phrase: "onFire",
     stillPhrase: "stillOnFire",
     color: "#ff9f43",
-    glow: "rgba(255, 140, 40, 0.45)",
-    flame: ["#ffe066", "#ff9f43", "#ff4d2e"],
+    fx: { palette: "fire", radius: 5 },
   },
   {
     streak: 6,
@@ -77,8 +77,7 @@ const FIRE_LEVELS = [
     phrase: "purpleFire",
     stillPhrase: "stillPurpleFire",
     color: "#c77dff",
-    glow: "rgba(170, 80, 255, 0.5)",
-    flame: ["#f6d6ff", "#c77dff", "#7b2cff"],
+    fx: { palette: "purpleFire", radius: 6 },
   },
 ];
 const BANNER_SECONDS = 1.7;
@@ -92,6 +91,7 @@ const DEBUG = new URLSearchParams(location.search).has("debug");
 const stage = document.getElementById("stage");
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
+const pixelFx = createFxLayer();
 const scoreEl = document.getElementById("score");
 const timeEl = document.getElementById("time");
 const $ = (id) => document.getElementById(id);
@@ -180,23 +180,31 @@ syncSoundButtons();
 
 // ---------- Ball sprite (drawn in code so it can spin) ----------
 
-function makeBallSprite() {
+// The seams turn while the light stays put, drawn fresh for each frame so the pixels stay crisp
+// (rotating one picture smears its pixels). The seam pattern repeats every half turn.
+const BALL_FRAMES = 12;
+
+function makeBallSprite(turn) {
   const size = 16;
   const c = document.createElement("canvas");
   c.width = c.height = size;
   const g = c.getContext("2d");
   const mid = (size - 1) / 2;
+  const cos = Math.cos(turn), sin = Math.sin(turn);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const d = Math.hypot(x - mid, y - mid);
       if (d > 7.6) continue;
       let color = x + y > 19 ? "#b5501d" : "#de6d2b";
       if (Math.hypot(x - 5, y - 4.5) < 2) color = "#f39a55";
+      // the seams, in the ball's own turned frame
+      const rx = mid + (x - mid) * cos + (y - mid) * sin;
+      const ry = mid - (x - mid) * sin + (y - mid) * cos;
       const seam =
-        Math.abs(x - mid) < 0.6 ||
-        Math.abs(y - mid) < 0.6 ||
-        Math.abs(Math.hypot(x + 4, y - mid) - 9.5) < 0.6 ||
-        Math.abs(Math.hypot(x - 19, y - mid) - 9.5) < 0.6;
+        Math.abs(rx - mid) < 0.6 ||
+        Math.abs(ry - mid) < 0.6 ||
+        Math.abs(Math.hypot(rx + 4, ry - mid) - 9.5) < 0.6 ||
+        Math.abs(Math.hypot(rx - 19, ry - mid) - 9.5) < 0.6;
       if (seam) color = "#5b2a12";
       if (d > 6.7) color = "#3a1a10";
       g.fillStyle = color;
@@ -204,6 +212,10 @@ function makeBallSprite() {
     }
   }
   return c;
+}
+
+function makeBallSprites() {
+  return Array.from({ length: BALL_FRAMES }, (_, i) => makeBallSprite((i / BALL_FRAMES) * Math.PI));
 }
 
 // ---------- Game state ----------
@@ -216,7 +228,8 @@ const state = {
   overAt: 0,
   balls: [],
   popups: [],
-  particles: [],
+  shake: 0,
+  shoeFire: null,
   confetti: [],
   flash: 0,
   timeScale: 1,
@@ -238,7 +251,7 @@ const player = {
   moving: false,
 };
 
-let sprites, atlas, hoopFront, ballSprite;
+let sprites, atlas, hoopFront, ballSprites;
 
 // ---------- Characters ----------
 
@@ -417,8 +430,9 @@ function startGame() {
   state.timeLeft = GAME_SECONDS;
   state.balls = [];
   state.popups = [];
-  state.particles = [];
   state.confetti = [];
+  pixelFx.clear();
+  state.shoeFire = null;
   state.flash = 0;
   state.timeScale = 1;
   state.endAt = 0;
@@ -685,7 +699,11 @@ function shoot(timing) {
     prevZ: z,
   };
   state.balls.push(ball);
-  if (ball.fire) sound.fireWhoosh();
+  if (ball.fire) {
+    sound.fireWhoosh();
+    const p = project(u, v, z);
+    ball.trail = pixelFx.fireTrail(p.x, p.y, ball.fire.fx);
+  }
   player.activeBall = ball;
   setAnim("release");
 }
@@ -716,6 +734,7 @@ function celebrateBuzzerBeater() {
       color: ["#ffd700", "#ff6b6b", "#7cf0ff", "#ffffff", "#c77dff", "#3ddc84"][i % 6],
     });
   }
+  pixelFx.fireworks(COURT_PX);
   sound.buzzerBeater();
   announce("buzzer", "#ffd700", { big: true });
 }
@@ -757,6 +776,7 @@ function stepBall(b, dt) {
     b.z = BALL_R;
     if (b.vz < 0) {
       if (b.vz < -1) sound.bounce(-b.vz);
+      b.squash = Math.min(1, -b.vz / 7);
       b.vz = -b.vz * 0.72;
       if (b.vz < 0.5) b.vz = 0;
       b.vu *= 0.86;
@@ -811,6 +831,12 @@ function collideRim(b) {
     b.vv = tv * friction - vn * restitution * nv;
     b.vz = tz * friction - vn * restitution * nz;
     if (-vn > 0.4) sound.rim(-vn);
+    if (-vn > 1.5) {
+      const p = project(qu, qv, RIM.z);
+      const floor = project(qu, qv, 0);
+      pixelFx.spark(p.x, p.y, { floorDrop: floor.y - p.y, flip: nu - nv < 0 });
+      state.shake = Math.max(state.shake, Math.min(1, (-vn - 1.5) / 4));
+    }
     b.touchedRim = true;
   }
 }
@@ -822,6 +848,7 @@ function collideBoard(b) {
     b.v = BOARD.v + BALL_R;
     if (b.vv < 0) {
       if (b.vv < -1) sound.board(-b.vv);
+      if (b.vv < -3) state.shake = Math.max(state.shake, Math.min(0.6, (-b.vv - 3) / 6));
       b.vv = -b.vv * 0.72;
       b.vu *= 0.9;
       b.vz *= 0.9;
@@ -842,6 +869,7 @@ function scoreBasket(b) {
   addPopup(`+${points}`, b.fire?.color ?? "#ffe066", p.x, p.y - 60);
 
   const swish = !b.touchedRim && !b.touchedBoard;
+  if (swish) pixelFx.swish(p.x, p.y, b.fire ? "gold" : "cyan");
   const levelUp = FIRE_LEVELS.findIndex((l) => l.streak === state.streak);
   const fire = fireLevel();
   if (state.phase === "ending") {
@@ -978,7 +1006,11 @@ function update(dt) {
   updatePlayer(dt);
 
   for (const b of state.balls) checkDecided(b);
-  state.balls = state.balls.filter((b) => b.age < 5 && b.z > -4);
+  state.balls = state.balls.filter((b) => {
+    const keep = b.age < 5 && b.z > -4;
+    if (!keep) b.trail?.stop();
+    return keep;
+  });
 
   for (const p of state.popups) p.age += dt;
   state.popups = state.popups.filter((p) => p.age < 1.2);
@@ -988,27 +1020,34 @@ function update(dt) {
     if (state.banner.age > state.banner.duration) state.banner = null;
   }
 
-  // Flame trail (and crackle) behind balls shot while on fire.
+  // Flame trail (and crackle) behind balls shot while on fire: a pixel comet pointed along the ball's flight.
   for (const b of state.balls) {
-    if (!b.fire || b.age > 2.5) continue;
+    if (!b.trail) continue;
+    if (b.age > 2.5) {
+      b.trail.stop();
+      continue;
+    }
     if (b.age < 1.5 && Math.random() < dt * 30) sound.crackle();
     const p = project(b.u, b.v, b.z);
-    for (let i = 0; i < 4; i++) {
-      state.particles.push({
-        x: p.x + (Math.random() - 0.5) * 50,
-        y: p.y + (Math.random() - 0.5) * 50,
-        vy: -80 - Math.random() * 120,
-        colors: b.fire.flame,
-        age: 0,
-        life: 0.35 + Math.random() * 0.35,
-      });
-    }
+    b.trail.move(p.x, p.y);
   }
-  for (const p of state.particles) {
-    p.age += dt;
-    p.y += p.vy * dt;
+
+  // Flames round the player's shoes while they're on fire (hidden while they fade to a new spot).
+  const fire = state.phase === "playing" || state.phase === "ending" ? fireLevel() : null;
+  if (state.shoeFire && state.shoeFire.level !== fire) {
+    state.shoeFire.stop();
+    state.shoeFire = null;
   }
-  state.particles = state.particles.filter((p) => p.age < p.life);
+  if (fire && !state.shoeFire) {
+    state.shoeFire = pixelFx.shoeFire(shoePoints(), fire.fx.palette);
+    state.shoeFire.level = fire;
+  }
+  if (state.shoeFire) {
+    state.shoeFire.moveFeet(shoePoints());
+    state.shoeFire.hidden = player.fade < 0.6;
+  }
+  state.shake = Math.max(0, state.shake - dt * 4);
+  for (const b of state.balls) if (b.squash) b.squash = Math.max(0, b.squash - dt * 8);
 }
 
 let accumulator = 0;
@@ -1029,6 +1068,66 @@ function resize() {
   if (canvas.width !== size) {
     canvas.width = canvas.height = size;
   }
+}
+
+// Where the shoes are in each frame of a sprite sheet: for every frame, two [x, y] points (sprite pixels from the
+// frame's corner) at the bottom middle of each shoe. Found by looking at the lowest pixels in each column of the
+// bottom of the frame, skipping warm colours so the ball and skin aren't mistaken for shoes. Cached per sheet.
+const feetCache = new WeakMap();
+function shoesIn(sheet, meta) {
+  if (feetCache.has(sheet)) return feetCache.get(sheet);
+  const c = document.createElement("canvas");
+  c.width = sheet.width;
+  c.height = sheet.height;
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(sheet, 0, 0);
+  const result = {};
+  for (const [anim, frames] of Object.entries(meta.frames)) {
+    result[anim] = frames.map(([sx, sy, w, h]) => {
+      const px = g.getImageData(sx, sy, w, h).data;
+      const bottom = new Array(w).fill(-1);
+      for (let x = 0; x < w; x++) {
+        for (let y = h - 1; y >= h * 0.6; y--) {
+          const i = (y * w + x) * 4;
+          const [r, gg, b, a] = [px[i], px[i + 1], px[i + 2], px[i + 3]];
+          if (a < 128) continue;
+          if (r - b > 40 && r >= gg) continue; // warm: ball, skin
+          bottom[x] = y;
+          break;
+        }
+      }
+      // runs of columns that reach the bottom fifth of the frame
+      const runs = [];
+      for (let x = 0; x < w; x++) {
+        if (bottom[x] < h * 0.8) continue;
+        const run = runs.at(-1);
+        if (run && x - run.x1 <= 2) run.x1 = x;
+        else runs.push({ x0: x, x1: x });
+      }
+      let feet = runs.filter((r) => r.x1 - r.x0 >= 3).sort((a, b) => b.x1 - b.x0 - (a.x1 - a.x0)).slice(0, 2);
+      if (feet.length === 1) {
+        const { x0, x1 } = feet[0], m = (x0 + x1) >> 1;
+        feet = [{ x0, x1: m }, { x0: m + 1, x1 }];
+      }
+      if (!feet.length) return [[w * 0.35, h], [w * 0.65, h]];
+      return feet
+        .map(({ x0, x1 }) => [(x0 + x1) / 2, Math.max(...bottom.slice(x0, x1 + 1))])
+        .sort((a, b) => a[0] - b[0]);
+    });
+  }
+  feetCache.set(sheet, result);
+  return result;
+}
+
+// The player's shoes right now, in court pixels.
+function shoePoints() {
+  const [, , , , ox, oy] = currentFrame();
+  const scale = 1 / sprites.res;
+  const p = project(player.u, player.v);
+  const frames = sprites.frames[player.anim];
+  const i = frames.indexOf(currentFrame());
+  const feet = shoesIn(atlas, sprites)[player.anim][i];
+  return feet.map(([x, y]) => [p.x + (ox + x) * scale, p.y + (oy + y) * scale]);
 }
 
 function currentFrame() {
@@ -1061,18 +1160,15 @@ function drawBall(b) {
   const p = project(b.u, b.v, b.z);
   const size = BALL_R * PX_PER_M * 2.6;
   const fade = b.age > 4.5 ? Math.max(0, (5 - b.age) / 0.5) : 1;
+  const turns = (((-b.spin / Math.PI) % 1) + 1) % 1;
+  const sprite = ballSprites[Math.floor(turns * BALL_FRAMES) % BALL_FRAMES];
+  // squashed flat for a moment after a floor bounce, sitting on the floor
+  const sq = (b.squash ?? 0) * 0.35;
+  const w = size * (1 + sq), h = size * (1 - sq);
   ctx.save();
   ctx.globalAlpha = fade;
-  ctx.translate(p.x, p.y);
-  if (b.fire && b.age < 2.5) {
-    ctx.fillStyle = b.fire.glow;
-    ctx.beginPath();
-    ctx.arc(0, 0, size * 0.8, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.rotate(b.spin);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(ballSprite, -size / 2, -size / 2, size, size);
+  ctx.drawImage(sprite, p.x - w / 2, p.y + size / 2 - h, w, h);
   ctx.restore();
 }
 
@@ -1094,20 +1190,6 @@ function drawMeter() {
   ctx.fillRect(x, zoneTop, 24, zoneH);
   ctx.fillStyle = "#fff";
   ctx.fillRect(x - 6, top + height * (1 - fill) - 4, 36, 8);
-}
-
-function drawFire() {
-  if (!state.particles.length) return;
-  ctx.save();
-  ctx.globalCompositeOperation = "lighter";
-  for (const p of state.particles) {
-    const t = p.age / p.life;
-    const size = 44 * (1 - t) + 8;
-    ctx.fillStyle = p.colors[t < 0.3 ? 0 : t < 0.6 ? 1 : 2];
-    ctx.globalAlpha = 1 - t;
-    ctx.fillRect(p.x - size / 2, p.y - size / 2, size, size);
-  }
-  ctx.restore();
 }
 
 function drawConfetti() {
@@ -1292,6 +1374,10 @@ function render() {
   const k = canvas.width / COURT_PX;
   ctx.setTransform(k, 0, 0, k, 0, 0);
   ctx.clearRect(0, 0, COURT_PX, COURT_PX);
+  if (state.shake > 0) {
+    const amp = state.shake * state.shake * 14;
+    ctx.translate(Math.round((Math.random() - 0.5) * amp), Math.round((Math.random() - 0.5) * amp));
+  }
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
@@ -1306,7 +1392,7 @@ function render() {
     drawShadow(b.u, b.v, 30 / (1 + lift * 0.15), 12 / (1 + lift * 0.15), 0.3 / (1 + lift * 0.3));
   }
 
-  drawFire(); // behind the ball, so the trail streams out from it
+  pixelFx.draw(ctx, "under"); // fire trails behind the balls, floor flames behind the player
 
   // Back to front by isometric depth (u + v).
   const items = [{ depth: player.u + player.v, draw: drawPlayer }];
@@ -1319,6 +1405,7 @@ function render() {
   drawHint();
   drawPopups();
   drawConfetti();
+  pixelFx.draw(ctx, "over");
   drawBanner();
   if (state.flash > 0) {
     ctx.fillStyle = `rgba(255, 255, 255, ${state.flash * 0.6})`;
@@ -1341,6 +1428,7 @@ function updateSlowMo(dt) {
 
 function updateCelebration(dt) {
   state.flash = Math.max(0, state.flash - dt * 2.5);
+  pixelFx.update(dt);
   for (const c of state.confetti) {
     c.vy += 300 * dt;
     c.vx *= 1 - dt;
@@ -1388,13 +1476,13 @@ async function boot() {
       document.fonts?.load('48px "Press Start 2P"').catch(() => {}),
     ]);
     hoopFront = hoopImg;
-    ballSprite = makeBallSprite();
+    ballSprites = makeBallSprites();
   } catch (err) {
     tapToPlay.textContent = "Oops! The game could not load. Try refreshing the page.";
     console.error(err);
     return;
   }
-  if (DEBUG) window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter };
+  if (DEBUG) window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter, pixelFx, celebrateBuzzerBeater };
   resize();
   new ResizeObserver(resize).observe(stage);
   showTitle();

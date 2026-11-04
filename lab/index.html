@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Effects Lab</title>
+    <style>
+      body { margin: 0; background: #2b1622; color: #f6e9ef; font: 14px system-ui, sans-serif; }
+      main { max-width: 1200px; margin: 0 auto; padding: 16px; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      p { margin: 0 0 12px; color: #d9c2cd; }
+      .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+      figure { margin: 0; background: #1c0e17; border-radius: 8px; overflow: hidden; }
+      canvas { display: block; width: 100%; aspect-ratio: 1; image-rendering: pixelated; cursor: pointer; }
+      figcaption { padding: 8px 10px; }
+      label { display: inline-flex; gap: 6px; align-items: center; margin-right: 12px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Effects lab</h1>
+      <p>Each box plays an effect over a piece of the court, on a loop. Click a box to replay it. Pick the version you like best.</p>
+      <p>
+        <label><input type="checkbox" id="slow" /> Slow motion</label>
+      </p>
+      <div class="grid" id="grid"></div>
+    </main>
+    <script type="module">
+      import { createFxLayer } from "../fx.js";
+
+      const SIZE = 1024; // court pixels shown in each box (the middle of the court, round the hoop)
+      const court = new Image();
+      court.src = "../assets/court.webp";
+      const slow = document.getElementById("slow");
+
+      // Each variant: a name and a play(fx) that starts it at the box's centre. Trails fly round in a circle.
+      const C = SIZE / 2;
+      const variants = [
+        ["Fire trail (level 1)", (fx) => ({ trail: fx.fireTrail(C, C, { palette: "fire", radius: 5 }) })],
+        ["Fire trail (level 2)", (fx) => ({ trail: fx.fireTrail(C, C, { palette: "purpleFire", radius: 6 }) })],
+        ["Fire trail, smaller", (fx) => ({ trail: fx.fireTrail(C, C, { palette: "fire", radius: 4 }) })],
+        ["Shoe fire (level 1)", (fx) => fx.shoeFire([[C - 40, C + 150], [C + 40, C + 140]], "fire")],
+        ["Shoe fire (level 2)", (fx) => fx.shoeFire([[C - 40, C + 150], [C + 40, C + 140]], "purpleFire")],
+        ["Rim spark", (fx) => fx.spark(C, C - 100, { floorDrop: 400 })],
+        ["Swish sparkle (cyan)", (fx) => fx.swish(C, C, "cyan")],
+        ["Swish sparkle (gold)", (fx) => fx.swish(C, C, "gold")],
+        ["Fireworks", (fx) => fx.fireworks(SIZE)],
+      ];
+
+      const boxes = variants.map(([name, play]) => {
+        const fig = document.createElement("figure");
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 512;
+        const cap = document.createElement("figcaption");
+        cap.textContent = name;
+        fig.append(canvas, cap);
+        document.getElementById("grid").append(fig);
+        const box = { canvas, ctx: canvas.getContext("2d"), fx: createFxLayer(), play, t: 0, run: null };
+        box.start = () => {
+          box.fx.clear();
+          box.t = 0;
+          box.run = play(box.fx) ?? null;
+        };
+        canvas.addEventListener("click", box.start);
+        box.start();
+        return box;
+      });
+
+      let last = performance.now();
+      function frame(now) {
+        const dt = Math.min(0.05, (now - last) / 1000) * (slow.checked ? 0.2 : 1);
+        last = now;
+        for (const b of boxes) {
+          b.t += dt;
+          if (b.run?.trail) {
+            // a shot's arc: across the box, up and over, every 1.4 seconds
+            const u = (b.t % 1.4) / 1.4;
+            b.run.trail.move(SIZE * (0.85 - 0.7 * u), SIZE * (0.8 - 1.9 * u + 1.6 * u * u));
+          }
+          b.fx.update(dt);
+          if (b.t > (b.run?.trail ? 6 : 4)) b.start();
+          const k = b.canvas.width / SIZE;
+          b.ctx.setTransform(k, 0, 0, k, 0, 0);
+          b.ctx.imageSmoothingEnabled = true;
+          if (court.complete) b.ctx.drawImage(court, 400, 350, SIZE, SIZE, 0, 0, SIZE, SIZE);
+          else b.ctx.clearRect(0, 0, SIZE, SIZE);
+          b.fx.draw(b.ctx, "under");
+          b.fx.draw(b.ctx, "over");
+        }
+        requestAnimationFrame(frame);
+      }
+      requestAnimationFrame(frame);
+    </script>
+  </body>
+</html>
