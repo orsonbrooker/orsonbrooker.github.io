@@ -8,6 +8,7 @@ import { createFxLayer } from "./fx.js?v=1b9ca74d";
 import { pickPhrase } from "./phrases.js?v=e5110e70";
 import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
+import { renderBoard, startToken, submitScore } from "./leaderboard.js?v=2873bba9";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=72f03939";
 
 const COURT_PX = 2048;
@@ -95,7 +96,7 @@ const pixelFx = createFxLayer();
 const scoreEl = document.getElementById("score");
 const timeEl = document.getElementById("time");
 const $ = (id) => document.getElementById(id);
-const screens = { title: $("title-screen"), select: $("select-screen"), over: $("over-screen"), help: $("help-screen") };
+const screens = { title: $("title-screen"), select: $("select-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen") };
 const tapToPlay = $("tap-to-play");
 const playerChip = $("player-chip");
 const helpButton = $("help-button");
@@ -168,7 +169,7 @@ musicBtn.addEventListener("click", (e) => {
 });
 // Browsers only allow sound after a tap or key press: the first one anywhere starts the music.
 for (const type of ["pointerdown", "keydown"]) window.addEventListener(type, () => sound.unlock(), { capture: true, once: true });
-for (const btn of [muteBtn, musicBtn, helpButton]) btn.addEventListener("pointerdown", (e) => e.stopPropagation());
+for (const btn of [muteBtn, musicBtn, helpButton, $("board-button")]) btn.addEventListener("pointerdown", (e) => e.stopPropagation());
 // Clicked with a mouse or finger, the sound buttons hand focus back to the game, or Space would
 // keep pressing them instead of shooting. (Keyboard users who tabbed to them keep their place.)
 for (const btn of [muteBtn, musicBtn]) {
@@ -239,6 +240,12 @@ const state = {
   streak: 0, // makes in a row
   coldStreak: 0, // misses in a row
   pressed: false,
+  // For the leaderboard: each shot as [seconds in, 3-pointer, made, release timing], the game's
+  // start token from the server, how it was played, and whether the tab was hidden mid-game.
+  shotLog: [],
+  gameToken: null,
+  input: "touch",
+  hiddenTab: false,
 };
 
 const player = {
@@ -264,8 +271,12 @@ const characters = {
   loaded: new Map(),
   selected: load("orson-hoops-character", "orson"),
 };
-// Anyone who picked a player before the select screen existed already has one saved.
-const pickedBefore = load("orson-hoops-character", null) !== null;
+// Whether to skip the player select on the first press. The saved player can't tell us (it's saved
+// on every page load, picked or not), so: they picked one, made one in the builder, or have
+// played before (a best score or the first-shot hints done).
+function hasChosenPlayer() {
+  return load("orson-hoops-chosen", false) || load("orson-hoops-best", null) !== null || load("orson-hoops-learned", false);
+}
 
 async function loadBuilt(entry) {
   const base = (await loadBases()).find((b) => b.id === entry.base);
@@ -437,6 +448,13 @@ function startGame() {
   state.flash = 0;
   state.timeScale = 1;
   state.endAt = 0;
+  state.shotLog = [];
+  state.hiddenTab = false;
+  state.gameToken = null;
+  const game = ++gamesStarted;
+  startToken().then((token) => {
+    if (game === gamesStarted) state.gameToken = token;
+  });
   state.buzzerBeater = false;
   state.streak = 0;
   state.coldStreak = 0;
@@ -474,6 +492,10 @@ function endGame() {
   $("over-title").textContent = isBest && state.score > 0 ? "New high score!" : state.buzzerBeater ? "Buzzer beater!" : "Time's up!";
   $("final-score").textContent = state.score;
   $("over-detail").textContent = (state.buzzerBeater ? "Won it at the buzzer! " : "") + `Best: ${state.best}`;
+  const post = $("post-score");
+  post.hidden = DEBUG || state.score < 1;
+  post.disabled = false;
+  post.lastChild.textContent = "Put it on the leaderboard";
   showScreen("over");
 }
 
@@ -501,6 +523,68 @@ function openSelect(thenPlay = false) {
   (charPick.querySelector('[aria-pressed="true"]') ?? charPick.querySelector("button"))?.focus({ preventScroll: true });
 }
 
+let gamesStarted = 0;
+
+// ---------- Leaderboard ----------
+
+const GAME_VERSION = new URL(import.meta.url).searchParams.get("v");
+
+async function postScore() {
+  const post = $("post-score");
+  if (!state.gameToken) {
+    post.lastChild.textContent = "The leaderboard can't be reached";
+    post.disabled = true;
+    return;
+  }
+  const c = characters.list.find((p) => p.id === characters.selected);
+  const result = await submitScore({
+    token: state.gameToken,
+    score: state.score,
+    shots: state.shotLog,
+    player: characters.selected,
+    base: c?.base ?? null,
+    input: state.input,
+    hiddenTab: state.hiddenTab,
+    version: GAME_VERSION,
+    debug: DEBUG,
+  }, { playerName: c?.name ?? "", ownPlayer: !!c?.mine });
+  stage.focus({ preventScroll: true });
+  if (!result) return;
+  post.disabled = true;
+  if (result.status === "shown") {
+    post.lastChild.textContent = result.rank ? `#${result.rank} this week!` : "On the leaderboard!";
+    openBoard("week");
+  } else {
+    post.lastChild.textContent = "Sent! Orson will check it first";
+  }
+}
+
+// Leaderboard rows show the face of who they played as.
+function boardFace(row, img) {
+  const c = characters.list.find((p) => p.id === row.player);
+  if (c) return setFace(img, c);
+  img.src = characters.list[0].thumb;
+  if (row.base)
+    loadBases()
+      .then((bases) => {
+        const base = bases.find((b) => b.id === row.base);
+        if (base) img.src = "/" + base.thumb;
+      })
+      .catch(() => {});
+}
+
+let boardReturn = null;
+function openBoard(range = "week") {
+  if (screens.board.hidden) boardReturn = Object.keys(screens).find((k) => !screens[k].hidden) ?? null;
+  for (const tab of screens.board.querySelectorAll("[data-range]")) tab.setAttribute("aria-selected", String(tab.dataset.range === range));
+  showScreen("board");
+  renderBoard($("board-list"), $("board-note"), range, boardFace);
+}
+function closeBoard() {
+  showScreen(boardReturn === "board" ? "title" : boardReturn);
+  stage.focus({ preventScroll: true });
+}
+
 let helpReturn = null;
 function openHelp() {
   helpReturn = Object.keys(screens).find((k) => !screens[k].hidden) ?? null;
@@ -513,7 +597,7 @@ function closeHelp() {
 }
 
 function begin() {
-  if (pickedBefore || load("orson-hoops-chosen", false)) startGame();
+  if (hasChosenPlayer()) startGame();
   else openSelect(true);
 }
 
@@ -557,12 +641,14 @@ const typing = (e) => e.target instanceof Element && e.target.closest("input, te
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !document.querySelector("dialog[open]")) {
     if (!screens.help.hidden) closeHelp();
+    else if (!screens.board.hidden) closeBoard();
     else if (state.phase === "select") showTitle();
     return;
   }
   if (e.code !== "Space" && e.key !== " ") return;
   if (typing(e)) return;
   e.preventDefault();
+  state.input = "keyboard";
   if (!e.repeat) press();
 });
 window.addEventListener("keyup", (e) => {
@@ -584,6 +670,13 @@ $("change-player").addEventListener("click", () => openSelect());
 $("got-idea").addEventListener("click", () => window.dispatchEvent(new CustomEvent("feedback:open", { detail: { app: "basketball" } })));
 helpButton.addEventListener("click", () => (screens.help.hidden ? openHelp() : closeHelp()));
 $("help-close").addEventListener("click", closeHelp);
+$("post-score").addEventListener("click", postScore);
+$("board-button").addEventListener("click", () => (screens.board.hidden ? openBoard() : closeBoard()));
+$("board-back").addEventListener("click", closeBoard);
+for (const tab of screens.board.querySelectorAll("[data-range]")) tab.addEventListener("click", () => openBoard(tab.dataset.range));
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && state.phase === "playing") state.hiddenTab = true;
+});
 fillIcons(stage);
 
 // The whole game area takes presses, not just the court: on a phone there's room below the
@@ -595,6 +688,7 @@ const OWN_TAPS = "a, button, input, select, textarea, dialog, .panel-screen";
 let activePointer = null;
 pad.addEventListener("pointerdown", (e) => {
   if (e.pointerType === "mouse" && e.button !== 0) return;
+  if (!e.target.closest(OWN_TAPS)) state.input = e.pointerType === "mouse" ? "mouse" : "touch";
   if (activePointer !== null || e.target.closest(OWN_TAPS)) return;
   activePointer = e.pointerId;
   try {
@@ -704,6 +798,10 @@ function shoot(timing) {
     sound.fireWhoosh();
     const p = project(u, v, z);
     ball.trail = pixelFx.fireTrail(p.x, p.y, ball.fire.fx);
+  }
+  if (state.phase === "playing") {
+    ball.log = [Math.round((GAME_SECONDS - state.timeLeft) * 100) / 100, ball.three ? 1 : 0, 0, Math.round(clamped * 1000) / 1000];
+    state.shotLog.push(ball.log);
   }
   player.activeBall = ball;
   setAnim("release");
@@ -861,6 +959,7 @@ function collideBoard(b) {
 function scoreBasket(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
   const points = (b.three ? 3 : 2) + (b.fire?.bonus ?? 0);
+  if (b.log) b.log[2] = 1;
   state.score += points;
   state.streak++;
   state.coldStreak = 0;
@@ -1494,6 +1593,7 @@ async function boot() {
   resize();
   new ResizeObserver(resize).observe(stage);
   showTitle();
+  if (location.hash === "#leaderboard") openBoard("week");
   updateHud();
   requestAnimationFrame((now) => {
     last = now;

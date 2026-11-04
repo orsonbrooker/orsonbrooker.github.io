@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#a6798e" />
+    <meta name="robots" content="noindex" />
+    <title>Airball! Page not found | Orson Brooker</title>
+    <link rel="icon" href="/favicon.ico?v=2" sizes="48x48" />
+    <link rel="icon" href="/icons/favicon-32.png?v=2" type="image/png" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=2" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+    <!-- GitHub Pages shows this page for any address that doesn't exist, at any depth, so every path here starts with /. -->
+    <link rel="stylesheet" href="/styles.css?v=58c6ab9a" />
+  </head>
+  <body>
+    <nav class="site-nav" data-site-nav></nav>
+
+    <main class="lost">
+      <p class="lost-code" aria-hidden="true"><span>4</span><span class="lost-ball"></span><span>4</span></p>
+      <h1 id="lost-call">Airball!</h1>
+      <p class="lost-line" id="lost-line">This page missed the hoop completely. It isn't here.</p>
+
+      <canvas id="lost-court" class="lost-court" width="240" height="140" role="img" aria-label="Orson shooting at a hoop and missing"></canvas>
+      <p class="lost-hint" id="lost-hint">Tap to take another shot</p>
+      <p class="lost-tally" id="lost-tally"></p>
+
+      <div class="lost-actions">
+        <a class="tile-go" href="/games/shootaround/"><span data-icon="play"></span>Play Shootaround</a>
+        <a class="lost-home" href="/"><span data-icon="home"></span>Go home</a>
+      </div>
+    </main>
+
+    <script type="module">
+      // A tiny shootaround of its own: Orson shoots at a hoop, mostly missing (the page did too).
+      // Drawn small and scaled up, so everything stays chunky pixel art.
+      const canvas = document.getElementById("lost-court");
+      const ctx = canvas.getContext("2d");
+      const W = canvas.width;
+      const H = canvas.height;
+      const FLOOR = 124;
+      const FEET = { x: 52, y: FLOOR + 4 }; // where Orson stands
+      let HAND = { x: 68, y: 14 }; // where the ball leaves his hands (worked out from the sprites once they load)
+      let K = 0.3; // sprite pixels to canvas pixels
+      const JUMP_TICKS = 28; // his jump, ball overhead, before he lets go
+      const RIM = { x: 196, y: 52, r: 10 }; // middle and half-width of the rim
+      const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      const CALLS = {
+        airball: [
+          ["Airball!", "This page missed the hoop completely. It isn't here."],
+          ["Airball!", "Not even close. Neither is the page you wanted."],
+          ["Air... ball?", "That shot is as lost as this page."],
+        ],
+        clank: [
+          ["Clank!", "Off the rim. So close, but this page still isn't here."],
+          ["Brick!", "Rattled out. Like that link."],
+          ["In and out!", "Heartbreaker. The page is still missing though."],
+        ],
+        swish: [
+          ["Swish!", "Nothing but net! Still no page here though."],
+          ["He's heating up!", "Great shot. Wrong address."],
+        ],
+      };
+      const pick = (list) => list[Math.floor(Math.random() * list.length)];
+
+      // Orson, from the game's own sprite sheet.
+      let orson = null;
+      Promise.all([
+        fetch("/assets/sprites.json").then((r) => r.json()),
+        new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = "/assets/sprites.webp";
+        }),
+      ])
+        .then(([meta, img]) => {
+          orson = { frames: meta.frames, img };
+          K = 100 / meta.frames.idle[0][3];
+          // The game's release point, mirrored: he shoots to the right here.
+          const [rx, ry] = meta.releaseOffset;
+          HAND = { x: FEET.x - rx * meta.res * K, y: FEET.y + ry * meta.res * K };
+        })
+        .catch(() => {});
+
+      // One of his animation frames, standing at FEET. The shooting frames face away from us and
+      // shoot to the left in the game, so they're flipped to shoot at this hoop.
+      function drawOrson(name, i, flip = false) {
+        if (!orson) return;
+        const [sx, sy, w, h, ox, oy] = orson.frames[name][Math.min(i, orson.frames[name].length - 1)];
+        ctx.save();
+        ctx.imageSmoothingEnabled = true;
+        ctx.translate(flip ? FEET.x - ox * K : FEET.x + ox * K, FEET.y + oy * K);
+        if (flip) ctx.scale(-1, 1);
+        ctx.drawImage(orson.img, sx, sy, w, h, 0, 0, w * K, h * K);
+        ctx.restore();
+      }
+
+      function drawCourt() {
+        ctx.clearRect(0, 0, W, H);
+        // Floor boards and a line.
+        ctx.fillStyle = "#c98a4b";
+        ctx.fillRect(0, FLOOR, W, H - FLOOR);
+        ctx.fillStyle = "#b5773c";
+        for (let x = 0; x < W; x += 24) ctx.fillRect(x, FLOOR, 1, H - FLOOR);
+        ctx.fillStyle = "#f2efe6";
+        ctx.fillRect(0, FLOOR + 6, W, 2);
+        // Pole, backboard and rim.
+        ctx.fillStyle = "#5b5f6e";
+        ctx.fillRect(222, 30, 4, FLOOR - 30);
+        ctx.fillRect(208, 40, 16, 3);
+        ctx.fillStyle = "#e8f4ff";
+        ctx.fillRect(206, 18, 4, 40);
+        ctx.fillStyle = "#2b1622";
+        ctx.fillRect(205, 18, 1, 40);
+        // Net, a few crossing pixel lines.
+        ctx.fillStyle = "#f2efe6";
+        for (let i = 0; i < 6; i++) {
+          ctx.fillRect(RIM.x - 9 + i * 3, RIM.y + 2 + (i % 2), 1, 10 - Math.abs(i - 2.5) * 2);
+        }
+        ctx.fillRect(RIM.x - 7, RIM.y + 6, 14, 1);
+        // The rim's back half (the front is drawn over the ball).
+        ctx.fillStyle = "#b8321f";
+        ctx.fillRect(RIM.x - RIM.r, RIM.y - 1, RIM.r * 2, 1);
+      }
+
+      function drawRimFront() {
+        ctx.fillStyle = "#d63a3a";
+        ctx.fillRect(RIM.x - RIM.r - 1, RIM.y, RIM.r * 2 + 2, 2);
+      }
+
+      function drawBall(x, y, turn) {
+        ctx.fillStyle = "rgba(43, 22, 34, 0.25)";
+        ctx.fillRect(Math.round(x) - 3, FLOOR + 2, 7, 2); // its shadow on the floor
+        ctx.save();
+        ctx.translate(Math.round(x), Math.round(y));
+        ctx.fillStyle = "#e8742c";
+        ctx.fillRect(-3, -4, 7, 9);
+        ctx.fillRect(-4, -3, 9, 7);
+        ctx.fillStyle = "#2b1622";
+        const seam = Math.round(Math.sin(turn) * 2);
+        ctx.fillRect(seam, -4, 1, 9);
+        ctx.fillRect(-4, 0, 9, 1);
+        ctx.fillStyle = "#ffb27a";
+        ctx.fillRect(-2, -3, 2, 1);
+        ctx.restore();
+      }
+
+      // A shot is a list of points: up and over towards the hoop, then what happens next.
+      function plan(kind) {
+        const pts = [];
+        const arc = (from, to, peak, steps) => {
+          for (let i = 1; i <= steps; i++) {
+            const t = i / steps;
+            pts.push({ x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t - peak * 4 * t * (1 - t) });
+          }
+        };
+        const bounceAway = (from, dir) => {
+          let { x, y } = from;
+          let vx = dir * 1.6;
+          let vy = -1.4;
+          for (let i = 0; i < 120 && x > -10 && x < W + 10; i++) {
+            vy += 0.18;
+            x += vx;
+            y += vy;
+            if (y > FLOOR - 1) {
+              y = FLOOR - 1;
+              vy *= -0.55;
+              vx *= 0.8;
+              if (Math.abs(vy) < 0.6) break;
+            }
+            pts.push({ x, y });
+          }
+        };
+        if (kind === "airball") {
+          const land = { x: 150 + Math.random() * 30, y: FLOOR - 1 };
+          arc(HAND, land, 40, 46);
+          bounceAway(land, 1);
+        } else if (kind === "clank") {
+          const hit = { x: RIM.x - RIM.r, y: RIM.y - 2 };
+          arc(HAND, hit, 24, 44);
+          bounceAway(hit, -1);
+        } else {
+          const top = { x: RIM.x, y: RIM.y - 3 };
+          arc(HAND, top, 24, 46);
+          for (let y = RIM.y; y < FLOOR - 1; y += 2.4) pts.push({ x: RIM.x, y });
+          bounceAway({ x: RIM.x, y: FLOOR - 1 }, -0.5);
+        }
+        return pts;
+      }
+
+      let shot = null;
+      let frameCount = 0;
+      const tally = { shots: 0, makes: 0 };
+      function shoot(kind) {
+        kind ??= Math.random() < 0.22 ? "swish" : Math.random() < 0.5 ? "clank" : "airball";
+        shot = { kind, pts: plan(kind), t: 0, called: false };
+        tally.shots++;
+      }
+
+      function call(kind) {
+        const [title, line] = pick(CALLS[kind]);
+        document.getElementById("lost-call").textContent = title;
+        document.getElementById("lost-line").textContent = line;
+        if (kind === "swish") tally.makes++;
+        document.getElementById("lost-tally").textContent = `${tally.makes} of ${tally.shots} made`;
+      }
+
+      function frame() {
+        frameCount++;
+        drawCourt();
+        if (!shot) {
+          drawOrson("idle", Math.floor(frameCount / 20) % 3); // holding the ball, breathing
+        } else if (shot.t < JUMP_TICKS) {
+          drawOrson("jump", Math.floor(shot.t / 4), true); // up he goes, ball overhead
+          shot.t++;
+        } else {
+          const i = shot.t - JUMP_TICKS;
+          drawOrson("release", Math.floor(i / 4), true); // follow-through until the ball is back
+          const p = shot.pts[Math.min(i, shot.pts.length - 1)];
+          drawBall(p.x, p.y, i / 3);
+          // Call it as it's decided: at the floor for an airball, at the rim otherwise.
+          if (!shot.called && i >= 46) {
+            shot.called = true;
+            call(shot.kind);
+          }
+          shot.t++;
+          if (i > shot.pts.length + 40) shot = null;
+        }
+        drawRimFront();
+        if (!still) requestAnimationFrame(frame);
+      }
+
+      canvas.addEventListener("click", () => {
+        if (still) {
+          // No animation: just call a new shot.
+          const kind = Math.random() < 0.22 ? "swish" : Math.random() < 0.5 ? "clank" : "airball";
+          tally.shots++;
+          call(kind);
+          return;
+        }
+        if (!shot) shoot();
+      });
+
+      if (still) {
+        const draw = () => {
+          drawCourt();
+          drawOrson("idle", 0);
+          drawRimFront();
+        };
+        draw();
+        setTimeout(draw, 800); // again once his sprite has loaded
+      } else {
+        // The first shot is always an airball, to match the headline.
+        setTimeout(() => shoot("airball"), 600);
+        requestAnimationFrame(frame);
+      }
+    </script>
+    <script type="module" src="/ui/nav.js?v=718654c5"></script>
+  </body>
+</html>

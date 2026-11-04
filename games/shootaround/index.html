@@ -47,8 +47,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
     <link rel="preload" href="assets/court.webp" as="image" />
     <link rel="preload" href="assets/sprites.webp" as="image" />
-    <link rel="stylesheet" href="styles.css?v=3a671c8f" />
-    <link rel="stylesheet" href="feedback/widget.css?v=b1eb1d81" />
+    <link rel="stylesheet" href="styles.css?v=58c6ab9a" />
+    <link rel="stylesheet" href="feedback/widget.css?v=2134607c" />
   </head>
   <body>
     <nav class="site-nav" data-site-nav></nav>
@@ -61,6 +61,7 @@
         <p class="sr-only">Score <span id="score">0</span>, <span id="time">60</span> seconds left</p>
 
         <div class="sound-buttons">
+          <button id="board-button" type="button" aria-label="Leaderboard"><span data-icon="trophy"></span></button>
           <button id="help-button" type="button" aria-label="How to play"><span data-icon="help"></span></button>
           <button id="music" type="button" aria-label="Turn music off" aria-pressed="true"><span data-icon="music"></span></button>
           <button id="mute" type="button" aria-label="Mute sound"><span data-icon="sound"></span></button>
@@ -99,9 +100,26 @@
             <p id="over-detail"></p>
             <div class="over-actions">
               <button class="primary" id="again" type="button"><span data-icon="again"></span>Play again</button>
+              <button class="post-score" id="post-score" type="button" hidden><span data-icon="trophy"></span><span>Put it on the leaderboard</span></button>
               <button id="change-player" type="button"><span data-icon="players"></span>Change player</button>
               <button id="got-idea" type="button"><span data-icon="idea"></span>Got an idea?</button>
             </div>
+          </div>
+        </div>
+
+        <!-- Leaderboard. -->
+        <div class="screen panel-screen" id="board-screen" hidden>
+          <div class="panel board-panel">
+            <div class="select-head">
+              <button class="screen-back" id="board-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+              <h2>Leaderboard</h2>
+            </div>
+            <div class="board-tabs" role="tablist">
+              <button type="button" role="tab" data-range="week" aria-selected="true">This week</button>
+              <button type="button" role="tab" data-range="all" aria-selected="false">All time</button>
+            </div>
+            <ol class="board-list" id="board-list"></ol>
+            <p class="board-note" id="board-note"></p>
           </div>
         </div>
 
@@ -121,8 +139,8 @@
       </div>
     </main>
 
-    <script type="module" src="game.js?v=3bd7e8aa"></script>
-    <script type="module" src="feedback/widget.js?v=66352c58"></script>
+    <script type="module" src="game.js?v=6b0d1d44"></script>
+    <script type="module" src="feedback/widget.js?v=637a3431"></script>
     <script type="module" src="ui/nav.js?v=718654c5"></script>
   </body>
 </html>

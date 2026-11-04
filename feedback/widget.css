@@ -290,3 +290,46 @@
   width: 1.5em;
   height: 1.5em;
 }
+
+/* Problems on forms (ui/form.js): a red box under the form, and a red box with the reason
+   right under the field that has the problem. */
+.fb-message.fb-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #ffd6d6;
+  color: #7a1010;
+  font-weight: bold;
+  box-shadow: 3px 3px 0 var(--fb-ink);
+}
+
+.fb-message.fb-error .icon {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+input[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: #d63a3a !important;
+  box-shadow: 0 0 0 3px rgba(214, 58, 58, 0.45);
+}
+
+.fb-field-error {
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: #ffd6d6;
+  color: #7a1010;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+/* Buttons that can't be used yet (e.g. until a word is changed) look switched off. */
+.fb-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}

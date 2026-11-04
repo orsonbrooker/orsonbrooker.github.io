@@ -43,6 +43,10 @@ Visitors send ideas with the "Got an idea?" button. Nothing goes public until it
 
 The API is a Cloudflare Worker in `worker/` with a D1 database. Run it locally with `npm --prefix worker run dev` (the admin page works without signing in locally), and deploy with `cd worker && cf deploy --secrets-file .secrets.json` (that file holds the production secrets; it lives only on the computer that set things up and is never committed). Every Monday morning it sends a phone notification through [ntfy](https://ntfy.sh) if ideas are waiting.
 
+## Leaderboard
+
+After a game, players can put their score on Shootaround's leaderboard (top 10 this week and all time, one row per nickname per device). `leaderboard.js` sends it; the Worker checks it first. Each game gets a signed start token from the server, and the score comes with its shot log. Impossible scores are turned away: too soon after the start, a reused token, a score that doesn't add up from its shots, shots closer together than the game allows, or test (`?debug`) mode. Odd-but-possible ones (script-like timing, near-perfect accuracy, a huge jump on the device's best, lots of nicknames on one device) are held in the Scores tab at `/admin` until you put them on the board or hide them. The Monday notification counts held scores too.
+
 ## Announcer voice
 
 The announcer's lines are made from `phrases.js` with [Chatterbox](https://github.com/resemble-ai/chatterbox), a free voice generator that runs on the Mac, and packed into one small file in `assets/voice/`. After adding phrases, run:

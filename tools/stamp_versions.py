@@ -12,15 +12,17 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 # Modules imported by other scripts: (importing file, imported files). Stamped first.
 IMPORTS = [
+    ('ui/form.js', ['ui/icons.js']),  # before the files that import it
     ('ui/confirm.js', ['ui/icons.js']),  # before game.js, which imports it
-    ('game.js', ['fx.js', 'audio.js', 'phrases.js', 'players/recolor.js', 'ui/icons.js', 'ui/confirm.js']),
-    ('players/builder.js', ['players/recolor.js']),
-    ('feedback/widget.js', ['ui/icons.js']),
+    ('leaderboard.js', ['ui/icons.js', 'ui/form.js']),  # before game.js, which imports it
+    ('game.js', ['leaderboard.js', 'fx.js', 'audio.js', 'phrases.js', 'players/recolor.js', 'ui/icons.js', 'ui/confirm.js']),
+    ('players/builder.js', ['players/recolor.js', 'ui/form.js']),
+    ('feedback/widget.js', ['ui/icons.js', 'ui/form.js']),
     ('ui/nav.js', ['ui/icons.js']),
 ]
 # Scripts and stylesheets that pages load.
 ASSETS = ['game.js', 'styles.css', 'feedback/widget.js', 'feedback/widget.css', 'players/builder.js', 'players/builder.css', 'ui/nav.js', 'home/home.js']
-PAGES = ['index.html', 'games/shootaround/index.html', 'ideas/index.html', 'players/index.html']
+PAGES = ['404.html', 'index.html', 'games/shootaround/index.html', 'ideas/index.html', 'players/index.html']
 
 
 def read(name):
