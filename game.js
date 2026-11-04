@@ -166,6 +166,13 @@ musicBtn.addEventListener("click", (e) => {
   e.stopPropagation();
 });
 for (const btn of [muteBtn, musicBtn, helpButton]) btn.addEventListener("pointerdown", (e) => e.stopPropagation());
+// Clicked with a mouse or finger, the sound buttons hand focus back to the game, or Space would
+// keep pressing them instead of shooting. (Keyboard users who tabbed to them keep their place.)
+for (const btn of [muteBtn, musicBtn]) {
+  btn.addEventListener("click", (e) => {
+    if (e.detail > 0) stage.focus({ preventScroll: true });
+  });
+}
 syncSoundButtons();
 
 // ---------- Ball sprite (drawn in code so it can spin) ----------
