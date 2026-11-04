@@ -32,3 +32,7 @@ The announcer's lines are made from `phrases.js` with [Chatterbox](https://githu
 ```
 
 Setup steps are at the top of `tools/build_voice.py`. Phrases without a clip use the device's voice.
+
+## Before committing
+
+Run `python3 tools/stamp_versions.py`. It adds a version tag to the script and stylesheet addresses so visitors get the new code straight away instead of a copy cached for up to 4 hours.

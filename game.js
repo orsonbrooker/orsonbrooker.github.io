@@ -3,8 +3,8 @@
 // The ball is simulated in 3D court space (metres) and projected onto the
 // isometric court art. Screen units are "court pixels": the 2048px court image.
 
-import { loadVoiceClips, sound } from "./audio.js";
-import { pickPhrase } from "./phrases.js";
+import { loadVoiceClips, sound } from "./audio.js?v=40dde33e";
+import { pickPhrase } from "./phrases.js?v=e5110e70";
 
 const COURT_PX = 2048;
 const PX_PER_M = 132;
