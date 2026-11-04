@@ -1,51 +1,14 @@
-"""Builds the favicon, app icons and social share image.
+"""Builds the social share image. (Favicons and home screen icons: tools/build_favicons.py.)
 
-Usage: python3 tools/build_icons.py <portrait.jpg> <court-with-orson.jpg> <PressStart2P-Regular.ttf>
-Needs: Pillow, numpy.
+Usage: python3 tools/build_icons.py <court-with-orson.jpg> <PressStart2P-Regular.ttf>
+Needs: Pillow.
 """
 import os, sys
-import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-PORTRAIT, SCENE, FONT = sys.argv[1:4]
+SCENE, FONT = sys.argv[1:3]
 ROOT = os.path.join(os.path.dirname(__file__), '..')
-BG = (166, 121, 142)  # page background
 INK = (43, 22, 34)
-
-# Orson's head in the 1024px portrait.
-HEAD_BOX = (393, 178, 625, 410)
-
-
-def head():
-    im = Image.open(PORTRAIT).convert('RGB').crop(HEAD_BOX)
-    a = np.asarray(im).astype(int)
-    backdrop = np.abs(a - np.array([188, 188, 189])).sum(2) < 18
-    rgba = np.dstack([a.astype(np.uint8), np.where(backdrop, 0, 255).astype(np.uint8)])
-    return Image.fromarray(rgba, 'RGBA')
-
-
-def icon(size, pad, background=None):
-    img = Image.new('RGBA', (size, size), background + (255,) if background else (0, 0, 0, 0))
-    inner = size - 2 * pad
-    face = head()
-    resample = Image.NEAREST if inner > face.width else Image.LANCZOS
-    face = face.resize((inner, inner), resample)
-    img.alpha_composite(face, (pad, pad))
-    return img
-
-
-def build_icons():
-    out = os.path.join(ROOT, 'icons')
-    os.makedirs(out, exist_ok=True)
-    fav = [icon(s, 0) for s in (16, 32, 48)]
-    fav[2].save(os.path.join(ROOT, 'favicon.ico'), sizes=[(16, 16), (32, 32), (48, 48)], append_images=fav[:2])
-    icon(32, 0).save(os.path.join(out, 'favicon-32.png'))
-    icon(180, 18, BG).convert('RGB').save(os.path.join(out, 'apple-touch-icon.png'))
-    icon(192, 16, BG).save(os.path.join(out, 'icon-192.png'))
-    icon(512, 40, BG).save(os.path.join(out, 'icon-512.png'))
-    # Maskable icons get cropped to a circle, so keep the face inside the safe zone.
-    icon(512, 96, BG).save(os.path.join(out, 'icon-maskable-512.png'))
-
 
 def build_social():
     W, H = 1200, 630
@@ -70,5 +33,4 @@ def build_social():
 
 
 if __name__ == '__main__':
-    build_icons()
     build_social()

@@ -1,0 +1,17 @@
+{
+  "name": "Shootaround",
+  "short_name": "Shootaround",
+  "description": "Orson's 60 second pixel-art basketball game.",
+  "id": "/games/shootaround/",
+  "start_url": "/games/shootaround/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#674a5e",
+  "theme_color": "#a6798e",
+  "icons": [
+    { "src": "/icons/shootaround/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/shootaround/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/shootaround/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
