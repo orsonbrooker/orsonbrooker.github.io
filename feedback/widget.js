@@ -21,6 +21,7 @@ const STATUSES = [
 ];
 
 let config;
+const NEW_GAME = "new-game"; // the apps row for ideas about games that don't exist yet
 function getConfig() {
 	config ??= fetch(`${API}/config`).then((r) => (r.ok ? r.json() : Promise.reject(new Error("offline"))));
 	return config;
@@ -65,6 +66,11 @@ function openForm(app, defaultApp) {
 	const nickname = el("input", { type: "text", maxLength: 20, placeholder: "Optional", autocomplete: "off" });
 	// With no game set (e.g. on the ideas board), let them pick which game it's for.
 	const picker = app ? null : el("select", { className: "fb-select" });
+	const setPrompt = () => {
+		const slug = app || picker?.value;
+		text.placeholder = slug === NEW_GAME ? "What game should Orson make next?" : slug === "website" ? "What would make the website better?" : "What would make it more fun?";
+	};
+	picker?.addEventListener("change", setPrompt);
 	const check = el("div", { className: "fb-check" });
 	const message = el("p", { className: "fb-message", role: "status" });
 	const send = el("button", { type: "submit", className: "fb-button fb-primary", textContent: "Send idea" });
@@ -78,7 +84,7 @@ function openForm(app, defaultApp) {
 			"form",
 			{ method: "dialog" },
 			el("h2", { textContent: "Got an idea?" }),
-			picker ? el("label", { textContent: "Which game?" }) : null,
+			picker ? el("label", { textContent: "What's it for?" }) : null,
 			picker,
 			el("label", { textContent: "Your idea" }),
 			text,
@@ -154,7 +160,12 @@ function openForm(app, defaultApp) {
 
 	Promise.all([getConfig(), loadTurnstile()])
 		.then(([{ turnstileSiteKey, apps }, turnstile]) => {
-			picker?.append(...apps.map((a) => el("option", { value: a.slug, textContent: a.name, selected: a.slug === defaultApp })));
+			// Ideas for a game that doesn't exist yet go last, as their own choice.
+			const sorted = [...apps.filter((a) => a.slug !== NEW_GAME), ...apps.filter((a) => a.slug === NEW_GAME)];
+			picker?.append(
+				...sorted.map((a) => el("option", { value: a.slug, textContent: a.slug === NEW_GAME ? "A new game!" : a.name, selected: a.slug === defaultApp })),
+			);
+			setPrompt();
 			widgetId = turnstile.render(check, {
 				sitekey: turnstileSiteKey,
 				theme: "dark",
