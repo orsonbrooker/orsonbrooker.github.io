@@ -1,0 +1,233 @@
+/* Ideas widget and board. Uses the site's colours from styles.css, with fallbacks. */
+
+.fb-bar,
+.fb-board,
+.fb-dialog {
+  --fb-ink: var(--ink, #2b1622);
+  --fb-panel: var(--panel, rgba(43, 22, 34, 0.86));
+  --fb-accent: var(--accent, #f08a3c);
+  --fb-pixel: var(--pixel, "Press Start 2P", ui-monospace, monospace);
+}
+
+.fb-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin: 16px auto 0;
+}
+
+.fb-button {
+  font-family: var(--fb-pixel);
+  font-size: 11px;
+  line-height: 1.4;
+  border: 0;
+  border-radius: 6px;
+  padding: 12px 14px;
+  background: var(--fb-panel);
+  color: #fff;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--fb-ink);
+}
+
+.fb-button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--fb-ink);
+}
+
+.fb-primary,
+.fb-tabs .fb-button[aria-selected="true"] {
+  background: var(--fb-accent);
+  color: var(--fb-ink);
+}
+
+/* Suggest-an-idea dialog */
+
+.fb-dialog {
+  width: min(92vw, 460px);
+  border: 0;
+  border-radius: 8px;
+  padding: 20px;
+  background: #3a1f2e;
+  color: #fff;
+  box-shadow: 6px 6px 0 var(--fb-ink);
+}
+
+.fb-dialog::backdrop {
+  background: rgba(43, 22, 34, 0.6);
+}
+
+.fb-dialog h2 {
+  font-family: var(--fb-pixel);
+  font-size: 16px;
+  color: var(--fb-accent);
+  margin: 0 0 12px;
+}
+
+.fb-dialog label {
+  display: block;
+  font-family: var(--fb-pixel);
+  font-size: 10px;
+  margin: 12px 0 6px;
+}
+
+.fb-dialog textarea,
+.fb-dialog input,
+.fb-dialog select {
+  width: 100%;
+  font: inherit;
+  font-size: 16px; /* 16px stops iOS zooming in on focus */
+  padding: 10px;
+  border: 2px solid var(--fb-ink);
+  border-radius: 4px;
+}
+
+.fb-dialog textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.fb-hint {
+  font-size: 13px;
+  opacity: 0.8;
+  margin: 6px 0 0;
+}
+
+.fb-check {
+  margin-top: 12px;
+  min-height: 65px;
+}
+
+.fb-message {
+  min-height: 1.2em;
+  margin: 8px 0 0;
+  color: #ffe066;
+}
+
+.fb-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+/* Ideas board */
+
+.fb-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 8px 0 20px;
+}
+
+.fb-columns {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .fb-columns {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .fb-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fb-column {
+  background: var(--fb-panel);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.fb-column h2 {
+  font-family: var(--fb-pixel);
+  font-size: 11px;
+  margin: 2px 0 12px;
+}
+
+.fb-planned h2 { color: #7cf0ff; }
+.fb-building h2 { color: var(--fb-accent); }
+.fb-done h2 { color: #3ddc84; }
+
+.fb-card {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #fff;
+  color: var(--fb-ink);
+  border-radius: 6px;
+  padding: 10px;
+  margin-bottom: 10px;
+  box-shadow: 3px 3px 0 var(--fb-ink);
+}
+
+.fb-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.fb-card h3 {
+  font-size: 16px;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.fb-card p {
+  font-size: 14px;
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.fb-credit {
+  opacity: 0.7;
+  font-style: italic;
+}
+
+.fb-chip {
+  display: inline-block;
+  font-family: var(--fb-pixel);
+  font-size: 8px;
+  background: var(--fb-ink);
+  color: #fff;
+  border-radius: 4px;
+  padding: 4px 6px;
+  margin-bottom: 6px;
+}
+
+.fb-vote {
+  font-family: var(--fb-pixel);
+  font-size: 11px;
+  min-width: 52px;
+  min-height: 44px;
+  border: 2px solid var(--fb-ink);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--fb-ink);
+  cursor: pointer;
+}
+
+.fb-vote[aria-pressed="true"] {
+  background: var(--fb-accent);
+}
+
+.fb-empty,
+.fb-loading {
+  font-size: 14px;
+  opacity: 0.75;
+  text-align: center;
+}
+
+.fb-loading {
+  font-family: var(--fb-pixel);
+  font-size: 11px;
+  line-height: 1.8;
+  padding: 32px 0;
+}

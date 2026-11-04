@@ -359,13 +359,18 @@ function release() {
   else if (player.anim === "jump") shoot((player.t - JUMP_APEX) / timingWindow());
 }
 
+// Typing in a form (like the ideas box) shouldn't make Orson shoot.
+const typing = (e) => e.target instanceof Element && e.target.closest("input, textarea, select, button, dialog");
+
 window.addEventListener("keydown", (e) => {
   if (e.code !== "Space" && e.key !== " ") return;
+  if (typing(e)) return;
   e.preventDefault();
   if (!e.repeat) press();
 });
 window.addEventListener("keyup", (e) => {
   if (e.code !== "Space" && e.key !== " ") return;
+  if (typing(e)) return;
   e.preventDefault();
   release();
 });

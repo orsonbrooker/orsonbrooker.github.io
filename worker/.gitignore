@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.cloudflare/
+.wrangler/
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
+*.log
+.DS_Store
+# Production secrets for `cf deploy --secrets-file .secrets.json`. Never commit.
+.secrets.json

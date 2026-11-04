@@ -21,7 +21,25 @@ python3 tools/build_icons.py <orson.jpg> <court-with-orson.jpg> <PressStart2P-Re
 
 ## Adding a new game or app
 
-Give it its own folder (e.g. `spelling/index.html`), copy the `<head>` tags from `index.html` and update the title, description, canonical and `og:url`, then add the page to `sitemap.xml`.
+Give it its own folder (e.g. `spelling/index.html`), copy the `<head>` tags from `index.html` and update the title, description, canonical and `og:url`, then add the page to `sitemap.xml` and to `PAGES` in `tools/stamp_versions.py`.
+
+To let players send ideas about it, add the widget and register the game:
+
+```html
+<link rel="stylesheet" href="/feedback/widget.css" />
+<script type="module" src="/feedback/widget.js"></script>
+<div data-feedback="spelling"></div>
+```
+
+```
+cf d1 raw 67713a08-4e9f-46b0-874f-bbf9ccf05c4c --sql "INSERT INTO apps (slug, name) VALUES ('spelling', 'Spelling Bee')"
+```
+
+## Ideas board
+
+Visitors send ideas with the "Got an idea?" button. Nothing goes public until it's approved at [orsonbrooker.com/admin](https://orsonbrooker.com/admin) (sign in with an allowed email; Cloudflare emails a one-time code). There you can put an idea on the board, merge it into an existing one, or reject it, and move ideas between Idea, Planned, Building and Done. Approved ideas show at [/ideas/](https://orsonbrooker.com/ideas/), where people can upvote them (one vote per idea per device).
+
+The API is a Cloudflare Worker in `worker/` with a D1 database. Run it locally with `npm --prefix worker run dev` (the admin page works without signing in locally), and deploy with `cd worker && cf deploy --secrets-file .secrets.json` (that file holds the production secrets; it lives only on the computer that set things up and is never committed). Every Monday morning it sends a phone notification through [ntfy](https://ntfy.sh) if ideas are waiting.
 
 ## Announcer voice
 

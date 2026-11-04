@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="robots" content="noindex" />
+		<title>Ideas admin | Orson Brooker</title>
+		<link rel="icon" href="/favicon.ico" />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+		<style>
+			:root {
+				--bg: #a6798e;
+				--ink: #2b1622;
+				--panel: rgba(43, 22, 34, 0.86);
+				--accent: #f08a3c;
+				--good: #3ddc84;
+				--bad: #ff6b6b;
+				--pixel: "Press Start 2P", ui-monospace, monospace;
+			}
+			* { box-sizing: border-box; }
+			body {
+				margin: 0;
+				padding: 16px;
+				background: var(--bg);
+				color: #fff;
+				font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+				font-size: 16px;
+			}
+			main { max-width: 860px; margin: 0 auto; }
+			h1, h2, nav button, .pixel { font-family: var(--pixel); }
+			h1 { font-size: clamp(16px, 4vw, 24px); text-shadow: 3px 3px 0 var(--ink); margin: 8px 0 16px; }
+			h2 { font-size: 13px; margin: 24px 0 12px; }
+			nav { display: flex; gap: 8px; margin-bottom: 16px; }
+			nav button { flex: 1; }
+			button {
+				font: inherit;
+				border: 0;
+				border-radius: 6px;
+				padding: 10px 12px;
+				background: var(--panel);
+				color: #fff;
+				cursor: pointer;
+				box-shadow: 3px 3px 0 var(--ink);
+			}
+			button.primary { background: var(--accent); color: var(--ink); }
+			button.danger { background: var(--bad); color: var(--ink); }
+			nav button[aria-selected="true"] { background: var(--accent); color: var(--ink); }
+			.card { background: var(--panel); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+			.meta { font-size: 13px; opacity: 0.8; margin-bottom: 8px; }
+			.quote { font-size: 18px; margin: 0 0 12px; white-space: pre-wrap; }
+			label { display: block; font-size: 13px; margin: 8px 0 4px; opacity: 0.9; }
+			input[type="text"], textarea, select {
+				width: 100%;
+				font: inherit;
+				padding: 8px;
+				border-radius: 4px;
+				border: 2px solid var(--ink);
+				background: #fff;
+				color: var(--ink);
+			}
+			textarea { min-height: 60px; }
+			.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-top: 12px; }
+			.row > * { flex: 1 1 auto; }
+			.check { display: flex; gap: 6px; align-items: center; font-size: 14px; margin-top: 8px; }
+			.empty { text-align: center; padding: 32px; font-family: var(--pixel); font-size: 12px; line-height: 1.8; }
+			.votes { font-family: var(--pixel); font-size: 12px; color: var(--accent); }
+			#toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); }
+		</style>
+	</head>
+	<body>
+		<main>
+			<h1>Ideas admin</h1>
+			<nav>
+				<button type="button" id="tab-inbox" aria-selected="true">Inbox <span id="inbox-count"></span></button>
+				<button type="button" id="tab-ideas" aria-selected="false">Ideas</button>
+			</nav>
+			<section id="inbox"></section>
+			<section id="ideas" hidden></section>
+			<div id="toast" class="card pixel" hidden></div>
+		</main>
+
+		<script type="module">
+			const STATUSES = ["idea", "planned", "building", "done", "hidden"];
+			let data = { submissions: [], ideas: [], apps: [] };
+
+			const el = (tag, props = {}, ...children) => {
+				const node = Object.assign(document.createElement(tag), props);
+				node.append(...children.filter((c) => c != null));
+				return node;
+			};
+			const appName = (slug) => data.apps.find((a) => a.slug === slug)?.name ?? slug;
+			const appSelect = (value) =>
+				el("select", {}, ...data.apps.map((a) => el("option", { value: a.slug, textContent: a.name, selected: a.slug === value })));
+
+			function toast(message) {
+				const t = document.getElementById("toast");
+				t.textContent = message;
+				t.hidden = false;
+				clearTimeout(toast.timer);
+				toast.timer = setTimeout(() => (t.hidden = true), 2500);
+			}
+
+			async function api(path, body) {
+				const res = await fetch(`/api/admin/${path}`, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {});
+				const out = await res.json().catch(() => ({}));
+				if (!res.ok) throw new Error(out.error || `Error ${res.status}`);
+				return out;
+			}
+
+			async function load() {
+				data = await api("inbox");
+				renderInbox();
+				renderIdeas();
+			}
+
+			function renderInbox() {
+				const box = document.getElementById("inbox");
+				document.getElementById("inbox-count").textContent = data.submissions.length ? `(${data.submissions.length})` : "";
+				box.replaceChildren();
+				if (!data.submissions.length) {
+					box.append(el("div", { className: "card empty", innerHTML: "All caught up!<br>No new ideas to check." }));
+					return;
+				}
+				for (const s of data.submissions) {
+					const title = el("input", { type: "text", value: s.text.slice(0, 80), maxLength: 80 });
+					const description = el("textarea", { value: s.text, maxLength: 500 });
+					const app = appSelect(s.app);
+					const credit = el("input", { type: "checkbox" });
+					const mergeInto = el(
+						"select",
+						{},
+						el("option", { value: "", textContent: "Add to an existing idea…" }),
+						...data.ideas.map((i) => el("option", { value: i.id, textContent: `${appName(i.app)}: ${i.title}` })),
+					);
+					const act = (action, extra = {}) => async () => {
+						try {
+							await api(`submissions/${s.id}`, { action, ...extra });
+							toast(action === "reject" ? "Rejected" : action === "merge" ? "Added to idea" : "On the board!");
+							await load();
+						} catch (err) {
+							toast(err.message);
+						}
+					};
+					box.append(
+						el(
+							"div",
+							{ className: "card" },
+							el("div", { className: "meta", textContent: `${appName(s.app)} · ${s.nickname ? `from ${s.nickname}` : "no name"} · ${s.created_at.slice(0, 10)}` }),
+							el("p", { className: "quote", textContent: s.text }),
+							el("label", { textContent: "Title on the board" }),
+							title,
+							el("label", { textContent: "Description" }),
+							description,
+							el("label", { textContent: "Game or app" }),
+							app,
+							s.nickname ? el("label", { className: "check" }, credit, `Credit "${s.nickname}" on the board`) : null,
+							el(
+								"div",
+								{ className: "row" },
+								el("button", {
+									type: "button",
+									className: "primary",
+									textContent: "Add to board",
+									onclick: () => act("approve", { title: title.value, description: description.value, app: app.value, credit: credit.checked })(),
+								}),
+								el("button", { type: "button", className: "danger", textContent: "Reject", onclick: act("reject") }),
+							),
+							data.ideas.length
+								? el(
+										"div",
+										{ className: "row" },
+										mergeInto,
+										el("button", {
+											type: "button",
+											textContent: "Merge",
+											onclick: () => (mergeInto.value ? act("merge", { ideaId: mergeInto.value })() : toast("Pick an idea first")),
+										}),
+									)
+								: null,
+						),
+					);
+				}
+			}
+
+			function renderIdeas() {
+				const box = document.getElementById("ideas");
+				box.replaceChildren();
+				if (!data.ideas.length) {
+					box.append(el("div", { className: "card empty", textContent: "No ideas on the board yet." }));
+					return;
+				}
+				for (const app of data.apps) {
+					const ideas = data.ideas.filter((i) => i.app === app.slug);
+					if (!ideas.length) continue;
+					box.append(el("h2", { textContent: app.name }));
+					for (const idea of ideas) {
+						const title = el("input", { type: "text", value: idea.title, maxLength: 80 });
+						const description = el("textarea", { value: idea.description, maxLength: 500 });
+						const credit = el("input", { type: "text", value: idea.credit ?? "", maxLength: 20, placeholder: "No credit" });
+						const status = el("select", {}, ...STATUSES.map((s) => el("option", { value: s, textContent: s, selected: s === idea.status })));
+						box.append(
+							el(
+								"div",
+								{ className: "card" },
+								el("div", { className: "votes", textContent: `▲ ${idea.votes}` }),
+								el("label", { textContent: "Title" }),
+								title,
+								el("label", { textContent: "Description" }),
+								description,
+								el(
+									"div",
+									{ className: "row" },
+									el("div", {}, el("label", { textContent: "Status" }), status),
+									el("div", {}, el("label", { textContent: "Credit" }), credit),
+									el("button", {
+										type: "button",
+										className: "primary",
+										textContent: "Save",
+										onclick: async () => {
+											try {
+												await api(`ideas/${idea.id}`, { title: title.value, description: description.value, credit: credit.value, status: status.value });
+												toast("Saved");
+												await load();
+											} catch (err) {
+												toast(err.message);
+											}
+										},
+									}),
+								),
+							),
+						);
+					}
+				}
+			}
+
+			for (const [tab, section] of [["tab-inbox", "inbox"], ["tab-ideas", "ideas"]]) {
+				document.getElementById(tab).addEventListener("click", () => {
+					for (const t of ["tab-inbox", "tab-ideas"]) document.getElementById(t).setAttribute("aria-selected", String(t === tab));
+					document.getElementById("inbox").hidden = section !== "inbox";
+					document.getElementById("ideas").hidden = section !== "ideas";
+				});
+			}
+
+			load().catch((err) => {
+				document.getElementById("inbox").replaceChildren(el("div", { className: "card empty", textContent: err.message }));
+			});
+		</script>
+	</body>
+</html>
