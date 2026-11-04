@@ -615,7 +615,7 @@ function gaussian() {
 
 // `timing` is 0 for a perfect release, negative for early and positive for late.
 function shoot(timing) {
-  if (!hints.learned && ++hints.shots >= 3) {
+  if (!hints.learned) {
     hints.learned = true;
     save("orson-hoops-learned", true);
   }
@@ -881,7 +881,8 @@ function updatePlayer(dt) {
       player.v = spot.v;
       player.moving = false;
       player.fade = 0;
-      setAnim("idle");
+      // Already facing the hoop after the first shot: straight to dribbling (or jumping, if held).
+      setAnim(state.pressed ? "gather" : "dribble");
       if (isThreePointSpot(spot.u, spot.v)) {
         const p = project(spot.u, spot.v);
         addPopup("3PT SPOT", "#ffffff", p.x, p.y - 500);
@@ -1117,8 +1118,8 @@ function drawBanner() {
   ctx.restore();
 }
 
-// First games: what to do next, in a bubble over the player. Gone after a few shots.
-const hints = { learned: load("orson-hoops-learned", false), shots: 0 };
+// The very first shot: what to do next, in a bubble over the player. Never shown again after that.
+const hints = { learned: load("orson-hoops-learned", false) };
 function drawHint() {
   if (hints.learned || state.phase !== "playing" || player.moving || player.fade < 1) return;
   const text =
