@@ -1,0 +1,4 @@
+#!/bin/sh
+# Stamp script and stylesheet versions so visitors get new code straight away.
+# Enable once per clone with: git config core.hooksPath .githooks
+python3 tools/stamp_versions.py && git add index.html game.js

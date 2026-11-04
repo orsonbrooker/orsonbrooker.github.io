@@ -33,6 +33,10 @@ The announcer's lines are made from `phrases.js` with [Chatterbox](https://githu
 
 Setup steps are at the top of `tools/build_voice.py`. Phrases without a clip use the device's voice.
 
-## Before committing
+## Version tags
 
-Run `python3 tools/stamp_versions.py`. It adds a version tag to the script and stylesheet addresses so visitors get the new code straight away instead of a copy cached for up to 4 hours.
+`tools/stamp_versions.py` adds a version tag to the script and stylesheet addresses so visitors get new code straight away instead of a copy cached for up to 4 hours. A git hook runs it on every commit; turn the hook on once per computer with:
+
+```
+git config core.hooksPath .githooks
+```

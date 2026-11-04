@@ -21,8 +21,8 @@ def write(name, text):
 
 
 def version(text):
-    # Ignore existing stamps so a file's version only changes when its real content does.
-    return hashlib.sha1(re.sub(r'\?v=[0-9a-f]+', '', text).encode()).hexdigest()[:8]
+    # Includes any stamps inside the file, so a new module version also gives game.js a new one.
+    return hashlib.sha1(text.encode()).hexdigest()[:8]
 
 
 def stamp(text, name, v):
