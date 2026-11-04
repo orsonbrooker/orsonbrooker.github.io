@@ -165,7 +165,9 @@ header p {
 
 /* No how-to button mid-game: it would cover the court. */
 .stage[data-phase="playing"] #help-button,
-.stage[data-phase="ending"] #help-button {
+.stage[data-phase="ending"] #help-button,
+.stage[data-phase="playing"] #board-button,
+.stage[data-phase="ending"] #board-button {
   display: none;
 }
 
@@ -856,4 +858,123 @@ header p {
 .confirm-actions .icon {
   width: 1.5em;
   height: 1.5em;
+}
+
+/* ---------- Leaderboard (leaderboard.js) ---------- */
+
+.over-actions .post-score {
+  flex-basis: 100%;
+  justify-content: center;
+  background: #ffe066;
+  color: var(--ink);
+}
+
+.over-actions .post-score:disabled {
+  opacity: 1;
+  background: rgba(255, 224, 102, 0.25);
+  color: #ffe066;
+  box-shadow: none;
+  cursor: default;
+}
+
+.board-panel {
+  max-width: 520px;
+}
+
+.board-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.board-tabs button {
+  flex: 1;
+  padding: 10px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: clamp(9px, 1.5vw, 11px);
+}
+
+.board-tabs [aria-selected="true"] {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.board-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 6px;
+  border-radius: 6px;
+  font-size: clamp(9px, 1.6vw, 12px);
+}
+
+.board-list li:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.board-list li.mine {
+  outline: 2px solid #ffe066;
+  outline-offset: -2px;
+}
+
+.board-list li:first-child .lb-rank {
+  color: #ffe066;
+}
+
+.lb-rank {
+  width: 2.4em;
+  text-align: right;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.board-list img {
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  image-rendering: pixelated;
+}
+
+.lb-name {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.lb-points {
+  color: #ffe066;
+}
+
+.board-note {
+  margin: 8px 0 0;
+}
+
+.lb-dialog .lb-score {
+  margin: 0;
+  font-family: var(--pixel);
+  font-size: 12px;
+}
+
+.lb-dialog .lb-score span {
+  font-size: 28px;
+  color: #ffe066;
+}
+
+.lb-dialog input {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  padding: 10px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
 }

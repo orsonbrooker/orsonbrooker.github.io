@@ -7,11 +7,15 @@
 //          GET  /api/check?text=    is this text OK? (live checks while typing)
 //          GET  /api/players        approved players made with the builder
 //          POST /api/players        a new player; waits for approval before it's in the game
+//          POST /api/games          a signed start token for a new game of Shootaround
+//          GET  /api/scores         the leaderboard (?range=week or all)
+//          POST /api/scores         a finished game's score, with its shot log (checked, see postScore)
 // Admin:   GET  /admin              triage page (behind Cloudflare Access)
 //          GET  /api/admin/inbox    new submissions, all ideas and apps
 //          POST /api/admin/submissions/:id   approve as a new idea, merge into an idea, or reject
 //          POST /api/admin/ideas/:id         edit an idea or change its status
 //          POST /api/admin/players/:id       approve, hide, rename or delete a player
+//          POST /api/admin/scores/:id        show or hide a leaderboard score
 
 import { englishDataset, englishRecommendedTransformers, RegExpMatcher } from "obscenity";
 import adminPage from "./admin.html?raw";
@@ -43,6 +47,7 @@ const MAX_PLAYER_NAME = 12;
 const MAX_TEAM_NAME = 10;
 const PLAYER_PARTS = ["skin", "hair", "jersey", "team", "shoes"] as const;
 const VOTES_PER_DAY = 60;
+const SCORES_PER_DAY = 40;
 
 export default {
 	async fetch(request, env): Promise<Response> {
@@ -65,10 +70,16 @@ export default {
 		const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM submissions WHERE status = 'new'").first<{ n: number }>();
 		const players = await env.DB.prepare("SELECT COUNT(*) AS n FROM players WHERE status = 'new'").first<{ n: number }>();
 		const votes = await env.DB.prepare("SELECT COUNT(*) AS n FROM votes WHERE created_at > datetime('now', '-7 days')").first<{ n: number }>();
+		const held = await env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE status = 'held'").first<{ n: number }>();
 		const ideas = row?.n ?? 0;
 		const newPlayers = players?.n ?? 0;
-		if (!ideas && !newPlayers) return;
-		const waiting = [ideas && `${ideas} new idea${ideas === 1 ? "" : "s"}`, newPlayers && `${newPlayers} new player${newPlayers === 1 ? "" : "s"}`]
+		const heldScores = held?.n ?? 0;
+		if (!ideas && !newPlayers && !heldScores) return;
+		const waiting = [
+			ideas && `${ideas} new idea${ideas === 1 ? "" : "s"}`,
+			newPlayers && `${newPlayers} new player${newPlayers === 1 ? "" : "s"}`,
+			heldScores && `${heldScores} score${heldScores === 1 ? "" : "s"} to check`,
+		]
 			.filter(Boolean)
 			.join(" and ");
 		await fetch(`https://ntfy.sh/${env.NTFY_TOPIC}`, {
@@ -106,6 +117,12 @@ async function publicApi(request: Request, env: Env, url: URL): Promise<Response
 		}
 		case "POST /api/players":
 			return createPlayer(request, env);
+		case "POST /api/games":
+			return json({ token: await gameToken(env) });
+		case "GET /api/scores":
+			return leaderboard(env, url);
+		case "POST /api/scores":
+			return postScore(request, env);
 	}
 	throw new HttpError(404, "Not found.");
 }
@@ -235,6 +252,157 @@ async function checkTurnstile(request: Request, env: Env, token: unknown) {
 	}
 }
 
+// ---------- Leaderboard ----------
+//
+// The game runs in the browser, so a score can't be fully trusted. Instead each score comes with
+// its shot log and the server checks it hangs together:
+//   rejected  impossible: a bad or reused start token, sent too soon after the game started, the
+//             score doesn't match its shots, more shots than fit in a minute, or test (?debug) mode
+//   held      odd but possible: machine-like timing, near-perfect accuracy, a huge jump on the
+//             device's best, lots of nicknames. Kept off the board until Orson approves it.
+//   shown     everything else, straight away.
+
+const GAME_SECONDS = 60;
+const MIN_SHOT_GAP = 1.0; // seconds: release, flight, moving spot and jumping again take longer than this
+const FIRE_BONUS = [
+	{ streak: 6, bonus: 2 },
+	{ streak: 3, bonus: 1 },
+];
+type Shot = [number, number, number, number]; // seconds in, 3-pointer (1/0), made (1/0), release timing
+
+// A start token says when the game started, signed so it can't be made up. The score must come
+// at least a game's length later, and each token only counts once.
+async function gameToken(env: Env): Promise<string> {
+	const started = Date.now();
+	const nonce = crypto.randomUUID().slice(0, 8);
+	return `${started}.${nonce}.${await hash(env, `game:${started}.${nonce}`)}`;
+}
+
+async function checkGameToken(env: Env, token: unknown): Promise<number> {
+	const parts = typeof token === "string" ? token.split(".") : [];
+	if (parts.length !== 3 || parts[2] !== (await hash(env, `game:${parts[0]}.${parts[1]}`))) throw new HttpError(400, "That game can't be checked.");
+	const seconds = (Date.now() - Number(parts[0])) / 1000;
+	if (!(seconds >= GAME_SECONDS - 1)) throw new HttpError(400, "That game finished too fast.");
+	if (seconds > 6 * 3600) throw new HttpError(400, "That game was too long ago to count.");
+	return seconds;
+}
+
+// The game's own rules: 2 or 3 points, plus a bonus while on fire (3 or 6 makes in a row).
+function recountScore(shots: Shot[]): number {
+	let score = 0;
+	let streak = 0;
+	for (const [, three, made] of shots) {
+		if (!made) {
+			streak = 0;
+			continue;
+		}
+		score += (three ? 3 : 2) + (FIRE_BONUS.find((f) => streak >= f.streak)?.bonus ?? 0);
+		streak++;
+	}
+	return score;
+}
+
+const spread = (values: number[]) => {
+	const mean = values.reduce((a, b) => a + b, 0) / values.length;
+	return Math.sqrt(values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length);
+};
+
+async function postScore(request: Request, env: Env): Promise<Response> {
+	const body = await readJson(request);
+	if (body.debug) throw new HttpError(400, "Scores from test mode don't count.");
+	const realSeconds = await checkGameToken(env, body.token);
+	const nickname = clean(body.nickname, MAX_PLAYER_NAME);
+	if (!/^[\p{L}\p{N}][\p{L}\p{N} '-]*$/u.test(nickname)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
+	if (isRude(nickname)) throw new HttpError(400, RUDE);
+	const device = clean(body.device, 64);
+	if (device.length < 16) throw new HttpError(400, "Bad request.");
+	const player = clean(body.player, 40) || "orson";
+	const base = /^[a-z0-9-]{1,30}$/.test(String(body.base ?? "")) ? String(body.base) : null;
+
+	// The shot log, and the score it adds up to.
+	const raw = Array.isArray(body.shots) ? body.shots : [];
+	if (raw.length > 80) throw new HttpError(400, "That's more shots than fit in a game.");
+	const shots: Shot[] = raw.map((s: unknown) => {
+		if (!Array.isArray(s) || s.length !== 4 || !s.every((n) => typeof n === "number" && Number.isFinite(n))) throw new HttpError(400, "Bad shot log.");
+		return [Math.round(s[0] * 100) / 100, s[1] ? 1 : 0, s[2] ? 1 : 0, Math.round(s[3] * 1000) / 1000];
+	});
+	const score = Number(body.score);
+	if (!Number.isInteger(score) || score < 1 || score !== recountScore(shots)) throw new HttpError(400, "That score doesn't match its shots.");
+	const times = shots.map((s) => s[0]);
+	if (times.some((t, i) => t < 0 || t > GAME_SECONDS + 0.5 || (i > 0 && t < times[i - 1]))) throw new HttpError(400, "Bad shot log.");
+	const gaps = times.slice(1).map((t, i) => t - times[i]);
+	if (gaps.some((g) => g < MIN_SHOT_GAP)) throw new HttpError(400, "Those shots came too quickly.");
+	await checkTurnstile(request, env, body.turnstileToken);
+
+	const ipHash = await ipKey(request, env);
+	const deviceHash = await hash(env, `device:${device}`);
+	const [today, history] = await env.DB.batch([
+		env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?").bind(ipHash),
+		env.DB.prepare(
+			"SELECT MAX(score) AS best, COUNT(DISTINCT lower(nickname)) AS names, MAX(lower(nickname) = lower(?)) AS known FROM scores WHERE device = ?",
+		).bind(nickname, deviceHash),
+	]);
+	if (((today.results[0] as { n: number }).n ?? 0) >= SCORES_PER_DAY) throw new HttpError(429, "That's a lot of games for one day! Try again tomorrow.");
+	const past = history.results[0] as { best: number | null; names: number; known: number | null };
+
+	// Odd but possible: hold it for a look.
+	const made = shots.filter((s) => s[2]).length;
+	const flags: string[] = [];
+	if (shots.length >= 10 && spread(shots.map((s) => s[3])) < 0.03) flags.push("Every release timed the same, like a script");
+	if (gaps.length >= 9 && spread(gaps) < 0.05) flags.push("Shots taken at a machine-like steady rhythm");
+	if (shots.length >= 20 && made / shots.length >= 0.95) flags.push(`${made} of ${shots.length} made`);
+	if ((past.best ?? 0) >= 10 && score > past.best! * 2.5) flags.push(`${Math.round(score / past.best!)}x this device's best (${past.best})`);
+	if (!past.known && past.names >= 3) flags.push(`This device has used ${past.names + 1} nicknames`);
+	const status = flags.length ? "held" : "shown";
+
+	const inserted = await env.DB.prepare(
+		`INSERT OR IGNORE INTO scores (nickname, score, player, base, shots, made, threes, real_seconds, input, hidden_tab, version, log, flags, status, token, device, ip_hash)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+	)
+		.bind(
+			nickname,
+			score,
+			player,
+			base,
+			shots.length,
+			made,
+			shots.filter((s) => s[1] && s[2]).length,
+			Math.round(realSeconds),
+			clean(body.input, 10) || null,
+			body.hiddenTab ? 1 : 0,
+			clean(body.version, 20) || null,
+			JSON.stringify(shots),
+			JSON.stringify(flags),
+			status,
+			String(body.token),
+			deviceHash,
+			ipHash,
+		)
+		.first<{ id: number }>();
+	if (!inserted) throw new HttpError(400, "That game's score is already in.");
+
+	// Where it landed this week (each nickname on a device counts once, at its best).
+	const rank = await env.DB.prepare(
+		`SELECT COUNT(*) + 1 AS rank FROM (SELECT MAX(score) AS best FROM scores WHERE status = 'shown' AND created_at > datetime('now', '-7 days')
+		 GROUP BY device, lower(nickname)) WHERE best > ?`,
+	)
+		.bind(score)
+		.first<{ rank: number }>();
+	return json({ id: inserted.id, status, rank: status === "shown" ? rank?.rank : null });
+}
+
+async function leaderboard(env: Env, url: URL): Promise<Response> {
+	const week = url.searchParams.get("range") !== "all";
+	// Each nickname on a device appears once, with its best game.
+	const rows = await env.DB.prepare(
+		`SELECT id, nickname, score, player, base FROM (
+		   SELECT id, nickname, score, player, base, ROW_NUMBER() OVER (PARTITION BY device, lower(nickname) ORDER BY score DESC, id) AS n
+		   FROM scores WHERE status = 'shown' ${week ? "AND created_at > datetime('now', '-7 days')" : ""}
+		 ) WHERE n = 1 ORDER BY score DESC, id LIMIT 10`,
+	).all();
+	return json({ scores: rows.results }, 200, 30);
+}
+
 // ---------- Admin ----------
 
 async function adminHtml(request: Request, env: Env): Promise<Response> {
@@ -256,19 +424,28 @@ async function admin(request: Request, env: Env, url: URL): Promise<Response> {
 	await requireAdmin(request, env);
 	const parts = url.pathname.split("/").filter(Boolean); // api, admin, ...
 	if (request.method === "GET" && parts[2] === "inbox") {
-		const [submissions, ideas, apps, players] = await env.DB.batch([
+		const [submissions, ideas, apps, players, scores] = await env.DB.batch([
 			env.DB.prepare("SELECT id, app, text, nickname, created_at FROM submissions WHERE status = 'new' ORDER BY id"),
 			env.DB.prepare("SELECT id, app, title, description, credit, status, votes FROM ideas ORDER BY app, votes DESC"),
 			env.DB.prepare("SELECT slug, name FROM apps ORDER BY name"),
 			env.DB.prepare(
 				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
 			),
+			env.DB.prepare(
+				`SELECT id, nickname, score, player, shots, made, threes, real_seconds, input, hidden_tab, log, flags, status, device, created_at
+				 FROM scores WHERE status = 'held' OR created_at > datetime('now', '-14 days') ORDER BY status = 'held' DESC, id DESC LIMIT 200`,
+			),
 		]);
-		return json({ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results }, 200, 0);
+		return json(
+			{ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results, scores: scores.results },
+			200,
+			0,
+		);
 	}
 	if (request.method === "POST" && parts[2] === "submissions") return triage(env, Number(parts[3]), await readJson(request));
 	if (request.method === "POST" && parts[2] === "ideas") return editIdea(env, Number(parts[3]), await readJson(request));
 	if (request.method === "POST" && parts[2] === "players") return editPlayer(env, Number(parts[3]), await readJson(request));
+	if (request.method === "POST" && parts[2] === "scores") return editScore(env, Number(parts[3]), await readJson(request));
 	throw new HttpError(404, "Not found.");
 }
 
@@ -325,6 +502,14 @@ async function editPlayer(env: Env, id: number, body: Record<string, unknown>): 
 		.bind(name, status, id)
 		.run();
 	if (!result.meta.changes) throw new HttpError(404, "No such player.");
+	return json({ ok: true }, 200, 0);
+}
+
+async function editScore(env: Env, id: number, body: Record<string, unknown>): Promise<Response> {
+	const status = body.action === "show" ? "shown" : body.action === "hide" ? "hidden" : null;
+	if (!status) throw new HttpError(400, "Unknown action.");
+	const result = await env.DB.prepare("UPDATE scores SET status = ? WHERE id = ?").bind(status, id).run();
+	if (!result.meta.changes) throw new HttpError(404, "No such score.");
 	return json({ ok: true }, 200, 0);
 }
 
