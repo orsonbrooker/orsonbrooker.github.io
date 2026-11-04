@@ -10,14 +10,13 @@
 // The value of data-feedback is the game or app the idea is about. New games need a row in
 // the apps table first (see worker/migrations).
 
-import { icon } from "../ui/icons.js?v=e5d9ee82";
+import { icon } from "../ui/icons.js?v=c284e3ca";
 
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = LOCAL ? "http://localhost:8787/api" : "/api";
 const STATUSES = [
 	["idea", "Ideas"],
 	["planned", "Planned"],
-	["building", "Building"],
 	["done", "Done!"],
 ];
 
@@ -136,7 +135,7 @@ function openForm(app, defaultApp) {
 			if (!res.ok) throw new Error(out.error);
 			dialog.querySelector("form").replaceChildren(
 				el("h2", { textContent: "Thanks!" }),
-				el("p", { textContent: "Orson will read your idea. If it's picked, it'll show up on the ideas board." }),
+				el("p", { textContent: "Your idea goes to Orson first. If he picks it, it goes on the ideas board with your nickname on it, so look out for it!" }),
 				el("div", { className: "fb-row" }, el("button", { type: "button", className: "fb-button fb-primary", textContent: "Close", onclick: () => dialog.close() })),
 			);
 		} catch (err) {
@@ -192,6 +191,8 @@ async function mountBoard(node) {
 		return;
 	}
 	const appName = (slug) => apps.find((a) => a.slug === slug)?.name ?? slug;
+	const DONE_SHOWN = 4; // the Done list gets long, so only the latest few show until asked
+	let showAllDone = false;
 	let filter = new URLSearchParams(location.search).get("app") || "all";
 
 	const tabs = el("div", { className: "fb-tabs", role: "tablist" });
@@ -217,36 +218,62 @@ async function mountBoard(node) {
 		const shown = ideas.filter((i) => filter === "all" || i.app === filter);
 		columns.replaceChildren(
 			...STATUSES.map(([status, label]) => {
-				const list = shown.filter((i) => i.status === status);
+				// Things being built are rare, so they sit with Planned rather than in a column of their own.
+				let list = shown.filter((i) => i.status === status || (status === "planned" && i.status === "building"));
+				const count = list.length;
+				let more = null;
+				if (status === "done") {
+					// Newest first, and only a few unless they ask for all.
+					list = [...list].sort((a, b) => b.id - a.id);
+					if (!showAllDone && count > DONE_SHOWN) {
+						list = list.slice(0, DONE_SHOWN);
+						more = el("button", {
+							type: "button",
+							className: "fb-button fb-more",
+							textContent: `Show all ${count}`,
+							onclick: () => {
+								showAllDone = true;
+								render();
+							},
+						});
+					}
+				}
+				// The most-voted idea still to build in each column (ideas come most-voted first).
+				const top = status !== "done" && list[0]?.votes > 0 && list[0].votes > (list[1]?.votes ?? 0) ? list[0] : null;
 				return el(
 					"section",
 					{ className: `fb-column fb-${status}` },
-					el("h2", { textContent: `${label} (${list.length})` }),
-					...(list.length ? list.map(card) : [el("p", { className: "fb-empty", textContent: "Nothing here yet" })]),
+					el("h2", { textContent: `${label} (${count})` }),
+					...(list.length ? list.map((i) => card(i, i === top)) : [el("p", { className: "fb-empty", textContent: "Nothing here yet" })]),
+					more,
 				);
 			}),
 		);
 	}
 
-	function card(idea) {
+	const voteLabel = (votes) => `${icon("up")}<span>${votes}</span>`;
+
+	function card(idea, isTop) {
 		const button = el("button", {
 			type: "button",
 			className: "fb-vote",
 			ariaPressed: String(voted.has(idea.id)),
 			ariaLabel: `Vote for ${idea.title}`,
-			textContent: `▲ ${idea.votes}`,
+			innerHTML: voteLabel(idea.votes),
 			onclick: () => toggleVote(idea, button),
 		});
 		return el(
 			"article",
-			{ className: "fb-card" },
+			{ className: isTop ? "fb-card fb-top" : "fb-card" },
 			el(
 				"div",
 				{ className: "fb-card-body" },
+				isTop ? el("span", { className: "fb-chip fb-top-chip", innerHTML: `${icon("trophy")}<span>Top pick</span>` }) : null,
 				filter === "all" ? el("span", { className: "fb-chip", textContent: appName(idea.app) }) : null,
 				el("h3", { textContent: idea.title }),
 				idea.description && idea.description !== idea.title ? el("p", { textContent: idea.description }) : null,
-				idea.credit ? el("p", { className: "fb-credit", textContent: `Idea from ${idea.credit}` }) : null,
+				// Nicknames are typed by visitors: set as text, never HTML.
+				idea.credit ? el("p", { className: "fb-credit", innerHTML: icon("star") }, el("span", { textContent: `Idea from ${idea.credit}` })) : null,
 			),
 			idea.status === "done" ? null : button,
 		);
@@ -265,7 +292,7 @@ async function mountBoard(node) {
 			if (!res.ok) throw new Error(out.error);
 			idea.votes = out.votes;
 			up ? voted.add(idea.id) : voted.delete(idea.id);
-			button.textContent = `▲ ${idea.votes}`;
+			button.innerHTML = voteLabel(idea.votes);
 			button.ariaPressed = String(up);
 		} catch (err) {
 			button.title = err.message || "Couldn't vote right now";

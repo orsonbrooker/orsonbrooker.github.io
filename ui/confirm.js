@@ -2,7 +2,7 @@
 //
 //   if (await confirmDialog("Remove Jahn from this device?", { yes: "Remove" })) { ... }
 
-import { icon } from "../ui/icons.js?v=e5d9ee82";
+import { icon } from "../ui/icons.js?v=c284e3ca";
 
 export function confirmDialog(question, { yes = "Okay", no = "Cancel", detail = "" } = {}) {
   return new Promise((resolve) => {

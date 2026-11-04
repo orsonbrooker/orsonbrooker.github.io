@@ -5,8 +5,8 @@
 
 import { loadVoiceClips, sound } from "./audio.js?v=7b72fc5d";
 import { pickPhrase } from "./phrases.js?v=e5110e70";
-import { confirmDialog } from "./ui/confirm.js?v=0fff5e71";
-import { fillIcons, icon } from "./ui/icons.js?v=e5d9ee82";
+import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
+import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=72f03939";
 
 const COURT_PX = 2048;

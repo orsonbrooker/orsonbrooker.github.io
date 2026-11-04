@@ -125,18 +125,12 @@
 
 .fb-columns {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-items: start;
 }
 
-@media (max-width: 860px) {
-  .fb-columns {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 520px) {
+@media (max-width: 680px) {
   .fb-columns {
     grid-template-columns: 1fr;
   }
@@ -155,7 +149,6 @@
 }
 
 .fb-planned h2 { color: #7cf0ff; }
-.fb-building h2 { color: var(--fb-accent); }
 .fb-done h2 { color: #3ddc84; }
 
 .fb-card {
@@ -187,9 +180,47 @@
   overflow-wrap: anywhere;
 }
 
-.fb-credit {
-  opacity: 0.7;
-  font-style: italic;
+/* Kids whose ideas made the board get their name on it. */
+.fb-card .fb-credit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 3px 8px 3px 4px;
+  border-radius: 4px;
+  background: #fff1c2;
+  font-family: var(--fb-pixel);
+  font-size: 8px;
+}
+
+.fb-credit .icon {
+  width: 12px;
+  height: 12px;
+  color: #d08a00;
+}
+
+.fb-top {
+  box-shadow: 0 0 0 3px #ffe066, 3px 3px 0 3px var(--fb-ink);
+}
+
+.fb-top-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 4px;
+  background: #ffe066;
+  color: var(--fb-ink);
+}
+
+.fb-top-chip .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.fb-more {
+  width: 100%;
+  font-size: 9px;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .fb-chip {
@@ -213,6 +244,21 @@
   background: #fff;
   color: var(--fb-ink);
   cursor: pointer;
+}
+
+.fb-vote {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.fb-vote .icon {
+  width: 18px;
+  height: 18px;
 }
 
 .fb-vote[aria-pressed="true"] {

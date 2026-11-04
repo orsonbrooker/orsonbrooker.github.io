@@ -112,11 +112,6 @@ header p {
   cursor: pointer;
 }
 
-.stage:focus-visible {
-  box-shadow: 0 0 0 3px #fff;
-  border-radius: 8px;
-}
-
 .court,
 #game {
   position: absolute;
