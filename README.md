@@ -13,15 +13,17 @@ python3 -m pip install pillow numpy   # also needs ffmpeg and cwebp (brew instal
 python3 tools/build_assets.py <folder-with-court-and-videos> <scratch-folder>
 ```
 
-The favicon, app icons and `og-image.jpg` come from Orson's portrait and the court picture:
+Favicons and home screen icons (Orson's pixel head for the site, the hoop for Shootaround), the pictures shown when a page is shared (`assets/share/`), and the home page's game cards:
 
 ```
-python3 tools/build_icons.py <orson.jpg> <court-with-orson.jpg> <PressStart2P-Regular.ttf>
+uv run --with pillow --with numpy python3 tools/build_favicons.py
+uv run --with pillow --with numpy python3 tools/build_share_images.py
+uv run --with pillow python3 tools/build_game_cards.py
 ```
 
 ## Adding a new game or app
 
-Give it its own folder (e.g. `spelling/index.html`), copy the `<head>` tags from `index.html` and update the title, description, canonical and `og:url`, then add the page to `sitemap.xml` and to `PAGES` in `tools/stamp_versions.py`.
+Give it its own folder (e.g. `spelling/index.html`), copy the `<head>` tags from `index.html` and update the title, description, canonical, `og:url` and share image (add one to `tools/build_share_images.py`), then add the page to `sitemap.xml` and to `PAGES` in `tools/stamp_versions.py`.
 
 To let players send ideas about it, add the widget and register the game:
 
