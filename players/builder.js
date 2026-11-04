@@ -3,6 +3,7 @@
 // Open with ?base=curly&skin=c98c5f&hair=26222a&jersey=d63a3a&team=2b2b2f&shoes=f2f2ef&number=7&teamName=KINGS&name=Ace
 // to preload a look.
 
+import { markField, say } from "../ui/form.js?v=fd569ffc";
 import { DEFAULT_TEAM, loadBase, loadBases, PALETTES, PARTS, recolor, saveMyPlayer } from "../players/recolor.js?v=72f03939";
 
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
@@ -178,19 +179,25 @@ const play = document.getElementById("play");
 const RUDE = "Let's keep it friendly. Try different words.";
 let checkTimer;
 let rude = false;
+// Each box is checked on its own, so the problem shows right under the one that has it.
+async function friendly(text) {
+  if (!text.trim()) return true;
+  try {
+    return (await fetch(`${API}/check?text=${encodeURIComponent(text)}`).then((r) => r.json())).ok;
+  } catch {
+    return true; // offline: let it through, the server checks again
+  }
+}
 function checkWords() {
   clearTimeout(checkTimer);
   checkTimer = setTimeout(async () => {
-    const text = `${nameInput.value} ${teamInput.value}`.trim();
-    try {
-      const { ok } = text ? await fetch(`${API}/check?text=${encodeURIComponent(text)}`).then((r) => r.json()) : { ok: true };
-      rude = !ok;
-    } catch {
-      rude = false; // offline: let it through, the server checks again
-    }
+    const [nameOk, teamOk] = await Promise.all([friendly(nameInput.value), friendly(teamInput.value)]);
+    markField(nameInput, nameOk ? "" : RUDE);
+    markField(teamInput, teamOk ? "" : RUDE);
+    rude = !nameOk || !teamOk;
     play.disabled = send.disabled = rude;
-    if (rude) message.textContent = RUDE;
-    else if (message.textContent === RUDE) message.textContent = "";
+    if (rude) say(message, `${RUDE} The ${!nameOk ? "nickname" : "team name"} needs changing.`, { error: true });
+    else if (message.classList.contains("fb-error")) say(message, "");
   }, 350);
 }
 
@@ -219,7 +226,7 @@ async function setupTurnstile() {
       "expired-callback": () => (token = ""),
     });
   } catch {
-    message.textContent = "Players can't be sent right now. Please try later.";
+    say(message, "Players can't be sent right now. Please try later.", { error: true });
   }
 }
 
@@ -228,7 +235,8 @@ play.addEventListener("click", () => {
   if (rude) return;
   const name = nameInput.value.trim();
   if (!name) {
-    message.textContent = "Give your player a nickname.";
+    say(message, "Give your player a nickname.", { error: true });
+    markField(nameInput, "Give your player a nickname.");
     nameInput.focus();
     return;
   }
@@ -245,15 +253,17 @@ play.addEventListener("click", () => {
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   if (!nameInput.value.trim()) {
-    message.textContent = "Give your player a nickname.";
+    say(message, "Give your player a nickname.", { error: true });
+    markField(nameInput, "Give your player a nickname.");
+    nameInput.focus();
     return;
   }
   if (!token) {
-    message.textContent = "Please finish the robot check first.";
+    say(message, "Please finish the robot check first.", { error: true });
     return;
   }
   send.disabled = true;
-  message.textContent = "Sending…";
+  say(message, "Sending…");
   try {
     const res = await fetch(`${API}/players`, {
       method: "POST",
@@ -269,12 +279,12 @@ form.addEventListener("submit", async (e) => {
     });
     const out = await res.json();
     if (!res.ok) throw new Error(out.error);
-    message.textContent = `Sent! Orson will check ${nameInput.value.trim()} soon. Once approved, pick them in the game.`;
+    say(message, `Sent! Orson will check ${nameInput.value.trim()} soon. Once approved, pick them in the game.`);
     send.textContent = "Make another";
     token = "";
     window.turnstile?.reset(widgetId);
   } catch (err) {
-    message.textContent = err.message || "That didn't send. Please try again.";
+    say(message, err.message || "That didn't send. Please try again.", { error: true });
     token = "";
     window.turnstile?.reset(widgetId);
   } finally {
@@ -283,5 +293,5 @@ form.addEventListener("submit", async (e) => {
 });
 
 setup().catch(() => {
-  message.textContent = "The builder couldn't load. Try refreshing the page.";
+  say(message, "The builder couldn't load. Try refreshing the page.", { error: true });
 });

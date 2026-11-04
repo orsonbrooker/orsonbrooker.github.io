@@ -4,6 +4,7 @@
 // token and the game's shot log, and the server checks they add up (see worker/src/index.ts,
 // postScore). Odd-looking scores are held back until Orson has had a look.
 
+import { say } from "./ui/form.js?v=fd569ffc";
 import { icon } from "./ui/icons.js?v=c284e3ca";
 
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
@@ -108,17 +109,17 @@ export function submitScore(game, { playerName = "", ownPlayer = false } = {}) {
     let result = null;
     robotCheck(dialog.querySelector(".fb-check"))
       .then((t) => (token = t))
-      .catch(() => (message.textContent = "The leaderboard can't be reached right now."));
+      .catch(() => say(message, "The leaderboard can't be reached right now.", { error: true }));
 
     dialog.querySelector('[value="close"]').addEventListener("click", () => dialog.close());
     dialog.querySelector("form").addEventListener("submit", async (e) => {
       e.preventDefault();
       if (!token) {
-        message.textContent = "Please finish the robot check first.";
+        say(message, "Please finish the robot check first.", { error: true });
         return;
       }
       send.disabled = true;
-      message.textContent = "Sending…";
+      say(message, "Sending…");
       try {
         const res = await fetch(`${API}/scores`, {
           method: "POST",
@@ -133,7 +134,7 @@ export function submitScore(game, { playerName = "", ownPlayer = false } = {}) {
         result = out;
         dialog.close();
       } catch (err) {
-        message.textContent = err.message || "That didn't send. Please try again.";
+        say(message, err.message || "That didn't send. Please try again.", { error: true });
         send.disabled = false;
       }
     });

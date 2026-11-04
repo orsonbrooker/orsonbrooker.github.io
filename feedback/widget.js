@@ -10,6 +10,7 @@
 // The value of data-feedback is the game or app the idea is about. New games need a row in
 // the apps table first (see worker/migrations).
 
+import { markField, say } from "../ui/form.js?v=fd569ffc";
 import { icon } from "../ui/icons.js?v=c284e3ca";
 
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
@@ -105,19 +106,23 @@ function openForm(app, defaultApp) {
 	// Friendly words: checked while typing (the server checks again when sending).
 	const RUDE = "Let's keep it friendly. Try different words.";
 	let checkTimer;
+	const friendly = async (words) => {
+		if (!words.trim()) return true;
+		try {
+			return (await fetch(`${API}/check?text=${encodeURIComponent(words)}`).then((r) => r.json())).ok;
+		} catch {
+			return true; // offline: the server checks again when sending
+		}
+	};
 	const checkWords = () => {
 		clearTimeout(checkTimer);
 		checkTimer = setTimeout(async () => {
-			const words = `${text.value} ${nickname.value}`.trim();
-			let ok = true;
-			try {
-				if (words) ok = (await fetch(`${API}/check?text=${encodeURIComponent(words)}`).then((r) => r.json())).ok;
-			} catch {
-				// Offline: the server checks again when sending.
-			}
-			send.disabled = !ok;
-			if (!ok) message.textContent = RUDE;
-			else if (message.textContent === RUDE) message.textContent = "";
+			const [textOk, nameOk] = await Promise.all([friendly(text.value), friendly(nickname.value)]);
+			markField(text, textOk ? "" : RUDE);
+			markField(nickname, nameOk ? "" : RUDE);
+			send.disabled = !textOk || !nameOk;
+			if (send.disabled) say(message, RUDE, { error: true });
+			else if (message.classList.contains("fb-error")) say(message, "");
 		}, 400);
 	};
 	text.addEventListener("input", checkWords);
@@ -126,11 +131,11 @@ function openForm(app, defaultApp) {
 	dialog.querySelector("form").addEventListener("submit", async (e) => {
 		e.preventDefault();
 		if (!token) {
-			message.textContent = "Please finish the robot check first.";
+			say(message, "Please finish the robot check first.", { error: true });
 			return;
 		}
 		send.disabled = true;
-		message.textContent = "Sending…";
+		say(message, "Sending…");
 		try {
 			const res = await fetch(`${API}/submit`, {
 				method: "POST",
@@ -145,7 +150,7 @@ function openForm(app, defaultApp) {
 				el("div", { className: "fb-row" }, el("button", { type: "button", className: "fb-button fb-primary", textContent: "Close", onclick: () => dialog.close() })),
 			);
 		} catch (err) {
-			message.textContent = err.message || "That didn't send. Please try again.";
+			say(message, err.message || "That didn't send. Please try again.", { error: true });
 			token = "";
 			if (window.turnstile && widgetId !== undefined) window.turnstile.reset(widgetId);
 		} finally {
@@ -173,7 +178,7 @@ function openForm(app, defaultApp) {
 				"expired-callback": () => (token = ""),
 			});
 		})
-		.catch(() => (message.textContent = "Ideas can't be sent right now. Please try later."));
+		.catch(() => say(message, "Ideas can't be sent right now. Please try later.", { error: true }));
 }
 
 function mountFeedback(node) {
