@@ -301,6 +301,15 @@ const FIRE_BONUS = [
 	{ streak: 6, bonus: 2 },
 	{ streak: 3, bonus: 1 },
 ];
+// When each scoring feature arrived in the game (UTC, like created_at). A leaderboard card only
+// shows a feature's stats for games played after it, since older games didn't have it (before
+// supernova, purple fire just carried on past 10 in a row). Add each new feature that changes
+// scoring or shows on the card here, with the time it went live.
+const FEATURE_FROM = {
+	supernova: "2026-11-05 20:47:00",
+	bonusBalls: "2026-11-05 20:47:00",
+};
+const hadFeature = (createdAt: unknown, feature: keyof typeof FEATURE_FROM) => String(createdAt) >= FEATURE_FROM[feature];
 // seconds in, 3-pointer (1/0), made (1/0), release timing, bonus ball (0 normal, 1 money, 2 rainbow)
 type Shot = [number, number, number, number, number];
 
@@ -595,7 +604,8 @@ async function scoreDetail(env: Env, id: number): Promise<Response> {
 		if (made) plainPoints += three ? 3 : 2;
 	}
 	// Points from being on fire and from bonus balls (around the world's score is a time, so none).
-	const bonusPoints = row.mode === "around" ? 0 : Math.max(0, recountScore(log) - plainPoints);
+	// From the score itself, so older games keep the fire bonus they really got.
+	const bonusPoints = row.mode === "around" ? 0 : Math.max(0, Number(row.score) - plainPoints);
 	const { log: _log, colours, ...rest } = row;
 	return json(
 		{
@@ -603,9 +613,10 @@ async function scoreDetail(env: Env, id: number): Promise<Response> {
 			colours: colours ? JSON.parse(colours) : null,
 			bestStreak,
 			onFire,
-			supernova,
-			money,
-			rainbow,
+			// Left out for games from before these existed.
+			supernova: hadFeature(row.created_at, "supernova") ? supernova : null,
+			money: hadFeature(row.created_at, "bonusBalls") ? money : null,
+			rainbow: hadFeature(row.created_at, "bonusBalls") ? rainbow : null,
 			bonusPoints,
 			top: { week: week.results, all: all.results },
 			// Let go in the green part of the jump bar (timing is in green-zone widths from the apex).
