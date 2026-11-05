@@ -576,11 +576,26 @@ async function scoreDetail(env: Env, id: number): Promise<Response> {
 	let streak = 0;
 	let bestStreak = 0;
 	let onFire = 0;
-	for (const [, , made] of log) {
+	let supernova = 0;
+	const supernovaAt = Math.max(...FIRE_BONUS.map((f) => f.streak));
+	// Bonus balls: how many came up, and how many went in.
+	const money = { seen: 0, made: 0 };
+	const rainbow = { seen: 0, made: 0 };
+	let plainPoints = 0; // 2 or 3 a basket, before fire and bonus balls
+	for (const [, three, made, , kind] of log) {
 		streak = made ? streak + 1 : 0;
 		bestStreak = Math.max(bestStreak, streak);
 		if (streak === fireAt) onFire++;
+		if (streak === supernovaAt) supernova++;
+		const ball = kind === MONEY ? money : kind === RAINBOW ? rainbow : null;
+		if (ball) {
+			ball.seen++;
+			if (made) ball.made++;
+		}
+		if (made) plainPoints += three ? 3 : 2;
 	}
+	// Points from being on fire and from bonus balls (around the world's score is a time, so none).
+	const bonusPoints = row.mode === "around" ? 0 : Math.max(0, recountScore(log) - plainPoints);
 	const { log: _log, colours, ...rest } = row;
 	return json(
 		{
@@ -588,6 +603,10 @@ async function scoreDetail(env: Env, id: number): Promise<Response> {
 			colours: colours ? JSON.parse(colours) : null,
 			bestStreak,
 			onFire,
+			supernova,
+			money,
+			rainbow,
+			bonusPoints,
 			top: { week: week.results, all: all.results },
 			// Let go in the green part of the jump bar (timing is in green-zone widths from the apex).
 			green: log.filter((shot) => Math.abs(shot[3]) <= 0.5).length,

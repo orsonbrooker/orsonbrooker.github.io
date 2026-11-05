@@ -405,6 +405,11 @@ function showScoreCard(row, rank, range, mode, bodyFor) {
         ...(lowWins(mode) ? [] : [["Threes made", d.threes]]),
         ["Best streak", `${d.bestStreak} in a row`],
         ...(lowWins(mode) ? [] : [["Times on fire", d.onFire]]),
+        // The newer things only show when they happened (older games don't have bonus balls).
+        ...(d.supernova ? [["Times on supernova", d.supernova]] : []),
+        ...(d.money?.seen ? [["Money balls made", `${d.money.made} of ${d.money.seen}`]] : []),
+        ...(d.rainbow?.seen ? [["Rainbow balls made", `${d.rainbow.made} of ${d.rainbow.seen}`]] : []),
+        ...(d.bonusPoints ? [["Bonus points", `${d.bonusPoints} of ${row.score}`]] : []),
         ["Let go in the green", `${d.green} of ${d.shots}`],
         [lowWins(mode) ? "Times sent" : "Scores sent", d.games],
       ];
