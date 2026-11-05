@@ -74,6 +74,16 @@ body {
   .site-nav li span {
     display: none; /* icons only on phones */
   }
+
+  /* Icons alone, so make them big enough to see and tap. */
+  .site-nav a {
+    padding: 8px;
+  }
+
+  .site-nav .icon {
+    width: 28px;
+    height: 28px;
+  }
 }
 
 header {
@@ -140,6 +150,11 @@ header p {
   z-index: 2;
   display: flex;
   gap: 8px;
+}
+
+.sound-buttons.info-buttons {
+  right: auto;
+  left: 3%;
 }
 
 .sound-buttons button {
@@ -238,79 +253,77 @@ header p {
   }
 }
 
-.player-chip {
-  display: flex;
-  align-items: center;
+/* Choosing a game: one card each, with your best, and today's challenge above them. */
+.mode-daily {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(61, 220, 132, 0.15);
+  color: #3ddc84;
+  font-size: clamp(9px, 1.5vw, 11px);
+  line-height: 1.6;
+}
+
+.mode-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
-  padding: 6px 12px 6px 6px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--panel);
-  color: #fff;
-  font: inherit;
-  font-size: clamp(8px, 1.6vw, 12px);
-  box-shadow: 3px 3px 0 var(--ink);
-  cursor: pointer;
-  pointer-events: auto;
 }
 
-.player-chip[hidden] {
-  display: none;
-}
-
-/* Which game: 60 seconds or sudden death. */
-.mode-pick {
+.mode-card {
   display: flex;
-  gap: 4px;
-  padding: 4px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 3px solid transparent;
   border-radius: 8px;
-  background: var(--panel);
-  box-shadow: 3px 3px 0 var(--ink);
-  pointer-events: auto;
-}
-
-.mode-pick button {
-  padding: 8px 12px;
-  border: 0;
-  border-radius: 5px;
-  background: none;
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
   font: inherit;
-  font-size: clamp(8px, 1.6vw, 12px);
+  text-align: left;
   cursor: pointer;
 }
 
-.mode-pick [aria-pressed="true"] {
-  background: #ffe066;
-  color: var(--ink);
+.mode-card:hover {
+  border-color: var(--accent);
+}
+
+/* One highlight: it starts on their last game and moves with the arrow keys. */
+.mode-card[aria-pressed="true"],
+.mode-card:focus {
+  border-color: #ffe066;
+  outline: none;
+}
+
+.mode-cards:has(:focus) .mode-card[aria-pressed="true"]:not(:focus) {
+  border-color: transparent;
+}
+
+.mode-card strong {
+  font-size: clamp(11px, 1.8vw, 14px);
+  color: #ffe066;
+}
+
+.mode-card span {
+  font-family: system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.mode-card em {
+  font-style: normal;
+  font-size: 10px;
+  color: #3ddc84;
 }
 
 .board-tabs.board-modes [aria-selected="true"] {
   background: #ffe066;
 }
 
-.player-chip img {
-  width: 40px;
-  height: 40px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.player-chip strong {
-  color: var(--accent);
-}
-
-.chip-change {
-  padding: 6px 8px;
-  border-radius: 4px;
-  background: var(--accent);
-  color: var(--ink);
-}
-
-.best {
-  margin: 0;
-  font-size: clamp(8px, 1.4vw, 11px);
-  text-shadow: 2px 2px 0 var(--ink);
+.over-daily {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #3ddc84;
 }
 
 /* Select, game over and help: a panel over a dimmed court. */
@@ -407,9 +420,17 @@ header p {
   background: rgba(255, 255, 255, 0.18);
 }
 
-.char-pick .card[aria-pressed="true"] {
+/* Same for players: the highlight moves with the arrow keys rather than adding a second one. */
+.char-pick .card[aria-pressed="true"],
+.char-pick .card:focus {
   border-color: var(--accent);
   background: rgba(240, 138, 60, 0.25);
+  outline: none;
+}
+
+.char-pick:has(.card:focus) .card[aria-pressed="true"]:not(:focus) {
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .char-pick img {
@@ -551,20 +572,6 @@ header p {
   .title-bottom {
     gap: 6px;
     margin-bottom: 44px;
-  }
-
-  .player-chip {
-    padding: 4px 8px 4px 4px;
-    gap: 6px;
-  }
-
-  .player-chip img {
-    width: 28px;
-    height: 28px;
-  }
-
-  .chip-label {
-    display: none;
   }
 
   /* The court is small on phones: panels get the whole screen. */
@@ -807,6 +814,20 @@ header p {
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
   cursor: pointer;
+}
+
+/* A tall phone: the square court sits in the middle of the screen rather than at the top, with
+   room below it for a thumb. */
+@media (max-width: 520px) and (min-height: 620px) {
+  .game-page {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .tap-to-play {
+    font-size: 14px;
+  }
 }
 
 /* ---------- Yes/no questions (ui/confirm.js) ---------- */

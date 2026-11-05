@@ -1,6 +1,6 @@
 # orsonbrooker.github.io
 
-Orson's website. The home page is a 60 second basketball game (`game.js`).
+Orson's website. The home page is a basketball game (`game.js`).
 
 Run it locally with `python3 -m http.server`, then open http://localhost:8000.
 

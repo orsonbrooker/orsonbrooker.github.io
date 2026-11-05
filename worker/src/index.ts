@@ -8,7 +8,7 @@
 //          GET  /api/players        approved players made with the builder
 //          POST /api/players        a new player; waits for approval before it's in the game
 //          POST /api/games          a signed start token for a new game of Shootaround
-//          GET  /api/scores         the leaderboard (?range=week or all, ?mode=timed or survival)
+//          GET  /api/scores         the leaderboard (?range=week or all, ?mode=timed, survival or around)
 //          POST /api/scores         a finished game's score, with its shot log (checked, see postScore)
 // Admin:   GET  /admin              triage page (behind Cloudflare Access)
 //          GET  /api/admin/inbox    new submissions, all ideas and apps
@@ -276,24 +276,57 @@ async function checkTurnstile(request: Request, env: Env, token: unknown) {
 // its shot log and the server checks it hangs together:
 //   rejected  impossible: a bad or reused start token, sent too soon after the game started, the
 //             score doesn't match its shots, more shots than fit in a minute, or test (?debug) mode.
-//             A sudden death game must end on its first miss, with nothing made after it.
+//             A sudden death game must end on its first miss, with nothing made after it. An around
+//             the world time must come just after its last spot went in.
 //   flagged   odd but possible: machine-like timing, a perfect game of 30+ shots, a huge jump on the
 //             device's best. On the board straight away, and in Orson's admin inbox so he can hide it.
 //             (Nicknames don't matter: a device's row is per player, whatever name it's sent with.)
 //   shown     everything else, straight away.
 
 const GAME_SECONDS = 60;
-// Two modes, each with its own leaderboard: 60 seconds, or sudden death (shoot until the first miss).
-type Mode = "timed" | "survival";
-const modeOf = (value: unknown): Mode => (value === "survival" ? "survival" : "timed");
+// Three modes, each with its own leaderboard: 60 seconds, sudden death (shoot until the first miss),
+// or around the world (all 7 spots, against the clock).
+type Mode = "timed" | "survival" | "around";
+const modeOf = (value: unknown): Mode => (value === "survival" || value === "around" ? value : "timed");
+// Around the world's "score" is its time in tenths of a second, so lower is better.
+const AROUND_SPOTS = 7;
+const lowWins = (mode: Mode) => mode === "around";
+const order = (mode: Mode) => (lowWins(mode) ? "ASC" : "DESC");
 // Odd-looking scores Orson hasn't looked at yet: they're in the admin inbox.
 const ODD_UNCHECKED = "status = 'shown' AND flags != '[]' AND checked = 0";
 const MIN_SHOT_GAP = 1.0; // seconds: release, flight, moving spot and jumping again take longer than this
+// The game's fire levels (FIRE_LEVELS in game.js), biggest first.
 const FIRE_BONUS = [
+	{ streak: 10, bonus: 3 },
 	{ streak: 6, bonus: 2 },
 	{ streak: 3, bonus: 1 },
 ];
-type Shot = [number, number, number, number]; // seconds in, 3-pointer (1/0), made (1/0), release timing
+// seconds in, 3-pointer (1/0), made (1/0), release timing, bonus ball (0 normal, 1 money, 2 rainbow)
+type Shot = [number, number, number, number, number];
+
+// Bonus balls, the same as bonus.js in the game: which shots get one comes from the start token.
+const MONEY = 1;
+const RAINBOW = 2;
+function ballKind(token: string, index: number): number {
+	let h = 0x811c9dc5;
+	const text = `${token}#${index}`;
+	for (let i = 0; i < text.length; i++) {
+		h ^= text.charCodeAt(i);
+		h = Math.imul(h, 0x01000193) >>> 0;
+	}
+	h ^= h >>> 16;
+	h = Math.imul(h, 0x85ebca6b);
+	h ^= h >>> 13;
+	h = Math.imul(h, 0xc2b2ae35);
+	h = (h ^ (h >>> 16)) >>> 0;
+	const roll = h / 2 ** 32;
+	return roll < 1 / 40 ? RAINBOW : roll < 1 / 40 + 1 / 8 ? MONEY : 0;
+}
+function ballPoints(kind: number, three: number, fireBonus: number): number {
+	if (kind === RAINBOW) return 5 + fireBonus;
+	const points = (three ? 3 : 2) + fireBonus;
+	return kind === MONEY ? points * 2 : points;
+}
 
 // A start token says when the game started, signed so it can't be made up. The score must come
 // at least a game's length later (or, in sudden death, after its last shot), and each token only
@@ -313,16 +346,16 @@ async function checkGameToken(env: Env, token: unknown, minSeconds: number): Pro
 	return seconds;
 }
 
-// The game's own rules: 2 or 3 points, plus a bonus while on fire (3 or 6 makes in a row).
+// The game's own rules: 2 or 3 points, plus a bonus while on fire (3, 6 or 10 makes in a row).
 function recountScore(shots: Shot[]): number {
 	let score = 0;
 	let streak = 0;
-	for (const [, three, made] of shots) {
+	for (const [, three, made, , kind] of shots) {
 		if (!made) {
 			streak = 0;
 			continue;
 		}
-		score += (three ? 3 : 2) + (FIRE_BONUS.find((f) => streak >= f.streak)?.bonus ?? 0);
+		score += ballPoints(kind, three, FIRE_BONUS.find((f) => streak >= f.streak)?.bonus ?? 0);
 		streak++;
 	}
 	return score;
@@ -352,12 +385,21 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	// The shot log, and the score it adds up to.
 	const raw = Array.isArray(body.shots) ? body.shots : [];
 	if (raw.length > (mode === "timed" ? 80 : 500)) throw new HttpError(400, "That's more shots than fit in a game.");
-	const shots: Shot[] = raw.map((s: unknown) => {
-		if (!Array.isArray(s) || s.length !== 4 || !s.every((n) => typeof n === "number" && Number.isFinite(n))) throw new HttpError(400, "Bad shot log.");
-		return [Math.round(s[0] * 100) / 100, s[1] ? 1 : 0, s[2] ? 1 : 0, Math.round(s[3] * 1000) / 1000];
+	const shots: Shot[] = raw.map((s: unknown, i: number) => {
+		if (!Array.isArray(s) || (s.length !== 4 && s.length !== 5) || !s.every((n) => typeof n === "number" && Number.isFinite(n))) throw new HttpError(400, "Bad shot log.");
+		// A bonus ball only counts if this game's token really gave that shot one.
+		const kind = s[4] ?? 0;
+		if (kind !== 0 && kind !== ballKind(String(body.token), i)) throw new HttpError(400, "Bad shot log.");
+		return [Math.round(s[0] * 100) / 100, s[1] ? 1 : 0, s[2] ? 1 : 0, Math.round(s[3] * 1000) / 1000, kind];
 	});
 	const score = Number(body.score);
-	if (!Number.isInteger(score) || score < 1 || score !== recountScore(shots)) throw new HttpError(400, "That score doesn't match its shots.");
+	if (mode === "around") {
+		// The time: once the last spot goes in, just after that shot was let go. No bonus balls here.
+		const lastSpot = shots.reduce((found, s, i) => (found.made < AROUND_SPOTS && s[2] ? { made: found.made + 1, at: i } : found), { made: 0, at: -1 });
+		const seconds = score / 10;
+		if (!Number.isInteger(score) || lastSpot.made < AROUND_SPOTS || shots.some((s) => s[4]) || seconds < shots[lastSpot.at][0] || seconds > shots[lastSpot.at][0] + 5)
+			throw new HttpError(400, "That time doesn't match its shots.");
+	} else if (!Number.isInteger(score) || score < 1 || score !== recountScore(shots)) throw new HttpError(400, "That score doesn't match its shots.");
 	const times = shots.map((s) => s[0]);
 	const maxTime = mode === "timed" ? GAME_SECONDS + 0.5 : 6 * 3600;
 	if (times.some((t, i) => t < 0 || t > maxTime || (i > 0 && t < times[i - 1]))) throw new HttpError(400, "Bad shot log.");
@@ -366,7 +408,7 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 		const miss = shots.findIndex((s) => !s[2]);
 		if (miss < 0 || shots.slice(miss).some((s) => s[2])) throw new HttpError(400, "A sudden death game ends on its first miss.");
 	}
-	const realSeconds = await checkGameToken(env, body.token, mode === "timed" ? GAME_SECONDS - 1 : (times.at(-1) ?? 0) - 1);
+	const realSeconds = await checkGameToken(env, body.token, mode === "timed" ? GAME_SECONDS - 1 : Math.max(times.at(-1) ?? 0, mode === "around" ? score / 10 : 0) - 1);
 	const gaps = times.slice(1).map((t, i) => t - times[i]);
 	if (gaps.some((g) => g < MIN_SHOT_GAP)) throw new HttpError(400, "Those shots came too quickly.");
 	await checkTurnstile(request, env, body.turnstileToken);
@@ -375,7 +417,7 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	const deviceHash = await hash(env, `device:${device}`);
 	const [today, history] = await env.DB.batch([
 		env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?").bind(ipHash),
-		env.DB.prepare("SELECT MAX(score) AS best FROM scores WHERE device = ? AND mode = ?").bind(deviceHash, mode),
+		env.DB.prepare(`SELECT ${lowWins(mode) ? "MIN" : "MAX"}(score) AS best FROM scores WHERE device = ? AND mode = ?`).bind(deviceHash, mode),
 	]);
 	if (((today.results[0] as { n: number }).n ?? 0) >= SCORES_PER_DAY) throw new HttpError(429, "That's a lot of games for one day! Try again tomorrow.");
 	const past = history.results[0] as { best: number | null };
@@ -389,7 +431,9 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	if (mode === "timed" && shots.length >= 30 && made === shots.length) flags.push(`All ${made} shots made`);
 	// In sudden death every shot but the last goes in, so only a very long run is odd.
 	if (mode === "survival" && made >= 50) flags.push(`${made} in a row before missing`);
-	if ((past.best ?? 0) >= 10 && score > past.best! * 2.5) flags.push(`${Math.round(score / past.best!)}x this device's best (${past.best})`);
+	if (mode === "around") {
+		if ((past.best ?? 0) > 0 && score * 2 < past.best!) flags.push(`Twice as fast as this device's best (${past.best! / 10}s)`);
+	} else if ((past.best ?? 0) >= 10 && score > past.best! * 2.5) flags.push(`${Math.round(score / past.best!)}x this device's best (${past.best})`);
 	const status = "shown";
 
 	const inserted = await env.DB.prepare(
@@ -427,9 +471,9 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 
 	// Where their row sits this week: at its best, which may be an earlier game.
 	const rank = await env.DB.prepare(
-		`WITH g AS (SELECT device AS d, player AS p, MAX(score) AS best FROM scores WHERE status = 'shown' AND mode = ?3 AND ${WEEK} GROUP BY 1, 2)
+		`WITH g AS (SELECT device AS d, player AS p, ${lowWins(mode) ? "MIN" : "MAX"}(score) AS best FROM scores WHERE status = 'shown' AND mode = ?3 AND ${WEEK} GROUP BY 1, 2)
 		 SELECT COUNT(*) + 1 AS rank, (SELECT best FROM g WHERE d = ?1 AND p = ?2) AS best FROM g
-		 WHERE best >= (SELECT best FROM g WHERE d = ?1 AND p = ?2) AND NOT (d = ?1 AND p = ?2)`, // ties go after: the board lists earlier games first
+		 WHERE best ${lowWins(mode) ? "<=" : ">="} (SELECT best FROM g WHERE d = ?1 AND p = ?2) AND NOT (d = ?1 AND p = ?2)`, // ties go after: the board lists earlier games first
 	)
 		.bind(deviceHash, player, mode)
 		.first<{ rank: number; best: number }>();
@@ -453,9 +497,9 @@ async function boardRows(env: Env, mode: Mode, week: boolean, limit: number, min
 		   (SELECT x.nickname FROM scores x WHERE x.device = t.device AND x.player = t.player AND x.status = 'shown' ORDER BY x.id DESC LIMIT 1) AS nickname
 		 FROM (
 		   SELECT id, score, player, base, colours, device,
-		     ROW_NUMBER() OVER (PARTITION BY device, player ORDER BY score DESC, id) AS n
+		     ROW_NUMBER() OVER (PARTITION BY device, player ORDER BY score ${order(mode)}, id) AS n
 		   FROM scores WHERE status = 'shown' AND mode = ?1 ${week ? `AND ${WEEK}` : ""}
-		 ) t WHERE n = 1 ORDER BY score DESC, id LIMIT ${limit}`,
+		 ) t WHERE n = 1 ORDER BY score ${order(mode)}, id LIMIT ${limit}`,
 	)
 		.bind(mode, ...(mine ? [mine.device, mine.player] : []))
 		.all<BoardRow & { colours: string | null }>();
@@ -475,23 +519,24 @@ async function previewScore(request: Request, env: Env): Promise<Response> {
 	const device = clean(body.device, 64);
 	if (device.length < 16) throw new HttpError(400, "Bad request.");
 	const score = Number(body.score);
-	if (!Number.isInteger(score) || score < 0 || score > 1000) throw new HttpError(400, "Bad request.");
-	const player = clean(body.player, 40) || "orson";
 	const mode = modeOf(body.mode);
+	if (!Number.isInteger(score) || score < 0 || score > (mode === "around" ? 6 * 36000 : 1000)) throw new HttpError(400, "Bad request.");
+	const player = clean(body.player, 40) || "orson";
 	const deviceHash = await hash(env, `device:${device}`);
 	const [rows, sent] = await Promise.all([
 		boardRows(env, mode, true, 500, { device: deviceHash, player }),
 		// Their scores already on the board this week, for their own list (the device's id stays private).
-		env.DB.prepare(`SELECT id, score, created_at FROM scores WHERE device = ? AND player = ? AND mode = ? AND status = 'shown' AND ${WEEK} ORDER BY score DESC, id LIMIT 10`)
+		env.DB.prepare(`SELECT id, score, created_at FROM scores WHERE device = ? AND player = ? AND mode = ? AND status = 'shown' AND ${WEEK} ORDER BY score ${order(mode)}, id LIMIT 10`)
 			.bind(deviceHash, player, mode)
 			.all(),
 	]);
 
 	const old = rows.find((r) => r.mine);
-	const kept = !!old && old.score >= score; // their earlier best this week stays
+	const better = (a: number, b: number) => (lowWins(mode) ? a < b : a > b);
+	const kept = !!old && !better(score, old.score); // their earlier best this week stays
 	let board: BoardRow[] = rows.filter((r) => !r.mine || kept);
 	if (!kept) {
-		const at = board.findIndex((r) => r.score < score);
+		const at = board.findIndex((r) => better(score, r.score));
 		board.splice(at < 0 ? board.length : at, 0, { id: null, nickname, score, colours: null });
 	}
 	board = board.map((r, i) => ({ ...r, rank: i + 1, you: r.mine ? true : r.id === null, mine: undefined }));
@@ -523,7 +568,7 @@ async function scoreDetail(env: Env, id: number): Promise<Response> {
 		env.DB.prepare(
 			`SELECT o.id, o.score, o.created_at FROM scores o, scores s
 			 WHERE s.id = ? AND o.device = s.device AND o.player = s.player AND o.mode = s.mode AND o.status = 'shown'
-			 ${week ? `AND o.${WEEK}` : ""} ORDER BY o.score DESC, o.id LIMIT 10`,
+			 ${week ? `AND o.${WEEK}` : ""} ORDER BY CASE WHEN s.mode = 'around' THEN o.score ELSE -o.score END, o.id LIMIT 10`, // around the world: fastest first
 		).bind(id);
 	const [week, all] = await env.DB.batch([top(true), top(false)]);
 	const log = JSON.parse(row.log) as Shot[];

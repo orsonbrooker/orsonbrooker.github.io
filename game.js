@@ -1,14 +1,16 @@
-// Orson's shootaround: a 60 second isometric basketball game.
+// Orson's shootaround: an isometric basketball game (time attack, sudden death, around the world).
 //
 // The ball is simulated in 3D court space (metres) and projected onto the
 // isometric court art. Screen units are "court pixels": the 2048px court image.
 
 import { loadVoiceClips, sound } from "./audio.js?v=b614856c";
-import { createFxLayer } from "./fx.js?v=1b9ca74d";
-import { pickPhrase } from "./phrases.js?v=eb7671e6";
+import { createFxLayer } from "./fx.js?v=61e6d0cd";
+import { pickPhrase } from "./phrases.js?v=481ae699";
 import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
-import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=6d69ade5";
+import { MONEY, NORMAL, RAINBOW, ballKind, ballPoints } from "./bonus.js?v=80033a4c";
+import { countsIn, doneToday, markDone, progress, streakDays, todaysChallenge } from "./daily.js?v=6f3b9099";
+import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=3bebb26c";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=9235830f";
 
 const COURT_PX = 2048;
@@ -48,11 +50,15 @@ const BOARD_ART = {
 };
 
 const GAME_SECONDS = 60;
-// Two ways to play, each with its own best and leaderboard:
-//   timed     time attack: score as much as you can in 60 seconds
-//   survival  sudden death: no clock, keep shooting until the first miss
-const MODES = ["timed", "survival"];
-const bestKey = (mode) => (mode === "survival" ? "orson-hoops-best-survival" : "orson-hoops-best");
+// Ways to play, each with its own best:
+//   timed     time attack: score as much as you can in 60 seconds (has a leaderboard)
+//   survival  sudden death: no clock, keep shooting until the first miss (has a leaderboard)
+//   around    around the world: score from each spot around the key in order, as fast as you can
+//             (the best is the lowest time, kept on this device)
+const MODES = ["timed", "survival", "around"];
+const BEST_KEYS = { timed: "orson-hoops-best", survival: "orson-hoops-best-survival", around: "orson-hoops-best-around" };
+const bestKey = (mode) => BEST_KEYS[mode] ?? BEST_KEYS.timed;
+const AROUND_SPOT_COUNT = 7; // one for each spot in AROUND_LAYOUT
 const PHYSICS_STEP = 1 / 240;
 const LAUNCH_ANGLE = (52 * Math.PI) / 180;
 
@@ -62,7 +68,9 @@ const JUMP_APEX = 0.29;
 const TIMING_WINDOW = 0.13;
 
 // Like NBA Jam: two makes in a row heats him up, three puts him on fire until he misses,
-// and keeping it going turns the flames purple. Add a level here to go even further.
+// keeping it going turns the flames purple, and ten in a row goes blue-white supernova.
+// Add a level here to go even further (and to FIRE_BONUS in worker/src/index.ts, which
+// checks scores).
 //   streak: makes in a row to reach it
 //   window: timing window is this much wider
 //   bonus:  extra points per basket
@@ -85,6 +93,15 @@ const FIRE_LEVELS = [
     color: "#c77dff",
     fx: { palette: "purpleFire", radius: 6 },
   },
+  {
+    streak: 10,
+    window: 1.7,
+    bonus: 3,
+    phrase: "supernova",
+    stillPhrase: "stillSupernova",
+    color: "#8fd8ff",
+    fx: { palette: "supernova", radius: 7 },
+  },
 ];
 const BANNER_SECONDS = 1.7;
 const BUZZER_CELEBRATION = 3.2; // seconds to celebrate a buzzer beater before the game-over screen
@@ -101,13 +118,16 @@ const pixelFx = createFxLayer();
 const scoreEl = document.getElementById("score");
 const timeEl = document.getElementById("time");
 const $ = (id) => document.getElementById(id);
-const screens = { title: $("title-screen"), select: $("select-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen") };
+const screens = { title: $("title-screen"), select: $("select-screen"), modes: $("mode-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen") };
 const tapToPlay = $("tap-to-play");
-const modePick = $("mode-pick");
-const playerChip = $("player-chip");
 const helpButton = $("help-button");
 // Keyboards say "press Space"; touch screens say "tap".
-const HAS_KEYS = matchMedia("(hover: hover) and (pointer: fine)").matches;
+// How they can play: a touch screen, a keyboard (a mouse or trackpad means one is likely), or
+// both, like a laptop with a touch screen or an iPad with a keyboard.
+const HAS_TOUCH = matchMedia("(any-pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+const HAS_KEYS = matchMedia("(any-hover: hover) and (any-pointer: fine)").matches || !HAS_TOUCH;
+// Say how to do something: by touch, by keyboard, or either, depending on what they have.
+const howTo = (touch, keys, both) => (HAS_TOUCH && HAS_KEYS ? both : HAS_KEYS ? keys : touch);
 const muteBtn = document.getElementById("mute");
 const musicBtn = document.getElementById("music");
 const charPick = document.getElementById("char-pick");
@@ -191,7 +211,14 @@ syncSoundButtons();
 // (rotating one picture smears its pixels). The seam pattern repeats every half turn.
 const BALL_FRAMES = 12;
 
-function makeBallSprite(turn) {
+// look: the ball's colours (BALL_LOOKS). A rainbow ball's colour runs around it in bands.
+const BALL_LOOKS = {
+  [NORMAL]: { main: "#de6d2b", shade: "#b5501d", shine: "#f39a55", seam: "#5b2a12", edge: "#3a1a10" },
+  [MONEY]: { main: "#f0b424", shade: "#c48412", shine: "#fff3a6", seam: "#7a4a08", edge: "#4a2c08" },
+  [RAINBOW]: { rainbow: true, shine: "#ffffff", seam: "#3a2a5a", edge: "#2a1a3a" },
+};
+
+function makeBallSprite(turn, look = BALL_LOOKS[NORMAL]) {
   const size = 16;
   const c = document.createElement("canvas");
   c.width = c.height = size;
@@ -202,18 +229,20 @@ function makeBallSprite(turn) {
     for (let x = 0; x < size; x++) {
       const d = Math.hypot(x - mid, y - mid);
       if (d > 7.6) continue;
-      let color = x + y > 19 ? "#b5501d" : "#de6d2b";
-      if (Math.hypot(x - 5, y - 4.5) < 2) color = "#f39a55";
       // the seams, in the ball's own turned frame
       const rx = mid + (x - mid) * cos + (y - mid) * sin;
       const ry = mid - (x - mid) * sin + (y - mid) * cos;
+      let color = look.rainbow
+        ? `hsl(${Math.round(((rx + ry) * 22) % 360)}, 90%, ${x + y > 19 ? 48 : 60}%)`
+        : x + y > 19 ? look.shade : look.main;
+      if (Math.hypot(x - 5, y - 4.5) < 2) color = look.shine;
       const seam =
         Math.abs(rx - mid) < 0.6 ||
         Math.abs(ry - mid) < 0.6 ||
         Math.abs(Math.hypot(rx + 4, ry - mid) - 9.5) < 0.6 ||
         Math.abs(Math.hypot(rx - 19, ry - mid) - 9.5) < 0.6;
-      if (seam) color = "#5b2a12";
-      if (d > 6.7) color = "#3a1a10";
+      if (seam) color = look.seam;
+      if (d > 6.7) color = look.edge;
       g.fillStyle = color;
       g.fillRect(x, y, 1, 1);
     }
@@ -221,9 +250,18 @@ function makeBallSprite(turn) {
   return c;
 }
 
+// One spinning set of frames for each kind of ball.
 function makeBallSprites() {
-  return Array.from({ length: BALL_FRAMES }, (_, i) => makeBallSprite((i / BALL_FRAMES) * Math.PI));
+  const frames = (look) => Array.from({ length: BALL_FRAMES }, (_, i) => makeBallSprite((i / BALL_FRAMES) * Math.PI, look));
+  return { [NORMAL]: frames(BALL_LOOKS[NORMAL]), [MONEY]: frames(BALL_LOOKS[MONEY]), [RAINBOW]: frames(BALL_LOOKS[RAINBOW]) };
 }
+
+// The next ball's kind: money or rainbow now and then, but only in games that score points.
+function nextBallKind() {
+  if (state.phase !== "playing" || !scoresPoints()) return NORMAL;
+  return ballKind(state.gameToken, state.shotLog.length);
+}
+const BALL_BADGES = { [MONEY]: { text: "MONEY BALL x2", color: "#ffd700", call: "moneyBall" }, [RAINBOW]: { text: "RAINBOW BALL +5", color: "#ff86e6", call: "rainbowBall" } };
 
 // ---------- Game state ----------
 
@@ -234,6 +272,10 @@ const state = {
   best: 0,
   timeLeft: GAME_SECONDS,
   elapsed: 0, // seconds since the start (sudden death has no clock to count down)
+  aroundAt: 0, // around the world: the spot they're on (0 to 6)
+  aroundTime: 0, // around the world: the time it took, once it's done
+  stats: null, // what happened in this game, for the daily challenge (newStats)
+  dailyDone: false, // finished the daily challenge in this game
   overAt: 0,
   balls: [],
   popups: [],
@@ -279,12 +321,6 @@ const characters = {
   loaded: new Map(),
   selected: load("orson-hoops-character", "orson"),
 };
-// Whether to skip the player select on the first press. The saved player can't tell us (it's saved
-// on every page load, picked or not), so: they picked one, made one in the builder, or have
-// played before (a best score or the first-shot hints done).
-function hasChosenPlayer() {
-  return load("orson-hoops-chosen", false) || load("orson-hoops-best", null) !== null || load("orson-hoops-learned", false);
-}
 
 async function loadBuilt(entry) {
   const base = (await loadBases()).find((b) => b.id === entry.base);
@@ -311,11 +347,10 @@ async function selectCharacter(id) {
   shoeRegions = loaded?.regionsData ?? null; // builder players: which pixels are shoes
   characters.selected = id;
   save("orson-hoops-character", id);
-  renderChip();
   if (state.phase === "select") renderPicker();
 }
 
-// A player's face for the picker and the title screen's chip.
+// A player's face for the picker and the leaderboard.
 // Builder players' faces, drawn once each, so redrawing a list doesn't flash the plain body.
 const faces = new Map(); // base + colours -> data URL
 function setFace(img, c) {
@@ -336,14 +371,6 @@ function setFace(img, c) {
       img.src = faces.get(key);
     })
     .catch(() => {});
-}
-
-function renderChip() {
-  const c = characters.list.find((p) => p.id === characters.selected);
-  if (!c) return;
-  setFace($("chip-face"), c);
-  $("chip-name").textContent = c.name;
-  playerChip.hidden = false;
 }
 
 // The player select screen: a card per player, then one to make your own.
@@ -437,8 +464,36 @@ function isThreePointSpot(u, v) {
   return spotDistance(u, v) > threePointRadius(u, v);
 }
 
+// Around the world: in close on one block, out along the baseline, up to the elbow, the free throw
+// line, then back down the other side, like on a real court. [angle from the hoop, metres out,
+// measured against the key painted on the court]
+const AROUND_LAYOUT = [
+  [44, 1.7], // block
+  [40, 2.9], // baseline
+  [66, 3.4], // elbow
+  [90, 3.45], // free throw line
+  [114, 3.4], // elbow
+  [140, 2.9], // baseline
+  [136, 1.7], // block
+];
+let aroundSpots = null;
+function getAroundSpots() {
+  aroundSpots ??= AROUND_LAYOUT.map(([deg, metres]) => {
+    const angle = (deg * Math.PI) / 180;
+    const line = threePointRadius(RIM.u + Math.cos(angle), RIM.v + Math.sin(angle));
+    const d = Math.min(metres, line - LINE_CLEARANCE - 0.3);
+    return {
+      u: Math.max(1.8, Math.min(ROOM_U - 0.8, RIM.u + Math.cos(angle) * d)),
+      v: Math.min(ROOM_V - 0.8, RIM.v + Math.sin(angle) * d),
+    };
+  });
+  return aroundSpots;
+}
+
 // Picks a spot around the hoop: about a third are behind the 3-point line.
 function pickSpot() {
+  // Around the world: the spot they're on until they make it, then the next.
+  if (state.mode === "around") return getAroundSpots()[Math.min(state.aroundAt, AROUND_SPOT_COUNT - 1)];
   const wantThree = Math.random() < THREE_POINT_SHARE;
   for (let i = 0; i < 100; i++) {
     // Keep him roughly in front of the hoop so his back-on shooting pose still faces it.
@@ -461,14 +516,15 @@ function setMode(mode) {
   state.mode = MODES.includes(mode) ? mode : "timed";
   state.best = load(bestKey(state.mode), 0);
   save("orson-hoops-mode", state.mode);
-  for (const b of modePick.querySelectorAll("[data-mode]")) b.setAttribute("aria-pressed", String(b.dataset.mode === state.mode));
-  $("title-best").textContent = state.best ? `Best: ${state.best}` : "";
   updateHud();
 }
 
 const survival = () => state.mode === "survival";
+const around = () => state.mode === "around";
+const scoresPoints = () => !around(); // around the world is against the clock instead
+const showBest = (best) => (around() ? `${best.toFixed(1)}s` : best);
 // How far into the game we are, for the shot log.
-const gameSeconds = () => (survival() ? state.elapsed : GAME_SECONDS - state.timeLeft);
+const gameSeconds = () => (survival() || around() ? state.elapsed : GAME_SECONDS - state.timeLeft);
 
 function startGame() {
   state.phase = "playing";
@@ -493,8 +549,13 @@ function startGame() {
   state.buzzerBeater = false;
   state.streak = 0;
   state.coldStreak = 0;
-  player.u = DEFAULT_SPOT.u;
-  player.v = DEFAULT_SPOT.v;
+  state.aroundAt = 0;
+  state.aroundTime = 0;
+  state.stats = newStats();
+  state.dailyDone = false; // finished the daily challenge in this game
+  const start = around() ? getAroundSpots()[0] : DEFAULT_SPOT;
+  player.u = start.u;
+  player.v = start.v;
   player.fade = 1;
   player.activeBall = null;
   player.moving = false;
@@ -508,6 +569,8 @@ function startGame() {
 function endGame() {
   state.phase = "over";
   state.overAt = performance.now();
+  checkDaily(); // things only known at the end, like the final score
+  if (around()) return endAroundTheWorld();
   const isBest = state.score > state.best;
   if (isBest) {
     state.best = state.score;
@@ -527,10 +590,31 @@ function endGame() {
   $("over-title").textContent =
     isBest && state.score > 0 ? "New high score!" : survival() ? "Missed!" : state.buzzerBeater ? "Buzzer beater!" : "Time's up!";
   $("final-score").textContent = state.score;
+  $("final-unit").textContent = "points";
   const made = state.shotLog.filter((s) => s[2]).length;
   $("over-detail").textContent = survival()
     ? `${made} in a row · Best: ${state.best}`
     : (state.buzzerBeater ? "Won it at the buzzer! " : "") + `Best: ${state.best}`;
+  showDaily();
+  showScreen("over");
+  showRound();
+}
+
+// Around the world is over once the last spot goes in: the time is what counts (lower is better).
+function endAroundTheWorld() {
+  const time = Math.round(state.aroundTime * 10) / 10;
+  const isBest = !state.best || time < state.best;
+  if (isBest) {
+    state.best = time;
+    save(bestKey(state.mode), time);
+  }
+  if (isBest) announce("newBest", "#ffe066");
+  $("over-title").textContent = isBest ? "New best time!" : "Around the world!";
+  $("final-score").textContent = time.toFixed(1);
+  $("final-unit").textContent = "seconds";
+  const shots = state.shotLog.length;
+  $("over-detail").textContent = `${shots} shots for ${AROUND_SPOT_COUNT} spots · Best: ${showBest(state.best)}`;
+  showDaily();
   showScreen("over");
   showRound();
 }
@@ -543,10 +627,26 @@ function showScreen(name) {
 
 function showTitle() {
   state.phase = "title";
-  tapToPlay.textContent = HAS_KEYS ? "Press Space to play" : "Tap to play";
+  tapToPlay.textContent = howTo("Tap to play", "Press Space to play", "Tap or press Space to play");
   setMode(state.mode);
-  renderChip();
   showScreen("title");
+}
+
+// Step two, after tapping to start: pick a game (each card shows its best), then a player.
+function openModes() {
+  state.phase = "modes";
+  showDaily();
+  for (const card of screens.modes.querySelectorAll("[data-mode]")) {
+    const mode = card.dataset.mode;
+    const best = load(bestKey(mode), 0);
+    card.setAttribute("aria-pressed", String(mode === state.mode));
+    card.querySelector("[data-best]").textContent = best ? `Your best: ${mode === "around" ? `${best.toFixed(1)}s` : best}` : "No best yet";
+  }
+  showScreen("modes");
+  // Focus their last game, but only once Space is let go, or letting go would pick it.
+  const focus = () => screens.modes.querySelector('[aria-pressed="true"]')?.focus({ preventScroll: true });
+  if (state.pressed) window.addEventListener("keyup", () => setTimeout(focus), { once: true });
+  else focus();
 }
 
 // Pick a player. The first time someone plays, this comes first and then the game starts.
@@ -568,23 +668,25 @@ const GAME_VERSION = new URL(import.meta.url).searchParams.get("v");
 
 // Under the final score: where a new best this week would land (and the button to put it on),
 // or their own top scores this week.
+// Around the world sends its time, in tenths of a second.
 function showRound() {
+  const score = around() ? Math.round(state.aroundTime * 10) : state.score;
   const c = characters.list.find((p) => p.id === characters.selected);
   const look = { player: characters.selected, base: c?.base ?? null, colours: c?.mine ? c.colours : null }; // their own player, so everyone sees its face
   const shots = state.shotLog;
   showRoundResult($("over-board"), {
     mode: state.mode,
-    score: state.score,
+    score,
     look,
     playerName: c?.name ?? "",
     ownPlayer: !!c?.mine,
-    canSend: !DEBUG && state.score > 0,
+    canSend: !DEBUG && score > 0,
     faceFor: boardFace,
     payload: () =>
       state.gameToken && {
         token: state.gameToken,
         mode: state.mode,
-        score: state.score,
+        score,
         shots,
         ...look,
         input: state.input,
@@ -652,14 +754,18 @@ function closeHelp() {
   stage.focus({ preventScroll: true });
 }
 
+// Tapping to start: choose a game, then a player, then play.
 function begin() {
-  if (hasChosenPlayer()) startGame();
-  else openSelect(true);
+  openModes();
 }
 
 function updateHud() {
-  scoreEl.textContent = state.score;
-  timeEl.textContent = survival() ? `${made()} made, sudden death` : `${Math.ceil(state.timeLeft)} seconds left`;
+  scoreEl.textContent = around() ? `spot ${Math.min(state.aroundAt + 1, AROUND_SPOT_COUNT)} of ${AROUND_SPOT_COUNT}` : state.score;
+  timeEl.textContent = survival()
+    ? `${made()} made, sudden death`
+    : around()
+      ? `${Math.floor(state.elapsed)} seconds`
+      : `${Math.ceil(state.timeLeft)} seconds left`;
   scoreboardDirty = true;
 }
 
@@ -691,6 +797,41 @@ function release() {
   else if (player.anim === "jump") shoot((player.t - JUMP_APEX) / timingWindow());
 }
 
+// Arrow keys move between the cards when choosing a game or a player: to the nearest card that
+// way, so it works however the cards wrap. Enter or Space picks the one in focus.
+function arrowMove(key) {
+  if (document.querySelector("dialog[open]")) return false;
+  const area = state.phase === "modes" && !screens.modes.hidden ? screens.modes.querySelector(".mode-cards")
+    : state.phase === "select" && !screens.select.hidden ? charPick : null;
+  if (!area) return false;
+  const cards = [...area.querySelectorAll(".mode-card, .card")];
+  const current = cards.includes(document.activeElement) ? document.activeElement : null;
+  if (!current) {
+    (area.querySelector('[aria-pressed="true"]') ?? cards[0])?.focus({ preventScroll: true });
+    return true;
+  }
+  const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[key];
+  const centre = (el) => {
+    const r = el.getBoundingClientRect();
+    return [r.left + r.width / 2, r.top + r.height / 2];
+  };
+  const [cx, cy] = centre(current);
+  let best = null;
+  let bestScore = Infinity;
+  for (const card of cards) {
+    if (card === current) continue;
+    const [x, y] = centre(card);
+    const along = (x - cx) * dir[0] + (y - cy) * dir[1];
+    if (along < 4) continue; // not that way
+    const across = Math.abs((x - cx) * dir[1] + (y - cy) * dir[0]);
+    const score = along + across * 3; // prefer cards in line over ones off to the side
+    if (score < bestScore) [best, bestScore] = [card, score];
+  }
+  best?.focus({ preventScroll: true });
+  best?.scrollIntoView({ block: "nearest" });
+  return true;
+}
+
 // Typing in a form (like the ideas box) shouldn't make Orson shoot.
 const typing = (e) => e.target instanceof Element && e.target.closest("input, textarea, select, button, dialog");
 
@@ -698,7 +839,11 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && !document.querySelector("dialog[open]")) {
     if (!screens.help.hidden) closeHelp();
     else if (!screens.board.hidden) closeBoard();
-    else if (state.phase === "select") showTitle();
+    else if (state.phase === "select" || state.phase === "modes") showTitle();
+    return;
+  }
+  if (e.key.startsWith("Arrow") && arrowMove(e.key)) {
+    e.preventDefault();
     return;
   }
   if (e.code !== "Space" && e.key !== " ") return;
@@ -715,10 +860,17 @@ window.addEventListener("keyup", (e) => {
 });
 
 // Taps on the screens' panels and buttons are theirs, not a shot. (The title screen lets taps through.)
-for (const el of [...Object.values(screens).filter((el) => el !== screens.title), playerChip, modePick])
+for (const el of Object.values(screens).filter((el) => el !== screens.title))
   el.addEventListener("pointerdown", (e) => e.stopPropagation());
-playerChip.addEventListener("click", () => openSelect());
-$("select-back").addEventListener("click", showTitle);
+$("mode-back").addEventListener("click", showTitle);
+$("change-mode").addEventListener("click", openModes);
+for (const card of screens.modes.querySelectorAll("[data-mode]"))
+  card.addEventListener("click", () => {
+    setMode(card.dataset.mode);
+    openSelect(true); // then choose a player
+  });
+// Back from choosing a player: to choosing a game, if that's where they came from.
+$("select-back").addEventListener("click", () => (selectThenPlay ? openModes() : showTitle()));
 $("again").addEventListener("click", () => {
   if (performance.now() - state.overAt > 900) startGame();
 });
@@ -730,7 +882,6 @@ $("board-button").addEventListener("click", () => (screens.board.hidden ? openBo
 $("board-back").addEventListener("click", closeBoard);
 for (const tab of screens.board.querySelectorAll("[data-range]")) tab.addEventListener("click", () => openBoard(tab.dataset.range, boardMode));
 for (const tab of screens.board.querySelectorAll("[data-board-mode]")) tab.addEventListener("click", () => openBoard(boardRange(), tab.dataset.boardMode));
-for (const b of modePick.querySelectorAll("[data-mode]")) b.addEventListener("click", () => setMode(b.dataset.mode));
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && state.phase === "playing") state.hiddenTab = true;
 });
@@ -858,6 +1009,7 @@ function shoot(timing) {
     bounces: 0,
     three: isThreePointSpot(player.u, player.v),
     fire: fireLevel(),
+    kind: nextBallKind(),
     prevZ: z,
   };
   state.balls.push(ball);
@@ -867,7 +1019,7 @@ function shoot(timing) {
     ball.trail = pixelFx.fireTrail(p.x, p.y, ball.fire.fx);
   }
   if (state.phase === "playing") {
-    ball.log = [Math.round(gameSeconds() * 100) / 100, ball.three ? 1 : 0, 0, Math.round(clamped * 1000) / 1000];
+    ball.log = [Math.round(gameSeconds() * 100) / 100, ball.three ? 1 : 0, 0, Math.round(clamped * 1000) / 1000, ball.kind];
     state.shotLog.push(ball.log);
   }
   player.activeBall = ball;
@@ -910,7 +1062,7 @@ function runCall(streak) {
   const top = RUN_CALLS.at(-1);
   return RUN_CALLS.find((r) => r.streak === streak) ?? (streak > top.streak && streak % 10 === 0 ? { streak, call: "runLegend", level: 3 } : null);
 }
-function celebrateRun(run, p) {
+function celebrateRun(run, p, newFire = null) {
   addPopup(`${run.streak} IN A ROW`, "#ffd700", p.x, p.y - 140);
   sound.cheer(1.4 + run.level * 0.2);
   if (run.level >= 2) {
@@ -918,7 +1070,8 @@ function celebrateRun(run, p) {
     confettiBurst(run.level >= 3 ? 140 : 70);
   }
   if (run.level >= 3) pixelFx.fireworks(COURT_PX);
-  announce(run.call, run.level >= 3 ? "#ffd700" : "#ffe066", { big: run.level >= 2 });
+  if (newFire) announce(newFire.phrase, newFire.color, { big: run.level >= 2 });
+  else announce(run.call, run.level >= 3 ? "#ffd700" : "#ffe066", { big: run.level >= 2 });
 }
 
 function confettiBurst(count) {
@@ -1057,15 +1210,18 @@ function collideBoard(b) {
 function scoreBasket(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
   if (survival() && state.phase === "ending") return; // already missed: a ball still in the air doesn't count
-  const points = (b.three ? 3 : 2) + (b.fire?.bonus ?? 0);
+  if (around()) return aroundBasket(b);
+  const points = ballPoints(b.kind ?? NORMAL, b.three, b.fire?.bonus ?? 0);
   if (b.log) b.log[2] = 1;
   state.score += points;
   state.streak++;
   state.coldStreak = 0;
+  recordMake(b);
   updateHud();
   sound.swish();
   const p = project(RIM.u, RIM.v, RIM.z);
-  addPopup(`+${points}`, b.fire?.color ?? "#ffe066", p.x, p.y - 60);
+  addPopup(`+${points}`, BALL_BADGES[b.kind]?.color ?? b.fire?.color ?? "#ffe066", p.x, p.y - 60);
+  if (BALL_BADGES[b.kind]) pixelFx.swish(p.x, p.y, b.kind === MONEY ? "gold" : "pink");
 
   const swish = !b.touchedRim && !b.touchedBoard;
   if (swish) pixelFx.swish(p.x, p.y, b.fire ? "gold" : "cyan");
@@ -1076,7 +1232,11 @@ function scoreBasket(b) {
     return;
   }
   const run = survival() && runCall(state.streak);
-  if (run) return celebrateRun(run, p);
+  if (run) {
+    // A sudden death milestone that also lights a new fire (10 in a row: supernova) gets both.
+    if (levelUp >= 0) sound.fireIgnite(levelUp);
+    return celebrateRun(run, p, levelUp >= 0 ? fire : null);
+  }
   if (levelUp >= 0) sound.fireIgnite(levelUp);
   else sound.cheer(b.three || state.streak === FIRE_LEVELS[0].streak - 1 ? 1.4 : 1);
 
@@ -1089,9 +1249,106 @@ function scoreBasket(b) {
   else announce("make", "#ffffff");
 }
 
+// Around the world: a make moves them on to the next spot; the last one finishes it.
+function aroundBasket(b) {
+  if (state.phase !== "playing") return;
+  if (b.log) b.log[2] = 1;
+  state.streak++;
+  state.coldStreak = 0;
+  state.aroundAt++;
+  if (state.aroundAt >= AROUND_SPOT_COUNT) state.stats.aroundTime = state.elapsed;
+  recordMake(b);
+  updateHud();
+  sound.swish();
+  const p = project(RIM.u, RIM.v, RIM.z);
+  const swish = !b.touchedRim && !b.touchedBoard;
+  if (swish) pixelFx.swish(p.x, p.y, "cyan");
+  if (state.aroundAt >= AROUND_SPOT_COUNT) {
+    state.aroundTime = state.elapsed;
+    state.phase = "ending";
+    sound.gameOver();
+    state.flash = 0.8;
+    confettiBurst(160);
+    pixelFx.fireworks(COURT_PX);
+    addPopup(`${state.elapsed.toFixed(1)}s`, "#ffd700", p.x, p.y - 60);
+    announce("aroundDone", "#ffd700", { big: true });
+    return;
+  }
+  addPopup(`SPOT ${state.aroundAt + 1}`, "#ffe066", p.x, p.y - 60);
+  const levelUp = FIRE_LEVELS.findIndex((l) => l.streak === state.streak);
+  if (levelUp >= 0) {
+    sound.fireIgnite(levelUp);
+    announce(fireLevel().phrase, fireLevel().color);
+  } else {
+    sound.cheer(1);
+    announce(state.aroundAt === AROUND_SPOT_COUNT - 1 ? "aroundLast" : swish ? "swish" : "make", "#ffffff");
+  }
+}
+
+// ---------- Daily challenge ----------
+
+// What happened in this game, for the daily challenge (daily.js).
+function newStats() {
+  return { makes: 0, threes: 0, threeRun: 0, bestThreeRun: 0, swishRun: 0, bestSwishRun: 0, banks: 0, fires: 0, bestStreak: 0, money: 0, rainbow: 0, score: 0, aroundTime: 0, buzzerBeater: false };
+}
+
+function recordMake(b) {
+  const s = state.stats;
+  const swish = !b.touchedRim && !b.touchedBoard;
+  s.makes++;
+  s.threes += b.three ? 1 : 0;
+  s.threeRun = b.three ? s.threeRun + 1 : 0;
+  s.bestThreeRun = Math.max(s.bestThreeRun, s.threeRun);
+  s.swishRun = swish ? s.swishRun + 1 : 0;
+  s.bestSwishRun = Math.max(s.bestSwishRun, s.swishRun);
+  s.banks += b.touchedBoard && !b.touchedRim ? 1 : 0;
+  s.fires += state.streak === FIRE_LEVELS[0].streak ? 1 : 0;
+  s.bestStreak = Math.max(s.bestStreak, state.streak);
+  s.money += b.kind === MONEY ? 1 : 0;
+  s.rainbow += b.kind === RAINBOW ? 1 : 0;
+  // A moment later, so the basket's own call comes first.
+  setTimeout(checkDaily, 700);
+}
+
+function recordMiss() {
+  state.stats.threeRun = 0;
+  state.stats.swishRun = 0;
+}
+
+// Done the daily challenge in this game? Celebrate (once a day).
+function checkDaily() {
+  const challenge = todaysChallenge();
+  if (state.dailyDone || doneToday() || !state.stats || !countsIn(challenge, state.mode)) return;
+  state.stats.score = state.score;
+  state.stats.buzzerBeater = state.buzzerBeater;
+  if (progress(challenge, state.stats) < challenge.goal) return;
+  state.dailyDone = true;
+  const days = markDone();
+  const p = project(RIM.u, RIM.v, RIM.z);
+  addPopup(days > 1 ? `CHALLENGE DONE · ${days} DAYS` : "CHALLENGE DONE", "#3ddc84", p.x, p.y - 200);
+  confettiBurst(90);
+  sound.cheer(2);
+  announce("challenge", "#3ddc84", { big: state.phase !== "playing" });
+}
+
+// The daily challenge line on the game select and game-over screens.
+function showDaily() {
+  const challenge = todaysChallenge();
+  const days = streakDays();
+  const inARow = days > 1 ? ` ${days} days in a row!` : "";
+  $("mode-daily").textContent = doneToday() ? `Today's challenge done!${inARow}` : `Today's challenge: ${challenge.text}`;
+  let over;
+  if (state.dailyDone) over = `Daily challenge complete!${inARow}`;
+  else if (doneToday()) over = `Daily challenge done for today.${inARow}`;
+  else if (state.stats && countsIn(challenge, state.mode)) over = `Daily challenge: ${challenge.text} (${progress(challenge, state.stats)} of ${challenge.goal})`;
+  else over = `Daily challenge: ${challenge.text}`;
+  $("over-daily").textContent = over;
+}
+
 function missedShot(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
   if (survival() && state.phase === "ending") return;
+  recordMiss();
   // Sudden death: the first miss ends it, once the reaction has played.
   if (survival()) {
     sound.gameOver();
@@ -1142,6 +1399,12 @@ function updatePlayer(dt) {
         const p = project(spot.u, spot.v);
         addPopup("3PT SPOT", "#ffffff", p.x, p.y - 500);
       }
+      // A bonus ball coming up: say so.
+      const badge = BALL_BADGES[nextBallKind()];
+      if (badge) {
+        announce(badge.call, badge.color);
+        sound.cheer(1.2);
+      }
     }
     return;
   }
@@ -1180,7 +1443,14 @@ function updatePlayer(dt) {
 }
 
 function update(dt) {
-  if (state.phase === "playing" && survival()) {
+  if (state.phase === "playing" && around()) {
+    // Against the clock, counting up. The music builds as they get around.
+    const before = Math.floor(state.elapsed);
+    state.elapsed += dt;
+    if (Math.floor(state.elapsed) !== before) updateHud();
+    const fire = fireLevel();
+    sound.setIntensity({ stage: state.aroundAt < 3 ? 0 : state.aroundAt < 5 ? 1 : 2, fire: fire ? FIRE_LEVELS.indexOf(fire) + 1 : 0, final: state.aroundAt === AROUND_SPOT_COUNT - 1 });
+  } else if (state.phase === "playing" && survival()) {
     // No clock. The music builds with the run instead.
     state.elapsed += dt;
     const fire = fireLevel();
@@ -1382,7 +1652,7 @@ function drawBall(b) {
   const size = BALL_R * PX_PER_M * 2.6;
   const fade = b.age > 4.5 ? Math.max(0, (5 - b.age) / 0.5) : 1;
   const turns = (((-b.spin / Math.PI) % 1) + 1) % 1;
-  const sprite = ballSprites[Math.floor(turns * BALL_FRAMES) % BALL_FRAMES];
+  const sprite = ballSprites[b.kind ?? NORMAL][Math.floor(turns * BALL_FRAMES) % BALL_FRAMES];
   // squashed flat for a moment after a floor bounce, sitting on the floor
   const sq = (b.squash ?? 0) * 0.35;
   const w = size * (1 + sq), h = size * (1 - sq);
@@ -1449,11 +1719,55 @@ function drawBanner() {
 
 // The very first shot: what to do next, in a bubble over the player. Never shown again after that.
 const hints = { learned: load("orson-hoops-learned", false) };
+// Around the world: the seven spots on the floor, numbered, with the one they're on lit up.
+function drawAroundSpots() {
+  if (!around() || state.phase === "title") return;
+  const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 180);
+  getAroundSpots().forEach((spot, i) => {
+    const p = project(spot.u, spot.v);
+    const done = i < state.aroundAt;
+    const current = i === state.aroundAt;
+    ctx.save();
+    ctx.globalAlpha = done ? 0.55 : current ? 0.75 + 0.25 * pulse : 0.45;
+    ctx.fillStyle = done ? "#3ddc84" : current ? "#ffe066" : "#ffffff";
+    ctx.beginPath();
+    ctx.ellipse(p.x, p.y, 56, 24, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.font = '22px "Press Start 2P", monospace';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#2b1622";
+    ctx.fillText(String(i + 1), p.x, p.y + 2);
+    ctx.restore();
+  });
+}
+
+// Above the player while the ball in his hands is a bonus ball.
+function drawBallBadge() {
+  const badge = BALL_BADGES[nextBallKind()];
+  if (!badge || player.moving || player.fade < 0.6) return;
+  const p = project(player.u, player.v);
+  const pulse = 1 + 0.08 * Math.sin(performance.now() / 120);
+  ctx.save();
+  ctx.translate(p.x, p.y - 470);
+  ctx.scale(pulse, pulse);
+  ctx.font = '26px "Press Start 2P", monospace';
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineWidth = 8;
+  ctx.strokeStyle = "#2b1622";
+  ctx.strokeText(badge.text, 0, 0);
+  ctx.fillStyle = badge.color;
+  ctx.fillText(badge.text, 0, 0);
+  ctx.restore();
+}
+
 function drawHint() {
   if (hints.learned || state.phase !== "playing" || player.moving || player.fade < 1) return;
   const text =
-    player.anim === "idle" ? (HAS_KEYS ? "Press Space to face the hoop" : "Tap to face the hoop")
-    : player.anim === "turn" || player.anim === "dribble" ? (HAS_KEYS ? "Hold Space to jump" : "Hold to jump")
+    player.anim === "idle" ? howTo("Tap to face the hoop", "Press Space to face the hoop", "Tap or press Space to face the hoop")
+    : player.anim === "turn" || player.anim === "dribble" ? howTo("Hold to jump", "Hold Space to jump", "Hold (or hold Space) to jump")
     : player.anim === "gather" || player.anim === "jump" ? "Let go at the top!"
     : "";
   if (!text) return;
@@ -1586,9 +1900,12 @@ function renderScoreboard() {
   g.font = '16px "Press Start 2P", monospace';
   g.textAlign = "center";
   g.textBaseline = "middle";
-  drawPanel(g, BOARD_ART.left, state.score);
+  // Around the world: which spot they're on, out of seven.
+  if (around()) drawPanel(g, { ...BOARD_ART.left, label: "SPOT" }, Math.min(state.aroundAt + 1, AROUND_SPOT_COUNT));
+  else drawPanel(g, BOARD_ART.left, state.score);
   // Sudden death has no clock: the right side counts makes instead.
   if (survival()) drawPanel(g, { ...BOARD_ART.right, label: "MADE" }, made());
+  else if (around()) drawPanel(g, BOARD_ART.right, Math.floor(state.elapsed));
   else drawPanel(g, BOARD_ART.right, Math.ceil(state.timeLeft));
   scoreboardDirty = false;
 }
@@ -1613,6 +1930,8 @@ function render() {
   if (scoreboardDirty) renderScoreboard();
   ctx.drawImage(scoreboard, BOARD_ART.area.x, BOARD_ART.area.y);
 
+  drawAroundSpots();
+
   // Floor shadows first.
   drawShadow(player.u, player.v, 70, 26, 0.35 * Math.max(0, player.fade));
   for (const b of state.balls) {
@@ -1631,6 +1950,7 @@ function render() {
   for (const item of items) item.draw();
 
   drawMeter();
+  drawBallBadge();
   drawHint();
   drawPopups();
   drawConfetti();

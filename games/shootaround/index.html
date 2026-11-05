@@ -7,14 +7,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#a6798e" />
     <title>Shootaround | Orson Brooker</title>
-    <meta name="description" content="Hi, I'm Orson! Play my 60 second pixel-art basketball game and see if you can beat my high score." />
+    <meta name="description" content="Hi, I'm Orson! Play my pixel-art basketball game: time attack, sudden death or around the world. Can you beat my high score?" />
     <link rel="canonical" href="https://orsonbrooker.com/games/shootaround/" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Orson Brooker" />
     <meta property="og:url" content="https://orsonbrooker.com/games/shootaround/" />
     <meta property="og:title" content="Orson Brooker | Shootaround" />
-    <meta property="og:description" content="Play my 60 second pixel-art basketball game. Can you beat my high score?" />
+    <meta property="og:description" content="Play my pixel-art basketball game: time attack, sudden death or around the world. Can you beat my high score?" />
     <meta property="og:image" content="https://orsonbrooker.com/assets/share/shootaround.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -22,7 +22,7 @@
     <meta property="og:locale" content="en_AU" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Orson Brooker | Shootaround" />
-    <meta name="twitter:description" content="Play my 60 second pixel-art basketball game. Can you beat my high score?" />
+    <meta name="twitter:description" content="Play my pixel-art basketball game: time attack, sudden death or around the world. Can you beat my high score?" />
     <meta name="twitter:image" content="https://orsonbrooker.com/assets/share/shootaround.jpg" />
 
     <link rel="icon" href="/icons/shootaround/favicon.ico" sizes="48x48" />
@@ -38,7 +38,7 @@
         "name": "Shootaround",
         "url": "https://orsonbrooker.com/games/shootaround/",
         "author": { "@type": "Person", "name": "Orson Brooker" },
-        "description": "A 60 second pixel-art basketball game. Can you beat Orson's high score?",
+        "description": "A pixel-art basketball game with three modes: time attack, sudden death and around the world. Can you beat Orson's high score?",
         "gamePlatform": "Web browser"
       }
     </script>
@@ -47,7 +47,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
     <link rel="preload" href="assets/court.webp" as="image" />
     <link rel="preload" href="assets/sprites.webp" as="image" />
-    <link rel="stylesheet" href="styles.css?v=f26c39d1" />
+    <link rel="stylesheet" href="styles.css?v=8ab0fa64" />
     <link rel="stylesheet" href="feedback/widget.css?v=2134607c" />
   </head>
   <body>
@@ -60,28 +60,21 @@
 
         <p class="sr-only">Score <span id="score">0</span>, <span id="time">60 seconds left</span></p>
 
-        <div class="sound-buttons">
+        <!-- Bottom corners: leaderboard and how to play on the left, music and sound on the right. -->
+        <div class="sound-buttons info-buttons">
           <button id="board-button" type="button" aria-label="Leaderboard"><span data-icon="trophy"></span></button>
           <button id="help-button" type="button" aria-label="How to play"><span data-icon="help"></span></button>
+        </div>
+        <div class="sound-buttons">
           <button id="music" type="button" aria-label="Turn music off" aria-pressed="true"><span data-icon="music"></span></button>
           <button id="mute" type="button" aria-label="Mute sound"><span data-icon="sound"></span></button>
         </div>
 
-        <!-- Title: tap anywhere (or press Space) to play. -->
+        <!-- Title: tap anywhere (or press Space) to start, then choose a game, then a player. -->
         <div class="screen title-screen" id="title-screen">
           <h2 class="logo">Shootaround</h2>
           <div class="title-bottom">
-            <div class="mode-pick" id="mode-pick" role="group" aria-label="Game mode">
-              <button type="button" data-mode="timed" aria-pressed="true">Time attack</button>
-              <button type="button" data-mode="survival" aria-pressed="false">Sudden death</button>
-            </div>
             <p class="tap-to-play" id="tap-to-play">Loading…</p>
-            <button class="player-chip" id="player-chip" type="button" hidden>
-              <img id="chip-face" alt="" width="40" height="40" />
-              <span><span class="chip-label">Playing as </span><strong id="chip-name"></strong></span>
-              <span class="chip-change">Change</span>
-            </button>
-            <p class="best" id="title-best"></p>
           </div>
         </div>
 
@@ -96,15 +89,45 @@
           </div>
         </div>
 
+        <!-- Game select. -->
+        <div class="screen panel-screen" id="mode-screen" hidden>
+          <div class="panel select-panel">
+            <div class="select-head">
+              <button class="screen-back" id="mode-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+              <h2>Choose a game</h2>
+            </div>
+            <p class="mode-daily" id="mode-daily"></p>
+            <div class="mode-cards" role="group" aria-label="Games">
+              <button type="button" class="mode-card" data-mode="timed">
+                <strong>Time attack</strong>
+                <span>Score as many points as you can in 60 seconds.</span>
+                <em data-best></em>
+              </button>
+              <button type="button" class="mode-card" data-mode="survival">
+                <strong>Sudden death</strong>
+                <span>No clock. Keep shooting until you miss. It gets harder the longer you go!</span>
+                <em data-best></em>
+              </button>
+              <button type="button" class="mode-card" data-mode="around">
+                <strong>Around the world</strong>
+                <span>Score from all 7 spots around the key, in order, as fast as you can.</span>
+                <em data-best></em>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- Game over. -->
         <div class="screen panel-screen" id="over-screen" hidden>
           <div class="panel over-panel">
             <h2 id="over-title">Time's up!</h2>
-            <p class="final-score"><span id="final-score">0</span> points</p>
+            <p class="final-score"><span id="final-score">0</span> <span id="final-unit">points</span></p>
             <p id="over-detail"></p>
+            <p class="over-daily" id="over-daily"></p>
             <div class="over-board" id="over-board" hidden></div>
             <div class="over-actions">
               <button class="primary" id="again" type="button"><span data-icon="again"></span>Play again</button>
+              <button id="change-mode" type="button"><span data-icon="trophy"></span>Change game</button>
               <button id="change-player" type="button"><span data-icon="players"></span>Change player</button>
               <button id="got-idea" type="button"><span data-icon="idea"></span>Got an idea?</button>
             </div>
@@ -121,6 +144,7 @@
             <div class="board-tabs board-modes" role="tablist" aria-label="Game mode">
               <button type="button" role="tab" data-board-mode="timed" aria-selected="true">Time attack</button>
               <button type="button" role="tab" data-board-mode="survival" aria-selected="false">Sudden death</button>
+              <button type="button" role="tab" data-board-mode="around" aria-selected="false">Around the world</button>
             </div>
             <div class="board-tabs" role="tablist" aria-label="When">
               <button type="button" role="tab" data-range="week" aria-selected="true">This week</button>
@@ -142,13 +166,15 @@
             </ol>
             <p><strong>Time attack:</strong> score as many points as you can in 60 seconds. Shots from behind the arc are worth 3. Make 3 in a row and you're on fire!</p>
             <p><strong>Sudden death:</strong> no clock. Keep shooting until you miss. One miss and it's over!</p>
+            <p><strong>Around the world:</strong> score from all 7 spots around the key, in order, as fast as you can. Miss and you shoot from the same spot again.</p>
+            <p>Keep scoring for blue supernova fire at 10 in a row. Watch for a gold money ball (double points) and the rare rainbow ball (5 points)!</p>
             <button class="primary" id="help-close" type="button">Got it</button>
           </div>
         </div>
       </div>
     </main>
 
-    <script type="module" src="game.js?v=af927fbd"></script>
+    <script type="module" src="game.js?v=eb8d9e99"></script>
     <script type="module" src="feedback/widget.js?v=c584b4c1"></script>
     <script type="module" src="ui/nav.js?v=718654c5"></script>
   </body>

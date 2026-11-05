@@ -1,7 +1,7 @@
 {
   "name": "Shootaround",
   "short_name": "Shootaround",
-  "description": "Orson's 60 second pixel-art basketball game.",
+  "description": "Orson's pixel-art basketball game: time attack, sudden death and around the world.",
   "id": "/games/shootaround/",
   "start_url": "/games/shootaround/",
   "scope": "/",

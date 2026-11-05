@@ -141,7 +141,9 @@
 			}
 
 			// Sudden death scores are on their own leaderboard; time attack (the 60 second game) needs no label.
-			const modeName = (s) => (s.mode === "survival" ? "Sudden death · " : "");
+			const modeName = (s) => (s.mode === "survival" ? "Sudden death · " : s.mode === "around" ? "Around the world · " : "");
+			// Around the world scores are times in tenths of a second.
+			const scoreText = (s) => (s.mode === "around" ? `${(s.score / 10).toFixed(1)}s` : String(s.score));
 
 			// Odd-looking scores Orson hasn't looked at yet. They're on the board until he hides them.
 			const suspicious = (s) => s.status === "shown" && !s.checked && JSON.parse(s.flags).length > 0;
@@ -437,7 +439,7 @@
 						el(
 							"div",
 							{},
-							el("span", { className: "score-big", textContent: `${s.score} ` }),
+							el("span", { className: "score-big", textContent: `${scoreText(s)} ` }),
 							el("b", { textContent: s.nickname }),
 							odd ? el("span", { className: "suspect", textContent: "Suspicious" }) : null,
 						),

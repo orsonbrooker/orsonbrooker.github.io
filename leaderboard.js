@@ -89,6 +89,11 @@ function when(at) {
 
 const el = (tag, props = {}) => Object.assign(document.createElement(tag), props);
 
+// Around the world is timed: its score is the time in tenths of a second, and lower is better.
+const lowWins = (mode) => mode === "around";
+const scoreText = (mode, score) => (lowWins(mode) ? `${(score / 10).toFixed(1)}s` : String(score));
+const scoresWord = (mode) => (lowWins(mode) ? "times" : "scores");
+
 // What the game-over screen shows under the score, in `box`:
 //   a new best this week: the board around where it would land (two above, two below), with
 //   their nickname (a box to type it the first time) and a button to put it on
@@ -127,7 +132,8 @@ export function showRoundResult(box, round) {
     const fromBoard = sent.map((s) => ({ ...look, id: s.id, score: s.score, at: Date.parse(s.created_at.replace(" ", "T") + "Z") }));
     const ids = new Set(fromBoard.map((g) => g.id));
     const week = [...games.filter((g) => !ids.has(g.id)), ...fromBoard]
-      .filter((g) => g.player === look.player && (g.mode ?? "timed") === mode && g.at > at - WEEK_MS).sort((a, b) => b.score - a.score || a.at - b.at);
+      .filter((g) => g.player === look.player && (g.mode ?? "timed") === mode && g.at > at - WEEK_MS)
+      .sort((a, b) => (lowWins(mode) ? a.score - b.score : b.score - a.score) || a.at - b.at);
     const place = week.findIndex((g) => g.at === at);
     const rows = place < 5 ? week.slice(0, 5) : [...week.slice(0, 4), week[place]];
     const list = el("ol", { className: "board-list lb-mine" });
@@ -135,16 +141,16 @@ export function showRoundResult(box, round) {
       const li = el("li");
       if (g.at === at) li.className = "you";
       const rank = week.indexOf(g) + 1;
-      li.append(...rowParts({ ...g, nickname: g.at === at ? "This game" : when(g.at) }, rank, faceFor));
+      li.append(...rowParts({ ...g, nickname: g.at === at ? "This game" : when(g.at) }, rank, faceFor, mode));
       list.append(li);
     }
-    box.replaceChildren(el("h3", { textContent: "Your top scores this week" }), ...(note ? [el("p", { className: "lb-where lb-kept", textContent: note })] : []), list);
+    box.replaceChildren(el("h3", { textContent: `Your top ${scoresWord(mode)} this week` }), ...(note ? [el("p", { className: "lb-where lb-kept", textContent: note })] : []), list);
   };
 
   if (!round.canSend) return showMine();
   box.replaceChildren(el("p", { className: "fb-hint", textContent: "Checking the leaderboard…" }));
   preview(nickname)
-    .then((out) => (out.kept ? showMine(`Your best this week is ${out.best}, so that stays on the leaderboard.`, out.sent) : showBoard(out)))
+    .then((out) => (out.kept ? showMine(`Your best this week is ${scoreText(mode, out.best)}, so that stays on the leaderboard.`, out.sent) : showBoard(out)))
     .catch((err) => {
       // A saved name the server won't take any more: start them off with a fresh box.
       if (err.checked) {
@@ -168,7 +174,7 @@ export function showRoundResult(box, round) {
 
     // Their own row, kept between updates so typing isn't interrupted.
     const you = el("li", { className: "you" });
-    const [rankEl, face, , points] = rowParts({ ...look, nickname, score }, "", faceFor);
+    const [rankEl, face, , points] = rowParts({ ...look, nickname, score }, "", faceFor, mode);
     const nameCell = el("span", { className: "lb-name" });
     you.append(rankEl, face, nameCell, points);
     const input = el("input", { type: "text", maxLength: 12, autocomplete: "off", placeholder: "Your nickname", value: nickname });
@@ -198,7 +204,7 @@ export function showRoundResult(box, round) {
       if (!out || out.kept) return;
       where.textContent = out.rank === 1 ? "Top of the board this week!" : `You'd be #${out.rank} this week!`;
       rankEl.textContent = out.rank;
-      list.replaceChildren(...out.board.map((row) => (row.you ? you : boardRow(row, row.rank, faceFor))));
+      list.replaceChildren(...out.board.map((row) => (row.you ? you : boardRow(row, row.rank, faceFor, mode))));
     };
     let timer;
     const rename = () => {
@@ -254,19 +260,19 @@ export function showRoundResult(box, round) {
   }
 }
 
-// One leaderboard row's insides: rank, face, nickname and points.
-function rowParts(row, rank, faceFor) {
+// One leaderboard row's insides: rank, face, nickname and points (or time).
+function rowParts(row, rank, faceFor, mode) {
   const rankEl = Object.assign(document.createElement("span"), { className: "lb-rank", textContent: rank });
   const img = Object.assign(document.createElement("img"), { alt: "", width: 40, height: 40 });
   faceFor(row, img);
   const nameEl = Object.assign(document.createElement("span"), { className: "lb-name", textContent: row.nickname }); // typed by visitors: text only
-  const score = Object.assign(document.createElement("span"), { className: "lb-points", textContent: row.score });
+  const score = Object.assign(document.createElement("span"), { className: "lb-points", textContent: scoreText(mode, row.score) });
   return [rankEl, img, nameEl, score];
 }
 
-function boardRow(row, rank, faceFor) {
+function boardRow(row, rank, faceFor, mode) {
   const li = document.createElement("li");
-  li.append(...rowParts(row, rank, faceFor));
+  li.append(...rowParts(row, rank, faceFor, mode));
   return li;
 }
 
@@ -308,7 +314,7 @@ function drawBoard(list, note, range, mode, scores, faceFor, bodyFor) {
       const li = document.createElement("li");
       if (mine.has(row.id)) li.className = "mine";
       const button = Object.assign(document.createElement("button"), { type: "button", className: "lb-row" });
-      button.append(...rowParts(row, i + 1, faceFor));
+      button.append(...rowParts(row, i + 1, faceFor, mode));
       button.addEventListener("click", () => showScoreCard(row, i + 1, range, mode, bodyFor));
       li.append(button);
       return li;
@@ -321,7 +327,7 @@ const SHORT_DATE = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "
 const played = (createdAt) => new Date(createdAt.replace(" ", "T") + "Z");
 
 // A player's top 10 on their card, this week or all time, with their best marked.
-function drawTop(dialog, top, range) {
+function drawTop(dialog, top, range, mode) {
   const box = dialog.querySelector(".lb-top");
   const list = box.querySelector("ol");
   const tabs = [...box.querySelectorAll("[data-range]")];
@@ -334,7 +340,7 @@ function drawTop(dialog, top, range) {
           el("span", { className: "lb-rank", textContent: i + 1 }),
           el("span", { className: "lb-name", textContent: SHORT_DATE.format(played(g.created_at)) }),
           ...(i === 0 ? [el("span", { className: "lb-best-tag", textContent: "Best" })] : []),
-          el("span", { className: "lb-points", textContent: g.score }),
+          el("span", { className: "lb-points", textContent: scoreText(mode, g.score) }),
         );
         return li;
       }),
@@ -356,14 +362,14 @@ function showScoreCard(row, rank, range, mode, bodyFor) {
         <div>
           <p class="lb-card-rank"></p>
           <h2></h2>
-          <p class="lb-score"><span></span> points</p>
+          <p class="lb-score"><span></span> <span class="lb-unit">points</span></p>
           <p class="lb-played"></p>
         </div>
       </div>
       <dl class="lb-stats"><p class="fb-hint">Loading…</p></dl>
       <div class="lb-top" hidden>
         <div class="lb-top-head">
-          <h3>Top 10 scores</h3>
+          <h3>Top 10</h3>
           <div class="board-tabs" role="tablist">
             <button type="button" role="tab" data-range="week">This week</button>
             <button type="button" role="tab" data-range="all">All time</button>
@@ -375,9 +381,12 @@ function showScoreCard(row, rank, range, mode, bodyFor) {
         <button type="submit" class="fb-button fb-primary">Close</button>
       </div>
     </form>`;
-  dialog.querySelector(".lb-card-rank").textContent = `#${rank} ${range === "week" ? "this week" : "all time"}${mode === "survival" ? " in sudden death" : ""}`;
+  const where = { survival: " in sudden death", around: " around the world" }[mode] ?? "";
+  dialog.querySelector(".lb-card-rank").textContent = `#${rank} ${range === "week" ? "this week" : "all time"}${where}`;
   dialog.querySelector("h2").textContent = row.nickname; // typed by visitors: text only
-  dialog.querySelector(".lb-score span").textContent = row.score;
+  dialog.querySelector(".lb-score span").textContent = lowWins(mode) ? (row.score / 10).toFixed(1) : row.score;
+  dialog.querySelector(".lb-unit").textContent = lowWins(mode) ? "seconds" : "points";
+  dialog.querySelector(".lb-top h3").textContent = `Top 10 ${scoresWord(mode)}`;
   const body = dialog.querySelector(".lb-body");
   bodyFor(row)
     .then((canvas) => body.append(canvas))
@@ -392,11 +401,12 @@ function showScoreCard(row, rank, range, mode, bodyFor) {
       const pct = d.shots ? Math.round((d.made / d.shots) * 100) : 0;
       const rows = [
         ["Shots made", `${d.made} of ${d.shots} (${pct}%)`],
-        ["Threes made", d.threes],
+        // Around the world has no threes and no bonus for being on fire.
+        ...(lowWins(mode) ? [] : [["Threes made", d.threes]]),
         ["Best streak", `${d.bestStreak} in a row`],
-        ["Times on fire", d.onFire],
+        ...(lowWins(mode) ? [] : [["Times on fire", d.onFire]]),
         ["Let go in the green", `${d.green} of ${d.shots}`],
-        ["Scores sent", d.games],
+        [lowWins(mode) ? "Times sent" : "Scores sent", d.games],
       ];
       stats.replaceChildren(
         ...rows.map(([label, value]) => {
@@ -405,7 +415,7 @@ function showScoreCard(row, rank, range, mode, bodyFor) {
           return item;
         }),
       );
-      drawTop(dialog, d.top, range);
+      drawTop(dialog, d.top, range, mode);
     })
     .catch(() => (stats.innerHTML = '<p class="fb-hint">The stats can\'t be loaded right now.</p>'));
 

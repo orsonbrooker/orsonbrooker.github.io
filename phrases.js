@@ -57,6 +57,9 @@ export const PHRASES = {
   // Six in a row: the flames turn purple.
   purpleFire: ["Purple flames!", "He's on PURPLE fire!", "That's a different kind of fire!", "Fire so hot it turned purple!"],
   stillPurpleFire: ["Still purple!", "The purple reign continues!", "Nobody can cool him down!", "Purple haze!"],
+  // Ten in a row: blue-white supernova.
+  supernova: ["Supernova!", "He's gone supernova!", "Blue flames!"],
+  stillSupernova: ["Still supernova!", "Brighter than the sun!", "Out of this world!"],
   fireOut: ["And the fire's out.", "He's cooled off.", "Fire's out!"],
 
   // Sudden death: the longer the run, the bigger the call (see RUN_CALLS in game.js).
@@ -68,6 +71,17 @@ export const PHRASES = {
   run40: ["Forty in a row!", "Are you watching this?!", "Break the record books!"],
   run50: ["Fifty!", "Somebody wake me up!", "Greatest of all time!"],
   runLegend: ["He's still going!", "Unbelievable!", "Never miss again!", "This is insane!"],
+
+  // Bonus balls, called when one comes up (see bonus.js).
+  moneyBall: ["Money ball!", "Golden ball!", "Double points!"],
+  rainbowBall: ["Rainbow ball!", "It's a rainbow!", "Five points on the line!"],
+
+  // Around the world.
+  aroundLast: ["Last spot!", "One more!", "Bring it home!"],
+  aroundDone: ["Around the world!", "World tour complete!", "Passport stamped!"],
+
+  // The daily challenge, done.
+  challenge: ["Challenge complete!", "Daily challenge done!"],
 
   // Scored after the buzzer went.
   buzzer: ["At the buzzer!", "Just under the wire!", "Buzzer beater!"],
@@ -109,6 +123,7 @@ const MIX = {
   three: ["make", 0.5],
   stillOnFire: ["make", 0.5],
   stillPurpleFire: ["make", 0.6],
+  stillSupernova: ["make", 0.6],
   airball: ["miss", 0.5],
   cold: ["miss", 0.6],
 };

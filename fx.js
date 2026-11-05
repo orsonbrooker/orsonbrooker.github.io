@@ -18,6 +18,7 @@ export const PALETTES = {
   green: ["#06260f", "#0d4d22", "#167a38", "#25a84f", "#3ddc84", "#b4f5cf", "#ffffff"],
   fire: ["#4a1712", "#8a1f17", "#c9281f", "#f2561d", "#ff8a2a", "#ffc23d", "#ffe26b", "#fff3a6", "#ffffff"],
   purpleFire: ["#1e0a33", "#3b1066", "#5a1a9e", "#7b2cff", "#9d5cff", "#c77dff", "#ddb0ff", "#f6d6ff", "#ffffff"],
+  supernova: ["#061430", "#0b2c66", "#1452b0", "#2a82e8", "#4fb4ff", "#8fd8ff", "#c8f0ff", "#eefbff", "#ffffff"],
   spark: ["#3a1a10", "#8a3a14", "#c9681f", "#f2a43d", "#ffe26b", "#fff3a6", "#ffffff"],
 };
 
