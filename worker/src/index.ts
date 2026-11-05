@@ -94,6 +94,8 @@ export default {
 
 async function publicApi(request: Request, env: Env, url: URL): Promise<Response> {
 	const route = `${request.method} ${url.pathname}`;
+	const scoreId = route.match(/^GET \/api\/scores\/(\d{1,10})$/);
+	if (scoreId) return scoreDetail(env, Number(scoreId[1]));
 	switch (route) {
 		case "GET /api/config": {
 			const apps = await env.DB.prepare("SELECT slug, name FROM apps ORDER BY name").all();
@@ -428,6 +430,42 @@ async function leaderboard(env: Env, url: URL): Promise<Response> {
 	).all<{ colours: string | null }>();
 	const scores = rows.results.map((r) => ({ ...r, colours: r.colours ? JSON.parse(r.colours) : null }));
 	return json({ scores }, 200, 30);
+}
+
+// One leaderboard game, for the card shown when someone's row is tapped. Stats come from the shot
+// log; the log itself and anything about the device stay private.
+async function scoreDetail(env: Env, id: number): Promise<Response> {
+	const row = await env.DB.prepare(
+		`SELECT s.id, s.nickname, s.score, s.player, s.base, s.colours, s.shots, s.made, s.threes, s.log, s.created_at,
+		   (SELECT COUNT(*) FROM scores o WHERE o.device = s.device AND lower(o.nickname) = lower(s.nickname) AND o.status = 'shown') AS games
+		 FROM scores s WHERE s.id = ? AND s.status = 'shown'`,
+	)
+		.bind(id)
+		.first<{ log: string; colours: string | null } & Record<string, unknown>>();
+	if (!row) throw new HttpError(404, "That score isn't on the leaderboard.");
+	const log = JSON.parse(row.log) as Shot[];
+	const fireAt = Math.min(...FIRE_BONUS.map((f) => f.streak));
+	let streak = 0;
+	let bestStreak = 0;
+	let onFire = 0;
+	for (const [, , made] of log) {
+		streak = made ? streak + 1 : 0;
+		bestStreak = Math.max(bestStreak, streak);
+		if (streak === fireAt) onFire++;
+	}
+	const { log: _log, colours, ...rest } = row;
+	return json(
+		{
+			...rest,
+			colours: colours ? JSON.parse(colours) : null,
+			bestStreak,
+			onFire,
+			// Let go in the green part of the jump bar (timing is in green-zone widths from the apex).
+			green: log.filter((shot) => Math.abs(shot[3]) <= 0.5).length,
+		},
+		200,
+		60,
+	);
 }
 
 // ---------- Admin ----------

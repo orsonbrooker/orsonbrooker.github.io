@@ -33,6 +33,8 @@ export function loadBase(base, root = "/") {
     const img = (src) =>
       new Promise((resolve, reject) => {
         const i = new Image();
+        // So pixels can be read when the site is on another origin (the admin page, run locally).
+        i.crossOrigin = "anonymous";
         i.onload = () => resolve(i);
         i.onerror = reject;
         i.src = root + src;

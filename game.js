@@ -8,8 +8,8 @@ import { createFxLayer } from "./fx.js?v=1b9ca74d";
 import { pickPhrase } from "./phrases.js?v=e5110e70";
 import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
-import { renderBoard, startToken, submitScore } from "./leaderboard.js?v=1c7f7afe";
-import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=c3a25e13";
+import { renderBoard, startToken, submitScore } from "./leaderboard.js?v=3908dc30";
+import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=9235830f";
 
 const COURT_PX = 2048;
 const PX_PER_M = 132;
@@ -308,14 +308,26 @@ async function selectCharacter(id) {
 }
 
 // A player's face for the picker and the title screen's chip.
+// Builder players' faces, drawn once each, so redrawing a list doesn't flash the plain body.
+const faces = new Map(); // base + colours -> data URL
 function setFace(img, c) {
-  img.src = c.thumb;
-  if (c.base) {
-    // Builder players: show their own colours once their base body has loaded.
-    loadBuilt(c)
-      .then(({ loaded }) => (img.src = thumbnail(loaded, c.colours).toDataURL()))
-      .catch(() => {});
+  if (!c.base) {
+    img.src = c.thumb;
+    return;
   }
+  const key = c.base + JSON.stringify(c.colours);
+  if (faces.has(key)) {
+    img.src = faces.get(key);
+    return;
+  }
+  img.src = c.thumb;
+  // Show their own colours once their base body has loaded.
+  loadBuilt(c)
+    .then(({ loaded }) => {
+      faces.set(key, thumbnail(loaded, c.colours).toDataURL());
+      img.src = faces.get(key);
+    })
+    .catch(() => {});
 }
 
 function renderChip() {
@@ -565,14 +577,25 @@ function boardFace(row, img) {
   const c = characters.list.find((p) => p.id === row.player);
   if (c) return setFace(img, c);
   img.src = characters.list[0].thumb;
-  if (row.base && row.colours) return setFace(img, { thumb: img.src, base: row.base, colours: row.colours });
-  if (row.base)
-    loadBases()
-      .then((bases) => {
-        const base = bases.find((b) => b.id === row.base);
-        if (base) img.src = "/" + base.thumb;
-      })
-      .catch(() => {});
+  // Players made on someone's device: their own colours, or the body's own if none were sent.
+  if (row.base) setFace(img, { thumb: img.src, base: row.base, colours: row.colours ?? {} });
+}
+
+// The whole player standing, for the card a leaderboard row opens.
+async function boardBody(row) {
+  const c = characters.list.find((p) => p.id === row.player);
+  let meta, img;
+  if (c) ({ meta, img } = await loadCharacter(c.id));
+  else if (row.base) {
+    const base = (await loadBases()).find((b) => b.id === row.base);
+    const loaded = await loadBase(base);
+    ({ meta } = loaded);
+    img = recolor(loaded, row.colours ?? {});
+  } else ({ meta, img } = await loadCharacter(characters.list[0].id));
+  const [x, y, w, h] = meta.frames.idle[0];
+  const canvas = Object.assign(document.createElement("canvas"), { width: w, height: h });
+  canvas.getContext("2d").drawImage(img, x, y, w, h, 0, 0, w, h);
+  return canvas;
 }
 
 let boardReturn = null;
@@ -580,7 +603,7 @@ function openBoard(range = "week") {
   if (screens.board.hidden) boardReturn = Object.keys(screens).find((k) => !screens[k].hidden) ?? null;
   for (const tab of screens.board.querySelectorAll("[data-range]")) tab.setAttribute("aria-selected", String(tab.dataset.range === range));
   showScreen("board");
-  renderBoard($("board-list"), $("board-note"), range, boardFace);
+  renderBoard($("board-list"), $("board-note"), range, boardFace, boardBody);
 }
 function closeBoard() {
   showScreen(boardReturn === "board" ? "title" : boardReturn);

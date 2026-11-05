@@ -151,32 +151,112 @@ export function submitScore(game, { playerName = "", ownPlayer = false } = {}) {
   });
 }
 
-// Fills the leaderboard list. faceFor(row, img) puts the player's face in an <img>.
-export async function renderBoard(list, note, range, faceFor) {
-  list.replaceChildren();
-  note.textContent = "Loading…";
+// Fills the leaderboard list. faceFor(row, img) puts the player's face in an <img>, and
+// bodyFor(row) resolves with a canvas of their whole player, for the card a row opens.
+// A board seen before shows straight away, then updates if the server has something newer, so
+// switching between This week and All time doesn't blank the list.
+const seen = new Map(); // range -> scores
+let showing = null; // the range asked for last
+export async function renderBoard(list, note, range, faceFor, bodyFor) {
+  showing = range;
+  const draw = (scores) => drawBoard(list, note, range, scores, faceFor, bodyFor);
+  if (seen.has(range)) draw(seen.get(range));
+  else if (!list.children.length) note.textContent = "Loading…";
   let scores;
   try {
     const res = await fetch(`${API}/scores?range=${range}`);
     if (!res.ok) throw new Error();
     scores = (await res.json()).scores;
   } catch {
-    note.textContent = "The leaderboard can't be reached right now.";
+    if (showing === range && !seen.has(range)) {
+      list.replaceChildren();
+      note.textContent = "The leaderboard can't be reached right now.";
+    }
     return;
   }
+  if (showing !== range) return; // they've switched tabs since
+  const before = seen.get(range);
+  seen.set(range, scores);
+  if (!before || JSON.stringify(before) !== JSON.stringify(scores)) draw(scores);
+}
+
+function drawBoard(list, note, range, scores, faceFor, bodyFor) {
   note.textContent = scores.length ? "" : range === "week" ? "No scores this week yet. Be the first!" : "No scores yet. Be the first!";
   const mine = new Set(load(MY_SCORES, []));
   list.replaceChildren(
     ...scores.map((row, i) => {
       const li = document.createElement("li");
       if (mine.has(row.id)) li.className = "mine";
+      const button = Object.assign(document.createElement("button"), { type: "button", className: "lb-row" });
       const rank = Object.assign(document.createElement("span"), { className: "lb-rank", textContent: i + 1 });
       const img = Object.assign(document.createElement("img"), { alt: "", width: 40, height: 40 });
       faceFor(row, img);
       const nameEl = Object.assign(document.createElement("span"), { className: "lb-name", textContent: row.nickname }); // typed by visitors: text only
       const score = Object.assign(document.createElement("span"), { className: "lb-points", textContent: row.score });
-      li.append(rank, img, nameEl, score);
+      button.append(rank, img, nameEl, score);
+      button.addEventListener("click", () => showScoreCard(row, i + 1, range, bodyFor));
+      li.append(button);
       return li;
     }),
   );
+}
+
+const DATE = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" });
+
+// A bigger look at someone on the board: their whole player and how their best game went.
+function showScoreCard(row, rank, range, bodyFor) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "fb-dialog lb-dialog lb-card";
+  dialog.innerHTML = `
+    <form method="dialog">
+      <div class="lb-card-top">
+        <div class="lb-body"></div>
+        <div>
+          <p class="lb-card-rank"></p>
+          <h2></h2>
+          <p class="lb-score"><span></span> points</p>
+          <p class="lb-played"></p>
+        </div>
+      </div>
+      <dl class="lb-stats"><p class="fb-hint">Loading…</p></dl>
+      <div class="fb-row">
+        <button type="submit" class="fb-button fb-primary">Close</button>
+      </div>
+    </form>`;
+  dialog.querySelector(".lb-card-rank").textContent = `#${rank} ${range === "week" ? "this week" : "all time"}`;
+  dialog.querySelector("h2").textContent = row.nickname; // typed by visitors: text only
+  dialog.querySelector(".lb-score span").textContent = row.score;
+  const body = dialog.querySelector(".lb-body");
+  bodyFor(row)
+    .then((canvas) => body.append(canvas))
+    .catch(() => {});
+
+  const stats = dialog.querySelector(".lb-stats");
+  fetch(`${API}/scores/${row.id}`)
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error())))
+    .then((d) => {
+      const when = new Date(d.created_at.replace(" ", "T") + "Z");
+      dialog.querySelector(".lb-played").textContent = `Played ${DATE.format(when)}`;
+      const pct = d.shots ? Math.round((d.made / d.shots) * 100) : 0;
+      const rows = [
+        ["Shots made", `${d.made} of ${d.shots} (${pct}%)`],
+        ["Threes made", d.threes],
+        ["Best streak", `${d.bestStreak} in a row`],
+        ["Times on fire", d.onFire],
+        ["Let go in the green", `${d.green} of ${d.shots}`],
+        ["Scores sent", d.games],
+      ];
+      stats.replaceChildren(
+        ...rows.map(([label, value]) => {
+          const item = document.createElement("div");
+          item.append(Object.assign(document.createElement("dt"), { textContent: label }), Object.assign(document.createElement("dd"), { textContent: value }));
+          return item;
+        }),
+      );
+    })
+    .catch(() => (stats.innerHTML = '<p class="fb-hint">The stats can\'t be loaded right now.</p>'));
+
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.append(dialog);
+  dialog.showModal();
 }

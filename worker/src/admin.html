@@ -290,8 +290,26 @@
 				for (const p of data.players) box.append(playerCard(p));
 			}
 
+			// A player's face in their own colours, drawn by the same code as the game. Until it's
+			// drawn (or if it can't be), the plain body shows.
+			let recolorKit;
+			function paintFace(img, p) {
+				recolorKit ??= import(`${SITE}/players/recolor.js`);
+				recolorKit
+					.then(async ({ loadBases, loadBase, thumbnail }) => {
+						const base = (await loadBases(`${SITE}/`)).find((b) => b.id === p.base);
+						if (!base) return;
+						const loaded = await loadBase(base, `${SITE}/`);
+						const colours = { skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name };
+						img.src = thumbnail(loaded, colours, 128).toDataURL();
+					})
+					.catch(() => {});
+			}
+
 			function playerCard(p) {
 				const name = el("input", { type: "text", value: p.name, maxLength: 12 });
+				const face = el("img", { src: `${SITE}/assets/characters/bases/${p.base}/thumb.webp`, alt: "", width: 64, height: 64 });
+				paintFace(face, p);
 				const look = new URLSearchParams({ base: p.base, name: p.name });
 				for (const part of ["skin", "hair", "jersey", "team", "shoes"]) look.set(part, p[part].slice(1));
 				if (p.number) look.set("number", p.number);
@@ -310,7 +328,7 @@
 					el(
 						"div",
 						{ className: "card player" },
-						el("img", { src: `${SITE}/assets/characters/bases/${p.base}/thumb.webp`, alt: "", width: 64, height: 64 }),
+						face,
 						el(
 							"div",
 							{ className: "player-info" },

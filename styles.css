@@ -909,12 +909,28 @@ header p {
 }
 
 .board-list li {
+  border-radius: 6px;
+}
+
+/* Each row opens a card about that game. */
+.lb-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  width: 100%;
   padding: 6px 10px 6px 6px;
+  border: 0;
   border-radius: 6px;
+  background: none;
+  color: inherit;
+  font: inherit;
   font-size: clamp(9px, 1.6vw, 12px);
+  cursor: pointer;
+}
+
+.lb-row:hover,
+.lb-row:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .board-list li:nth-child(odd) {
@@ -968,6 +984,76 @@ header p {
 .lb-dialog .lb-score span {
   font-size: 28px;
   color: #ffe066;
+}
+
+.lb-card-top {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.lb-card-top h2 {
+  margin: 4px 0 8px;
+  overflow-wrap: anywhere;
+}
+
+.lb-body {
+  flex: none;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 96px;
+  height: 180px;
+  padding: 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.lb-body canvas {
+  max-width: 100%;
+  max-height: 100%;
+  image-rendering: pixelated;
+}
+
+.lb-card-rank,
+.lb-played {
+  margin: 0;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.lb-played {
+  margin-top: 8px;
+}
+
+.lb-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.lb-stats div {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.lb-stats dt {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.lb-stats dd {
+  margin: 4px 0 0;
+  font-family: var(--pixel);
+  font-size: 12px;
+  color: #ffe066;
+}
+
+.lb-stats .fb-hint {
+  grid-column: 1 / -1;
 }
 
 .lb-dialog input {
