@@ -49,6 +49,10 @@ const PLAYER_PARTS = ["skin", "hair", "jersey", "team", "shoes"] as const;
 const VOTES_PER_DAY = 60;
 const SCORES_PER_DAY = 40;
 
+// On the leaderboard each device has one row per player it plays as (a built-in one, or one made
+// in the builder), at its best, whatever nicknames it was sent with. The row shows its latest one.
+const WEEK = "created_at > datetime('now', '-7 days')";
+
 export default {
 	async fetch(request, env): Promise<Response> {
 		const url = new URL(request.url);
@@ -125,6 +129,8 @@ async function publicApi(request: Request, env: Env, url: URL): Promise<Response
 			return leaderboard(env, url);
 		case "POST /api/scores":
 			return postScore(request, env);
+		case "POST /api/scores/preview":
+			return previewScore(request, env);
 	}
 	throw new HttpError(404, "Not found.");
 }
@@ -326,9 +332,7 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
 	if (body.debug) throw new HttpError(400, "Scores from test mode don't count.");
 	const realSeconds = await checkGameToken(env, body.token);
-	const nickname = clean(body.nickname, MAX_PLAYER_NAME);
-	if (!/^[\p{L}\p{N}][\p{L}\p{N} '-]*$/u.test(nickname)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
-	if (isRude(nickname)) throw new HttpError(400, RUDE);
+	const nickname = scoreNickname(body);
 	const device = clean(body.device, 64);
 	if (device.length < 16) throw new HttpError(400, "Bad request.");
 	const player = clean(body.player, 40) || "orson";
@@ -409,27 +413,85 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 			.bind(colours, base, deviceHash, player, inserted.id)
 			.run();
 
-	// Where it landed this week (each nickname on a device counts once, at its best).
+	// Where their row sits this week: at its best, which may be an earlier game.
 	const rank = await env.DB.prepare(
-		`SELECT COUNT(*) + 1 AS rank FROM (SELECT MAX(score) AS best FROM scores WHERE status = 'shown' AND created_at > datetime('now', '-7 days')
-		 GROUP BY device, lower(nickname)) WHERE best > ?`,
+		`WITH g AS (SELECT device AS d, player AS p, MAX(score) AS best FROM scores WHERE status = 'shown' AND ${WEEK} GROUP BY 1, 2)
+		 SELECT COUNT(*) + 1 AS rank, (SELECT best FROM g WHERE d = ?1 AND p = ?2) AS best FROM g
+		 WHERE best >= (SELECT best FROM g WHERE d = ?1 AND p = ?2) AND NOT (d = ?1 AND p = ?2)`, // ties go after: the board lists earlier games first
 	)
-		.bind(score)
-		.first<{ rank: number }>();
-	return json({ id: inserted.id, status, rank: rank?.rank ?? null });
+		.bind(deviceHash, player)
+		.first<{ rank: number; best: number }>();
+	return json({ id: inserted.id, status, rank: rank?.rank ?? null, best: rank?.best ?? score });
+}
+
+// A leaderboard nickname: checked the same way for the preview and the real thing.
+function scoreNickname(body: Record<string, unknown>): string {
+	const nickname = clean(body.nickname, MAX_PLAYER_NAME);
+	if (!/^[\p{L}\p{N}][\p{L}\p{N} '-]*$/u.test(nickname)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
+	if (isRude(nickname)) throw new HttpError(400, RUDE);
+	return nickname;
+}
+
+// Each player on a device appears once, with its best game and its latest nickname. `mine` marks
+// the row for one device and player.
+type BoardRow = { id: number | null; nickname: string; score: number; player?: string; base?: string | null; colours: unknown; rank?: number; you?: boolean; mine?: number };
+async function boardRows(env: Env, week: boolean, limit: number, mine?: { device: string; player: string }) {
+	const rows = await env.DB.prepare(
+		`SELECT id, score, player, base, colours${mine ? ", (device = ?1 AND player = ?2) AS mine" : ""},
+		   (SELECT x.nickname FROM scores x WHERE x.device = t.device AND x.player = t.player AND x.status = 'shown' ORDER BY x.id DESC LIMIT 1) AS nickname
+		 FROM (
+		   SELECT id, score, player, base, colours, device,
+		     ROW_NUMBER() OVER (PARTITION BY device, player ORDER BY score DESC, id) AS n
+		   FROM scores WHERE status = 'shown' ${week ? `AND ${WEEK}` : ""}
+		 ) t WHERE n = 1 ORDER BY score DESC, id LIMIT ${limit}`,
+	)
+		.bind(...(mine ? [mine.device, mine.player] : []))
+		.all<BoardRow & { colours: string | null }>();
+	return rows.results.map((r) => ({ ...r, colours: r.colours ? JSON.parse(r.colours) : null }));
 }
 
 async function leaderboard(env: Env, url: URL): Promise<Response> {
-	const week = url.searchParams.get("range") !== "all";
-	// Each nickname on a device appears once, with its best game.
-	const rows = await env.DB.prepare(
-		`SELECT id, nickname, score, player, base, colours FROM (
-		   SELECT id, nickname, score, player, base, colours, ROW_NUMBER() OVER (PARTITION BY device, lower(nickname) ORDER BY score DESC, id) AS n
-		   FROM scores WHERE status = 'shown' ${week ? "AND created_at > datetime('now', '-7 days')" : ""}
-		 ) WHERE n = 1 ORDER BY score DESC, id LIMIT 10`,
-	).all<{ colours: string | null }>();
-	const scores = rows.results.map((r) => ({ ...r, colours: r.colours ? JSON.parse(r.colours) : null }));
+	const scores = await boardRows(env, url.searchParams.get("range") !== "all", 10);
 	return json({ scores }, 200, 30);
+}
+
+// As a game ends: where it would land this week, or that their earlier best this week stays, so
+// the game only offers the leaderboard for a new best. Nothing is saved.
+async function previewScore(request: Request, env: Env): Promise<Response> {
+	const body = await readJson(request);
+	const nickname = scoreNickname(body);
+	const device = clean(body.device, 64);
+	if (device.length < 16) throw new HttpError(400, "Bad request.");
+	const score = Number(body.score);
+	if (!Number.isInteger(score) || score < 0 || score > 1000) throw new HttpError(400, "Bad request.");
+	const player = clean(body.player, 40) || "orson";
+	const deviceHash = await hash(env, `device:${device}`);
+	const [rows, sent] = await Promise.all([
+		boardRows(env, true, 500, { device: deviceHash, player }),
+		// Their scores already on the board this week, for their own list (the device's id stays private).
+		env.DB.prepare(`SELECT id, score, created_at FROM scores WHERE device = ? AND player = ? AND status = 'shown' AND ${WEEK} ORDER BY score DESC, id LIMIT 10`)
+			.bind(deviceHash, player)
+			.all(),
+	]);
+
+	const old = rows.find((r) => r.mine);
+	const kept = !!old && old.score >= score; // their earlier best this week stays
+	let board: BoardRow[] = rows.filter((r) => !r.mine || kept);
+	if (!kept) {
+		const at = board.findIndex((r) => r.score < score);
+		board.splice(at < 0 ? board.length : at, 0, { id: null, nickname, score, colours: null });
+	}
+	board = board.map((r, i) => ({ ...r, rank: i + 1, you: r.mine ? true : r.id === null, mine: undefined }));
+	// Them with the two above and two below (five rows near the top or bottom of the board).
+	const at = board.findIndex((r) => r.you);
+	const end = Math.min(board.length, Math.max(0, at - 2) + 5);
+	return json({
+		sent: sent.results,
+		kept,
+		best: kept ? old.score : score,
+		rank: at + 1,
+		board: board.slice(Math.max(0, end - 5), end),
+	});
 }
 
 // One leaderboard game, for the card shown when someone's row is tapped. Stats come from the shot
@@ -437,12 +499,20 @@ async function leaderboard(env: Env, url: URL): Promise<Response> {
 async function scoreDetail(env: Env, id: number): Promise<Response> {
 	const row = await env.DB.prepare(
 		`SELECT s.id, s.nickname, s.score, s.player, s.base, s.colours, s.shots, s.made, s.threes, s.log, s.created_at,
-		   (SELECT COUNT(*) FROM scores o WHERE o.device = s.device AND lower(o.nickname) = lower(s.nickname) AND o.status = 'shown') AS games
+		   (SELECT COUNT(*) FROM scores o WHERE o.device = s.device AND o.player = s.player AND o.status = 'shown') AS games
 		 FROM scores s WHERE s.id = ? AND s.status = 'shown'`,
 	)
 		.bind(id)
 		.first<{ log: string; colours: string | null } & Record<string, unknown>>();
 	if (!row) throw new HttpError(404, "That score isn't on the leaderboard.");
+	// Their top 10 games, this week and all time (the same device and player).
+	const top = (week: boolean) =>
+		env.DB.prepare(
+			`SELECT o.id, o.score, o.created_at FROM scores o, scores s
+			 WHERE s.id = ? AND o.device = s.device AND o.player = s.player AND o.status = 'shown'
+			 ${week ? `AND o.${WEEK}` : ""} ORDER BY o.score DESC, o.id LIMIT 10`,
+		).bind(id);
+	const [week, all] = await env.DB.batch([top(true), top(false)]);
 	const log = JSON.parse(row.log) as Shot[];
 	const fireAt = Math.min(...FIRE_BONUS.map((f) => f.streak));
 	let streak = 0;
@@ -460,6 +530,7 @@ async function scoreDetail(env: Env, id: number): Promise<Response> {
 			colours: colours ? JSON.parse(colours) : null,
 			bestStreak,
 			onFire,
+			top: { week: week.results, all: all.results },
 			// Let go in the green part of the jump bar (timing is in green-zone widths from the apex).
 			green: log.filter((shot) => Math.abs(shot[3]) <= 0.5).length,
 		},

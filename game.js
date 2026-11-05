@@ -8,7 +8,7 @@ import { createFxLayer } from "./fx.js?v=1b9ca74d";
 import { pickPhrase } from "./phrases.js?v=e5110e70";
 import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
-import { renderBoard, startToken, submitScore } from "./leaderboard.js?v=3908dc30";
+import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=35f4adf3";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=9235830f";
 
 const COURT_PX = 2048;
@@ -504,11 +504,8 @@ function endGame() {
   $("over-title").textContent = isBest && state.score > 0 ? "New high score!" : state.buzzerBeater ? "Buzzer beater!" : "Time's up!";
   $("final-score").textContent = state.score;
   $("over-detail").textContent = (state.buzzerBeater ? "Won it at the buzzer! " : "") + `Best: ${state.best}`;
-  const post = $("post-score");
-  post.hidden = DEBUG || state.score < 1;
-  post.disabled = false;
-  post.lastChild.textContent = "Put it on the leaderboard";
   showScreen("over");
+  showRound();
 }
 
 // One screen over the court at a time (or none while playing). Help sits on top of the others.
@@ -541,35 +538,31 @@ let gamesStarted = 0;
 
 const GAME_VERSION = new URL(import.meta.url).searchParams.get("v");
 
-async function postScore() {
-  const post = $("post-score");
-  if (!state.gameToken) {
-    post.lastChild.textContent = "The leaderboard can't be reached";
-    post.disabled = true;
-    return;
-  }
+// Under the final score: where a new best this week would land (and the button to put it on),
+// or their own top scores this week.
+function showRound() {
   const c = characters.list.find((p) => p.id === characters.selected);
-  const result = await submitScore({
-    token: state.gameToken,
+  const look = { player: characters.selected, base: c?.base ?? null, colours: c?.mine ? c.colours : null }; // their own player, so everyone sees its face
+  const shots = state.shotLog;
+  showRoundResult($("over-board"), {
     score: state.score,
-    shots: state.shotLog,
-    player: characters.selected,
-    base: c?.base ?? null,
-    colours: c?.mine ? c.colours : null, // their own player, so everyone sees its face
-    input: state.input,
-    hiddenTab: state.hiddenTab,
-    version: GAME_VERSION,
-    debug: DEBUG,
-  }, { playerName: c?.name ?? "", ownPlayer: !!c?.mine });
-  stage.focus({ preventScroll: true });
-  if (!result) return;
-  post.disabled = true;
-  if (result.status === "shown") {
-    post.lastChild.textContent = result.rank ? `#${result.rank} this week!` : "On the leaderboard!";
-    openBoard("week");
-  } else {
-    post.lastChild.textContent = "Sent! Orson will check it first";
-  }
+    look,
+    playerName: c?.name ?? "",
+    ownPlayer: !!c?.mine,
+    canSend: !DEBUG && state.score > 0,
+    faceFor: boardFace,
+    payload: () =>
+      state.gameToken && {
+        token: state.gameToken,
+        score: state.score,
+        shots,
+        ...look,
+        input: state.input,
+        hiddenTab: state.hiddenTab,
+        version: GAME_VERSION,
+        debug: DEBUG,
+      },
+  });
 }
 
 // Leaderboard rows show the face of who they played as.
@@ -695,7 +688,6 @@ $("change-player").addEventListener("click", () => openSelect());
 $("got-idea").addEventListener("click", () => window.dispatchEvent(new CustomEvent("feedback:open", { detail: { app: "basketball" } })));
 helpButton.addEventListener("click", () => (screens.help.hidden ? openHelp() : closeHelp()));
 $("help-close").addEventListener("click", closeHelp);
-$("post-score").addEventListener("click", postScore);
 $("board-button").addEventListener("click", () => (screens.board.hidden ? openBoard() : closeBoard()));
 $("board-back").addEventListener("click", closeBoard);
 for (const tab of screens.board.querySelectorAll("[data-range]")) tab.addEventListener("click", () => openBoard(tab.dataset.range));

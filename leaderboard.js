@@ -1,4 +1,5 @@
-// Shootaround's leaderboard: sending a score, and showing the top 10 for this week and all time.
+// Shootaround's leaderboard: what a game's end shows, sending a score, and the top 10 for this
+// week and all time.
 //
 // Each game asks the server for a signed start token when it begins. A score is sent with that
 // token and the game's shot log, and the server checks they add up (see worker/src/index.ts,
@@ -75,80 +76,197 @@ function robotCheck(into) {
   );
 }
 
-// Asks for a nickname and sends the score. Resolves with the server's answer, or null if they
-// closed it. The nickname starts as:
-//   their own player's name, if they made the player they played as
-//   otherwise the nickname they typed last time
-//   otherwise the name of who they played as (say "Orson"), selected so typing replaces it
-export function submitScore(game, { playerName = "", ownPlayer = false } = {}) {
-  return new Promise((resolve) => {
-    const dialog = document.createElement("dialog");
-    dialog.className = "fb-dialog lb-dialog";
-    dialog.innerHTML = `
-      <form method="dialog">
-        <h2>Put it on the leaderboard</h2>
-        <p class="lb-score"><span></span> points</p>
-        <label for="lb-name">Nickname</label>
-        <input id="lb-name" type="text" maxlength="12" autocomplete="off" required placeholder="Up to 12 letters" />
-        <p class="fb-hint">Just a nickname, please. No real names or schools.</p>
-        <div class="fb-check"></div>
-        <p class="fb-message" role="status"></p>
-        <div class="fb-row">
-          <button type="button" class="fb-button" value="close">Close</button>
-          <button type="submit" class="fb-button fb-primary">${icon("trophy")}<span>Send</span></button>
-        </div>
-      </form>`;
-    const name = dialog.querySelector("input");
-    const message = dialog.querySelector(".fb-message");
-    const send = dialog.querySelector("[type=submit]");
-    dialog.querySelector(".lb-score span").textContent = game.score;
-    const typedBefore = load(NICKNAME, "");
-    const borrowed = !ownPlayer && !typedBefore && !!playerName; // who they played as, not their own name
-    name.value = (ownPlayer ? playerName : typedBefore || playerName).slice(0, 12);
+// Every game played on this device, so they can see their own scores. Kept in this browser only.
+const MY_GAMES = "orson-hoops-my-games";
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const WEEKDAY = new Intl.DateTimeFormat(undefined, { weekday: "long" });
+function when(at) {
+  const day = (t) => new Date(t).toDateString();
+  if (day(at) === day(Date.now())) return "Today";
+  if (day(at) === day(Date.now() - 864e5)) return "Yesterday";
+  return WEEKDAY.format(at);
+}
+
+const el = (tag, props = {}) => Object.assign(document.createElement(tag), props);
+
+// What the game-over screen shows under the score, in `box`:
+//   a new best this week: the board around where it would land (two above, two below), with
+//   their nickname (a box to type it the first time) and a button to put it on
+//   otherwise: their own top scores this week, from this device
+// round: { score, look: {player, base, colours}, playerName, ownPlayer, canSend, payload(), faceFor }
+// payload() is the game to send (with its start token), asked for only when they press the button.
+// The nickname starts as their own player's name if they made the player, otherwise the nickname
+// they typed last time, otherwise the name of who they played as (say "Orson").
+export function showRoundResult(box, round) {
+  const { score, look, playerName, ownPlayer, faceFor } = round;
+  const at = Date.now();
+  const game = { score, at, ...look };
+  const games = [game, ...load(MY_GAMES, [])].slice(0, 300);
+  save(MY_GAMES, games);
+  box.hidden = false;
+  const typedBefore = load(NICKNAME, "");
+  let nickname = (ownPlayer ? playerName : typedBefore || playerName).slice(0, 12);
+  let editing = !ownPlayer && !typedBefore; // the first time, the name is a box to type in
+
+  const preview = (name) =>
+    fetch(`${API}/scores/preview`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nickname: name, score, player: look.player, device: deviceId() }),
+    }).then(async (res) => {
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok) throw Object.assign(new Error(out.error), { checked: res.status === 400 });
+      return out;
+    });
+
+  // Not a best (or nothing to send): their own top five this week as this player, with this game
+  // marked. Games played here, plus ones the board has from this device (some from before games
+  // were kept here). A game in both is counted once.
+  const showMine = (note, sent = []) => {
+    const fromBoard = sent.map((s) => ({ ...look, id: s.id, score: s.score, at: Date.parse(s.created_at.replace(" ", "T") + "Z") }));
+    const ids = new Set(fromBoard.map((g) => g.id));
+    const week = [...games.filter((g) => !ids.has(g.id)), ...fromBoard]
+      .filter((g) => g.player === look.player && g.at > at - WEEK_MS).sort((a, b) => b.score - a.score || a.at - b.at);
+    const place = week.findIndex((g) => g.at === at);
+    const rows = place < 5 ? week.slice(0, 5) : [...week.slice(0, 4), week[place]];
+    const list = el("ol", { className: "board-list lb-mine" });
+    for (const g of rows) {
+      const li = el("li");
+      if (g.at === at) li.className = "you";
+      const rank = week.indexOf(g) + 1;
+      li.append(...rowParts({ ...g, nickname: g.at === at ? "This game" : when(g.at) }, rank, faceFor));
+      list.append(li);
+    }
+    box.replaceChildren(el("h3", { textContent: "Your top scores this week" }), ...(note ? [el("p", { className: "lb-where lb-kept", textContent: note })] : []), list);
+  };
+
+  if (!round.canSend) return showMine();
+  box.replaceChildren(el("p", { className: "fb-hint", textContent: "Checking the leaderboard…" }));
+  preview(nickname)
+    .then((out) => (out.kept ? showMine(`Your best this week is ${out.best}, so that stays on the leaderboard.`, out.sent) : showBoard(out)))
+    .catch((err) => {
+      // A saved name the server won't take any more: start them off with a fresh box.
+      if (err.checked) {
+        editing = true;
+        nickname = "";
+        return showBoard(null);
+      }
+      showMine("The leaderboard can't be reached right now.");
+    });
+
+  // A new best: the board around them, their name, and the button.
+  function showBoard(first) {
+    const where = el("p", { className: "lb-where" });
+    const list = el("ol", { className: "board-list lb-window" });
+    const hint = el("p", { className: "fb-hint", textContent: "Just a nickname, please. No real names or schools." });
+    const check = el("div", { className: "fb-check" });
+    const message = el("p", { className: "fb-message", role: "status" });
+    const send = el("button", { type: "button", className: "post-score" });
+    send.innerHTML = `${icon("trophy")}<span>Put it on the leaderboard</span>`;
+    box.replaceChildren(el("h3", { textContent: "Leaderboard this week" }), where, list, hint, check, message, send);
+
+    // Their own row, kept between updates so typing isn't interrupted.
+    const you = el("li", { className: "you" });
+    const [rankEl, face, , points] = rowParts({ ...look, nickname, score }, "", faceFor);
+    const nameCell = el("span", { className: "lb-name" });
+    you.append(rankEl, face, nameCell, points);
+    const input = el("input", { type: "text", maxLength: 12, autocomplete: "off", placeholder: "Your nickname", value: nickname });
+    input.setAttribute("aria-label", "Nickname");
+    const change = el("button", { type: "button", className: "lb-change", textContent: "Change" });
+    const drawName = () => {
+      hint.hidden = !editing;
+      if (editing) return nameCell.replaceChildren(input);
+      nameCell.replaceChildren(el("span", { textContent: nickname }), change); // typed by visitors: text only
+    };
+    change.addEventListener("click", () => {
+      editing = true;
+      input.value = nickname;
+      drawName();
+      input.focus();
+    });
+
     let token = "";
-    let result = null;
-    robotCheck(dialog.querySelector(".fb-check"))
+    robotCheck(check)
       .then((t) => (token = t))
       .catch(() => say(message, "The leaderboard can't be reached right now.", { error: true }));
 
-    dialog.querySelector('[value="close"]').addEventListener("click", () => dialog.close());
-    dialog.querySelector("form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      if (!token) {
-        say(message, "Please finish the robot check first.", { error: true });
-        return;
-      }
+    let latest = 0;
+    const draw = (out) => {
+      say(message, "");
+      send.disabled = !nickname;
+      if (!out || out.kept) return;
+      where.textContent = out.rank === 1 ? "Top of the board this week!" : `You'd be #${out.rank} this week!`;
+      rankEl.textContent = out.rank;
+      list.replaceChildren(...out.board.map((row) => (row.you ? you : boardRow(row, row.rank, faceFor))));
+    };
+    let timer;
+    const rename = () => {
+      clearTimeout(timer);
+      nickname = input.value.trim();
+      send.disabled = true;
+      if (!nickname) return;
+      const ask = ++latest;
+      timer = setTimeout(() => {
+        preview(nickname)
+          .then((out) => ask === latest && draw(out))
+          .catch((err) => ask === latest && say(message, err.message || "The leaderboard can't be reached right now.", { error: true }));
+      }, 350);
+    };
+    input.addEventListener("input", rename);
+    drawName();
+    if (first) draw(first);
+    else {
+      list.replaceChildren(you);
+      send.disabled = true;
+    }
+
+    send.addEventListener("click", async () => {
+      const game = round.payload();
+      if (!game?.token) return say(message, "The leaderboard can't be reached right now.", { error: true });
+      if (!token) return say(message, "Please finish the robot check first.", { error: true });
       send.disabled = true;
       say(message, "Sending…");
       try {
         const res = await fetch(`${API}/scores`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...game, nickname: name.value, device: deviceId(), turnstileToken: token }),
+          body: JSON.stringify({ ...game, nickname, device: deviceId(), turnstileToken: token }),
         });
         const out = await res.json();
         if (!res.ok) throw new Error(out.error);
         // Remember a nickname they chose, not just the name of who they happened to play as.
-        if (ownPlayer || name.value.trim().toLowerCase() !== playerName.toLowerCase()) save(NICKNAME, name.value.trim());
+        if (ownPlayer || nickname.toLowerCase() !== playerName.toLowerCase()) save(NICKNAME, nickname);
         save(MY_SCORES, [out.id, ...load(MY_SCORES, [])].slice(0, 50));
-        result = out;
-        dialog.close();
+        game.id = out.id; // so their own list doesn't count it twice
+        save(MY_GAMES, games);
+        editing = false;
+        drawName();
+        change.remove();
+        check.remove();
+        say(message, "");
+        send.lastChild.textContent = out.rank ? `On the board at #${out.rank}!` : "On the leaderboard!";
       } catch (err) {
         say(message, err.message || "That didn't send. Please try again.", { error: true });
         send.disabled = false;
       }
     });
-    dialog.addEventListener("close", () => {
-      dialog.remove();
-      resolve(result);
-    });
-    document.body.append(dialog);
-    dialog.showModal();
-    name.focus();
-    // A borrowed name (who they played as) is selected, so typing replaces it.
-    if (borrowed) name.setSelectionRange(0, name.value.length);
-    else name.setSelectionRange(name.value.length, name.value.length);
-  });
+  }
+}
+
+// One leaderboard row's insides: rank, face, nickname and points.
+function rowParts(row, rank, faceFor) {
+  const rankEl = Object.assign(document.createElement("span"), { className: "lb-rank", textContent: rank });
+  const img = Object.assign(document.createElement("img"), { alt: "", width: 40, height: 40 });
+  faceFor(row, img);
+  const nameEl = Object.assign(document.createElement("span"), { className: "lb-name", textContent: row.nickname }); // typed by visitors: text only
+  const score = Object.assign(document.createElement("span"), { className: "lb-points", textContent: row.score });
+  return [rankEl, img, nameEl, score];
+}
+
+function boardRow(row, rank, faceFor) {
+  const li = document.createElement("li");
+  li.append(...rowParts(row, rank, faceFor));
+  return li;
 }
 
 // Fills the leaderboard list. faceFor(row, img) puts the player's face in an <img>, and
@@ -188,12 +306,7 @@ function drawBoard(list, note, range, scores, faceFor, bodyFor) {
       const li = document.createElement("li");
       if (mine.has(row.id)) li.className = "mine";
       const button = Object.assign(document.createElement("button"), { type: "button", className: "lb-row" });
-      const rank = Object.assign(document.createElement("span"), { className: "lb-rank", textContent: i + 1 });
-      const img = Object.assign(document.createElement("img"), { alt: "", width: 40, height: 40 });
-      faceFor(row, img);
-      const nameEl = Object.assign(document.createElement("span"), { className: "lb-name", textContent: row.nickname }); // typed by visitors: text only
-      const score = Object.assign(document.createElement("span"), { className: "lb-points", textContent: row.score });
-      button.append(rank, img, nameEl, score);
+      button.append(...rowParts(row, i + 1, faceFor));
       button.addEventListener("click", () => showScoreCard(row, i + 1, range, bodyFor));
       li.append(button);
       return li;
@@ -202,6 +315,33 @@ function drawBoard(list, note, range, scores, faceFor, bodyFor) {
 }
 
 const DATE = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" });
+const SHORT_DATE = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
+const played = (createdAt) => new Date(createdAt.replace(" ", "T") + "Z");
+
+// A player's top 10 on their card, this week or all time, with their best marked.
+function drawTop(dialog, top, range) {
+  const box = dialog.querySelector(".lb-top");
+  const list = box.querySelector("ol");
+  const tabs = [...box.querySelectorAll("[data-range]")];
+  const show = (r) => {
+    for (const tab of tabs) tab.setAttribute("aria-selected", String(tab.dataset.range === r));
+    list.replaceChildren(
+      ...top[r].map((g, i) => {
+        const li = el("li", { className: i === 0 ? "best" : "" });
+        li.append(
+          el("span", { className: "lb-rank", textContent: i + 1 }),
+          el("span", { className: "lb-name", textContent: SHORT_DATE.format(played(g.created_at)) }),
+          ...(i === 0 ? [el("span", { className: "lb-best-tag", textContent: "Best" })] : []),
+          el("span", { className: "lb-points", textContent: g.score }),
+        );
+        return li;
+      }),
+    );
+  };
+  for (const tab of tabs) tab.addEventListener("click", () => show(tab.dataset.range));
+  show(range);
+  box.hidden = false;
+}
 
 // A bigger look at someone on the board: their whole player and how their best game went.
 function showScoreCard(row, rank, range, bodyFor) {
@@ -219,6 +359,16 @@ function showScoreCard(row, rank, range, bodyFor) {
         </div>
       </div>
       <dl class="lb-stats"><p class="fb-hint">Loading…</p></dl>
+      <div class="lb-top" hidden>
+        <div class="lb-top-head">
+          <h3>Top 10 scores</h3>
+          <div class="board-tabs" role="tablist">
+            <button type="button" role="tab" data-range="week">This week</button>
+            <button type="button" role="tab" data-range="all">All time</button>
+          </div>
+        </div>
+        <ol class="board-list lb-top-list"></ol>
+      </div>
       <div class="fb-row">
         <button type="submit" class="fb-button fb-primary">Close</button>
       </div>
@@ -253,6 +403,7 @@ function showScoreCard(row, rank, range, bodyFor) {
           return item;
         }),
       );
+      drawTop(dialog, d.top, range);
     })
     .catch(() => (stats.innerHTML = '<p class="fb-hint">The stats can\'t be loaded right now.</p>'));
 
