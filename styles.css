@@ -258,6 +258,37 @@ header p {
   display: none;
 }
 
+/* Which game: 60 seconds or sudden death. */
+.mode-pick {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 3px 3px 0 var(--ink);
+  pointer-events: auto;
+}
+
+.mode-pick button {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: #fff;
+  font: inherit;
+  font-size: clamp(8px, 1.6vw, 12px);
+  cursor: pointer;
+}
+
+.mode-pick [aria-pressed="true"] {
+  background: #ffe066;
+  color: var(--ink);
+}
+
+.board-tabs.board-modes [aria-selected="true"] {
+  background: #ffe066;
+}
+
 .player-chip img {
   width: 40px;
   height: 40px;

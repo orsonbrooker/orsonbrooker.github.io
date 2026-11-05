@@ -8,7 +8,7 @@
 //          GET  /api/players        approved players made with the builder
 //          POST /api/players        a new player; waits for approval before it's in the game
 //          POST /api/games          a signed start token for a new game of Shootaround
-//          GET  /api/scores         the leaderboard (?range=week or all)
+//          GET  /api/scores         the leaderboard (?range=week or all, ?mode=timed or survival)
 //          POST /api/scores         a finished game's score, with its shot log (checked, see postScore)
 // Admin:   GET  /admin              triage page (behind Cloudflare Access)
 //          GET  /api/admin/inbox    new submissions, all ideas and apps
@@ -275,13 +275,17 @@ async function checkTurnstile(request: Request, env: Env, token: unknown) {
 // The game runs in the browser, so a score can't be fully trusted. Instead each score comes with
 // its shot log and the server checks it hangs together:
 //   rejected  impossible: a bad or reused start token, sent too soon after the game started, the
-//             score doesn't match its shots, more shots than fit in a minute, or test (?debug) mode
+//             score doesn't match its shots, more shots than fit in a minute, or test (?debug) mode.
+//             A sudden death game must end on its first miss, with nothing made after it.
 //   flagged   odd but possible: machine-like timing, a perfect game of 30+ shots, a huge jump on the
 //             device's best. On the board straight away, and in Orson's admin inbox so he can hide it.
 //             (Nicknames don't matter: a device's row is per player, whatever name it's sent with.)
 //   shown     everything else, straight away.
 
 const GAME_SECONDS = 60;
+// Two modes, each with its own leaderboard: 60 seconds, or sudden death (shoot until the first miss).
+type Mode = "timed" | "survival";
+const modeOf = (value: unknown): Mode => (value === "survival" ? "survival" : "timed");
 // Odd-looking scores Orson hasn't looked at yet: they're in the admin inbox.
 const ODD_UNCHECKED = "status = 'shown' AND flags != '[]' AND checked = 0";
 const MIN_SHOT_GAP = 1.0; // seconds: release, flight, moving spot and jumping again take longer than this
@@ -292,18 +296,19 @@ const FIRE_BONUS = [
 type Shot = [number, number, number, number]; // seconds in, 3-pointer (1/0), made (1/0), release timing
 
 // A start token says when the game started, signed so it can't be made up. The score must come
-// at least a game's length later, and each token only counts once.
+// at least a game's length later (or, in sudden death, after its last shot), and each token only
+// counts once.
 async function gameToken(env: Env): Promise<string> {
 	const started = Date.now();
 	const nonce = crypto.randomUUID().slice(0, 8);
 	return `${started}.${nonce}.${await hash(env, `game:${started}.${nonce}`)}`;
 }
 
-async function checkGameToken(env: Env, token: unknown): Promise<number> {
+async function checkGameToken(env: Env, token: unknown, minSeconds: number): Promise<number> {
 	const parts = typeof token === "string" ? token.split(".") : [];
 	if (parts.length !== 3 || parts[2] !== (await hash(env, `game:${parts[0]}.${parts[1]}`))) throw new HttpError(400, "That game can't be checked.");
 	const seconds = (Date.now() - Number(parts[0])) / 1000;
-	if (!(seconds >= GAME_SECONDS - 1)) throw new HttpError(400, "That game finished too fast.");
+	if (!(seconds >= minSeconds)) throw new HttpError(400, "That game finished too fast.");
 	if (seconds > 6 * 3600) throw new HttpError(400, "That game was too long ago to count.");
 	return seconds;
 }
@@ -331,7 +336,7 @@ const spread = (values: number[]) => {
 async function postScore(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
 	if (body.debug) throw new HttpError(400, "Scores from test mode don't count.");
-	const realSeconds = await checkGameToken(env, body.token);
+	const mode = modeOf(body.mode);
 	const nickname = scoreNickname(body);
 	const device = clean(body.device, 64);
 	if (device.length < 16) throw new HttpError(400, "Bad request.");
@@ -346,7 +351,7 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 
 	// The shot log, and the score it adds up to.
 	const raw = Array.isArray(body.shots) ? body.shots : [];
-	if (raw.length > 80) throw new HttpError(400, "That's more shots than fit in a game.");
+	if (raw.length > (mode === "timed" ? 80 : 500)) throw new HttpError(400, "That's more shots than fit in a game.");
 	const shots: Shot[] = raw.map((s: unknown) => {
 		if (!Array.isArray(s) || s.length !== 4 || !s.every((n) => typeof n === "number" && Number.isFinite(n))) throw new HttpError(400, "Bad shot log.");
 		return [Math.round(s[0] * 100) / 100, s[1] ? 1 : 0, s[2] ? 1 : 0, Math.round(s[3] * 1000) / 1000];
@@ -354,7 +359,14 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	const score = Number(body.score);
 	if (!Number.isInteger(score) || score < 1 || score !== recountScore(shots)) throw new HttpError(400, "That score doesn't match its shots.");
 	const times = shots.map((s) => s[0]);
-	if (times.some((t, i) => t < 0 || t > GAME_SECONDS + 0.5 || (i > 0 && t < times[i - 1]))) throw new HttpError(400, "Bad shot log.");
+	const maxTime = mode === "timed" ? GAME_SECONDS + 0.5 : 6 * 3600;
+	if (times.some((t, i) => t < 0 || t > maxTime || (i > 0 && t < times[i - 1]))) throw new HttpError(400, "Bad shot log.");
+	if (mode === "survival") {
+		// It ends on the first miss. A shot already in the air then doesn't count, so nothing after it is made.
+		const miss = shots.findIndex((s) => !s[2]);
+		if (miss < 0 || shots.slice(miss).some((s) => s[2])) throw new HttpError(400, "A sudden death game ends on its first miss.");
+	}
+	const realSeconds = await checkGameToken(env, body.token, mode === "timed" ? GAME_SECONDS - 1 : (times.at(-1) ?? 0) - 1);
 	const gaps = times.slice(1).map((t, i) => t - times[i]);
 	if (gaps.some((g) => g < MIN_SHOT_GAP)) throw new HttpError(400, "Those shots came too quickly.");
 	await checkTurnstile(request, env, body.turnstileToken);
@@ -363,7 +375,7 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	const deviceHash = await hash(env, `device:${device}`);
 	const [today, history] = await env.DB.batch([
 		env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?").bind(ipHash),
-		env.DB.prepare("SELECT MAX(score) AS best FROM scores WHERE device = ?").bind(deviceHash),
+		env.DB.prepare("SELECT MAX(score) AS best FROM scores WHERE device = ? AND mode = ?").bind(deviceHash, mode),
 	]);
 	if (((today.results[0] as { n: number }).n ?? 0) >= SCORES_PER_DAY) throw new HttpError(429, "That's a lot of games for one day! Try again tomorrow.");
 	const past = history.results[0] as { best: number | null };
@@ -374,13 +386,15 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	if (shots.length >= 10 && spread(shots.map((s) => s[3])) < 0.03) flags.push("Every release timed the same, like a script");
 	if (gaps.length >= 9 && spread(gaps) < 0.05) flags.push("Shots taken at a machine-like steady rhythm");
 	// Great players really do make almost everything (Orson went 28 of 29), so only a long perfect game is odd.
-	if (shots.length >= 30 && made === shots.length) flags.push(`All ${made} shots made`);
+	if (mode === "timed" && shots.length >= 30 && made === shots.length) flags.push(`All ${made} shots made`);
+	// In sudden death every shot but the last goes in, so only a very long run is odd.
+	if (mode === "survival" && made >= 50) flags.push(`${made} in a row before missing`);
 	if ((past.best ?? 0) >= 10 && score > past.best! * 2.5) flags.push(`${Math.round(score / past.best!)}x this device's best (${past.best})`);
 	const status = "shown";
 
 	const inserted = await env.DB.prepare(
-		`INSERT OR IGNORE INTO scores (nickname, score, player, base, colours, shots, made, threes, real_seconds, input, hidden_tab, version, log, flags, status, token, device, ip_hash)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		`INSERT OR IGNORE INTO scores (nickname, score, player, base, colours, shots, made, threes, real_seconds, input, hidden_tab, version, log, flags, status, token, device, ip_hash, mode)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 	)
 		.bind(
 			nickname,
@@ -401,6 +415,7 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 			String(body.token),
 			deviceHash,
 			ipHash,
+			mode,
 		)
 		.first<{ id: number }>();
 	if (!inserted) throw new HttpError(400, "That game's score is already in.");
@@ -412,11 +427,11 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 
 	// Where their row sits this week: at its best, which may be an earlier game.
 	const rank = await env.DB.prepare(
-		`WITH g AS (SELECT device AS d, player AS p, MAX(score) AS best FROM scores WHERE status = 'shown' AND ${WEEK} GROUP BY 1, 2)
+		`WITH g AS (SELECT device AS d, player AS p, MAX(score) AS best FROM scores WHERE status = 'shown' AND mode = ?3 AND ${WEEK} GROUP BY 1, 2)
 		 SELECT COUNT(*) + 1 AS rank, (SELECT best FROM g WHERE d = ?1 AND p = ?2) AS best FROM g
 		 WHERE best >= (SELECT best FROM g WHERE d = ?1 AND p = ?2) AND NOT (d = ?1 AND p = ?2)`, // ties go after: the board lists earlier games first
 	)
-		.bind(deviceHash, player)
+		.bind(deviceHash, player, mode)
 		.first<{ rank: number; best: number }>();
 	return json({ id: inserted.id, status, rank: rank?.rank ?? null, best: rank?.best ?? score });
 }
@@ -429,26 +444,26 @@ function scoreNickname(body: Record<string, unknown>): string {
 	return nickname;
 }
 
-// Each player on a device appears once, with its best game and its latest nickname. `mine` marks
-// the row for one device and player.
+// One mode's board: each player on a device appears once, with its best game and its latest
+// nickname. `mine` marks the row for one device and player.
 type BoardRow = { id: number | null; nickname: string; score: number; player?: string; base?: string | null; colours: unknown; rank?: number; you?: boolean; mine?: number };
-async function boardRows(env: Env, week: boolean, limit: number, mine?: { device: string; player: string }) {
+async function boardRows(env: Env, mode: Mode, week: boolean, limit: number, mine?: { device: string; player: string }) {
 	const rows = await env.DB.prepare(
-		`SELECT id, score, player, base, colours${mine ? ", (device = ?1 AND player = ?2) AS mine" : ""},
+		`SELECT id, score, player, base, colours${mine ? ", (device = ?2 AND player = ?3) AS mine" : ""},
 		   (SELECT x.nickname FROM scores x WHERE x.device = t.device AND x.player = t.player AND x.status = 'shown' ORDER BY x.id DESC LIMIT 1) AS nickname
 		 FROM (
 		   SELECT id, score, player, base, colours, device,
 		     ROW_NUMBER() OVER (PARTITION BY device, player ORDER BY score DESC, id) AS n
-		   FROM scores WHERE status = 'shown' ${week ? `AND ${WEEK}` : ""}
+		   FROM scores WHERE status = 'shown' AND mode = ?1 ${week ? `AND ${WEEK}` : ""}
 		 ) t WHERE n = 1 ORDER BY score DESC, id LIMIT ${limit}`,
 	)
-		.bind(...(mine ? [mine.device, mine.player] : []))
+		.bind(mode, ...(mine ? [mine.device, mine.player] : []))
 		.all<BoardRow & { colours: string | null }>();
 	return rows.results.map((r) => ({ ...r, colours: r.colours ? JSON.parse(r.colours) : null }));
 }
 
 async function leaderboard(env: Env, url: URL): Promise<Response> {
-	const scores = await boardRows(env, url.searchParams.get("range") !== "all", 10);
+	const scores = await boardRows(env, modeOf(url.searchParams.get("mode")), url.searchParams.get("range") !== "all", 10);
 	return json({ scores }, 200, 30);
 }
 
@@ -462,12 +477,13 @@ async function previewScore(request: Request, env: Env): Promise<Response> {
 	const score = Number(body.score);
 	if (!Number.isInteger(score) || score < 0 || score > 1000) throw new HttpError(400, "Bad request.");
 	const player = clean(body.player, 40) || "orson";
+	const mode = modeOf(body.mode);
 	const deviceHash = await hash(env, `device:${device}`);
 	const [rows, sent] = await Promise.all([
-		boardRows(env, true, 500, { device: deviceHash, player }),
+		boardRows(env, mode, true, 500, { device: deviceHash, player }),
 		// Their scores already on the board this week, for their own list (the device's id stays private).
-		env.DB.prepare(`SELECT id, score, created_at FROM scores WHERE device = ? AND player = ? AND status = 'shown' AND ${WEEK} ORDER BY score DESC, id LIMIT 10`)
-			.bind(deviceHash, player)
+		env.DB.prepare(`SELECT id, score, created_at FROM scores WHERE device = ? AND player = ? AND mode = ? AND status = 'shown' AND ${WEEK} ORDER BY score DESC, id LIMIT 10`)
+			.bind(deviceHash, player, mode)
 			.all(),
 	]);
 
@@ -495,18 +511,18 @@ async function previewScore(request: Request, env: Env): Promise<Response> {
 // log; the log itself and anything about the device stay private.
 async function scoreDetail(env: Env, id: number): Promise<Response> {
 	const row = await env.DB.prepare(
-		`SELECT s.id, s.nickname, s.score, s.player, s.base, s.colours, s.shots, s.made, s.threes, s.log, s.created_at,
-		   (SELECT COUNT(*) FROM scores o WHERE o.device = s.device AND o.player = s.player AND o.status = 'shown') AS games
+		`SELECT s.id, s.nickname, s.score, s.player, s.base, s.colours, s.shots, s.made, s.threes, s.log, s.created_at, s.mode,
+		   (SELECT COUNT(*) FROM scores o WHERE o.device = s.device AND o.player = s.player AND o.mode = s.mode AND o.status = 'shown') AS games
 		 FROM scores s WHERE s.id = ? AND s.status = 'shown'`,
 	)
 		.bind(id)
 		.first<{ log: string; colours: string | null } & Record<string, unknown>>();
 	if (!row) throw new HttpError(404, "That score isn't on the leaderboard.");
-	// Their top 10 games, this week and all time (the same device and player).
+	// Their top 10 games in this mode, this week and all time (the same device and player).
 	const top = (week: boolean) =>
 		env.DB.prepare(
 			`SELECT o.id, o.score, o.created_at FROM scores o, scores s
-			 WHERE s.id = ? AND o.device = s.device AND o.player = s.player AND o.status = 'shown'
+			 WHERE s.id = ? AND o.device = s.device AND o.player = s.player AND o.mode = s.mode AND o.status = 'shown'
 			 ${week ? `AND o.${WEEK}` : ""} ORDER BY o.score DESC, o.id LIMIT 10`,
 		).bind(id);
 	const [week, all] = await env.DB.batch([top(true), top(false)]);
@@ -565,7 +581,7 @@ async function admin(request: Request, env: Env, url: URL): Promise<Response> {
 				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
 			),
 			env.DB.prepare(
-				`SELECT id, nickname, score, player, shots, made, threes, real_seconds, input, hidden_tab, log, flags, status, checked, device, created_at
+				`SELECT id, nickname, score, player, shots, made, threes, real_seconds, input, hidden_tab, log, flags, status, checked, device, mode, created_at
 				 FROM scores WHERE (${ODD_UNCHECKED}) OR created_at > datetime('now', '-14 days') ORDER BY (${ODD_UNCHECKED}) DESC, id DESC LIMIT 200`,
 			),
 		]);

@@ -47,7 +47,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
     <link rel="preload" href="assets/court.webp" as="image" />
     <link rel="preload" href="assets/sprites.webp" as="image" />
-    <link rel="stylesheet" href="styles.css?v=2cb9c83d" />
+    <link rel="stylesheet" href="styles.css?v=f26c39d1" />
     <link rel="stylesheet" href="feedback/widget.css?v=2134607c" />
   </head>
   <body>
@@ -58,7 +58,7 @@
         <img class="court" src="assets/court.webp" alt="" width="2048" height="2048" />
         <canvas id="game"></canvas>
 
-        <p class="sr-only">Score <span id="score">0</span>, <span id="time">60</span> seconds left</p>
+        <p class="sr-only">Score <span id="score">0</span>, <span id="time">60 seconds left</span></p>
 
         <div class="sound-buttons">
           <button id="board-button" type="button" aria-label="Leaderboard"><span data-icon="trophy"></span></button>
@@ -71,6 +71,10 @@
         <div class="screen title-screen" id="title-screen">
           <h2 class="logo">Shootaround</h2>
           <div class="title-bottom">
+            <div class="mode-pick" id="mode-pick" role="group" aria-label="Game mode">
+              <button type="button" data-mode="timed" aria-pressed="true">Time attack</button>
+              <button type="button" data-mode="survival" aria-pressed="false">Sudden death</button>
+            </div>
             <p class="tap-to-play" id="tap-to-play">Loading…</p>
             <button class="player-chip" id="player-chip" type="button" hidden>
               <img id="chip-face" alt="" width="40" height="40" />
@@ -114,7 +118,11 @@
               <button class="screen-back" id="board-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
               <h2>Leaderboard</h2>
             </div>
-            <div class="board-tabs" role="tablist">
+            <div class="board-tabs board-modes" role="tablist" aria-label="Game mode">
+              <button type="button" role="tab" data-board-mode="timed" aria-selected="true">Time attack</button>
+              <button type="button" role="tab" data-board-mode="survival" aria-selected="false">Sudden death</button>
+            </div>
+            <div class="board-tabs" role="tablist" aria-label="When">
               <button type="button" role="tab" data-range="week" aria-selected="true">This week</button>
               <button type="button" role="tab" data-range="all" aria-selected="false">All time</button>
             </div>
@@ -132,14 +140,15 @@
               <li><strong>Hold</strong> to jump.</li>
               <li><strong>Let go</strong> at the top of the jump to shoot. Watch the bar: let go in the green.</li>
             </ol>
-            <p>Score as many points as you can in 60 seconds. Shots from behind the arc are worth 3. Make 3 in a row and you're on fire!</p>
+            <p><strong>Time attack:</strong> score as many points as you can in 60 seconds. Shots from behind the arc are worth 3. Make 3 in a row and you're on fire!</p>
+            <p><strong>Sudden death:</strong> no clock. Keep shooting until you miss. One miss and it's over!</p>
             <button class="primary" id="help-close" type="button">Got it</button>
           </div>
         </div>
       </div>
     </main>
 
-    <script type="module" src="game.js?v=ae2df9e7"></script>
+    <script type="module" src="game.js?v=f9a9f655"></script>
     <script type="module" src="feedback/widget.js?v=c584b4c1"></script>
     <script type="module" src="ui/nav.js?v=718654c5"></script>
   </body>

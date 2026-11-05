@@ -140,6 +140,9 @@
 				renderScores();
 			}
 
+			// Sudden death scores are on their own leaderboard; time attack (the 60 second game) needs no label.
+			const modeName = (s) => (s.mode === "survival" ? "Sudden death · " : "");
+
 			// Odd-looking scores Orson hasn't looked at yet. They're on the board until he hides them.
 			const suspicious = (s) => s.status === "shown" && !s.checked && JSON.parse(s.flags).length > 0;
 
@@ -150,7 +153,7 @@
 				// One card per player on a device, like their row on the leaderboard.
 				const byPlayer = new Map();
 				for (const s of data.scores.filter(suspicious)) {
-					const key = `${s.device} ${s.player}`;
+					const key = `${s.device} ${s.player} ${s.mode}`;
 					byPlayer.set(key, [...(byPlayer.get(key) ?? []), s]);
 				}
 				const scores = [...byPlayer.values()];
@@ -193,7 +196,7 @@
 				return el(
 					"div",
 					{ className: "card" },
-					el("div", { className: "meta", textContent: `${list.length} odd games · played as ${list[0].player} · newest ${list[0].created_at.slice(0, 10)}` }),
+					el("div", { className: "meta", textContent: `${list.length} odd games · ${modeName(list[0])}played as ${list[0].player} · newest ${list[0].created_at.slice(0, 10)}` }),
 					el(
 						"div",
 						{},
@@ -430,7 +433,7 @@
 					el(
 						"div",
 						{ className: "card" },
-						el("div", { className: "meta", textContent: `${status} · ${s.created_at.slice(0, 16).replace("T", " ")} · played as ${s.player}` }),
+						el("div", { className: "meta", textContent: `${status} · ${s.created_at.slice(0, 16).replace("T", " ")} · ${modeName(s)}played as ${s.player}` }),
 						el(
 							"div",
 							{},

@@ -5,10 +5,10 @@
 
 import { loadVoiceClips, sound } from "./audio.js?v=b614856c";
 import { createFxLayer } from "./fx.js?v=1b9ca74d";
-import { pickPhrase } from "./phrases.js?v=e5110e70";
+import { pickPhrase } from "./phrases.js?v=eb7671e6";
 import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
-import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=35f4adf3";
+import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=6d69ade5";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=9235830f";
 
 const COURT_PX = 2048;
@@ -48,6 +48,11 @@ const BOARD_ART = {
 };
 
 const GAME_SECONDS = 60;
+// Two ways to play, each with its own best and leaderboard:
+//   timed     time attack: score as much as you can in 60 seconds
+//   survival  sudden death: no clock, keep shooting until the first miss
+const MODES = ["timed", "survival"];
+const bestKey = (mode) => (mode === "survival" ? "orson-hoops-best-survival" : "orson-hoops-best");
 const PHYSICS_STEP = 1 / 240;
 const LAUNCH_ANGLE = (52 * Math.PI) / 180;
 
@@ -98,6 +103,7 @@ const timeEl = document.getElementById("time");
 const $ = (id) => document.getElementById(id);
 const screens = { title: $("title-screen"), select: $("select-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen") };
 const tapToPlay = $("tap-to-play");
+const modePick = $("mode-pick");
 const playerChip = $("player-chip");
 const helpButton = $("help-button");
 // Keyboards say "press Space"; touch screens say "tap".
@@ -224,8 +230,10 @@ function makeBallSprites() {
 const state = {
   phase: "loading", // loading | title | playing | ending | over
   score: 0,
-  best: load("orson-hoops-best", 0),
+  mode: "timed",
+  best: 0,
   timeLeft: GAME_SECONDS,
+  elapsed: 0, // seconds since the start (sudden death has no clock to count down)
   overAt: 0,
   balls: [],
   popups: [],
@@ -448,10 +456,25 @@ function pickSpot() {
   return { ...DEFAULT_SPOT };
 }
 
+// Picks the mode for the next game (remembered for next time) and shows its best.
+function setMode(mode) {
+  state.mode = MODES.includes(mode) ? mode : "timed";
+  state.best = load(bestKey(state.mode), 0);
+  save("orson-hoops-mode", state.mode);
+  for (const b of modePick.querySelectorAll("[data-mode]")) b.setAttribute("aria-pressed", String(b.dataset.mode === state.mode));
+  $("title-best").textContent = state.best ? `Best: ${state.best}` : "";
+  updateHud();
+}
+
+const survival = () => state.mode === "survival";
+// How far into the game we are, for the shot log.
+const gameSeconds = () => (survival() ? state.elapsed : GAME_SECONDS - state.timeLeft);
+
 function startGame() {
   state.phase = "playing";
   state.score = 0;
   state.timeLeft = GAME_SECONDS;
+  state.elapsed = 0;
   state.balls = [];
   state.popups = [];
   state.confetti = [];
@@ -488,7 +511,7 @@ function endGame() {
   const isBest = state.score > state.best;
   if (isBest) {
     state.best = state.score;
-    save("orson-hoops-best", state.best);
+    save(bestKey(state.mode), state.best);
   }
   const verdict =
     isBest && state.score > 0
@@ -501,9 +524,13 @@ function endGame() {
             ? "overMid"
             : "overLow";
   announce(verdict, "#ffe066");
-  $("over-title").textContent = isBest && state.score > 0 ? "New high score!" : state.buzzerBeater ? "Buzzer beater!" : "Time's up!";
+  $("over-title").textContent =
+    isBest && state.score > 0 ? "New high score!" : survival() ? "Missed!" : state.buzzerBeater ? "Buzzer beater!" : "Time's up!";
   $("final-score").textContent = state.score;
-  $("over-detail").textContent = (state.buzzerBeater ? "Won it at the buzzer! " : "") + `Best: ${state.best}`;
+  const made = state.shotLog.filter((s) => s[2]).length;
+  $("over-detail").textContent = survival()
+    ? `${made} in a row · Best: ${state.best}`
+    : (state.buzzerBeater ? "Won it at the buzzer! " : "") + `Best: ${state.best}`;
   showScreen("over");
   showRound();
 }
@@ -517,7 +544,7 @@ function showScreen(name) {
 function showTitle() {
   state.phase = "title";
   tapToPlay.textContent = HAS_KEYS ? "Press Space to play" : "Tap to play";
-  $("title-best").textContent = state.best ? `Best: ${state.best}` : "";
+  setMode(state.mode);
   renderChip();
   showScreen("title");
 }
@@ -533,6 +560,7 @@ function openSelect(thenPlay = false) {
 }
 
 let gamesStarted = 0;
+const made = () => state.shotLog.filter((s) => s[2]).length;
 
 // ---------- Leaderboard ----------
 
@@ -545,6 +573,7 @@ function showRound() {
   const look = { player: characters.selected, base: c?.base ?? null, colours: c?.mine ? c.colours : null }; // their own player, so everyone sees its face
   const shots = state.shotLog;
   showRoundResult($("over-board"), {
+    mode: state.mode,
     score: state.score,
     look,
     playerName: c?.name ?? "",
@@ -554,6 +583,7 @@ function showRound() {
     payload: () =>
       state.gameToken && {
         token: state.gameToken,
+        mode: state.mode,
         score: state.score,
         shots,
         ...look,
@@ -592,12 +622,20 @@ async function boardBody(row) {
 }
 
 let boardReturn = null;
-function openBoard(range = "week") {
-  if (screens.board.hidden) boardReturn = Object.keys(screens).find((k) => !screens[k].hidden) ?? null;
+// The leaderboard opens on the mode they're playing; its tabs switch mode and week or all time.
+let boardMode = null;
+function openBoard(range = "week", mode = boardMode ?? state.mode) {
+  if (screens.board.hidden) {
+    boardReturn = Object.keys(screens).find((k) => !screens[k].hidden) ?? null;
+    mode = boardMode = state.mode;
+  }
+  boardMode = mode;
   for (const tab of screens.board.querySelectorAll("[data-range]")) tab.setAttribute("aria-selected", String(tab.dataset.range === range));
+  for (const tab of screens.board.querySelectorAll("[data-board-mode]")) tab.setAttribute("aria-selected", String(tab.dataset.boardMode === mode));
   showScreen("board");
-  renderBoard($("board-list"), $("board-note"), range, boardFace, boardBody);
+  renderBoard($("board-list"), $("board-note"), range, mode, boardFace, boardBody);
 }
+const boardRange = () => screens.board.querySelector('[data-range][aria-selected="true"]')?.dataset.range ?? "week";
 function closeBoard() {
   showScreen(boardReturn === "board" ? "title" : boardReturn);
   stage.focus({ preventScroll: true });
@@ -621,7 +659,7 @@ function begin() {
 
 function updateHud() {
   scoreEl.textContent = state.score;
-  timeEl.textContent = Math.ceil(state.timeLeft);
+  timeEl.textContent = survival() ? `${made()} made, sudden death` : `${Math.ceil(state.timeLeft)} seconds left`;
   scoreboardDirty = true;
 }
 
@@ -677,7 +715,7 @@ window.addEventListener("keyup", (e) => {
 });
 
 // Taps on the screens' panels and buttons are theirs, not a shot. (The title screen lets taps through.)
-for (const el of [...Object.values(screens).filter((el) => el !== screens.title), playerChip])
+for (const el of [...Object.values(screens).filter((el) => el !== screens.title), playerChip, modePick])
   el.addEventListener("pointerdown", (e) => e.stopPropagation());
 playerChip.addEventListener("click", () => openSelect());
 $("select-back").addEventListener("click", showTitle);
@@ -690,7 +728,9 @@ helpButton.addEventListener("click", () => (screens.help.hidden ? openHelp() : c
 $("help-close").addEventListener("click", closeHelp);
 $("board-button").addEventListener("click", () => (screens.board.hidden ? openBoard() : closeBoard()));
 $("board-back").addEventListener("click", closeBoard);
-for (const tab of screens.board.querySelectorAll("[data-range]")) tab.addEventListener("click", () => openBoard(tab.dataset.range));
+for (const tab of screens.board.querySelectorAll("[data-range]")) tab.addEventListener("click", () => openBoard(tab.dataset.range, boardMode));
+for (const tab of screens.board.querySelectorAll("[data-board-mode]")) tab.addEventListener("click", () => openBoard(boardRange(), tab.dataset.boardMode));
+for (const b of modePick.querySelectorAll("[data-mode]")) b.addEventListener("click", () => setMode(b.dataset.mode));
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && state.phase === "playing") state.hiddenTab = true;
 });
@@ -817,7 +857,7 @@ function shoot(timing) {
     ball.trail = pixelFx.fireTrail(p.x, p.y, ball.fire.fx);
   }
   if (state.phase === "playing") {
-    ball.log = [Math.round((GAME_SECONDS - state.timeLeft) * 100) / 100, ball.three ? 1 : 0, 0, Math.round(clamped * 1000) / 1000];
+    ball.log = [Math.round(gameSeconds() * 100) / 100, ball.three ? 1 : 0, 0, Math.round(clamped * 1000) / 1000];
     state.shotLog.push(ball.log);
   }
   player.activeBall = ball;
@@ -838,7 +878,41 @@ function announce(category, color, { big = false } = {}) {
 function celebrateBuzzerBeater() {
   state.buzzerBeater = true;
   state.flash = 1;
-  for (let i = 0; i < 180; i++) {
+  confettiBurst(180);
+  pixelFx.fireworks(COURT_PX);
+  sound.buzzerBeater();
+  announce("buzzer", "#ffd700", { big: true });
+}
+
+// Sudden death: a bigger call the longer the run goes.
+//   streak: makes in a row   call: phrase list (phrases.js)   level: 1 a shout, 2 adds confetti, 3 adds fireworks
+// Past the last one, every 10 more gets a "runLegend" call at the top level.
+const RUN_CALLS = [
+  { streak: 10, call: "run10", level: 1 },
+  { streak: 15, call: "run15", level: 1 },
+  { streak: 20, call: "run20", level: 2 },
+  { streak: 25, call: "run25", level: 2 },
+  { streak: 30, call: "run30", level: 3 },
+  { streak: 40, call: "run40", level: 3 },
+  { streak: 50, call: "run50", level: 3 },
+];
+function runCall(streak) {
+  const top = RUN_CALLS.at(-1);
+  return RUN_CALLS.find((r) => r.streak === streak) ?? (streak > top.streak && streak % 10 === 0 ? { streak, call: "runLegend", level: 3 } : null);
+}
+function celebrateRun(run, p) {
+  addPopup(`${run.streak} IN A ROW`, "#ffd700", p.x, p.y - 140);
+  sound.cheer(1.4 + run.level * 0.2);
+  if (run.level >= 2) {
+    state.flash = 0.5;
+    confettiBurst(run.level >= 3 ? 140 : 70);
+  }
+  if (run.level >= 3) pixelFx.fireworks(COURT_PX);
+  announce(run.call, run.level >= 3 ? "#ffd700" : "#ffe066", { big: run.level >= 2 });
+}
+
+function confettiBurst(count) {
+  for (let i = 0; i < count; i++) {
     state.confetti.push({
       x: Math.random() * COURT_PX,
       y: -40 - Math.random() * 600,
@@ -850,9 +924,6 @@ function celebrateBuzzerBeater() {
       color: ["#ffd700", "#ff6b6b", "#7cf0ff", "#ffffff", "#c77dff", "#3ddc84"][i % 6],
     });
   }
-  pixelFx.fireworks(COURT_PX);
-  sound.buzzerBeater();
-  announce("buzzer", "#ffd700", { big: true });
 }
 
 // ---------- Physics ----------
@@ -975,6 +1046,7 @@ function collideBoard(b) {
 
 function scoreBasket(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
+  if (survival() && state.phase === "ending") return; // already missed: a ball still in the air doesn't count
   const points = (b.three ? 3 : 2) + (b.fire?.bonus ?? 0);
   if (b.log) b.log[2] = 1;
   state.score += points;
@@ -993,6 +1065,8 @@ function scoreBasket(b) {
     celebrateBuzzerBeater();
     return;
   }
+  const run = survival() && runCall(state.streak);
+  if (run) return celebrateRun(run, p);
   if (levelUp >= 0) sound.fireIgnite(levelUp);
   else sound.cheer(b.three || state.streak === FIRE_LEVELS[0].streak - 1 ? 1.4 : 1);
 
@@ -1007,6 +1081,13 @@ function scoreBasket(b) {
 
 function missedShot(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
+  if (survival() && state.phase === "ending") return;
+  // Sudden death: the first miss ends it, once the reaction has played.
+  if (survival()) {
+    sound.gameOver();
+    state.phase = "ending";
+    if (player.anim === "gather" || player.anim === "jump") setAnim("dribble");
+  }
   const wasOnFire = fireLevel() !== null;
   state.streak = 0;
   state.coldStreak++;
@@ -1089,7 +1170,13 @@ function updatePlayer(dt) {
 }
 
 function update(dt) {
-  if (state.phase === "playing") {
+  if (state.phase === "playing" && survival()) {
+    // No clock. The music builds with the run instead.
+    state.elapsed += dt;
+    const fire = fireLevel();
+    sound.setIntensity({ stage: state.streak < 5 ? 0 : state.streak < 12 ? 1 : 2, fire: fire ? FIRE_LEVELS.indexOf(fire) + 1 : 0, final: false });
+  } else if (state.phase === "playing") {
+    state.elapsed += dt;
     const before = Math.ceil(state.timeLeft);
     state.timeLeft = Math.max(0, state.timeLeft - dt);
     const after = Math.ceil(state.timeLeft);
@@ -1490,7 +1577,9 @@ function renderScoreboard() {
   g.textAlign = "center";
   g.textBaseline = "middle";
   drawPanel(g, BOARD_ART.left, state.score);
-  drawPanel(g, BOARD_ART.right, Math.ceil(state.timeLeft));
+  // Sudden death has no clock: the right side counts makes instead.
+  if (survival()) drawPanel(g, { ...BOARD_ART.right, label: "MADE" }, made());
+  else drawPanel(g, BOARD_ART.right, Math.ceil(state.timeLeft));
   scoreboardDirty = false;
 }
 
@@ -1609,6 +1698,7 @@ async function boot() {
   if (DEBUG) window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter, pixelFx, celebrateBuzzerBeater };
   resize();
   new ResizeObserver(resize).observe(stage);
+  state.mode = load("orson-hoops-mode", "timed");
   showTitle();
   if (location.hash === "#leaderboard") openBoard("week");
   updateHud();

@@ -59,6 +59,16 @@ export const PHRASES = {
   stillPurpleFire: ["Still purple!", "The purple reign continues!", "Nobody can cool him down!", "Purple haze!"],
   fireOut: ["And the fire's out.", "He's cooled off.", "Fire's out!"],
 
+  // Sudden death: the longer the run, the bigger the call (see RUN_CALLS in game.js).
+  run10: ["Ten in a row!", "Double digits!", "He's in the zone!"],
+  run15: ["Fifteen straight!", "He just won't miss!", "Is this real life?"],
+  run20: ["Twenty in a row!", "Somebody check the hoop!", "This is getting ridiculous!"],
+  run25: ["Twenty five!", "He's not human!", "Call the scientists!"],
+  run30: ["Thirty straight!", "History in the making!", "Legendary run!"],
+  run40: ["Forty in a row!", "Are you watching this?!", "Break the record books!"],
+  run50: ["Fifty!", "Somebody wake me up!", "Greatest of all time!"],
+  runLegend: ["He's still going!", "Unbelievable!", "Never miss again!", "This is insane!"],
+
   // Scored after the buzzer went.
   buzzer: ["At the buzzer!", "Just under the wire!", "Buzzer beater!"],
 

@@ -99,8 +99,9 @@ const el = (tag, props = {}) => Object.assign(document.createElement(tag), props
 // they typed last time, otherwise the name of who they played as (say "Orson").
 export function showRoundResult(box, round) {
   const { score, look, playerName, ownPlayer, faceFor } = round;
+  const mode = round.mode ?? "timed"; // each mode has its own board
   const at = Date.now();
-  const game = { score, at, ...look };
+  const game = { score, at, mode, ...look };
   const games = [game, ...load(MY_GAMES, [])].slice(0, 300);
   save(MY_GAMES, games);
   box.hidden = false;
@@ -112,7 +113,7 @@ export function showRoundResult(box, round) {
     fetch(`${API}/scores/preview`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nickname: name, score, player: look.player, device: deviceId() }),
+      body: JSON.stringify({ nickname: name, score, mode, player: look.player, device: deviceId() }),
     }).then(async (res) => {
       const out = await res.json().catch(() => ({}));
       if (!res.ok) throw Object.assign(new Error(out.error), { checked: res.status === 400 });
@@ -126,7 +127,7 @@ export function showRoundResult(box, round) {
     const fromBoard = sent.map((s) => ({ ...look, id: s.id, score: s.score, at: Date.parse(s.created_at.replace(" ", "T") + "Z") }));
     const ids = new Set(fromBoard.map((g) => g.id));
     const week = [...games.filter((g) => !ids.has(g.id)), ...fromBoard]
-      .filter((g) => g.player === look.player && g.at > at - WEEK_MS).sort((a, b) => b.score - a.score || a.at - b.at);
+      .filter((g) => g.player === look.player && (g.mode ?? "timed") === mode && g.at > at - WEEK_MS).sort((a, b) => b.score - a.score || a.at - b.at);
     const place = week.findIndex((g) => g.at === at);
     const rows = place < 5 ? week.slice(0, 5) : [...week.slice(0, 4), week[place]];
     const list = el("ol", { className: "board-list lb-mine" });
@@ -275,30 +276,31 @@ function boardRow(row, rank, faceFor) {
 // switching between This week and All time doesn't blank the list.
 const seen = new Map(); // range -> scores
 let showing = null; // the range asked for last
-export async function renderBoard(list, note, range, faceFor, bodyFor) {
-  showing = range;
-  const draw = (scores) => drawBoard(list, note, range, scores, faceFor, bodyFor);
-  if (seen.has(range)) draw(seen.get(range));
+export async function renderBoard(list, note, range, mode, faceFor, bodyFor) {
+  const key = `${mode} ${range}`;
+  showing = key;
+  const draw = (scores) => drawBoard(list, note, range, mode, scores, faceFor, bodyFor);
+  if (seen.has(key)) draw(seen.get(key));
   else if (!list.children.length) note.textContent = "Loading…";
   let scores;
   try {
-    const res = await fetch(`${API}/scores?range=${range}`);
+    const res = await fetch(`${API}/scores?range=${range}&mode=${mode}`);
     if (!res.ok) throw new Error();
     scores = (await res.json()).scores;
   } catch {
-    if (showing === range && !seen.has(range)) {
+    if (showing === key && !seen.has(key)) {
       list.replaceChildren();
       note.textContent = "The leaderboard can't be reached right now.";
     }
     return;
   }
-  if (showing !== range) return; // they've switched tabs since
-  const before = seen.get(range);
-  seen.set(range, scores);
+  if (showing !== key) return; // they've switched tabs since
+  const before = seen.get(key);
+  seen.set(key, scores);
   if (!before || JSON.stringify(before) !== JSON.stringify(scores)) draw(scores);
 }
 
-function drawBoard(list, note, range, scores, faceFor, bodyFor) {
+function drawBoard(list, note, range, mode, scores, faceFor, bodyFor) {
   note.textContent = scores.length ? "" : range === "week" ? "No scores this week yet. Be the first!" : "No scores yet. Be the first!";
   const mine = new Set(load(MY_SCORES, []));
   list.replaceChildren(
@@ -307,7 +309,7 @@ function drawBoard(list, note, range, scores, faceFor, bodyFor) {
       if (mine.has(row.id)) li.className = "mine";
       const button = Object.assign(document.createElement("button"), { type: "button", className: "lb-row" });
       button.append(...rowParts(row, i + 1, faceFor));
-      button.addEventListener("click", () => showScoreCard(row, i + 1, range, bodyFor));
+      button.addEventListener("click", () => showScoreCard(row, i + 1, range, mode, bodyFor));
       li.append(button);
       return li;
     }),
@@ -344,7 +346,7 @@ function drawTop(dialog, top, range) {
 }
 
 // A bigger look at someone on the board: their whole player and how their best game went.
-function showScoreCard(row, rank, range, bodyFor) {
+function showScoreCard(row, rank, range, mode, bodyFor) {
   const dialog = document.createElement("dialog");
   dialog.className = "fb-dialog lb-dialog lb-card";
   dialog.innerHTML = `
@@ -373,7 +375,7 @@ function showScoreCard(row, rank, range, bodyFor) {
         <button type="submit" class="fb-button fb-primary">Close</button>
       </div>
     </form>`;
-  dialog.querySelector(".lb-card-rank").textContent = `#${rank} ${range === "week" ? "this week" : "all time"}`;
+  dialog.querySelector(".lb-card-rank").textContent = `#${rank} ${range === "week" ? "this week" : "all time"}${mode === "survival" ? " in sudden death" : ""}`;
   dialog.querySelector("h2").textContent = row.nickname; // typed by visitors: text only
   dialog.querySelector(".lb-score span").textContent = row.score;
   const body = dialog.querySelector(".lb-body");
