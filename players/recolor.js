@@ -174,8 +174,10 @@ export function myPlayers() {
 
 // Saves (or updates, by nickname) a player and returns its id.
 export function saveMyPlayer(player) {
-  const list = myPlayers().filter((p) => p.name.toLowerCase() !== player.name.toLowerCase());
-  const id = `me${Date.now()}`;
+  const same = (p) => p.name.toLowerCase() === player.name.toLowerCase();
+  // Remaking a player with the same name keeps its id, so its leaderboard scores stay linked.
+  const id = myPlayers().find(same)?.id ?? `me${Date.now()}`;
+  const list = myPlayers().filter((p) => !same(p));
   list.unshift({ ...player, id });
   try {
     localStorage.setItem(MY_PLAYERS, JSON.stringify(list.slice(0, MAX_MY_PLAYERS)));

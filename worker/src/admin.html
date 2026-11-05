@@ -4,7 +4,7 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<meta name="robots" content="noindex" />
-		<title>Ideas admin | Orson Brooker</title>
+		<title>Admin | Orson Brooker</title>
 		<link rel="icon" href="/favicon.ico" />
 		<link rel="preconnect" href="https://fonts.googleapis.com" />
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -73,6 +73,8 @@
 			.chips { display: flex; gap: 6px; margin: 4px 0 8px; }
 			.chips .number { font-family: var(--pixel); font-size: 12px; align-self: center; margin-left: 4px; }
 			.chips span { width: 24px; height: 24px; border-radius: 4px; border: 2px solid rgba(255, 255, 255, 0.7); }
+			.lede { margin: -8px 0 16px; opacity: 0.9; }
+			.suspect { display: inline-block; font-family: var(--pixel); font-size: 10px; background: #ffe066; color: var(--ink); border-radius: 4px; padding: 4px 6px; margin-left: 8px; vertical-align: middle; }
 			.flag { display: inline-block; background: var(--bad); color: var(--ink); border-radius: 4px; padding: 3px 8px; margin: 0 6px 6px 0; font-size: 14px; }
 			.score-big { font-family: var(--pixel); font-size: 20px; color: #ffe066; }
 			.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 14px; margin: 8px 0; }
@@ -85,12 +87,13 @@
 	</head>
 	<body>
 		<main>
-			<h1>Ideas admin</h1>
+			<h1>Orson's admin</h1>
+			<p class="lede">The inbox has everything that needs a look: new ideas, new players and odd-looking scores.</p>
 			<nav>
 				<button type="button" id="tab-inbox" aria-selected="true">Inbox <span id="inbox-count"></span></button>
 				<button type="button" id="tab-ideas" aria-selected="false">Ideas</button>
-				<button type="button" id="tab-players" aria-selected="false">Players <span id="players-count"></span></button>
-				<button type="button" id="tab-scores" aria-selected="false">Scores <span id="scores-count"></span></button>
+				<button type="button" id="tab-players" aria-selected="false">Players</button>
+				<button type="button" id="tab-scores" aria-selected="false">Scores</button>
 			</nav>
 			<section id="inbox"></section>
 			<section id="ideas" hidden></section>
@@ -131,79 +134,98 @@
 
 			async function load() {
 				data = await api("inbox");
+				// How many nicknames each device has used, across the scores here.
+				names = {};
+				for (const s of data.scores) (names[s.device] ??= new Set()).add(s.nickname.toLowerCase());
 				renderInbox();
 				renderIdeas();
 				renderPlayers();
 				renderScores();
 			}
 
+			// Odd-looking scores Orson hasn't looked at yet. They're on the board until he hides them.
+			const suspicious = (s) => s.status === "shown" && !s.checked && JSON.parse(s.flags).length > 0;
+
+			// Everything that needs action, by kind.
 			function renderInbox() {
 				const box = document.getElementById("inbox");
-				document.getElementById("inbox-count").textContent = data.submissions.length ? `(${data.submissions.length})` : "";
+				const players = data.players.filter((p) => p.status === "new");
+				const scores = data.scores.filter(suspicious);
+				const total = data.submissions.length + players.length + scores.length;
+				document.getElementById("inbox-count").textContent = total ? `(${total})` : "";
 				box.replaceChildren();
-				if (!data.submissions.length) {
-					box.append(el("div", { className: "card empty", innerHTML: "All caught up!<br>No new ideas to check." }));
+				if (!total) {
+					box.append(el("div", { className: "card empty", innerHTML: "All caught up!<br>Nothing needs a look." }));
 					return;
 				}
-				for (const s of data.submissions) {
-					const title = el("input", { type: "text", value: s.text.slice(0, 80), maxLength: 80 });
-					const description = el("textarea", { value: s.text, maxLength: 500 });
-					const app = appSelect(s.app);
-					const credit = el("input", { type: "checkbox" });
-					const mergeInto = el(
-						"select",
-						{},
-						el("option", { value: "", textContent: "Add to an existing idea…" }),
-						...data.ideas.map((i) => el("option", { value: i.id, textContent: `${appName(i.app)}: ${i.title}` })),
-					);
-					const act = (action, extra = {}) => async () => {
-						try {
-							await api(`submissions/${s.id}`, { action, ...extra });
-							toast(action === "reject" ? "Rejected" : action === "merge" ? "Added to idea" : "On the board!");
-							await load();
-						} catch (err) {
-							toast(err.message);
-						}
-					};
-					box.append(
+				const group = (title, items, card) => {
+					if (!items.length) return;
+					box.append(el("h2", { textContent: `${title} (${items.length})` }));
+					for (const item of items) box.append(card(item));
+				};
+				group("New ideas", data.submissions, submissionCard);
+				group("New players", players, playerCard);
+				group("Scores that look odd", scores, scoreCard);
+			}
+
+			function submissionCard(s) {
+				const title = el("input", { type: "text", value: s.text.slice(0, 80), maxLength: 80 });
+				const description = el("textarea", { value: s.text, maxLength: 500 });
+				const app = appSelect(s.app);
+				const credit = el("input", { type: "checkbox" });
+				const mergeInto = el(
+					"select",
+					{},
+					el("option", { value: "", textContent: "Add to an existing idea…" }),
+					...data.ideas.map((i) => el("option", { value: i.id, textContent: `${appName(i.app)}: ${i.title}` })),
+				);
+				const act = (action, extra = {}) => async () => {
+					try {
+						await api(`submissions/${s.id}`, { action, ...extra });
+						toast(action === "reject" ? "Rejected" : action === "merge" ? "Added to idea" : "On the board!");
+						await load();
+					} catch (err) {
+						toast(err.message);
+					}
+				};
+				return (
+					el(
+						"div",
+						{ className: "card" },
+						el("div", { className: "meta", textContent: `${appName(s.app)} · ${s.nickname ? `from ${s.nickname}` : "no name"} · ${s.created_at.slice(0, 10)}` }),
+						el("p", { className: "quote", textContent: s.text }),
+						el("label", { textContent: "Title on the board" }),
+						title,
+						el("label", { textContent: "Description" }),
+						description,
+						el("label", { textContent: "Game or app" }),
+						app,
+						s.nickname ? el("label", { className: "check" }, credit, `Credit "${s.nickname}" on the board`) : null,
 						el(
 							"div",
-							{ className: "card" },
-							el("div", { className: "meta", textContent: `${appName(s.app)} · ${s.nickname ? `from ${s.nickname}` : "no name"} · ${s.created_at.slice(0, 10)}` }),
-							el("p", { className: "quote", textContent: s.text }),
-							el("label", { textContent: "Title on the board" }),
-							title,
-							el("label", { textContent: "Description" }),
-							description,
-							el("label", { textContent: "Game or app" }),
-							app,
-							s.nickname ? el("label", { className: "check" }, credit, `Credit "${s.nickname}" on the board`) : null,
-							el(
-								"div",
-								{ className: "row" },
-								el("button", {
-									type: "button",
-									className: "primary",
-									textContent: "Add to board",
-									onclick: () => act("approve", { title: title.value, description: description.value, app: app.value, credit: credit.checked })(),
-								}),
-								el("button", { type: "button", className: "danger", textContent: "Reject", onclick: act("reject") }),
-							),
-							data.ideas.length
-								? el(
-										"div",
-										{ className: "row" },
-										mergeInto,
-										el("button", {
-											type: "button",
-											textContent: "Merge",
-											onclick: () => (mergeInto.value ? act("merge", { ideaId: mergeInto.value })() : toast("Pick an idea first")),
-										}),
-									)
-								: null,
+							{ className: "row" },
+							el("button", {
+								type: "button",
+								className: "primary",
+								textContent: "Add to board",
+								onclick: () => act("approve", { title: title.value, description: description.value, app: app.value, credit: credit.checked })(),
+							}),
+							el("button", { type: "button", className: "danger", textContent: "Reject", onclick: act("reject") }),
 						),
-					);
-				}
+						data.ideas.length
+							? el(
+									"div",
+									{ className: "row" },
+									mergeInto,
+									el("button", {
+										type: "button",
+										textContent: "Merge",
+										onclick: () => (mergeInto.value ? act("merge", { ideaId: mergeInto.value })() : toast("Pick an idea first")),
+									}),
+								)
+							: null,
+					)
+				);
 			}
 
 			function renderIdeas() {
@@ -260,121 +282,127 @@
 			// Players made with the builder: approve to put them in the game, hide to take them out.
 			function renderPlayers() {
 				const box = document.getElementById("players");
-				const waiting = data.players.filter((p) => p.status === "new").length;
-				document.getElementById("players-count").textContent = waiting ? `(${waiting})` : "";
 				box.replaceChildren();
 				if (!data.players.length) {
 					box.append(el("div", { className: "card empty", innerHTML: "No players yet.<br>They're made at /players/" }));
 					return;
 				}
-				for (const p of data.players) {
-					const name = el("input", { type: "text", value: p.name, maxLength: 12 });
-					const look = new URLSearchParams({ base: p.base, name: p.name });
-					for (const part of ["skin", "hair", "jersey", "team", "shoes"]) look.set(part, p[part].slice(1));
-					if (p.number) look.set("number", p.number);
-					look.set("teamName", p.team_name);
-					const act = (action) => async () => {
-						if (action === "delete" && !confirm(`Delete ${p.name} for good?`)) return;
-						try {
-							await api(`players/${p.id}`, { action, name: name.value });
-							toast(action === "approve" ? "In the game!" : action === "hide" ? "Hidden" : action === "delete" ? "Deleted" : "Saved");
-							await load();
-						} catch (err) {
-							toast(err.message);
-						}
-					};
-					box.append(
-						el(
-							"div",
-							{ className: "card player" },
-							el("img", { src: `${SITE}/assets/characters/bases/${p.base}/thumb.webp`, alt: "", width: 64, height: 64 }),
-							el(
-								"div",
-								{ className: "player-info" },
-								el("div", { className: "meta", textContent: `${p.status === "new" ? "Waiting" : p.status === "approved" ? "In the game" : "Hidden"} · ${p.base} · ${p.created_at.slice(0, 10)}` }),
-								el(
-									"div",
-									{ className: "chips" },
-									...["skin", "hair", "jersey", "team", "shoes"].map((part) => el("span", { title: part, style: `background:${p[part]}` })),
-									el("b", { className: "number", textContent: `${p.team_name} ${p.number ? `#${p.number}` : "(no number)"}` }),
-								),
-								el("a", { href: `${SITE}/players/?${look}`, target: "_blank", textContent: "See them move ▸" }),
-								el("label", { textContent: "Name" }),
-								name,
-								el(
-									"div",
-									{ className: "row" },
-									p.status !== "approved" ? el("button", { type: "button", className: "primary", textContent: "Put in game", onclick: act("approve") }) : null,
-									p.status === "approved" ? el("button", { type: "button", textContent: "Hide", onclick: act("hide") }) : null,
-									el("button", { type: "button", textContent: "Save name", onclick: act("rename") }),
-									el("button", { type: "button", className: "danger", textContent: "Delete", onclick: act("delete") }),
-								),
-							),
-						),
-					);
-				}
+				for (const p of data.players) box.append(playerCard(p));
 			}
 
-			// Leaderboard scores: held ones (something looked odd) first, then the last two weeks.
+			function playerCard(p) {
+				const name = el("input", { type: "text", value: p.name, maxLength: 12 });
+				const look = new URLSearchParams({ base: p.base, name: p.name });
+				for (const part of ["skin", "hair", "jersey", "team", "shoes"]) look.set(part, p[part].slice(1));
+				if (p.number) look.set("number", p.number);
+				look.set("teamName", p.team_name);
+				const act = (action) => async () => {
+					if (action === "delete" && !confirm(`Delete ${p.name} for good?`)) return;
+					try {
+						await api(`players/${p.id}`, { action, name: name.value });
+						toast(action === "approve" ? "In the game!" : action === "hide" ? "Hidden" : action === "delete" ? "Deleted" : "Saved");
+						await load();
+					} catch (err) {
+						toast(err.message);
+					}
+				};
+				return (
+					el(
+						"div",
+						{ className: "card player" },
+						el("img", { src: `${SITE}/assets/characters/bases/${p.base}/thumb.webp`, alt: "", width: 64, height: 64 }),
+						el(
+							"div",
+							{ className: "player-info" },
+							el("div", { className: "meta", textContent: `${p.status === "new" ? "Waiting" : p.status === "approved" ? "In the game" : "Hidden"} · ${p.base} · ${p.created_at.slice(0, 10)}` }),
+							el(
+								"div",
+								{ className: "chips" },
+								...["skin", "hair", "jersey", "team", "shoes"].map((part) => el("span", { title: part, style: `background:${p[part]}` })),
+								el("b", { className: "number", textContent: `${p.team_name} ${p.number ? `#${p.number}` : "(no number)"}` }),
+							),
+							el("a", { href: `${SITE}/players/?${look}`, target: "_blank", textContent: "See them move ▸" }),
+							el("label", { textContent: "Name" }),
+							name,
+							el(
+								"div",
+								{ className: "row" },
+								p.status !== "approved" ? el("button", { type: "button", className: "primary", textContent: "Put in game", onclick: act("approve") }) : null,
+								p.status === "approved" ? el("button", { type: "button", textContent: "Hide", onclick: act("hide") }) : null,
+								el("button", { type: "button", textContent: "Save name", onclick: act("rename") }),
+								el("button", { type: "button", className: "danger", textContent: "Delete", onclick: act("delete") }),
+							),
+						),
+					)
+				);
+			}
+
+			// Leaderboard scores: odd ones not yet looked at first, then the last two weeks.
+			let names = {};
 			function renderScores() {
 				const box = document.getElementById("scores");
-				const held = data.scores.filter((s) => s.status === "held").length;
-				document.getElementById("scores-count").textContent = held ? `(${held})` : "";
 				box.replaceChildren();
 				if (!data.scores.length) {
 					box.append(el("div", { className: "card empty", textContent: "No scores yet." }));
 					return;
 				}
-				// How many nicknames each device has used, across what's shown here.
-				const names = {};
-				for (const s of data.scores) (names[s.device] ??= new Set()).add(s.nickname.toLowerCase());
-				for (const s of data.scores) {
-					const flags = JSON.parse(s.flags);
-					const log = JSON.parse(s.log);
-					const gaps = log.slice(1).map((shot, i) => shot[0] - log[i][0]);
-					const fastest = gaps.length ? Math.min(...gaps).toFixed(1) : "-";
-					const act = (action) => async () => {
-						try {
-							await api(`scores/${s.id}`, { action });
-							toast(action === "show" ? "On the board" : "Hidden");
-							await load();
-						} catch (err) {
-							toast(err.message);
-						}
-					};
-					const status = s.status === "held" ? "Waiting for a look" : s.status === "shown" ? "On the board" : "Hidden";
-					box.append(
+				for (const s of data.scores) box.append(scoreCard(s));
+			}
+
+			function scoreCard(s) {
+				const flags = JSON.parse(s.flags);
+				const log = JSON.parse(s.log);
+				const gaps = log.slice(1).map((shot, i) => shot[0] - log[i][0]);
+				const fastest = gaps.length ? Math.min(...gaps).toFixed(1) : "-";
+				const odd = suspicious(s);
+				const act = (action) => async () => {
+					try {
+						await api(`scores/${s.id}`, { action });
+						toast(action === "hide" ? "Hidden" : odd ? "Kept on the board" : "On the board");
+						await load();
+					} catch (err) {
+						toast(err.message);
+					}
+				};
+				const status = s.status === "shown" ? "On the board" : "Hidden";
+				return (
+					el(
+						"div",
+						{ className: "card" },
+						el("div", { className: "meta", textContent: `${status} · ${s.created_at.slice(0, 16).replace("T", " ")} · played as ${s.player}` }),
 						el(
 							"div",
-							{ className: "card" },
-							el("div", { className: "meta", textContent: `${status} · ${s.created_at.slice(0, 16).replace("T", " ")} · played as ${s.player}` }),
-							el("div", {}, el("span", { className: "score-big", textContent: `${s.score} ` }), el("b", { textContent: s.nickname })),
-							...flags.map((f) => el("span", { className: "flag", textContent: f })),
-							el(
-								"div",
-								{ className: "stats" },
-								el("span", { textContent: `Shots: ${s.made}/${s.shots} (${s.shots ? Math.round((s.made / s.shots) * 100) : 0}%)` }),
-								el("span", { textContent: `Threes made: ${s.threes}` }),
-								el("span", { textContent: `Fastest gap: ${fastest}s` }),
-								el("span", { textContent: `Sent after: ${Math.round(s.real_seconds)}s` }),
-								el("span", { textContent: `Played with: ${s.input ?? "?"}` }),
-								el("span", { textContent: `Nicknames on device: ${names[s.device].size}` }),
-								s.hidden_tab ? el("span", { textContent: "Tab hidden mid-game" }) : null,
-							),
-							el(
-								"div",
-								{ className: "shots", title: "Each shot in order: green went in, yellow edge was a three" },
-								...log.map((shot) => el("span", { className: `${shot[2] ? "in" : ""} ${shot[1] ? "three" : ""}`, title: `${shot[0]}s, timing ${shot[3]}` })),
-							),
-							el(
-								"div",
-								{ className: "row" },
-								s.status !== "shown" ? el("button", { type: "button", className: "primary", textContent: "Put on the board", onclick: act("show") }) : null,
-								s.status !== "hidden" ? el("button", { type: "button", className: "danger", textContent: "Hide", onclick: act("hide") }) : null,
-							),
+							{},
+							el("span", { className: "score-big", textContent: `${s.score} ` }),
+							el("b", { textContent: s.nickname }),
+							odd ? el("span", { className: "suspect", textContent: "Suspicious" }) : null,
 						),
-					);
-				}
+						...flags.map((f) => el("span", { className: "flag", textContent: f })),
+						el(
+							"div",
+							{ className: "stats" },
+							el("span", { textContent: `Shots: ${s.made}/${s.shots} (${s.shots ? Math.round((s.made / s.shots) * 100) : 0}%)` }),
+							el("span", { textContent: `Threes made: ${s.threes}` }),
+							el("span", { textContent: `Fastest gap: ${fastest}s` }),
+							el("span", { textContent: `Sent after: ${Math.round(s.real_seconds)}s` }),
+							el("span", { textContent: `Played with: ${s.input ?? "?"}` }),
+							el("span", { textContent: `Nicknames on device: ${names[s.device].size}` }),
+							s.hidden_tab ? el("span", { textContent: "Tab hidden mid-game" }) : null,
+						),
+						el(
+							"div",
+							{ className: "shots", title: "Each shot in order: green went in, yellow edge was a three" },
+							...log.map((shot) => el("span", { className: `${shot[2] ? "in" : ""} ${shot[1] ? "three" : ""}`, title: `${shot[0]}s, timing ${shot[3]}` })),
+						),
+						el(
+							"div",
+							{ className: "row" },
+							odd ? el("button", { type: "button", className: "primary", textContent: "Looks fine", onclick: act("show") }) : null,
+							s.status === "hidden" ? el("button", { type: "button", className: "primary", textContent: "Put back on the board", onclick: act("show") }) : null,
+							s.status !== "hidden" ? el("button", { type: "button", className: "danger", textContent: "Hide", onclick: act("hide") }) : null,
+						),
+					)
+				);
 			}
 
 			const TABS = ["inbox", "ideas", "players", "scores"];

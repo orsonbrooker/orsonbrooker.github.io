@@ -70,15 +70,15 @@ export default {
 		const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM submissions WHERE status = 'new'").first<{ n: number }>();
 		const players = await env.DB.prepare("SELECT COUNT(*) AS n FROM players WHERE status = 'new'").first<{ n: number }>();
 		const votes = await env.DB.prepare("SELECT COUNT(*) AS n FROM votes WHERE created_at > datetime('now', '-7 days')").first<{ n: number }>();
-		const held = await env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE status = 'held'").first<{ n: number }>();
+		const odd = await env.DB.prepare(`SELECT COUNT(*) AS n FROM scores WHERE ${ODD_UNCHECKED}`).first<{ n: number }>();
 		const ideas = row?.n ?? 0;
 		const newPlayers = players?.n ?? 0;
-		const heldScores = held?.n ?? 0;
-		if (!ideas && !newPlayers && !heldScores) return;
+		const oddScores = odd?.n ?? 0;
+		if (!ideas && !newPlayers && !oddScores) return;
 		const waiting = [
 			ideas && `${ideas} new idea${ideas === 1 ? "" : "s"}`,
 			newPlayers && `${newPlayers} new player${newPlayers === 1 ? "" : "s"}`,
-			heldScores && `${heldScores} score${heldScores === 1 ? "" : "s"} to check`,
+			oddScores && `${oddScores} odd-looking score${oddScores === 1 ? "" : "s"}`,
 		]
 			.filter(Boolean)
 			.join(" and ");
@@ -229,6 +229,16 @@ async function createPlayer(request: Request, env: Env): Promise<Response> {
 	)
 		.bind(name, base, ...PLAYER_PARTS.map((p) => (colours[p] as string).toLowerCase()), number, teamName || "KINGS", ipHash)
 		.run();
+
+	// If they've played as this player on their device, its leaderboard scores get this look.
+	const localId = String(body.localId ?? "");
+	const device = clean(body.device, 64);
+	if (/^me\d{1,15}$/.test(localId) && device.length >= 16) {
+		const look = JSON.stringify(Object.fromEntries(PLAYER_PARTS.map((p) => [p, (colours[p] as string).toLowerCase()])));
+		await env.DB.prepare("UPDATE scores SET colours = ?, base = ? WHERE device = ? AND player = ?")
+			.bind(look, base, await hash(env, `device:${device}`), localId)
+			.run();
+	}
 	return json({ ok: true });
 }
 
@@ -258,11 +268,14 @@ async function checkTurnstile(request: Request, env: Env, token: unknown) {
 // its shot log and the server checks it hangs together:
 //   rejected  impossible: a bad or reused start token, sent too soon after the game started, the
 //             score doesn't match its shots, more shots than fit in a minute, or test (?debug) mode
-//   held      odd but possible: machine-like timing, a perfect game of 30+ shots, a huge jump on the
-//             device's best, lots of nicknames. Kept off the board until Orson approves it.
+//   flagged   odd but possible: machine-like timing, a perfect game of 30+ shots, a huge jump on the
+//             device's best, lots of nicknames. On the board straight away, and in Orson's admin inbox
+//             so he can hide it.
 //   shown     everything else, straight away.
 
 const GAME_SECONDS = 60;
+// Odd-looking scores Orson hasn't looked at yet: they're in the admin inbox.
+const ODD_UNCHECKED = "status = 'shown' AND flags != '[]' AND checked = 0";
 const MIN_SHOT_GAP = 1.0; // seconds: release, flight, moving spot and jumping again take longer than this
 const FIRE_BONUS = [
 	{ streak: 6, bonus: 2 },
@@ -351,7 +364,7 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	if (((today.results[0] as { n: number }).n ?? 0) >= SCORES_PER_DAY) throw new HttpError(429, "That's a lot of games for one day! Try again tomorrow.");
 	const past = history.results[0] as { best: number | null; names: number; known: number | null };
 
-	// Odd but possible: hold it for a look.
+	// Odd but possible: it still goes on the board, flagged for Orson to look at.
 	const made = shots.filter((s) => s[2]).length;
 	const flags: string[] = [];
 	if (shots.length >= 10 && spread(shots.map((s) => s[3])) < 0.03) flags.push("Every release timed the same, like a script");
@@ -360,7 +373,7 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	if (shots.length >= 30 && made === shots.length) flags.push(`All ${made} shots made`);
 	if ((past.best ?? 0) >= 10 && score > past.best! * 2.5) flags.push(`${Math.round(score / past.best!)}x this device's best (${past.best})`);
 	if (!past.known && past.names >= 3) flags.push(`This device has used ${past.names + 1} nicknames`);
-	const status = flags.length ? "held" : "shown";
+	const status = "shown";
 
 	const inserted = await env.DB.prepare(
 		`INSERT OR IGNORE INTO scores (nickname, score, player, base, colours, shots, made, threes, real_seconds, input, hidden_tab, version, log, flags, status, token, device, ip_hash)
@@ -388,6 +401,11 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 		)
 		.first<{ id: number }>();
 	if (!inserted) throw new HttpError(400, "That game's score is already in.");
+	// Their own player's earlier scores get its latest look too (including ones from before colours were sent).
+	if (colours)
+		await env.DB.prepare("UPDATE scores SET colours = ?, base = ? WHERE device = ? AND player = ? AND id != ?")
+			.bind(colours, base, deviceHash, player, inserted.id)
+			.run();
 
 	// Where it landed this week (each nickname on a device counts once, at its best).
 	const rank = await env.DB.prepare(
@@ -396,7 +414,7 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	)
 		.bind(score)
 		.first<{ rank: number }>();
-	return json({ id: inserted.id, status, rank: status === "shown" ? rank?.rank : null });
+	return json({ id: inserted.id, status, rank: rank?.rank ?? null });
 }
 
 async function leaderboard(env: Env, url: URL): Promise<Response> {
@@ -441,8 +459,8 @@ async function admin(request: Request, env: Env, url: URL): Promise<Response> {
 				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
 			),
 			env.DB.prepare(
-				`SELECT id, nickname, score, player, shots, made, threes, real_seconds, input, hidden_tab, log, flags, status, device, created_at
-				 FROM scores WHERE status = 'held' OR created_at > datetime('now', '-14 days') ORDER BY status = 'held' DESC, id DESC LIMIT 200`,
+				`SELECT id, nickname, score, player, shots, made, threes, real_seconds, input, hidden_tab, log, flags, status, checked, device, created_at
+				 FROM scores WHERE (${ODD_UNCHECKED}) OR created_at > datetime('now', '-14 days') ORDER BY (${ODD_UNCHECKED}) DESC, id DESC LIMIT 200`,
 			),
 		]);
 		return json(
@@ -518,9 +536,10 @@ async function editPlayer(env: Env, id: number, body: Record<string, unknown>): 
 }
 
 async function editScore(env: Env, id: number, body: Record<string, unknown>): Promise<Response> {
+	// "show" keeps it on the board (it looked fine), "hide" takes it off. Either way it's been checked.
 	const status = body.action === "show" ? "shown" : body.action === "hide" ? "hidden" : null;
 	if (!status) throw new HttpError(400, "Unknown action.");
-	const result = await env.DB.prepare("UPDATE scores SET status = ? WHERE id = ?").bind(status, id).run();
+	const result = await env.DB.prepare("UPDATE scores SET status = ?, checked = 1 WHERE id = ?").bind(status, id).run();
 	if (!result.meta.changes) throw new HttpError(404, "No such score.");
 	return json({ ok: true }, 200, 0);
 }

@@ -4,7 +4,7 @@
 // to preload a look.
 
 import { markField, say } from "../ui/form.js?v=fd569ffc";
-import { DEFAULT_TEAM, loadBase, loadBases, PALETTES, PARTS, recolor, saveMyPlayer } from "../players/recolor.js?v=72f03939";
+import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, recolor, saveMyPlayer } from "../players/recolor.js?v=c3a25e13";
 
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = LOCAL ? "http://localhost:8787/api" : "/api";
@@ -270,6 +270,17 @@ form.addEventListener("submit", async (e) => {
   }
   send.disabled = true;
   say(message, "Sending…");
+  // Already playing as a player by this name on this device? Give it this look, here and on the
+  // leaderboard (the server updates the scores this device played as it).
+  const name = nameInput.value.trim();
+  const mine = myPlayers().find((p) => p.name.toLowerCase() === name.toLowerCase());
+  if (mine) saveMyPlayer({ ...mine, name, base: current.id, colours: { ...colours, teamName: teamInput.value.trim() } });
+  let device = "";
+  try {
+    device = localStorage.getItem("orson-device") ?? "";
+  } catch {
+    // No device id, so no scores to update.
+  }
   try {
     const res = await fetch(`${API}/players`, {
       method: "POST",
@@ -280,6 +291,8 @@ form.addEventListener("submit", async (e) => {
         colours,
         number: numberInput.value,
         teamName: teamInput.value.trim(),
+        localId: mine?.id,
+        device,
         turnstileToken: token,
       }),
     });

@@ -2,7 +2,7 @@
 //
 // Each game asks the server for a signed start token when it begins. A score is sent with that
 // token and the game's shot log, and the server checks they add up (see worker/src/index.ts,
-// postScore). Odd-looking scores are held back until Orson has had a look.
+// postScore). Odd-looking scores still show, flagged for Orson to check.
 
 import { say } from "./ui/form.js?v=fd569ffc";
 import { icon } from "./ui/icons.js?v=c284e3ca";

@@ -8,8 +8,8 @@ import { createFxLayer } from "./fx.js?v=1b9ca74d";
 import { pickPhrase } from "./phrases.js?v=e5110e70";
 import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
-import { renderBoard, startToken, submitScore } from "./leaderboard.js?v=2873bba9";
-import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=72f03939";
+import { renderBoard, startToken, submitScore } from "./leaderboard.js?v=1c7f7afe";
+import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=c3a25e13";
 
 const COURT_PX = 2048;
 const PX_PER_M = 132;
