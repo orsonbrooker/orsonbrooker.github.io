@@ -791,7 +791,17 @@ function fireLevel() {
 }
 
 function timingWindow() {
-  return TIMING_WINDOW * (fireLevel()?.window ?? 1);
+  return TIMING_WINDOW * (fireLevel()?.window ?? 1) * (1 - SUDDEN_DEATH.squeeze * pressure());
+}
+
+// Sudden death gets harder the longer the run goes. pressure() rises from 0 at `from` makes in a
+// row to 1 at `full`, and with it:
+//   squeeze  how much of the green part of the jump bar is gone at full pressure (0.65 = 65%)
+//   rumble   how far the court shakes at full pressure, in court pixels (it starts at `rumbleFrom`)
+const SUDDEN_DEATH = { from: 3, full: 30, squeeze: 0.65, rumble: 14, rumbleFrom: 10 };
+function pressure(from = SUDDEN_DEATH.from) {
+  if (!survival() || (state.phase !== "playing" && state.phase !== "ending")) return 0;
+  return Math.max(0, Math.min(1, (state.streak - from) / (SUDDEN_DEATH.full - from)));
 }
 
 function gaussian() {
@@ -1591,6 +1601,12 @@ function render() {
     const amp = state.shake * state.shake * 14;
     ctx.translate(Math.round((Math.random() - 0.5) * amp), Math.round((Math.random() - 0.5) * amp));
   }
+  // A long sudden death run: the whole court rumbles, more the longer it goes.
+  const rumble = SUDDEN_DEATH.rumble * pressure(SUDDEN_DEATH.rumbleFrom);
+  if (rumble > 0) {
+    const t = performance.now() / 1000;
+    ctx.translate(Math.round((Math.sin(t * 7.3) + 0.5 * Math.sin(t * 17.1)) * rumble * 0.7), Math.round((Math.cos(t * 9.7) + 0.4 * Math.sin(t * 23.3)) * rumble * 0.5));
+  }
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
@@ -1695,7 +1711,7 @@ async function boot() {
     console.error(err);
     return;
   }
-  if (DEBUG) window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter, pixelFx, celebrateBuzzerBeater };
+  if (DEBUG) window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH };
   resize();
   new ResizeObserver(resize).observe(stage);
   state.mode = load("orson-hoops-mode", "timed");
