@@ -277,8 +277,8 @@ async function checkTurnstile(request: Request, env: Env, token: unknown) {
 //   rejected  impossible: a bad or reused start token, sent too soon after the game started, the
 //             score doesn't match its shots, more shots than fit in a minute, or test (?debug) mode
 //   flagged   odd but possible: machine-like timing, a perfect game of 30+ shots, a huge jump on the
-//             device's best, lots of nicknames. On the board straight away, and in Orson's admin inbox
-//             so he can hide it.
+//             device's best. On the board straight away, and in Orson's admin inbox so he can hide it.
+//             (Nicknames don't matter: a device's row is per player, whatever name it's sent with.)
 //   shown     everything else, straight away.
 
 const GAME_SECONDS = 60;
@@ -363,12 +363,10 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	const deviceHash = await hash(env, `device:${device}`);
 	const [today, history] = await env.DB.batch([
 		env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?").bind(ipHash),
-		env.DB.prepare(
-			"SELECT MAX(score) AS best, COUNT(DISTINCT lower(nickname)) AS names, MAX(lower(nickname) = lower(?)) AS known FROM scores WHERE device = ?",
-		).bind(nickname, deviceHash),
+		env.DB.prepare("SELECT MAX(score) AS best FROM scores WHERE device = ?").bind(deviceHash),
 	]);
 	if (((today.results[0] as { n: number }).n ?? 0) >= SCORES_PER_DAY) throw new HttpError(429, "That's a lot of games for one day! Try again tomorrow.");
-	const past = history.results[0] as { best: number | null; names: number; known: number | null };
+	const past = history.results[0] as { best: number | null };
 
 	// Odd but possible: it still goes on the board, flagged for Orson to look at.
 	const made = shots.filter((s) => s[2]).length;
@@ -378,7 +376,6 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	// Great players really do make almost everything (Orson went 28 of 29), so only a long perfect game is odd.
 	if (shots.length >= 30 && made === shots.length) flags.push(`All ${made} shots made`);
 	if ((past.best ?? 0) >= 10 && score > past.best! * 2.5) flags.push(`${Math.round(score / past.best!)}x this device's best (${past.best})`);
-	if (!past.known && past.names >= 3) flags.push(`This device has used ${past.names + 1} nicknames`);
 	const status = "shown";
 
 	const inserted = await env.DB.prepare(

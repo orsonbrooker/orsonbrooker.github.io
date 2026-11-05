@@ -134,9 +134,6 @@
 
 			async function load() {
 				data = await api("inbox");
-				// How many nicknames each device has used, across the scores here.
-				names = {};
-				for (const s of data.scores) (names[s.device] ??= new Set()).add(s.nickname.toLowerCase());
 				renderInbox();
 				renderIdeas();
 				renderPlayers();
@@ -150,7 +147,13 @@
 			function renderInbox() {
 				const box = document.getElementById("inbox");
 				const players = data.players.filter((p) => p.status === "new");
-				const scores = data.scores.filter(suspicious);
+				// One card per player on a device, like their row on the leaderboard.
+				const byPlayer = new Map();
+				for (const s of data.scores.filter(suspicious)) {
+					const key = `${s.device} ${s.player}`;
+					byPlayer.set(key, [...(byPlayer.get(key) ?? []), s]);
+				}
+				const scores = [...byPlayer.values()];
 				const total = data.submissions.length + players.length + scores.length;
 				document.getElementById("inbox-count").textContent = total ? `(${total})` : "";
 				box.replaceChildren();
@@ -165,7 +168,48 @@
 				};
 				group("New ideas", data.submissions, submissionCard);
 				group("New players", players, playerCard);
-				group("Scores that look odd", scores, scoreCard);
+				group("Scores that look odd", scores, (list) => (list.length === 1 ? scoreCard(list[0]) : playerScoresCard(list)));
+			}
+
+			// Several odd scores from one player (newest first): checked together, each one still there to open.
+			function playerScoresCard(list) {
+				const best = Math.max(...list.map((s) => s.score));
+				const flags = new Map();
+				for (const s of list) for (const f of JSON.parse(s.flags)) {
+					const kind = f.replace(/\d+/g, "N"); // "All 33 shots made" and "All 31 shots made" are one kind
+					flags.set(kind, [...(flags.get(kind) ?? []), f]);
+				}
+				const act = (action) => async () => {
+					try {
+						for (const s of list) await api(`scores/${s.id}`, { action });
+						toast(action === "hide" ? `Hid ${list.length} scores` : `Kept ${list.length} scores on the board`);
+						await load();
+					} catch (err) {
+						toast(err.message);
+						await load();
+					}
+				};
+				const details = el("details", {}, el("summary", { textContent: "See each game" }), ...list.map(scoreCard));
+				return el(
+					"div",
+					{ className: "card" },
+					el("div", { className: "meta", textContent: `${list.length} odd games · played as ${list[0].player} · newest ${list[0].created_at.slice(0, 10)}` }),
+					el(
+						"div",
+						{},
+						el("span", { className: "score-big", textContent: `${best} ` }),
+						el("b", { textContent: list[0].nickname }),
+						el("span", { className: "suspect", textContent: "Suspicious" }),
+					),
+					...[...flags.values()].map((fs) => el("span", { className: "flag", textContent: fs.length > 1 ? `${fs[0]} · ${fs.length} games` : fs[0] })),
+					el(
+						"div",
+						{ className: "row" },
+						el("button", { type: "button", className: "primary", textContent: "All look fine", onclick: act("show") }),
+						el("button", { type: "button", className: "danger", textContent: "Hide all", onclick: act("hide") }),
+					),
+					details,
+				);
 			}
 
 			function submissionCard(s) {
@@ -356,7 +400,6 @@
 			}
 
 			// Leaderboard scores: odd ones not yet looked at first, then the last two weeks.
-			let names = {};
 			function renderScores() {
 				const box = document.getElementById("scores");
 				box.replaceChildren();
@@ -404,7 +447,6 @@
 							el("span", { textContent: `Fastest gap: ${fastest}s` }),
 							el("span", { textContent: `Sent after: ${Math.round(s.real_seconds)}s` }),
 							el("span", { textContent: `Played with: ${s.input ?? "?"}` }),
-							el("span", { textContent: `Nicknames on device: ${names[s.device].size}` }),
 							s.hidden_tab ? el("span", { textContent: "Tab hidden mid-game" }) : null,
 						),
 						el(
