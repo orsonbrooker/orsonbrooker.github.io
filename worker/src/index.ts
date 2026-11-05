@@ -606,6 +606,22 @@ async function scoreDetail(env: Env, id: number): Promise<Response> {
 	// Points from being on fire and from bonus balls (around the world's score is a time, so none).
 	// From the score itself, so older games keep the fire bonus they really got.
 	const bonusPoints = row.mode === "around" ? 0 : Math.max(0, Number(row.score) - plainPoints);
+	// Sudden death: the hottest fire the run reached (0 none, 1 on fire, 2 purple, 3 supernova), and
+	// how the shot that ended it was let go (timing in green-zone widths: under 0 early, over 0 late).
+	const levels = [...FIRE_BONUS].reverse().filter((f) => f.streak < supernovaAt || hadFeature(row.created_at, "supernova"));
+	const hottestFire = levels.filter((f) => bestStreak >= f.streak).length;
+	const last = log.at(-1);
+	const missTiming = row.mode === "survival" && last && !last[2] ? last[3] : null;
+	// Around the world: tries at each spot, until the last one went in.
+	const tries: number[] = [];
+	if (row.mode === "around") {
+		let spot = 0;
+		for (const [, , made] of log) {
+			if (spot >= AROUND_SPOTS) break;
+			tries[spot] = (tries[spot] ?? 0) + 1;
+			if (made) spot++;
+		}
+	}
 	const { log: _log, colours, ...rest } = row;
 	return json(
 		{
@@ -618,6 +634,9 @@ async function scoreDetail(env: Env, id: number): Promise<Response> {
 			money: hadFeature(row.created_at, "bonusBalls") ? money : null,
 			rainbow: hadFeature(row.created_at, "bonusBalls") ? rainbow : null,
 			bonusPoints,
+			hottestFire,
+			missTiming,
+			tries,
 			top: { week: week.results, all: all.results },
 			// Let go in the green part of the jump bar (timing is in green-zone widths from the apex).
 			green: log.filter((shot) => Math.abs(shot[3]) <= 0.5).length,

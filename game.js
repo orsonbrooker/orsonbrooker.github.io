@@ -10,7 +10,7 @@ import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
 import { MONEY, NORMAL, RAINBOW, ballKind, ballPoints } from "./bonus.js?v=80033a4c";
 import { countsIn, doneToday, markDone, progress, streakDays, todaysChallenge } from "./daily.js?v=6f3b9099";
-import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=99eebeb5";
+import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=1a917651";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=9235830f";
 
 const COURT_PX = 2048;

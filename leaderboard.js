@@ -351,6 +351,59 @@ function drawTop(dialog, top, range, mode) {
   box.hidden = false;
 }
 
+// Around the world's spots, in order (the same as AROUND_LAYOUT in game.js).
+const AROUND_SPOT_NAMES = ["Block", "Baseline", "Elbow", "Free throw", "Elbow", "Baseline", "Block"];
+const FIRE_NAMES = ["Not yet", "On fire", "Purple fire", "Blue supernova"];
+
+// The stats on a player's card: only the ones that mean something in that game mode. Newer things
+// (supernova, bonus balls) come back empty for games from before them, so they don't show.
+function cardStats(mode, d, score) {
+  const green = ["Let go in the green", `${d.green} of ${d.shots}`]; // it can still go in from outside it
+  const sent = ["Games sent", d.games];
+  const balls = [
+    ...(d.money?.seen ? [["Money balls made", `${d.money.made} of ${d.money.seen}`]] : []),
+    ...(d.rainbow?.seen ? [["Rainbow balls made", `${d.rainbow.made} of ${d.rainbow.seen}`]] : []),
+    ...(d.bonusPoints ? [["Bonus points", `${d.bonusPoints} of ${score}`]] : []),
+  ];
+  if (mode === "around") {
+    const tries = d.tries ?? [];
+    const most = Math.max(0, ...tries);
+    const spot = tries.indexOf(most);
+    return [
+      ["Shots taken", d.shots],
+      ["First try", `${tries.filter((t) => t === 1).length} of ${AROUND_SPOT_NAMES.length} spots`],
+      ...(most > 1 ? [["Toughest spot", `${AROUND_SPOT_NAMES[spot]} (${most} tries)`]] : []),
+      green,
+      sent,
+    ];
+  }
+  if (mode === "survival") {
+    // Every shot but the last went in, so the run is the story, and the miss that ended it.
+    const t = d.missTiming;
+    const miss = t === null || t === undefined ? null : Math.abs(t) <= 0.5 ? "In the green, but it didn't drop" : t < 0 ? "Let go too early" : "Let go too late";
+    return [
+      ["In a row", d.made],
+      ["Threes made", d.threes],
+      ["Hottest fire", FIRE_NAMES[d.hottestFire ?? 0]],
+      ...balls,
+      ...(miss ? [["The miss", miss]] : []),
+      green,
+      sent,
+    ];
+  }
+  const pct = d.shots ? Math.round((d.made / d.shots) * 100) : 0;
+  return [
+    ["Shots made", `${d.made} of ${d.shots} (${pct}%)`],
+    ["Threes made", d.threes],
+    ["Best streak", `${d.bestStreak} in a row`],
+    ["Times on fire", d.onFire],
+    ...(d.supernova ? [["Times on supernova", d.supernova]] : []),
+    ...balls,
+    green,
+    sent,
+  ];
+}
+
 // A bigger look at someone on the board: their whole player and how their best game went.
 function showScoreCard(row, rank, range, mode, bodyFor) {
   const dialog = document.createElement("dialog");
@@ -398,21 +451,7 @@ function showScoreCard(row, rank, range, mode, bodyFor) {
     .then((d) => {
       const when = new Date(d.created_at.replace(" ", "T") + "Z");
       dialog.querySelector(".lb-played").textContent = `Played ${DATE.format(when)}`;
-      const pct = d.shots ? Math.round((d.made / d.shots) * 100) : 0;
-      const rows = [
-        ["Shots made", `${d.made} of ${d.shots} (${pct}%)`],
-        // Around the world has no threes and no bonus for being on fire.
-        ...(lowWins(mode) ? [] : [["Threes made", d.threes]]),
-        ["Best streak", `${d.bestStreak} in a row`],
-        ...(lowWins(mode) ? [] : [["Times on fire", d.onFire]]),
-        // The newer things only show when they happened (older games don't have bonus balls).
-        ...(d.supernova ? [["Times on supernova", d.supernova]] : []),
-        ...(d.money?.seen ? [["Money balls made", `${d.money.made} of ${d.money.seen}`]] : []),
-        ...(d.rainbow?.seen ? [["Rainbow balls made", `${d.rainbow.made} of ${d.rainbow.seen}`]] : []),
-        ...(d.bonusPoints ? [["Bonus points", `${d.bonusPoints} of ${row.score}`]] : []),
-        ["Let go in the green", `${d.green} of ${d.shots}`],
-        [lowWins(mode) ? "Times sent" : "Scores sent", d.games],
-      ];
+      const rows = cardStats(mode, d, row.score);
       stats.replaceChildren(
         ...rows.map(([label, value]) => {
           const item = document.createElement("div");
