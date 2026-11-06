@@ -2,6 +2,7 @@
 // is being played, and the seeded randomness for where he shoots from and how each shot wobbles.
 // Everything else in play/, modes/ and screens/ reads and changes these.
 
+import { NEUTRAL } from "../content/attributes.js";
 import { DEFAULT_SPOT } from "../engine/court.js";
 import { load } from "../engine/storage.js";
 import { randomSeed, seededStreams } from "../rng.js";
@@ -58,6 +59,8 @@ export const player = {
   fade: 1,
   activeBall: null,
   moving: false,
+  attrs: NEUTRAL, // what this player is good at (content/attributes.js), set when they're chosen
+  airT: 0, // how long he'd been in the air when he let go (for drawing a higher jump)
 };
 
 export function setAnim(name) {

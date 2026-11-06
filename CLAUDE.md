@@ -24,7 +24,8 @@ plan for growing the game and the iOS app; read it when working on structure.
   import them normally. The build stamps the commit into the game as the version it sends with scores.
 - **Game:** `game.js` (the entry point that wires it up), `engine/` (court and projection, physics, loop,
   input, drawing helpers), `play/` (the shared state, shooting and the update, reactions, drawing the court,
-  players), `modes/` (one file per mode, same shape), `content/` (looks, spots, calls), `screens/` (menus,
+  players, switching courts), `modes/` (one file per mode, same shape), `content/` (courts, player
+  attributes, looks, spots, calls), `screens/` (menus,
   help, leaderboard, game over), `leaderboard.js`, `audio.js`,
   `phrases.js` (announcer lines), `fx.js` + `effects/` + `vendor/pixelfx/` (pixel effects), `shared/rules.js`
   (scoring rules, shared with the Worker), `daily.js` (daily challenge), `players/recolor.js` (builder players' colours).
@@ -63,6 +64,9 @@ plan for growing the game and the iOS app; read it when working on structure.
   recounting a shot log. The game imports it in the browser and the Worker imports it to check scores, so
   never copy a rule into either side. The server's checks on a sent game are in `worker/src/scoring.ts`.
   Run `npm --prefix worker test` after changing either (Node's test runner, no extra installs).
+- **Courts and player attributes are data:** a court (art, geometry, 3-point line, gravity, wind) is an
+  entry in `content/courts.js`; what a player is good at is `content/attributes.js`. Every player is neutral
+  until Luke and Orson set values there, since the leaderboard compares everyone.
 - **Be lenient on cheating:** reject only the impossible; flag the odd ones for the admin and keep them
   on the board.
 
@@ -108,7 +112,8 @@ python3 tools/dev/copy_live_db.py                     # optional: real ideas, pl
 - **Phone or iPad:** `npm run build`, then `python3 tools/dev/lan_server.py 5174 dist` and open
   `http://<Mac IP>:5174/games/shootaround/` (`ipconfig getifaddr en0`).
 - **Test mode:** add `?debug` to the game URL: shows the rim and lines, exposes `window.game`, and scores
-  can't be sent.
+  can't be sent. `await window.game.setCourt("gym-low-gravity")` (or `"gym-windy"`) tries a test court
+  from `content/courts.js`.
 - **Automated play:** `node tools/dev/play.mjs` plays every mode in a headless Chrome and sends the scores to
   the local Worker (instructions at its top). Use your own headless Chrome as it describes: the app's browser
   pane pauses the game when hidden, and the shared puppeteer browser gets navigated by other sessions. It

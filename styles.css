@@ -444,6 +444,14 @@ header p {
   height: auto;
 }
 
+.char-pick .skill {
+  margin-top: -2px;
+  font-size: 7px;
+  line-height: 1.4;
+  color: #ffe066;
+  text-align: center;
+}
+
 .char-pick .card .icon {
   width: 12px;
   height: 12px;
