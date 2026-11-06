@@ -61,12 +61,15 @@ flowchart LR
 
 | Area | Files | What it does |
 |---|---|---|
-| Game loop and physics | `game.js` | Fixed-step simulation (`PHYSICS_STEP`), ball in metres on an isometric court (`project()`), rim and backboard collisions, shot timing from the jump. |
-| Modes | `game.js` (`MODES`, `around()`, `survival()`) | Time attack, Sudden death, Around the World. |
-| Screens and input | `game.js` | Title, choose a game, choose a player, help, leaderboard, game over; tap/Space/hold, arrow keys in pickers. |
+| Game entry | `game.js` | Starts the game and wires the pieces below together: the one button (press, release), the screens' buttons, boot, `window.game` in `?debug`. |
+| Engine | `engine/` | `court.js` the court in metres and `project()` onto the isometric art, 3-point line, random spots; `physics.js` fixed-step ball physics (`PHYSICS_STEP`), rim and backboard collisions, reported through callbacks; `loop.js` the frame loop; `input.js` tap/Space/hold, Escape, arrow keys in pickers; `draw.js` canvas helpers (ball sprites, banner, popups, wall scoreboard digits, shoe finder); `storage.js`. |
+| Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness; `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update; `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces. |
+| Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, shared `points.js`) | Time attack, Sudden death, Around the World, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. |
+| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player; `panels.js` help and leaderboard; `over.js` game over. |
+| Game content | `content/` | Tables: how each fire level and ball looks, the wall scoreboard art, the Around the World spots, Sudden death run calls and end-of-game calls. |
 | Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log. Used by the game and the Worker. |
-| Scoring extras | `daily.js`, `game.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
-| Gameplay randomness | `rng.js`, `game.js` (`random()`) | Seeded streams (sfc32) for shot spots and aim wobble. |
+| Scoring extras | `daily.js`, `content/looks.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
+| Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots and aim wobble. |
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
 | Sound | `audio.js`, `phrases.js`, `assets/voice/` | Music that builds, effects, announcer clips (device voice as fallback). |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
