@@ -1,5 +1,5 @@
 // Sudden death: no clock, keep shooting until the first miss. It gets harder the longer the run goes,
-// and long runs get bigger calls.
+// and long runs get bigger calls. From 5 in a row the green part of the jump bar starts moving.
 
 import { sound } from "../audio.js";
 import { runCall } from "../content/calls.js";
@@ -7,15 +7,29 @@ import { COURT_PX } from "../engine/court.js";
 import { pointsMode, scorePoints } from "../modes/points.js";
 import { addPopup, announce, confettiBurst, fireStage, pixelFx } from "../play/react.js";
 import { made, player, setAnim, state } from "../play/state.js";
+import { movingGreen } from "../play/zone.js";
 
-// Sudden death gets harder the longer the run goes. pressure() rises from 0 at `from` makes in a
-// row to 1 at `full`, and with it:
-//   squeeze  how much of the green part of the jump bar is gone at full pressure (0.65 = 65%)
-//   rumble   how far the court shakes at full pressure, in court pixels (it starts at `rumbleFrom`)
-export const SUDDEN_DEATH = { from: 3, full: 30, squeeze: 0.65, rumble: 14, rumbleFrom: 10 };
-function pressure(from = SUDDEN_DEATH.from) {
+// Sudden death gets harder the longer the run goes. Each of these rises from nothing at `…From`
+// makes in a row to all of it at `…Full`:
+//   squeeze  how much of the green part of the jump bar is gone (0.65 = 65%). It used to start at 3
+//            and be full at 30; it's slower now the green moves too.
+//   move     how far the green moves from shot to shot (play/zone.js), as its reach (0 to 1): it
+//            starts moving at `moveFrom` with `moveStart` of its reach, and reaches all of it at `moveFull`
+//   rumble   how far the court shakes, in court pixels
+export const SUDDEN_DEATH = {
+  squeeze: 0.65, squeezeFrom: 6, squeezeFull: 45,
+  moveFrom: 5, moveStart: 0.35, moveFull: 30,
+  rumble: 14, rumbleFrom: 10, rumbleFull: 30,
+};
+function pressure(from, full) {
   if (state.phase !== "playing" && state.phase !== "ending") return 0;
-  return Math.max(0, Math.min(1, (state.streak - from) / (SUDDEN_DEATH.full - from)));
+  return Math.max(0, Math.min(1, (state.streak - from) / (full - from)));
+}
+// How far the green moves on this shot: not at all before `moveFrom` in a row.
+function moveReach() {
+  if (state.phase !== "playing" || state.streak < SUDDEN_DEATH.moveFrom) return 0;
+  const { moveStart, moveFrom, moveFull } = SUDDEN_DEATH;
+  return moveStart + (1 - moveStart) * pressure(moveFrom, moveFull);
 }
 
 // A bigger call the longer the run goes (runCall, content/calls.js). A milestone that also lights a
@@ -57,8 +71,9 @@ export default {
     state.phase = "ending";
     if (player.anim === "gather" || player.anim === "jump") setAnim("dribble");
   },
-  squeeze: () => SUDDEN_DEATH.squeeze * pressure(),
-  rumble: () => SUDDEN_DEATH.rumble * pressure(SUDDEN_DEATH.rumbleFrom),
+  squeeze: () => SUDDEN_DEATH.squeeze * pressure(SUDDEN_DEATH.squeezeFrom, SUDDEN_DEATH.squeezeFull),
+  zoneShift: () => movingGreen(moveReach()),
+  rumble: () => SUDDEN_DEATH.rumble * pressure(SUDDEN_DEATH.rumbleFrom, SUDDEN_DEATH.rumbleFull),
 
   hud: () => [state.score, `${made()} made, sudden death`],
   // No clock: the right side counts makes instead.

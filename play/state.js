@@ -78,12 +78,12 @@ export const modes = {};
 export const mode = () => modes[state.mode] ?? modes.timed;
 
 // ---------- Gameplay randomness ----------
-// Where he shoots from and how each shot wobbles come from streams seeded by the start token, so the
-// same token and the same inputs give the same game. The token is fetched as the game starts, so the
+// Where he shoots from, how each shot wobbles and where a moving green zone goes come from streams
+// seeded by the start token, so the same token and the same inputs give the same game. The token is fetched as the game starts, so the
 // streams are made at the game's first draw (the first shot's release): from the token if it's here
 // by then (it nearly always is), otherwise from a random seed for the whole game. Effects, sounds and
 // which announcer line plays stay on Math.random.
-const RNG_STREAMS = ["spots", "aim"];
+const RNG_STREAMS = ["spots", "aim", "zone"]; // zone: where a moving green zone goes (play/zone.js)
 let rng = null; // this game's streams, made at its first draw
 let debugSeed = null; // ?debug: a seed to use instead of the token (window.game.setSeed)
 export function random(stream) {

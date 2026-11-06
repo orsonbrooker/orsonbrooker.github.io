@@ -15,10 +15,10 @@ import { startLoop } from "./engine/loop.js";
 import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { characters, loadImage, loadRoster } from "./play/players.js";
-import { celebrateBuzzerBeater, pixelFx, timingWindow } from "./play/react.js";
+import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play/react.js";
 import { checkDecided, shoot, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
-import { DEBUG, JUMP_APEX, mode, player, setAnim, setSeed, state } from "./play/state.js";
+import { DEBUG, mode, player, setAnim, setSeed, state } from "./play/state.js";
 import { $, charPick, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
 import { openModes, openSelect, selectBack, selectCharacter, setMode, showTitle } from "./screens/menus.js";
 import { setGameVersion } from "./screens/over.js";
@@ -56,7 +56,7 @@ function release() {
   if (!state.pressed) return;
   state.pressed = false;
   if (player.anim === "gather") shoot(-2.5);
-  else if (player.anim === "jump") shoot((player.t - JUMP_APEX) / timingWindow());
+  else if (player.anim === "jump") shoot((player.t - zoneCenter()) / timingWindow());
 }
 
 // ---------- Buttons on the screens ----------
@@ -128,7 +128,7 @@ async function boot() {
   }
   if (DEBUG) {
     const pickSpot = () => mode().pickSpot();
-    window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed };
+    window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed, zoneCenter };
   }
   resize();
   new ResizeObserver(resize).observe(stage);
