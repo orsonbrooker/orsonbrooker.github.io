@@ -1,14 +1,14 @@
 // The 3-point contest's racks, one for each of THREE_POINT_CONTEST.racks (shared/rules.js), shot in
-// order from the right of the court art round to the left. Each is [angle from the hoop in degrees
-// (90 is straight out from the hoop), metres past the 3-point line]: `spot` is where he shoots from,
-// `rack` where the ball rack stands beside him. The court only has room behind the arc from about 58
-// to 125 degrees, so the "corners" are really the wings.
+// order like the real contest: corner, wing, top of the key, wing, corner, from the right of the court
+// art round to the left. Each is [angle from the hoop in degrees (90 is straight out from the hoop,
+// 0 and 180 along the hoop wall), metres past the 3-point line]: `spot` is where he shoots from,
+// `rack` where the ball rack stands beside him (towards the middle of the floor in the corners).
 export const RACK_LAYOUT = [
-  { spot: [60, 0.25], rack: [52, 0.35] },
-  { spot: [75, 0.25], rack: [67, 0.35] },
-  { spot: [90, 0.25], rack: [98, 0.35] },
-  { spot: [105, 0.25], rack: [113, 0.35] },
-  { spot: [120, 0.25], rack: [128, 0.35] },
+  { spot: [12, 0.25], rack: [21, 0.35] }, // corner
+  { spot: [50, 0.25], rack: [42, 0.35] }, // wing
+  { spot: [90, 0.25], rack: [98, 0.35] }, // top of the key
+  { spot: [130, 0.25], rack: [138, 0.35] }, // wing
+  { spot: [168, 0.25], rack: [159, 0.35] }, // corner
 ];
 
 // The rack art (art/three-point-contest.md says what to draw). Until the files exist these are null

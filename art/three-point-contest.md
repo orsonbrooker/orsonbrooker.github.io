@@ -30,20 +30,22 @@ Notes:
 
 ## Where the racks stand
 
-Five places round the 3-point arc (`content/threes.js` `RACK_LAYOUT`), shot in order, right to left in
-the court art. Each rack stands beside its shooting spot. Floor points in court pixels:
+Five places round the 3-point arc like the real contest (`content/threes.js` `RACK_LAYOUT`): corner,
+wing, top of the key, wing, corner, shot in order from right to left in the court art. Each rack stands
+beside its shooting spot (in the corners, on the side towards the middle of the floor). Floor points in
+court pixels:
 
 | Rack | Shooting spot | Rack's floor point |
 |---|---|---|
-| 1 (right wing) | (817, 1636) | (705, 1640) |
-| 2 | (1030, 1609) | (924, 1638) |
+| 1 (right corner) | (282, 1476) | (347, 1523) |
+| 2 (right wing) | (675, 1628) | (569, 1618) |
 | 3 (top of the key) | (1210, 1537) | (1295, 1490) |
-| 4 | (1332, 1434) | (1385, 1375) |
-| 5 (left wing) | (1388, 1316) | (1395, 1253) |
+| 4 (left wing) | (1374, 1236) | (1361, 1176) |
+| 5 (left corner) | (1119, 1010) | (1203, 1048) |
 
-The court only has room behind the arc from about 58 to 125 degrees round the hoop, so the "corners" are
-really the wings. The places can be moved by editing `RACK_LAYOUT` (degrees round the hoop, metres
-past the line).
+Rack 5 stands near the back wall under the bench, so it's drawn partly behind the player; rack 1 is
+near the front edge of the floor. The places can be moved by editing `RACK_LAYOUT` (degrees round the
+hoop, metres past the line).
 
 ## Wiring it in (a small step)
 
