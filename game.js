@@ -12,6 +12,7 @@ import { MONEY, NORMAL, RAINBOW, ballKind, ballPoints } from "./bonus.js?v=80033
 import { countsIn, doneToday, markDone, progress, streakDays, todaysChallenge } from "./daily.js?v=6f3b9099";
 import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=1a917651";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=9235830f";
+import { randomSeed, seededStreams } from "./rng.js?v=f0efc919";
 
 const COURT_PX = 2048;
 const PX_PER_M = 132;
@@ -294,6 +295,7 @@ const state = {
   // start token from the server, how it was played, and whether the tab was hidden mid-game.
   shotLog: [],
   gameToken: null,
+  rngSeed: null, // what this game's random spots and aim came from (its start token, if it had one by then)
   input: "touch",
   hiddenTab: false,
 };
@@ -490,18 +492,41 @@ function getAroundSpots() {
   return aroundSpots;
 }
 
+// ---------- Gameplay randomness ----------
+// Where he shoots from and how each shot wobbles come from streams seeded by the start token, so the
+// same token and the same inputs give the same game. The token is fetched as the game starts, so the
+// streams are made at the game's first draw (the first shot's release): from the token if it's here
+// by then (it nearly always is), otherwise from a random seed for the whole game. Effects, sounds and
+// which announcer line plays stay on Math.random.
+const RNG_STREAMS = ["spots", "aim"];
+let rng = null; // this game's streams, made at its first draw
+let debugSeed = null; // ?debug: a seed to use instead of the token (window.game.setSeed)
+function random(stream) {
+  if (!rng) {
+    state.rngSeed = debugSeed ?? state.gameToken ?? randomSeed();
+    rng = seededStreams(state.rngSeed, RNG_STREAMS);
+  }
+  return rng[stream]();
+}
+// ?debug (window.game.setSeed): seed with this instead of the token (null for the token again),
+// from the next draw on.
+function setSeed(seed) {
+  debugSeed = seed == null ? null : String(seed);
+  rng = null;
+}
+
 // Picks a spot around the hoop: about a third are behind the 3-point line.
 function pickSpot() {
   // Around the world: the spot they're on until they make it, then the next.
   if (state.mode === "around") return getAroundSpots()[Math.min(state.aroundAt, AROUND_SPOT_COUNT - 1)];
-  const wantThree = Math.random() < THREE_POINT_SHARE;
+  const wantThree = random("spots") < THREE_POINT_SHARE;
   for (let i = 0; i < 100; i++) {
     // Keep him roughly in front of the hoop so his back-on shooting pose still faces it.
-    const angle = ((40 + Math.random() * 100) * Math.PI) / 180;
+    const angle = ((40 + random("spots") * 100) * Math.PI) / 180;
     const line = threePointRadius(RIM.u + Math.cos(angle), RIM.v + Math.sin(angle));
     const d = wantThree
-      ? line + LINE_CLEARANCE + Math.random() * 0.7
-      : 2 + Math.random() * (line - LINE_CLEARANCE - 2);
+      ? line + LINE_CLEARANCE + random("spots") * 0.7
+      : 2 + random("spots") * (line - LINE_CLEARANCE - 2);
     const u = RIM.u + Math.cos(angle) * d;
     const v = RIM.v + Math.sin(angle) * d;
     if (u < 1.8 || u > ROOM_U - 0.8 || v > ROOM_V - 0.8) continue;
@@ -542,6 +567,8 @@ function startGame() {
   state.shotLog = [];
   state.hiddenTab = false;
   state.gameToken = null;
+  state.rngSeed = null;
+  rng = null;
   const game = ++gamesStarted;
   startToken().then((token) => {
     if (game === gamesStarted) state.gameToken = token;
@@ -956,7 +983,7 @@ function pressure(from = SUDDEN_DEATH.from) {
 }
 
 function gaussian() {
-  return (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+  return (random("aim") + random("aim") + random("aim") - 1.5) / 1.5;
 }
 
 // `timing` is 0 for a perfect release, negative for early and positive for late.
@@ -2031,7 +2058,7 @@ async function boot() {
     console.error(err);
     return;
   }
-  if (DEBUG) window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH };
+  if (DEBUG) window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed };
   resize();
   new ResizeObserver(resize).observe(stage);
   state.mode = load("orson-hoops-mode", "timed");

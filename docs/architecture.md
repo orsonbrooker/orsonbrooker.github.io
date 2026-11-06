@@ -50,6 +50,7 @@ flowchart LR
 | Modes | `game.js` (`MODES`, `around()`, `survival()`) | Time attack, Sudden death, Around the World. |
 | Screens and input | `game.js` | Title, choose a game, choose a player, help, leaderboard, game over; tap/Space/hold, arrow keys in pickers. |
 | Scoring extras | `bonus.js`, `daily.js`, `game.js` (`FIRE_LEVELS`) | Bonus balls, daily challenge, fire levels. |
+| Gameplay randomness | `rng.js`, `game.js` (`random()`) | Seeded streams (sfc32) for shot spots and aim wobble. |
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
 | Sound | `audio.js`, `phrases.js`, `assets/voice/` | Music that builds, effects, announcer clips (device voice as fallback). |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
@@ -136,6 +137,11 @@ Terms used across the code:
   kind is 0 normal, 1 money, 2 rainbow.
 - **Start token:** signed by the Worker when a game starts (`<ms>.<nonce>.<hmac>`), used once. Bonus balls are
   decided from it, so the server can check them.
+- **Seed:** the start token also seeds the game's gameplay randomness (`rng.js`): one stream for where he shoots
+  from, one for each shot's aim wobble, so the same token and the same inputs give the same game. The streams
+  are made at the game's first draw (the first release); if the token hasn't come back by then (or never does,
+  offline) the game uses a random seed throughout. It's kept in `state.rngSeed`; `?debug` can set it with
+  `window.game.setSeed()`. Effects, sounds and which announcer line plays stay on `Math.random`.
 - **Fire levels:** 3 in a row +1 a basket, 6 (purple) +2, 10 (blue supernova) +3. The same table is in `game.js`
   (`FIRE_LEVELS`) and the Worker (`FIRE_BONUS`).
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
