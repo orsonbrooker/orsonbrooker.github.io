@@ -103,7 +103,7 @@
 
 			/* Ideas on the board: one line each. */
 			.idea {
-				display: grid; grid-template-columns: 44px minmax(0, 1fr) 110px 120px 60px; gap: 6px; align-items: center;
+				display: grid; grid-template-columns: 44px minmax(0, 1fr) 130px 110px 120px 60px; gap: 6px; align-items: center;
 				background: var(--panel); border-radius: 6px; padding: 6px 8px; margin-bottom: 4px;
 			}
 			.idea .votes { font-family: var(--pixel); font-size: 10px; color: var(--accent); text-align: center; }
@@ -153,6 +153,7 @@
 				.sub .fields { grid-template-columns: 1fr; }
 				.sub .actions .danger { margin-top: 0; }
 				.idea { grid-template-columns: 36px minmax(0, 1fr) 96px; }
+				.idea > select:first-of-type { grid-column: 2 / -1; }
 				.idea .credit, .idea .save { grid-column: auto; }
 				.score { grid-template-columns: 60px 1fr auto; }
 				.score .when, .score .mode, .score .made { display: none; }
@@ -233,7 +234,7 @@
 			const run = (fn, done) => async () => {
 				try {
 					await fn();
-					toast(done);
+					toast(typeof done === "function" ? done() : done);
 					await load();
 				} catch (err) {
 					toast(err.message);
@@ -433,18 +434,22 @@
 				const description = el("textarea", { value: idea.description, maxLength: 500, rows: 2 });
 				const credit = el("input", { type: "text", value: idea.credit ?? "", maxLength: 60, placeholder: "No credit" });
 				const status = el("select", {}, ...STATUSES.map((s) => el("option", { value: s, textContent: s, selected: s === idea.status })));
+				// Which game or app it's under: change it and save to move the idea there.
+				const app = appSelect(idea.app);
+				app.title = "Game or app";
 				return el(
 					"div",
 					{ className: "idea" },
 					el("div", { className: "votes", title: "Votes", textContent: `▲${idea.votes}` }),
 					title,
+					app,
 					status,
 					el("div", { className: "credit" }, credit),
 					el("button", {
 						type: "button",
 						className: "primary save",
 						textContent: "Save",
-						onclick: run(() => api(`ideas/${idea.id}`, { title: title.value, description: description.value, credit: credit.value, status: status.value }), "Saved"),
+						onclick: run(() => api(`ideas/${idea.id}`, { title: title.value, description: description.value, credit: credit.value, status: status.value, app: app.value }), () => (app.value === idea.app ? "Saved" : `Moved to ${appName(app.value)}`)),
 					}),
 					el("details", {}, el("summary", { textContent: idea.description ? `Description: ${idea.description.slice(0, 90)}${idea.description.length > 90 ? "…" : ""}` : "Add a description" }), description),
 				);

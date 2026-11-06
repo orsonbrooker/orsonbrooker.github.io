@@ -748,13 +748,16 @@ async function editIdea(env: Env, id: number, body: Record<string, unknown>): Pr
 	if (!STATUSES.includes(status)) throw new HttpError(400, "Unknown status.");
 	const title = clean(body.title, 80);
 	if (!title) throw new HttpError(400, "Give the idea a title.");
+	// It can move to another game or app (say from the website to new games). Left out, it stays put.
+	const app = body.app === undefined ? null : clean(body.app, 40);
+	if (app !== null && !(await env.DB.prepare("SELECT 1 FROM apps WHERE slug = ?").bind(app).first())) throw new HttpError(400, "Unknown game or app.");
 	const result = await env.DB.prepare(
 		// done_at is when it was released: set the first time it's marked done, cleared if it's moved back.
-		`UPDATE ideas SET title = ?1, description = ?2, credit = ?3, status = ?4, updated_at = datetime('now'),
+		`UPDATE ideas SET title = ?1, description = ?2, credit = ?3, status = ?4, app = COALESCE(?6, app), updated_at = datetime('now'),
 		   done_at = CASE WHEN ?4 = 'done' THEN COALESCE(done_at, datetime('now')) ELSE NULL END
 		 WHERE id = ?5`,
 	)
-		.bind(title, clean(body.description, MAX_TEXT), clean(body.credit, MAX_CREDIT) || null, status, id)
+		.bind(title, clean(body.description, MAX_TEXT), clean(body.credit, MAX_CREDIT) || null, status, id, app)
 		.run();
 	if (!result.meta.changes) throw new HttpError(404, "No such idea.");
 	return json({ ok: true }, 200, 0);
