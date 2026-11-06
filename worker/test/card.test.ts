@@ -4,7 +4,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { MONEY, RAINBOW, recountScore } from "../../shared/rules.js";
-import { cardStats, hadFeature } from "../src/scores.ts";
+import { cardStats, hadFeature, publicDay } from "../src/scores.ts";
 
 type Shot = [number, number, number, number, number];
 const NEW = "2026-11-06 10:00:00"; // after supernova and bonus balls
@@ -70,4 +70,16 @@ test("an around the world card counts tries at each spot, and no bonus points", 
 	const stats = cardStats(log, "around", 175, NEW);
 	assert.deepEqual(stats.tries, [2, 1, 3, 1, 1, 1, 1]); // the miss after the 7th spot isn't counted
 	assert.equal(stats.bonusPoints, 0);
+});
+
+test("a card only shows the day a game was played, as the day in Melbourne", () => {
+	assert.equal(publicDay("2026-11-06 03:15:42"), "2026-11-06 12:00:00");
+	// 9 am on the 7th in Melbourne is still the 6th in UTC.
+	assert.equal(publicDay("2026-11-06 22:30:00"), "2026-11-07 12:00:00");
+	assert.equal(publicDay("2026-11-06 13:59:59"), "2026-11-06 12:00:00");
+	assert.equal(publicDay(null), null);
+	// The game reads it as before, and every timezone the players are likely in shows that day.
+	const shown = new Date("2026-11-07 12:00:00".replace(" ", "T") + "Z");
+	for (const timeZone of ["Australia/Melbourne", "Australia/Perth", "Europe/London", "America/Los_Angeles"])
+		assert.equal(new Intl.DateTimeFormat("en-AU", { timeZone, day: "numeric" }).format(shown), "7", timeZone);
 });

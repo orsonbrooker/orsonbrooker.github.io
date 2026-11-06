@@ -236,17 +236,31 @@ export async function scoreDetail(env: Env, id: number): Promise<Response> {
 	const [week, all] = await env.DB.batch([top(true), top(false)]);
 	const { log, colours, ...rest } = row;
 	const { green, ...stats } = cardStats(JSON.parse(log) as Shot[], rest.mode as Mode, Number(rest.score), rest.created_at);
+	// Only the day each game was played is public, not the time (which would show when a kid plays).
+	const days = (games: unknown[]) => (games as Record<string, unknown>[]).map((g) => ({ ...g, created_at: publicDay(g.created_at) }));
 	return json(
 		{
 			...rest,
+			created_at: publicDay(rest.created_at),
 			colours: colours ? JSON.parse(colours) : null,
 			...stats,
-			top: { week: week.results, all: all.results },
+			top: { week: days(week.results), all: days(all.results) },
 			green,
 		},
 		200,
 		60,
 	);
+}
+
+/**
+ * A saved time ("YYYY-MM-DD HH:MM:SS", UTC) as just the day it was played, in the same format so the
+ * game reads it as before: the day in Melbourne (UTC+10, where the players are), at 12:00 UTC, which
+ * every timezone from UTC-11 to UTC+11 shows as that same day.
+ */
+export function publicDay(createdAt: unknown): string | null {
+	const at = Date.parse(`${String(createdAt).replace(" ", "T")}Z`);
+	if (Number.isNaN(at)) return null;
+	return `${new Date(at + 10 * 3600_000).toISOString().slice(0, 10)} 12:00:00`;
 }
 
 /**
