@@ -84,6 +84,20 @@ export function ipKey(request: Request, env: Env): Promise<string> {
 	return hash(env, `ip:${ip}:${new Date().toISOString().slice(0, 10)}`);
 }
 
+/**
+ * Counts a call to a cheap route (bucket) from this IP today, in one write, and refuses it (429,
+ * with `message`) once there have been more than `perDay`.
+ */
+export async function rateLimit(request: Request, env: Env, bucket: string, perDay: number, message: string): Promise<void> {
+	const row = await env.DB.prepare(
+		`INSERT INTO rate_limits (bucket, ip_hash, day, count) VALUES (?, ?, date('now'), 1)
+		 ON CONFLICT (bucket, ip_hash, day) DO UPDATE SET count = count + 1 RETURNING count`,
+	)
+		.bind(bucket, await ipKey(request, env))
+		.first<{ count: number }>();
+	if ((row?.count ?? 0) > perDay) throw new HttpError(429, message);
+}
+
 export async function checkTurnstile(request: Request, env: Env, token: unknown) {
 	if (typeof token !== "string" || !token) throw new HttpError(400, "Please finish the robot check.");
 	const form = new FormData();

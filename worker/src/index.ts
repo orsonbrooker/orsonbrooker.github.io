@@ -45,6 +45,8 @@ export default {
 	},
 
 	async scheduled(_controller, env): Promise<void> {
+		// Daily rate-limit counts are only needed on the day.
+		await env.DB.prepare("DELETE FROM rate_limits WHERE day < date('now', '-1 day')").run();
 		await notify(env);
 	},
 } satisfies ExportedHandler<Env>;

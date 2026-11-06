@@ -151,6 +151,8 @@ Terms used across the code:
   in that browser only, ids like `me1793858104451`; their look travels with their scores as `base` + `colours`).
 - **Device:** a random id kept in the browser, stored server-side only as a keyed hash. The leaderboard shows one
   row per device + player per mode, with the latest nickname.
+- **Rate limits:** the `rate_limits` table counts calls to cheap routes (votes, the score preview) per hashed IP
+  per day, one upsert a call, so even toggling a vote uses up the day's allowance. The weekly cron clears old days.
 - **Shot log:** one entry per shot, `[seconds in, three (1/0), made (1/0), release timing, ball kind]`. Release
   timing is measured in green-zone widths from the top of the jump; `|t| <= 0.5` is "let go in the green". Ball
   kind is 0 normal, 1 money, 2 rainbow.
