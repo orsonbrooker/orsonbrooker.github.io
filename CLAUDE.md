@@ -74,7 +74,7 @@ cp -R ../../../worker/.cloudflare/types worker/.cloudflare/  # generated types, 
 python3 tools/dev/copy_live_db.py                     # optional: real ideas, players and scores, locally
 ```
 
-- **Worker:** `cd worker && npx vite --port 8787 --strictPort` (`cf dev` can't take a port). Add `--host`
+- **Worker:** `cd worker && npx vite --port 8787 --strictPort` (`cf dev` can't take a port). It must run from `worker/`: `npx vite` at the repo root is the site's build, and answers every URL with a page. Add `--host`
   to reach it from a phone. It listens on IPv6 (`localhost`, not `127.0.0.1`). `/admin` needs no sign-in
   locally.
 - **Site:** `python3 -m http.server 5173 --bind 127.0.0.1` from the worktree. The game uses the local
