@@ -4,12 +4,12 @@
 
 import { sound } from "../audio.js?v=b614856c";
 import { AROUND_LAYOUT } from "../content/around.js?v=8e88ef74";
-import { FIRE_LEVELS } from "../content/looks.js?v=964e275c";
+import { FIRE_LEVELS } from "../content/looks.js?v=42313b70";
 import { COURT_PX, LINE_CLEARANCE, RIM, ROOM_U, ROOM_V, project, threePointRadius } from "../engine/court.js?v=7f81b538";
-import { addPopup, announce, confettiBurst, fireLevel, fireStage, pixelFx, recordMake } from "../play/react.js?v=60e50f8e";
-import { updateHud } from "../play/scene.js?v=bb8007ec";
-import { state } from "../play/state.js?v=21175a94";
-import { AROUND_SPOTS } from "../shared/rules.js?v=3d6a7e83";
+import { addPopup, announce, confettiBurst, fireLevel, fireStage, pixelFx, recordMake } from "../play/react.js?v=900eeda3";
+import { updateHud } from "../play/scene.js?v=8def5f40";
+import { state } from "../play/state.js?v=75933279";
+import { AROUND_SPOTS } from "../shared/rules.js?v=acc1af2d";
 
 // The spots in AROUND_LAYOUT (content/around.js), kept off the 3-point line, in court metres.
 let aroundSpots = null;

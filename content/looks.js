@@ -1,7 +1,7 @@
 // How things look: fire levels, the balls, bonus ball badges, the wall scoreboard, confetti.
 // Plain tables; the rules behind them (streaks, bonuses, which ball comes when) are in shared/rules.js.
 
-import { FIRE_RULES, MONEY, NORMAL, RAINBOW } from "../shared/rules.js?v=3d6a7e83";
+import { FIRE_RULES, MONEY, NORMAL, RAINBOW } from "../shared/rules.js?v=acc1af2d";
 
 // Like NBA Jam: two makes in a row heats him up, three puts him on fire until he misses,
 // keeping it going turns the flames purple, and ten in a row goes blue-white supernova.

@@ -186,7 +186,7 @@ sequenceDiagram
   W-->>G: the board around them, or "your best stays"
   G->>W: POST /api/scores (token, shot log, score, Turnstile)
   W->>W: reject the impossible: bad or reused token, too soon,<br/>score not matching its shots, bonus balls the token didn't give,<br/>shots too close together, debug mode
-  W->>W: flag the odd: script-like timing, big jump on the device's best
+  W->>W: flag the odd: script-like timing, big jump on the device's best,<br/>first game straight into the week's top 3, too-quick trip, lucky token
   W->>D: insert (status shown, flags)
   W-->>G: rank
   Note over D: flagged scores show in the admin inbox<br/>until marked fine or hidden

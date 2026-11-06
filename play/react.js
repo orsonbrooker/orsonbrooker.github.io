@@ -3,13 +3,13 @@
 // kind, and the stats the daily challenge counts.
 
 import { sound } from "../audio.js?v=b614856c";
-import { BALL_BADGES, CONFETTI_COLORS, FIRE_LEVELS } from "../content/looks.js?v=964e275c";
+import { BALL_BADGES, CONFETTI_COLORS, FIRE_LEVELS } from "../content/looks.js?v=42313b70";
 import { countsIn, doneToday, markDone, progress, todaysChallenge } from "../daily.js?v=6f3b9099";
 import { COURT_PX, RIM, project } from "../engine/court.js?v=7f81b538";
 import { createFxLayer } from "../fx.js?v=61e6d0cd";
 import { pickPhrase } from "../phrases.js?v=481ae699";
-import { MONEY, NORMAL, RAINBOW, ballKind } from "../shared/rules.js?v=3d6a7e83";
-import { TIMING_WINDOW, mode, state } from "../play/state.js?v=21175a94";
+import { MONEY, NORMAL, RAINBOW, ballKind } from "../shared/rules.js?v=acc1af2d";
+import { TIMING_WINDOW, mode, state } from "../play/state.js?v=75933279";
 
 export const pixelFx = createFxLayer();
 

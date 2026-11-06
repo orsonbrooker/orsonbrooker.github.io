@@ -3,12 +3,12 @@
 
 import { sound } from "../audio.js?v=b614856c";
 import { overCall } from "../content/calls.js?v=567f9a3e";
-import { BALL_BADGES, FIRE_LEVELS } from "../content/looks.js?v=964e275c";
+import { BALL_BADGES, FIRE_LEVELS } from "../content/looks.js?v=42313b70";
 import { DEFAULT_SPOT, RIM, project, randomSpot } from "../engine/court.js?v=7f81b538";
-import { addPopup, announce, celebrateBuzzerBeater, fireLevel, pixelFx, recordMake } from "../play/react.js?v=60e50f8e";
-import { updateHud } from "../play/scene.js?v=bb8007ec";
-import { player, random, state } from "../play/state.js?v=21175a94";
-import { MONEY, NORMAL, ballPoints } from "../shared/rules.js?v=3d6a7e83";
+import { addPopup, announce, celebrateBuzzerBeater, fireLevel, pixelFx, recordMake } from "../play/react.js?v=900eeda3";
+import { updateHud } from "../play/scene.js?v=8def5f40";
+import { player, random, state } from "../play/state.js?v=75933279";
+import { MONEY, NORMAL, ballPoints } from "../shared/rules.js?v=acc1af2d";
 
 // A basket: its points (shared/rules.js), the streak, and the reaction. `celebrateRun(p, levelUp, fire)`
 // lets a mode take over the call for a long run; it returns true if it did.

@@ -2,14 +2,14 @@
 // player. The first time someone plays, choosing a player comes first and then the game starts.
 
 import { load, save } from "../engine/storage.js?v=1cb284ce";
-import { characters, setFace, useCharacter } from "../play/players.js?v=c442a8cf";
-import { startGame } from "../play/round.js?v=4b82712f";
-import { updateHud } from "../play/scene.js?v=bb8007ec";
-import { mode, modes, state } from "../play/state.js?v=21175a94";
+import { characters, setFace, useCharacter } from "../play/players.js?v=e86dc08b";
+import { startGame } from "../play/round.js?v=40c80b7e";
+import { updateHud } from "../play/scene.js?v=8def5f40";
+import { mode, modes, state } from "../play/state.js?v=75933279";
 import { removeMyPlayer } from "../players/recolor.js?v=9235830f";
-import { charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js?v=b44aeb9d";
-import { showDaily } from "../screens/over.js?v=09605d98";
-import { MODES } from "../shared/rules.js?v=3d6a7e83";
+import { charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js?v=163a1b47";
+import { showDaily } from "../screens/over.js?v=6223cd06";
+import { MODES } from "../shared/rules.js?v=acc1af2d";
 import { confirmDialog } from "../ui/confirm.js?v=a65ef360";
 import { icon } from "../ui/icons.js?v=c284e3ca";
 

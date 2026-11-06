@@ -7,10 +7,12 @@
 //             shots than fit in a game, shots too close together. A sudden death game must end on its
 //             first miss, with nothing made after it. An around the world time must come just after
 //             its last spot went in.
-//   flagged   odd but possible: machine-like timing, a huge jump on the device's best. On the board
-//             straight away, and in the admin inbox to check.
+//   flagged   odd but possible: machine-like timing, a huge jump on the device's best, a device's
+//             first game in a mode going straight into this week's top 3, an around the world time
+//             faster than anyone really gets round, far more bonus balls than the shots would give.
+//             On the board straight away, and in the admin inbox to check.
 
-import { AROUND_SPOTS, GAME_SECONDS, MIN_SHOT_GAP, ballKind, recountScore } from "../../shared/rules.js";
+import { AROUND_SPOTS, GAME_SECONDS, MIN_SHOT_GAP, MONEY_CHANCE, RAINBOW, RAINBOW_CHANCE, ballKind, recountScore } from "../../shared/rules.js";
 import type { Mode, Shot } from "../../shared/rules.js";
 import { HttpError } from "./http.ts";
 
@@ -66,11 +68,31 @@ const spread = (values: number[]) => {
 	return Math.sqrt(values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length);
 };
 
+// Around the World's fastest real trips: the first shot about 0.9 s in, about 1.5 s to walk to each
+// next spot and jump, then the last ball's flight. The best kids get round in about 11.6 s (live, Nov
+// 2026), so a time under this (in tenths) is quicker than the game really lets a person play.
+export const AROUND_FASTEST = 105;
+// Bonus balls come from the start token, and a new token is free, so a made-up game could pick a
+// lucky one. Flag a count of bonus balls (or rainbows) a real game gets less than once in this many.
+const BONUS_RARITY = 2000;
+
+/** The chance of `k` or more hits in `n` tries, each with chance `p`. */
+export function atLeast(n: number, p: number, k: number): number {
+	let term = (1 - p) ** n; // the chance of exactly 0
+	let below = 0;
+	for (let i = 0; i < k && i <= n; i++) {
+		below += term;
+		term *= ((n - i) / (i + 1)) * (p / (1 - p));
+	}
+	return Math.max(0, 1 - below);
+}
+
 /**
  * Reasons a possible game looks odd, for the admin to check. `pastBest` is this device's best in the
- * mode before this game (null for none).
+ * mode before this game (null for none), and `weekRank` where it would land on this week's board
+ * (null if not known).
  */
-export function oddFlags(mode: Mode, score: number, game: CheckedGame, pastBest: number | null): string[] {
+export function oddFlags(mode: Mode, score: number, game: CheckedGame, pastBest: number | null, weekRank: number | null = null): string[] {
 	const { shots, gaps, made } = game;
 	const flags: string[] = [];
 	if (shots.length >= 10 && spread(shots.map((s) => s[3])) < 0.03) flags.push("Every release timed the same, like a script");
@@ -82,5 +104,13 @@ export function oddFlags(mode: Mode, score: number, game: CheckedGame, pastBest:
 	if (mode === "around") {
 		if (best > 0 && score * 2 < best) flags.push(`Twice as fast as this device's best (${best / 10}s)`);
 	} else if (best >= 10 && score > best * 2.5) flags.push(`${Math.round(score / best)}x this device's best (${best})`);
+	// A device's very first game in this mode, and already one of the week's best three.
+	if (pastBest === null && weekRank !== null && weekRank <= 3) flags.push(`First game in this mode, straight in at #${weekRank} this week`);
+	if (mode === "around" && score < AROUND_FASTEST) flags.push(`Round in ${score / 10}s, faster than anyone really gets round`);
+	const bonus = shots.filter((s) => s[4]).length;
+	const rainbows = shots.filter((s) => s[4] === RAINBOW).length;
+	const rare = (p: number, k: number) => atLeast(shots.length, p, k) * BONUS_RARITY < 1;
+	if (rare(MONEY_CHANCE + RAINBOW_CHANCE, bonus) || rare(RAINBOW_CHANCE, rainbows))
+		flags.push(`${bonus} bonus balls (${rainbows} rainbow) in ${shots.length} shots: a very lucky start token`);
 	return flags;
 }

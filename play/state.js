@@ -5,7 +5,7 @@
 import { DEFAULT_SPOT } from "../engine/court.js?v=7f81b538";
 import { load } from "../engine/storage.js?v=1cb284ce";
 import { randomSeed, seededStreams } from "../rng.js?v=f0efc919";
-import { GAME_SECONDS } from "../shared/rules.js?v=3d6a7e83";
+import { GAME_SECONDS } from "../shared/rules.js?v=acc1af2d";
 
 export const DEBUG = new URLSearchParams(location.search).has("debug");
 

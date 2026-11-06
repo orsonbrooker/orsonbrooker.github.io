@@ -6,9 +6,9 @@
 // their chosen colours.
 
 import { project } from "../engine/court.js?v=7f81b538";
-import { shoesIn } from "../engine/draw.js?v=c80d3ab8";
+import { shoesIn } from "../engine/draw.js?v=287e2ca0";
 import { load, save } from "../engine/storage.js?v=1cb284ce";
-import { ANIM_FPS, JUMP_FRAME_TIME, player } from "../play/state.js?v=21175a94";
+import { ANIM_FPS, JUMP_FRAME_TIME, player } from "../play/state.js?v=75933279";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, thumbnail } from "../players/recolor.js?v=9235830f";
 
 const PLAYERS_API = ["localhost", "127.0.0.1"].includes(location.hostname) ? "http://localhost:8787/api/players" : "/api/players";

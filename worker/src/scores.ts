@@ -78,15 +78,21 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 
 	const ipHash = await ipKey(request, env);
 	const deviceHash = await hash(env, `device:${device}`);
-	const [today, history] = await env.DB.batch([
+	const [today, history, standing] = await env.DB.batch([
 		env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?").bind(ipHash),
 		env.DB.prepare(`SELECT ${lowWins(mode) ? "MIN" : "MAX"}(score) AS best FROM scores WHERE device = ? AND mode = ?`).bind(deviceHash, mode),
+		// Where it would land on this week's board (ties go after, as on the board).
+		env.DB.prepare(
+			`SELECT COUNT(*) + 1 AS rank FROM (SELECT ${lowWins(mode) ? "MIN" : "MAX"}(score) AS best FROM scores WHERE status = 'shown' AND mode = ?1 AND ${WEEK} GROUP BY device, player)
+			 WHERE best ${lowWins(mode) ? "<=" : ">="} ?2`,
+		).bind(mode, score),
 	]);
 	if (((today.results[0] as { n: number }).n ?? 0) >= SCORES_PER_DAY) throw new HttpError(429, "That's a lot of games for one day! Try again tomorrow.");
 	const past = history.results[0] as { best: number | null };
+	const weekRank = (standing.results[0] as { rank: number }).rank;
 
 	// Odd but possible: it still goes on the board, flagged for Orson to look at.
-	const flags = oddFlags(mode, score, game, past.best);
+	const flags = oddFlags(mode, score, game, past.best, weekRank);
 	const status = "shown";
 
 	const inserted = await env.DB.prepare(

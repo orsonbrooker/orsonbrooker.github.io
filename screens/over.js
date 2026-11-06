@@ -3,11 +3,11 @@
 
 import { countsIn, doneToday, progress, streakDays, todaysChallenge } from "../daily.js?v=6f3b9099";
 import { save } from "../engine/storage.js?v=1cb284ce";
-import { showRoundResult } from "../leaderboard.js?v=b6aedccd";
-import { boardFace, characters } from "../play/players.js?v=c442a8cf";
-import { announce, checkDaily } from "../play/react.js?v=60e50f8e";
-import { DEBUG, mode, state } from "../play/state.js?v=21175a94";
-import { $, showScreen } from "../screens/base.js?v=b44aeb9d";
+import { showRoundResult } from "../leaderboard.js?v=af06471d";
+import { boardFace, characters } from "../play/players.js?v=e86dc08b";
+import { announce, checkDaily } from "../play/react.js?v=900eeda3";
+import { DEBUG, mode, state } from "../play/state.js?v=75933279";
+import { $, showScreen } from "../screens/base.js?v=163a1b47";
 
 // The game's version (game.js's ?v= stamp), sent with scores.
 let gameVersion = null;

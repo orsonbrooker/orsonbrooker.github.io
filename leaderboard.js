@@ -7,7 +7,7 @@
 
 import { say } from "./ui/form.js?v=fd569ffc";
 import { icon } from "./ui/icons.js?v=c284e3ca";
-import { lowWins } from "./shared/rules.js?v=3d6a7e83";
+import { lowWins } from "./shared/rules.js?v=acc1af2d";
 
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = LOCAL ? "http://localhost:8787/api" : "/api";

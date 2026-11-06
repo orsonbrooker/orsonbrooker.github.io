@@ -3,18 +3,18 @@
 // is asked of the mode being played (modes/index.js).
 
 import { sound } from "../audio.js?v=b614856c";
-import { BALL_BADGES } from "../content/looks.js?v=964e275c";
+import { BALL_BADGES } from "../content/looks.js?v=42313b70";
 import { COURT_PX, EU, EV, PX_PER_M, RIM, isThreePointSpot, project } from "../engine/court.js?v=7f81b538";
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "../engine/physics.js?v=0433c248";
 import { save } from "../engine/storage.js?v=1cb284ce";
-import { startToken } from "../leaderboard.js?v=b6aedccd";
-import { frameCount, sheet, shoePoints } from "../play/players.js?v=c442a8cf";
-import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss } from "../play/react.js?v=60e50f8e";
-import { updateHud } from "../play/scene.js?v=bb8007ec";
-import { ANIM_FPS, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state } from "../play/state.js?v=21175a94";
-import { showScreen } from "../screens/base.js?v=b44aeb9d";
-import { endGame } from "../screens/over.js?v=09605d98";
-import { GAME_SECONDS } from "../shared/rules.js?v=3d6a7e83";
+import { startToken } from "../leaderboard.js?v=af06471d";
+import { frameCount, sheet, shoePoints } from "../play/players.js?v=e86dc08b";
+import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss } from "../play/react.js?v=900eeda3";
+import { updateHud } from "../play/scene.js?v=8def5f40";
+import { ANIM_FPS, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state } from "../play/state.js?v=75933279";
+import { showScreen } from "../screens/base.js?v=163a1b47";
+import { endGame } from "../screens/over.js?v=6223cd06";
+import { GAME_SECONDS } from "../shared/rules.js?v=acc1af2d";
 
 const SLOW_MO = 0.35; // game speed while a shot at the buzzer drops toward the hoop
 

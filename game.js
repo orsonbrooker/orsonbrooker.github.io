@@ -9,20 +9,20 @@
 
 import { loadVoiceClips, sound } from "./audio.js?v=b614856c";
 import { isThreePointSpot, project, RIM } from "./engine/court.js?v=7f81b538";
-import { makeBallSprites } from "./engine/draw.js?v=c80d3ab8";
+import { makeBallSprites } from "./engine/draw.js?v=287e2ca0";
 import { listenForInput } from "./engine/input.js?v=a24ea9fb";
 import { startLoop } from "./engine/loop.js?v=2d2d9faa";
 import { load } from "./engine/storage.js?v=1cb284ce";
-import { SUDDEN_DEATH } from "./modes/index.js?v=93055e3a";
-import { characters, loadImage, loadRoster } from "./play/players.js?v=c442a8cf";
-import { celebrateBuzzerBeater, pixelFx, timingWindow } from "./play/react.js?v=60e50f8e";
-import { checkDecided, shoot, startGame, step, stepBall } from "./play/round.js?v=4b82712f";
-import { art, render, resize, updateHud } from "./play/scene.js?v=bb8007ec";
-import { DEBUG, JUMP_APEX, mode, player, setAnim, setSeed, state } from "./play/state.js?v=21175a94";
-import { $, charPick, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js?v=b44aeb9d";
-import { openModes, openSelect, selectBack, selectCharacter, setMode, showTitle } from "./screens/menus.js?v=743886c8";
-import { setGameVersion } from "./screens/over.js?v=09605d98";
-import { closeBoard, closeHelp, openBoard, toggleBoard, toggleHelp, wireBoardTabs } from "./screens/panels.js?v=2a1faeaf";
+import { SUDDEN_DEATH } from "./modes/index.js?v=4dc6f719";
+import { characters, loadImage, loadRoster } from "./play/players.js?v=e86dc08b";
+import { celebrateBuzzerBeater, pixelFx, timingWindow } from "./play/react.js?v=900eeda3";
+import { checkDecided, shoot, startGame, step, stepBall } from "./play/round.js?v=40c80b7e";
+import { art, render, resize, updateHud } from "./play/scene.js?v=8def5f40";
+import { DEBUG, JUMP_APEX, mode, player, setAnim, setSeed, state } from "./play/state.js?v=75933279";
+import { $, charPick, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js?v=163a1b47";
+import { openModes, openSelect, selectBack, selectCharacter, setMode, showTitle } from "./screens/menus.js?v=a44fd065";
+import { setGameVersion } from "./screens/over.js?v=6223cd06";
+import { closeBoard, closeHelp, openBoard, toggleBoard, toggleHelp, wireBoardTabs } from "./screens/panels.js?v=3f04991d";
 import { fillIcons } from "./ui/icons.js?v=c284e3ca";
 
 // The version sent with scores: this file's own ?v= stamp (vite.config.js fills it in when built).

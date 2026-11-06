@@ -25,11 +25,11 @@
 //   formatBest(best)     a best as shown on the choose-a-game cards
 //   boardScore()         what's sent to the leaderboard
 
-import around from "../modes/around.js?v=a48ced3a";
-import survival from "../modes/survival.js?v=57810ab6";
-import timed from "../modes/timed.js?v=1ca20312";
-import { modes } from "../play/state.js?v=21175a94";
+import around from "../modes/around.js?v=46a324ae";
+import survival from "../modes/survival.js?v=bf190001";
+import timed from "../modes/timed.js?v=30f64627";
+import { modes } from "../play/state.js?v=75933279";
 
 Object.assign(modes, { timed, survival, around });
 
-export { SUDDEN_DEATH } from "../modes/survival.js?v=57810ab6";
+export { SUDDEN_DEATH } from "../modes/survival.js?v=bf190001";

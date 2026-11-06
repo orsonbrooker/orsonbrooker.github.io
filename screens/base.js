@@ -3,7 +3,7 @@
 
 import { sound } from "../audio.js?v=b614856c";
 import { load, save } from "../engine/storage.js?v=1cb284ce";
-import { state } from "../play/state.js?v=21175a94";
+import { state } from "../play/state.js?v=75933279";
 import { icon } from "../ui/icons.js?v=c284e3ca";
 
 export const $ = (id) => document.getElementById(id);
