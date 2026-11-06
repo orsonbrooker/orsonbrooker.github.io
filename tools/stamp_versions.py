@@ -16,7 +16,8 @@ IMPORTS = [
     ('ui/confirm.js', ['ui/icons.js']),  # before game.js, which imports it
     ('leaderboard.js', ['ui/icons.js', 'ui/form.js', 'shared/rules.js']),  # before game.js, which imports it
     ('engine/physics.js', ['engine/court.js']),
-    ('game.js', ['engine/storage.js', 'engine/court.js', 'engine/physics.js', 'leaderboard.js', 'shared/rules.js', 'rng.js', 'daily.js', 'fx.js', 'audio.js', 'phrases.js', 'players/recolor.js', 'ui/icons.js', 'ui/confirm.js']),
+    ('content/looks.js', ['shared/rules.js']),
+    ('game.js', ['content/around.js', 'content/calls.js', 'content/looks.js', 'engine/storage.js', 'engine/court.js', 'engine/physics.js', 'leaderboard.js', 'shared/rules.js', 'rng.js', 'daily.js', 'fx.js', 'audio.js', 'phrases.js', 'players/recolor.js', 'ui/icons.js', 'ui/confirm.js']),
     ('players/builder.js', ['players/recolor.js', 'ui/form.js']),
     ('feedback/widget.js', ['ui/icons.js', 'ui/form.js']),
     ('ui/nav.js', ['ui/icons.js']),

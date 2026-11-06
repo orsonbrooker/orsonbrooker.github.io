@@ -7,28 +7,17 @@ import { createFxLayer } from "./fx.js?v=61e6d0cd";
 import { pickPhrase } from "./phrases.js?v=481ae699";
 import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
-import { AROUND_SPOTS, FIRE_RULES, GAME_SECONDS, MODES, MONEY, NORMAL, RAINBOW, ballKind, ballPoints } from "./shared/rules.js?v=3d6a7e83";
+import { AROUND_SPOTS, GAME_SECONDS, MODES, MONEY, NORMAL, RAINBOW, ballKind, ballPoints } from "./shared/rules.js?v=3d6a7e83";
 import { countsIn, doneToday, markDone, progress, streakDays, todaysChallenge } from "./daily.js?v=6f3b9099";
 import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=b6aedccd";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=9235830f";
 import { randomSeed, seededStreams } from "./rng.js?v=f0efc919";
+import { AROUND_LAYOUT } from "./content/around.js?v=8e88ef74";
+import { overCall, runCall } from "./content/calls.js?v=567f9a3e";
+import { BALL_BADGES, BALL_LOOKS, BOARD_ART, CONFETTI_COLORS, FIRE_LEVELS } from "./content/looks.js?v=964e275c";
 import { load, save } from "./engine/storage.js?v=1cb284ce";
 import { BALL_R, BOARD, COURT_PX, DEFAULT_SPOT, EU, EV, HOOP_FRONT_AT, LINE_CLEARANCE, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, isThreePointSpot, project, randomSpot, threePointRadius } from "./engine/court.js?v=7f81b538";
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "./engine/physics.js?v=0433c248";
-
-// The wall scoreboard, in its own skewed coordinates (x runs along the wall, y straight down).
-const BOARD_ART = {
-  origin: { x: 753.3, y: 446.7 },
-  slope: -0.53,
-  area: { x: 745, y: 315, w: 260, h: 275 }, // court pixels the scoreboard can touch
-  face: "#2d3238",
-  window: "#281a2e",
-  lit: "#ff4d4d",
-  unlit: "rgba(255, 77, 77, 0.12)",
-  label: "#e8eef0",
-  left: { label: "SCORE", labelAt: [57, 46], cover: [12, 26, 88, 34], window: [18, 71, 78, 64] },
-  right: { label: "TIME", labelAt: [190, 46], cover: [142, 26, 96, 34], window: [149, 69, 83, 69] },
-};
 
 // Ways to play (MODES, in shared/rules.js), each with its own best and leaderboard:
 //   timed     time attack: score as much as you can in 60 seconds
@@ -45,19 +34,7 @@ const JUMP_FRAME_TIME = 0.085;
 const JUMP_APEX = 0.29;
 const TIMING_WINDOW = 0.13;
 
-// Like NBA Jam: two makes in a row heats him up, three puts him on fire until he misses,
-// keeping it going turns the flames purple, and ten in a row goes blue-white supernova.
-// How many makes each level needs, and its bonus points, are in FIRE_RULES (shared/rules.js,
-// which the server uses to check scores too). Here is how each level looks and plays:
-//   window: timing window is this much wider
-const FIRE_LOOKS = [
-  { window: 1.4, phrase: "onFire", stillPhrase: "stillOnFire", color: "#ff9f43", fx: { palette: "fire", radius: 5 } },
-  { window: 1.6, phrase: "purpleFire", stillPhrase: "stillPurpleFire", color: "#c77dff", fx: { palette: "purpleFire", radius: 6 } },
-  { window: 1.7, phrase: "supernova", stillPhrase: "stillSupernova", color: "#8fd8ff", fx: { palette: "supernova", radius: 7 } },
-];
-//   streak: makes in a row to reach it
-//   bonus:  extra points per basket
-const FIRE_LEVELS = FIRE_RULES.map((rule, i) => ({ ...rule, ...FIRE_LOOKS[i] }));
+// Fire levels (how many makes, bonus points, how each looks): content/looks.js.
 const BANNER_SECONDS = 1.7;
 const BUZZER_CELEBRATION = 3.2; // seconds to celebrate a buzzer beater before the game-over screen
 const SLOW_MO = 0.35; // game speed while a shot at the buzzer drops toward the hoop
@@ -130,13 +107,7 @@ syncSoundButtons();
 // (rotating one picture smears its pixels). The seam pattern repeats every half turn.
 const BALL_FRAMES = 12;
 
-// look: the ball's colours (BALL_LOOKS). A rainbow ball's colour runs around it in bands.
-const BALL_LOOKS = {
-  [NORMAL]: { main: "#de6d2b", shade: "#b5501d", shine: "#f39a55", seam: "#5b2a12", edge: "#3a1a10" },
-  [MONEY]: { main: "#f0b424", shade: "#c48412", shine: "#fff3a6", seam: "#7a4a08", edge: "#4a2c08" },
-  [RAINBOW]: { rainbow: true, shine: "#ffffff", seam: "#3a2a5a", edge: "#2a1a3a" },
-};
-
+// look: the ball's colours (BALL_LOOKS in content/looks.js).
 function makeBallSprite(turn, look = BALL_LOOKS[NORMAL]) {
   const size = 16;
   const c = document.createElement("canvas");
@@ -180,7 +151,6 @@ function nextBallKind() {
   if (state.phase !== "playing" || !scoresPoints()) return NORMAL;
   return ballKind(state.gameToken, state.shotLog.length);
 }
-const BALL_BADGES = { [MONEY]: { text: "MONEY BALL x2", color: "#ffd700", call: "moneyBall" }, [RAINBOW]: { text: "RAINBOW BALL +5", color: "#ff86e6", call: "rainbowBall" } };
 
 // ---------- Game state ----------
 
@@ -369,18 +339,7 @@ function setAnim(name) {
   player.lastDribbleFrame = -1;
 }
 
-// Around the world: in close on one block, out along the baseline, up to the elbow, the free throw
-// line, then back down the other side, like on a real court. [angle from the hoop, metres out,
-// measured against the key painted on the court]
-const AROUND_LAYOUT = [
-  [44, 1.7], // block
-  [40, 2.9], // baseline
-  [66, 3.4], // elbow
-  [90, 3.45], // free throw line
-  [114, 3.4], // elbow
-  [140, 2.9], // baseline
-  [136, 1.7], // block
-];
+// Around the world: the spots in AROUND_LAYOUT (content/around.js), kept off the 3-point line.
 let aroundSpots = null;
 function getAroundSpots() {
   aroundSpots ??= AROUND_LAYOUT.map(([deg, metres]) => {
@@ -492,16 +451,7 @@ function endGame() {
     state.best = state.score;
     save(bestKey(state.mode), state.best);
   }
-  const verdict =
-    isBest && state.score > 0
-      ? "newBest"
-      : state.score >= 50
-        ? "overGoat"
-        : state.score >= 30
-          ? "overHigh"
-          : state.score >= 10
-            ? "overMid"
-            : "overLow";
+  const verdict = isBest && state.score > 0 ? "newBest" : overCall(state.score);
   announce(verdict, "#ffe066");
   $("over-title").textContent =
     isBest && state.score > 0 ? "New high score!" : survival() ? "Missed!" : state.buzzerBeater ? "Buzzer beater!" : "Time's up!";
@@ -962,22 +912,7 @@ function celebrateBuzzerBeater() {
   announce("buzzer", "#ffd700", { big: true });
 }
 
-// Sudden death: a bigger call the longer the run goes.
-//   streak: makes in a row   call: phrase list (phrases.js)   level: 1 a shout, 2 adds confetti, 3 adds fireworks
-// Past the last one, every 10 more gets a "runLegend" call at the top level.
-const RUN_CALLS = [
-  { streak: 10, call: "run10", level: 1 },
-  { streak: 15, call: "run15", level: 1 },
-  { streak: 20, call: "run20", level: 2 },
-  { streak: 25, call: "run25", level: 2 },
-  { streak: 30, call: "run30", level: 3 },
-  { streak: 40, call: "run40", level: 3 },
-  { streak: 50, call: "run50", level: 3 },
-];
-function runCall(streak) {
-  const top = RUN_CALLS.at(-1);
-  return RUN_CALLS.find((r) => r.streak === streak) ?? (streak > top.streak && streak % 10 === 0 ? { streak, call: "runLegend", level: 3 } : null);
-}
+// Sudden death: a bigger call the longer the run goes (runCall, content/calls.js).
 function celebrateRun(run, p, newFire = null) {
   addPopup(`${run.streak} IN A ROW`, "#ffd700", p.x, p.y - 140);
   sound.cheer(1.4 + run.level * 0.2);
@@ -1000,7 +935,7 @@ function confettiBurst(count) {
       rot: Math.random() * Math.PI,
       spin: (Math.random() - 0.5) * 12,
       size: 14 + Math.random() * 14,
-      color: ["#ffd700", "#ff6b6b", "#7cf0ff", "#ffffff", "#c77dff", "#3ddc84"][i % 6],
+      color: CONFETTI_COLORS[i % 6],
     });
   }
 }
