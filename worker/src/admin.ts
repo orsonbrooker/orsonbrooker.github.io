@@ -9,7 +9,7 @@ import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
 import { MAX_PLAYER_NAME, MAX_TEAM_NAME, PLAYER_PARTS } from "./players.ts";
-import { ODD_UNCHECKED } from "./scores.ts";
+import { ODD_UNCHECKED, renameScores } from "./scores.ts";
 import { clean, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
 import type { Env } from "./util.ts";
 
@@ -99,8 +99,14 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 		res = await editPlayer(env, id, await readJson(request));
 		await forget(url.origin, { players: true });
 	} else if (parts[2] === "scores") {
-		const mode = await editScore(env, id, await readJson(request));
-		await forget(url.origin, { boards: [mode], score: id });
+		const body = await readJson(request);
+		if (body.action === "rename") {
+			const { modes, ids } = await renameScores(env, id, body.nickname);
+			await forget(url.origin, { boards: modes, scores: ids });
+		} else {
+			const mode = await editScore(env, id, body);
+			await forget(url.origin, { boards: [mode], score: id });
+		}
 		res = json({ ok: true }, 200, 0);
 	} else throw new HttpError(404, "Not found.");
 	return res;

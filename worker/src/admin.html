@@ -137,6 +137,7 @@
 			.flag.seen { background: rgba(255, 255, 255, 0.15); color: #fff; }
 			.score.hidden-score { opacity: 0.6; }
 			.stats { display: flex; gap: 4px 14px; flex-wrap: wrap; font-size: 13px; margin: 4px 0; }
+			.rename { display: flex; gap: 6px; align-items: center; max-width: 380px; margin: 4px 0; }
 			.shots { display: flex; flex-wrap: wrap; gap: 2px; margin: 4px 0; }
 			.shots span { width: 12px; height: 12px; border-radius: 2px; background: rgba(255, 255, 255, 0.2); }
 			.shots .in { background: var(--good); }
@@ -662,6 +663,13 @@
 				const act = (action, done) => run(() => api(`scores/${s.id}`, { action }), done);
 				// Who they played as: a built-in player's name, or "Own player" for one made on their device.
 				const who = /^me\d+$/.test(s.player) ? "own player" : s.player;
+				// A new nickname for this player on this device: every one of their games takes it.
+				const nickname = el("input", { type: "text", value: s.nickname, maxLength: 12, ariaLabel: "New nickname" });
+				const rename = run(
+					() => api(`scores/${s.id}`, { action: "rename", nickname: nickname.value }),
+					() => `Renamed to ${nickname.value.trim()}`,
+				);
+				nickname.addEventListener("keydown", (e) => e.key === "Enter" && rename());
 				const more = el(
 					"div",
 					{ className: "more", hidden: true },
@@ -674,6 +682,7 @@
 						el("span", { textContent: `Played with: ${s.input ?? "?"}` }),
 						s.hidden_tab ? el("span", { textContent: "Tab hidden mid-game" }) : null,
 					),
+					el("div", { className: "rename" }, nickname, el("button", { type: "button", textContent: "Rename", onclick: rename })),
 					el(
 						"div",
 						{ className: "shots", title: "Each shot in order: green went in, yellow edge was a three" },

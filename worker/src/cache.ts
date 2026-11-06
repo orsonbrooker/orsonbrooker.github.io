@@ -58,10 +58,14 @@ export async function cached(c: Cached, ctx: ExecutionContext, make: () => Promi
 }
 
 /** Clears cached answers after a change, so it shows straight away (in this data centre). */
-export async function forget(origin: string, what: { boards?: Mode[]; score?: number; players?: boolean; ideas?: boolean }) {
+export async function forget(
+	origin: string,
+	what: { boards?: Mode[]; score?: number; scores?: number[]; players?: boolean; ideas?: boolean },
+) {
 	const keys: string[] = [];
 	for (const mode of what.boards ?? []) keys.push(boardKey(origin, mode, false), boardKey(origin, mode, true));
 	if (what.score) keys.push(`${origin}/api/scores/${what.score}`);
+	for (const id of what.scores ?? []) keys.push(`${origin}/api/scores/${id}`);
 	if (what.players) keys.push(`${origin}/api/players`);
 	if (what.ideas) keys.push(`${origin}/api/ideas`);
 	await Promise.all(keys.map((k) => caches.default.delete(k)));

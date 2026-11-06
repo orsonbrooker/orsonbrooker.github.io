@@ -193,6 +193,9 @@ The game and the Worker use the same scoring rules from `shared/rules.js` (`reco
 `ballPoints`, `FIRE_RULES`, modes), so the server recounts a game exactly as the game scored it. The checks in
 the middle are `checkGame` and `oddFlags` in `worker/src/scoring.ts`.
 
+In the admin's Scores tab a score can be hidden, kept, or renamed: a new nickname (checked like a player's
+own) goes on every game by that device and player, since the board shows them as one row.
+
 ## How an idea becomes a feature
 
 ```mermaid

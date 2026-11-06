@@ -149,6 +149,29 @@ export function scoreNickname(body: Record<string, unknown>): string {
 	return nickname;
 }
 
+// Card caches cleared after a rename: the newest games' (older cards are rarely open, and only
+// cached for a minute), so a long history doesn't mean hundreds of cache calls.
+const RENAME_FORGETS = 40;
+
+/**
+ * The admin renames a leaderboard nickname: every game by the same device and player as score `id`
+ * (the board shows one row for them, with their latest nickname), checked like a player's own.
+ * Returns the modes whose boards changed and the games whose cards should be cleared.
+ */
+export async function renameScores(env: Env, id: number, nickname: unknown): Promise<{ modes: Mode[]; ids: number[] }> {
+	const name = scoreNickname({ nickname });
+	const rows = await env.DB.prepare(
+		`UPDATE scores SET nickname = ?1
+		 WHERE id = ?2 OR (device, player) = (SELECT device, player FROM scores WHERE id = ?2)
+		 RETURNING id, mode`,
+	)
+		.bind(name, id)
+		.all<{ id: number; mode: string }>();
+	if (!rows.results.length) throw new HttpError(404, "No such score.");
+	const ids = rows.results.map((r) => r.id).sort((a, b) => b - a);
+	return { modes: [...new Set(rows.results.map((r) => modeOf(r.mode)))], ids: ids.slice(0, RENAME_FORGETS) };
+}
+
 // One mode's board: each player on a device appears once, with its best game and its latest
 // nickname. `mine` marks the row for one device and player.
 type BoardRow = { id: number | null; nickname: string; score: number; player?: string; base?: string | null; colours: unknown; rank?: number; you?: boolean; mine?: number };

@@ -17,7 +17,7 @@
 //          POST /api/admin/submissions/:id   approve as a new idea, merge into an idea, or reject
 //          POST /api/admin/ideas/:id         edit an idea or change its status
 //          POST /api/admin/players/:id       approve, hide, rename or delete a player
-//          POST /api/admin/scores/:id        show or hide a leaderboard score
+//          POST /api/admin/scores/:id        show or hide a leaderboard score, or rename its player
 // Cron:    weekly phone notification of things to check                                  notify.ts
 
 import { admin, adminHtml } from "./admin.ts";
