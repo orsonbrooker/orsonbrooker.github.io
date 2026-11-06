@@ -436,8 +436,8 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	const flags: string[] = [];
 	if (shots.length >= 10 && spread(shots.map((s) => s[3])) < 0.03) flags.push("Every release timed the same, like a script");
 	if (gaps.length >= 9 && spread(gaps) < 0.05) flags.push("Shots taken at a machine-like steady rhythm");
-	// Great players really do make almost everything (Orson went 28 of 29), so only a long perfect game is odd.
-	if (mode === "timed" && shots.length >= 30 && made === shots.length) flags.push(`All ${made} shots made`);
+	// A perfect game isn't odd on its own: good players often make all 30+ (fire widens the green
+	// zone), and that flag was almost every one in the inbox. The checks above catch scripts.
 	// In sudden death every shot but the last goes in, so only a very long run is odd.
 	if (mode === "survival" && made >= 50) flags.push(`${made} in a row before missing`);
 	if (mode === "around") {
@@ -739,13 +739,27 @@ async function editPlayer(env: Env, id: number, body: Record<string, unknown>): 
 		await env.DB.prepare("DELETE FROM players WHERE id = ?").bind(id).run();
 		return json({ ok: true }, 200, 0);
 	}
-	const status = body.action === "approve" ? "approved" : body.action === "hide" ? "hidden" : null;
+	const status =
+		body.action === "approve" ? "approved" : body.action === "hide" ? "hidden" : body.action === "unapprove" ? "new" : null;
 	const name = clean(body.name, MAX_PLAYER_NAME);
 	if (!name) throw new HttpError(400, "Players need a name.");
+	// Anything else about them can be changed too; whatever isn't sent stays as it is.
+	const base = body.base === undefined ? null : clean(body.base, 30);
+	if (base !== null && !/^[a-z0-9-]+$/.test(base)) throw new HttpError(400, "Pick a body.");
+	const sent = body.colours && typeof body.colours === "object" ? (body.colours as Record<string, unknown>) : null;
+	if (sent && !PLAYER_PARTS.every((p) => /^#[0-9a-f]{6}$/i.test(String(sent[p])))) throw new HttpError(400, "Pick all the colours.");
+	const colours = sent ? PLAYER_PARTS.map((p) => String(sent[p]).toLowerCase()) : [null, null, null, null, null];
+	const setNumber = body.number !== undefined;
+	const number = body.number === null || body.number === "" ? null : String(body.number ?? "");
+	if (setNumber && number !== null && !/^\d{1,2}$/.test(number)) throw new HttpError(400, "Numbers go from 0 to 99.");
+	const teamName = body.teamName === undefined ? null : clean(body.teamName, MAX_TEAM_NAME).toUpperCase() || "KINGS";
+	if (teamName !== null && !/^[A-Z0-9 ]+$/.test(teamName)) throw new HttpError(400, "Team names use letters and numbers.");
 	const result = await env.DB.prepare(
-		"UPDATE players SET name = ?, status = COALESCE(?, status), updated_at = datetime('now') WHERE id = ?",
+		`UPDATE players SET name = ?, status = COALESCE(?, status), base = COALESCE(?, base),
+		   skin = COALESCE(?, skin), hair = COALESCE(?, hair), jersey = COALESCE(?, jersey), team = COALESCE(?, team), shoes = COALESCE(?, shoes),
+		   number = CASE WHEN ? THEN ? ELSE number END, team_name = COALESCE(?, team_name), updated_at = datetime('now') WHERE id = ?`,
 	)
-		.bind(name, status, id)
+		.bind(name, status, base, ...colours, setNumber ? 1 : 0, number, teamName, id)
 		.run();
 	if (!result.meta.changes) throw new HttpError(404, "No such player.");
 	return json({ ok: true }, 200, 0);

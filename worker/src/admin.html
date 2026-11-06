@@ -13,128 +13,203 @@
 			:root {
 				--bg: #a6798e;
 				--ink: #2b1622;
-				--panel: rgba(43, 22, 34, 0.86);
+				--panel: rgba(43, 22, 34, 0.88);
+				--line: rgba(255, 255, 255, 0.12);
 				--accent: #f08a3c;
+				--yellow: #ffe066;
 				--good: #3ddc84;
 				--bad: #ff6b6b;
 				--pixel: "Press Start 2P", ui-monospace, monospace;
 			}
 			* { box-sizing: border-box; }
+			[hidden] { display: none !important; }
 			body {
 				margin: 0;
-				padding: 16px;
+				padding: 0 12px 24px;
 				background: var(--bg);
 				color: #fff;
 				font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
-				font-size: 16px;
+				font-size: 14px;
 			}
-			main { max-width: 860px; margin: 0 auto; }
+			main { max-width: 1200px; margin: 0 auto; }
 			h1, h2, nav button, .pixel { font-family: var(--pixel); }
-			h1 { font-size: clamp(16px, 4vw, 24px); text-shadow: 3px 3px 0 var(--ink); margin: 8px 0 16px; }
-			h2 { font-size: 13px; margin: 24px 0 12px; }
-			nav { display: flex; gap: 8px; margin-bottom: 16px; }
-			nav button { flex: 1; }
+
+			/* Header: title and tabs in one bar that stays at the top. */
+			header {
+				position: sticky; top: 0; z-index: 5;
+				display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+				padding: 10px 0; background: var(--bg);
+			}
+			h1 { font-size: 14px; margin: 0; text-shadow: 2px 2px 0 var(--ink); }
+			nav { display: flex; gap: 6px; flex: 1; }
+			nav button { flex: 1; font-size: 10px; padding: 9px 8px; }
+			h2 { font-size: 11px; margin: 18px 0 8px; }
+			.group { margin: 0 0 10px; }
+			.group > summary { cursor: pointer; font-weight: bold; font-size: 15px; padding: 6px 2px; list-style: none; }
+			.group > summary::before { content: "▸ "; opacity: 0.7; }
+			.group[open] > summary::before { content: "▾ "; }
+			.group > summary .count { opacity: 0.7; font-weight: normal; }
+
 			button {
 				font: inherit;
 				border: 0;
-				border-radius: 6px;
-				padding: 10px 12px;
-				background: var(--panel);
+				border-radius: 5px;
+				padding: 6px 10px;
+				background: rgba(255, 255, 255, 0.12);
 				color: #fff;
 				cursor: pointer;
-				box-shadow: 3px 3px 0 var(--ink);
 			}
+			button:hover { background: rgba(255, 255, 255, 0.2); }
 			button.primary { background: var(--accent); color: var(--ink); }
 			button.danger { background: var(--bad); color: var(--ink); }
+			button.suggested { outline: 3px solid var(--yellow); outline-offset: 1px; }
+			nav button { background: var(--panel); }
 			nav button[aria-selected="true"] { background: var(--accent); color: var(--ink); }
-			.card { background: var(--panel); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
-			.meta { font-size: 13px; opacity: 0.8; margin-bottom: 8px; }
-			.quote { font-size: 18px; margin: 0 0 12px; white-space: pre-wrap; }
-			.draft-note { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid #ffe066; background: rgba(255, 224, 102, 0.1); font-size: 15px; }
-			/* Inbox ideas: details on the left, actions down the right (stacked underneath on a phone). */
-			main:has(.sub-card) { max-width: 1100px; }
-			.sub-card { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 20px; }
-			.sub-title { font-size: 20px; margin: 0 0 4px; }
-			.sub-quote { margin: 0 0 10px; font-size: 14px; opacity: 0.75; white-space: pre-wrap; }
-			.sub-fields { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 8px 10px; }
-			.sub-fields label { margin: 0; }
-			.sub-fields label span { display: block; font-size: 12px; margin-bottom: 3px; opacity: 0.8; }
-			.sub-fields .wide { grid-column: 1 / -1; }
-			.sub-fields textarea { min-height: 48px; }
-			.sub-actions { display: flex; flex-direction: column; gap: 8px; }
-			.sub-actions .danger { margin-top: auto; }
-			.sub-actions .suggested { outline: 3px solid #ffe066; outline-offset: 2px; }
-			@media (max-width: 700px) {
-				.sub-card { grid-template-columns: 1fr; gap: 12px; }
-				.sub-fields { grid-template-columns: 1fr; }
-				.sub-actions .danger { margin-top: 0; }
-			}
-			label { display: block; font-size: 13px; margin: 8px 0 4px; opacity: 0.9; }
+
 			input[type="text"], textarea, select {
 				width: 100%;
 				font: inherit;
-				padding: 8px;
+				padding: 5px 7px;
 				border-radius: 4px;
-				border: 2px solid var(--ink);
+				border: 1px solid var(--ink);
 				background: #fff;
 				color: var(--ink);
 			}
-			textarea { min-height: 60px; }
-			.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-top: 12px; }
-			.row > * { flex: 1 1 auto; }
-			.check { display: flex; gap: 6px; align-items: center; font-size: 14px; margin-top: 8px; }
-			.empty { text-align: center; padding: 32px; font-family: var(--pixel); font-size: 12px; line-height: 1.8; }
-			.votes { font-family: var(--pixel); font-size: 12px; color: var(--accent); }
-			.player { display: flex; gap: 12px; align-items: flex-start; }
-			.player img { background: rgba(255, 255, 255, 0.1); border-radius: 6px; flex: none; }
-			.player-info { flex: 1; min-width: 0; }
-			.player a { color: #fff; font-size: 14px; }
-			.chips { display: flex; gap: 6px; margin: 4px 0 8px; }
-			.chips .number { font-family: var(--pixel); font-size: 12px; align-self: center; margin-left: 4px; }
-			.chips span { width: 24px; height: 24px; border-radius: 4px; border: 2px solid rgba(255, 255, 255, 0.7); }
-			.lede { margin: -8px 0 16px; opacity: 0.9; }
-			.suspect { display: inline-block; font-family: var(--pixel); font-size: 10px; background: #ffe066; color: var(--ink); border-radius: 4px; padding: 4px 6px; margin-left: 8px; vertical-align: middle; }
-			.flag { display: inline-block; background: var(--bad); color: var(--ink); border-radius: 4px; padding: 3px 8px; margin: 0 6px 6px 0; font-size: 14px; }
-			.score-big { font-family: var(--pixel); font-size: 20px; color: #ffe066; }
-			.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 14px; margin: 8px 0; }
-			.shots { display: flex; flex-wrap: wrap; gap: 2px; margin: 6px 0; }
-			.shots span { width: 14px; height: 14px; border-radius: 3px; background: rgba(255, 255, 255, 0.2); }
+			textarea { min-height: 38px; resize: vertical; }
+			input[type="color"] { width: 100%; height: 30px; padding: 0; border: 1px solid var(--ink); border-radius: 4px; background: none; }
+			.field span { display: block; font-size: 11px; margin-bottom: 2px; opacity: 0.75; }
+			.check { display: flex; gap: 6px; align-items: center; font-size: 13px; }
+			.meta { font-size: 12px; opacity: 0.75; }
+			.empty { background: var(--panel); border-radius: 8px; text-align: center; padding: 24px; font-family: var(--pixel); font-size: 11px; line-height: 1.8; }
+			.summary { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 6px; }
+			.summary span { background: var(--panel); border-radius: 999px; padding: 4px 10px; font-size: 13px; }
+
+			/* Inbox ideas: details on the left, actions on the right (stacked underneath on a phone). */
+			.sub {
+				display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 12px;
+				background: var(--panel); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px;
+			}
+			.sub h3 { font-size: 16px; margin: 1px 0 2px; }
+			.sub .quote { margin: 0 0 6px; font-size: 13px; opacity: 0.7; white-space: pre-wrap; }
+			.sub .note { margin: 0 0 8px; padding: 4px 8px; border-left: 3px solid var(--yellow); background: rgba(255, 224, 102, 0.1); font-size: 13px; }
+			.sub .fields { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 6px 8px; }
+			.sub .fields .wide { grid-column: 1 / -1; }
+			.sub .actions { display: flex; flex-direction: column; gap: 5px; }
+			.sub .actions .danger { margin-top: auto; }
+
+			/* Ideas on the board: one line each. */
+			.idea {
+				display: grid; grid-template-columns: 44px minmax(0, 1fr) 110px 120px 60px; gap: 6px; align-items: center;
+				background: var(--panel); border-radius: 6px; padding: 6px 8px; margin-bottom: 4px;
+			}
+			.idea .votes { font-family: var(--pixel); font-size: 10px; color: var(--accent); text-align: center; }
+			.idea details { grid-column: 2 / -1; }
+			.idea details summary { cursor: pointer; font-size: 12px; opacity: 0.75; }
+			.idea details textarea { margin-top: 4px; }
+
+			/* Players: a grid of tiles. */
+			.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 6px; }
+			.player { background: var(--panel); border-radius: 8px; padding: 8px; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 4px 10px; align-content: start; }
+			.player img { width: 56px; height: 56px; background: rgba(255, 255, 255, 0.08); border-radius: 6px; image-rendering: pixelated; }
+			.player .name { font-weight: bold; font-size: 15px; }
+			.player .swatches { display: flex; gap: 3px; margin-top: 3px; }
+			.player .swatches span { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, 0.6); }
+			.player .buttons { grid-column: 1 / -1; display: flex; gap: 5px; flex-wrap: wrap; }
+			.player .warn { grid-column: 1 / -1; font-size: 12px; background: rgba(255, 224, 102, 0.15); border-left: 3px solid var(--yellow); padding: 3px 6px; }
+			.player .editor { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+			.player .editor .wide { grid-column: 1 / -1; }
+			.player .editor .colours { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+			.player a { color: #fff; font-size: 12px; }
+
+			/* Scores: one line each, with the shot by shot behind "Details". */
+			.score {
+				display: grid; grid-template-columns: 64px 150px 210px 80px 90px minmax(0, 1fr) 190px; gap: 8px; align-items: center;
+				background: var(--panel); border-radius: 6px; padding: 6px 8px; margin-bottom: 4px;
+			}
+			.score .points { font-family: var(--pixel); font-size: 12px; color: var(--yellow); }
+			.score .flags { display: flex; gap: 4px; flex-wrap: wrap; }
+			.flag { background: var(--bad); color: var(--ink); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
+			.score .buttons { display: flex; gap: 4px; justify-content: end; }
+			.score > details, .score .more { grid-column: 1 / -1; }
+			.score > details summary { cursor: pointer; font-size: 12px; opacity: 0.75; }
+			.score .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.flag.seen { background: rgba(255, 255, 255, 0.15); color: #fff; }
+			.score.hidden-score { opacity: 0.6; }
+			.stats { display: flex; gap: 4px 14px; flex-wrap: wrap; font-size: 13px; margin: 4px 0; }
+			.shots { display: flex; flex-wrap: wrap; gap: 2px; margin: 4px 0; }
+			.shots span { width: 12px; height: 12px; border-radius: 2px; background: rgba(255, 255, 255, 0.2); }
 			.shots .in { background: var(--good); }
-			.shots .three { box-shadow: inset 0 0 0 2px #ffe066; }
-			#toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); }
+			.shots .three { box-shadow: inset 0 0 0 2px var(--yellow); }
+
+			#toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--ink); border-radius: 6px; padding: 10px 14px; font-size: 11px; z-index: 10; }
+
+			@media (max-width: 760px) {
+				h1 { width: 100%; }
+				.sub { grid-template-columns: 1fr; }
+				.sub .fields { grid-template-columns: 1fr; }
+				.sub .actions .danger { margin-top: 0; }
+				.idea { grid-template-columns: 36px minmax(0, 1fr) 96px; }
+				.idea .credit, .idea .save { grid-column: auto; }
+				.score { grid-template-columns: 60px 1fr auto; }
+				.score .when, .score .mode, .score .made { display: none; }
+				.score .flags { grid-column: 1 / -1; }
+			}
 		</style>
 	</head>
 	<body>
 		<main>
-			<h1>Orson's admin</h1>
-			<p class="lede">The inbox has everything that needs a look: new ideas, new players and odd-looking scores.</p>
-			<nav>
-				<button type="button" id="tab-inbox" aria-selected="true">Inbox <span id="inbox-count"></span></button>
-				<button type="button" id="tab-ideas" aria-selected="false">Ideas</button>
-				<button type="button" id="tab-players" aria-selected="false">Players</button>
-				<button type="button" id="tab-scores" aria-selected="false">Scores</button>
-			</nav>
+			<header>
+				<h1>Orson's admin</h1>
+				<nav>
+					<button type="button" id="tab-inbox" aria-selected="true">Inbox <span id="inbox-count"></span></button>
+					<button type="button" id="tab-ideas" aria-selected="false">Ideas</button>
+					<button type="button" id="tab-players" aria-selected="false">Players</button>
+					<button type="button" id="tab-scores" aria-selected="false">Scores</button>
+				</nav>
+			</header>
 			<section id="inbox"></section>
 			<section id="ideas" hidden></section>
 			<section id="players" hidden></section>
 			<section id="scores" hidden></section>
-			<div id="toast" class="card pixel" hidden></div>
+			<div id="toast" hidden></div>
 		</main>
 
 		<script type="module">
 			const STATUSES = ["idea", "planned", "building", "done", "hidden"];
+			// Ideas on the board, grouped in this order within each game or app.
+			const STATUS_GROUPS = [
+				["building", "Building now", true],
+				["planned", "Planned", true],
+				["idea", "Ideas", true],
+				["done", "Done", false],
+				["hidden", "Hidden", false],
+			];
+			const PARTS = ["skin", "hair", "jersey", "team", "shoes"];
 			let data = { submissions: [], ideas: [], apps: [], players: [], scores: [] };
 			// Pictures and the builder live on the main site (a different port when testing locally).
 			const SITE = location.hostname === "localhost" ? "http://localhost:5173" : "";
+			// What's open stays open when the page redraws after a change.
+			const openGroups = new Set();
 
 			const el = (tag, props = {}, ...children) => {
 				const node = Object.assign(document.createElement(tag), props);
-				node.append(...children.filter((c) => c != null));
+				node.append(...children.filter((c) => c != null && c !== false));
 				return node;
 			};
+			const field = (label, input, className = "") => el("label", { className: `field ${className}`.trim() }, el("span", { textContent: label }), input);
 			const appName = (slug) => data.apps.find((a) => a.slug === slug)?.name ?? slug;
 			const appSelect = (value) =>
 				el("select", {}, ...data.apps.map((a) => el("option", { value: a.slug, textContent: a.name, selected: a.slug === value })));
+			// A heading that folds away, remembered by key.
+			function group(key, title, count, open, ...children) {
+				const d = el("details", { className: "group", open: openGroups.has(key) || (open && !openGroups.has(`-${key}`)) },
+					el("summary", {}, title, " ", el("span", { className: "count", textContent: `(${count})` })), ...children);
+				d.addEventListener("toggle", () => {
+					openGroups.delete(d.open ? `-${key}` : key);
+					openGroups.add(d.open ? key : `-${key}`);
+				});
+				return d;
+			}
 
 			function toast(message) {
 				const t = document.getElementById("toast");
@@ -150,352 +225,419 @@
 				if (!res.ok) throw new Error(out.error || `Error ${res.status}`);
 				return out;
 			}
+			// Runs an admin action, says how it went, and redraws.
+			const run = (fn, done) => async () => {
+				try {
+					await fn();
+					toast(done);
+					await load();
+				} catch (err) {
+					toast(err.message);
+				}
+			};
 
 			async function load() {
+				const y = scrollY;
 				data = await api("inbox");
 				renderInbox();
 				renderIdeas();
 				renderPlayers();
 				renderScores();
+				scrollTo(0, y);
 			}
 
-			// Sudden death scores are on their own leaderboard; time attack (the 60 second game) needs no label.
-			const modeName = (s) => (s.mode === "survival" ? "Sudden death · " : s.mode === "around" ? "Around the world · " : "");
+			const modeName = (s) => (s.mode === "survival" ? "Sudden death" : s.mode === "around" ? "Around the world" : "Time attack");
 			// Around the world scores are times in tenths of a second.
 			const scoreText = (s) => (s.mode === "around" ? `${(s.score / 10).toFixed(1)}s` : String(s.score));
-
 			// Odd-looking scores Orson hasn't looked at yet. They're on the board until he hides them.
 			const suspicious = (s) => s.status === "shown" && !s.checked && JSON.parse(s.flags).length > 0;
 
-			// Everything that needs action, by kind.
+			// ---------- Inbox: everything that needs a decision ----------
+
 			function renderInbox() {
 				const box = document.getElementById("inbox");
-				const players = data.players.filter((p) => p.status === "new");
-				// One card per player on a device, like their row on the leaderboard.
+				const requests = data.players.filter((p) => p.status === "new");
+				// One line per player on a device and game mode, like their row on the leaderboard.
 				const byPlayer = new Map();
 				for (const s of data.scores.filter(suspicious)) {
 					const key = `${s.device} ${s.player} ${s.mode}`;
 					byPlayer.set(key, [...(byPlayer.get(key) ?? []), s]);
 				}
-				const scores = [...byPlayer.values()];
-				const total = data.submissions.length + players.length + scores.length;
+				const odd = [...byPlayer.values()];
+				const total = data.submissions.length + requests.length + odd.length;
 				document.getElementById("inbox-count").textContent = total ? `(${total})` : "";
 				box.replaceChildren();
-				if (!total) {
-					box.append(el("div", { className: "card empty", innerHTML: "All caught up!<br>Nothing needs a look." }));
-					return;
+				if (!total) return box.append(el("div", { className: "empty", innerHTML: "All caught up!<br>Nothing needs a look." }));
+				box.append(
+					el(
+						"div",
+						{ className: "summary" },
+						data.submissions.length ? el("span", { textContent: `${data.submissions.length} new ideas` }) : null,
+						requests.length ? el("span", { textContent: `${requests.length} player requests` }) : null,
+						odd.length ? el("span", { textContent: `${odd.length} odd scores` }) : null,
+					),
+				);
+				if (requests.length) box.append(el("h2", { textContent: `Player requests (${requests.length})` }), el("div", { className: "tiles" }, ...requests.map(playerTile)));
+				if (data.submissions.length) {
+					box.append(el("h2", { textContent: `New ideas (${data.submissions.length})` }));
+					for (const [key, title, items] of ideaGroups()) box.append(group(`inbox ${key}`, title, items.length, true, ...items.map(submissionCard)));
 				}
-				const group = (title, items, card) => {
-					if (!items.length) return;
-					box.append(el("h2", { textContent: `${title} (${items.length})` }));
-					for (const item of items) box.append(card(item));
-				};
-				group("New ideas", data.submissions, submissionCard);
-				group("New players", players, playerCard);
-				group("Scores that look odd", scores, (list) => (list.length === 1 ? scoreCard(list[0]) : playerScoresCard(list)));
+				if (odd.length) box.append(el("h2", { textContent: `Scores that look odd (${odd.length})` }), ...odd.map((list) => (list.length === 1 ? scoreRow(list[0]) : playerScoresRow(list))));
 			}
 
-			// Several odd scores from one player (newest first): checked together, each one still there to open.
-			function playerScoresCard(list) {
-				const best = Math.max(...list.map((s) => s.score));
-				const flags = new Map();
-				for (const s of list) for (const f of JSON.parse(s.flags)) {
-					const kind = f.replace(/\d+/g, "N"); // "All 33 shots made" and "All 31 shots made" are one kind
-					flags.set(kind, [...(flags.get(kind) ?? []), f]);
-				}
-				const act = (action) => async () => {
-					try {
-						for (const s of list) await api(`scores/${s.id}`, { action });
-						toast(action === "hide" ? `Hid ${list.length} scores` : `Kept ${list.length} scores on the board`);
-						await load();
-					} catch (err) {
-						toast(err.message);
-						await load();
-					}
+			// New ideas grouped by what to do with them: new for the board, each existing idea they'd join,
+			// ones that need a decision, and suggested rejects. Matching titles sit together.
+			function ideaGroups() {
+				const groups = new Map();
+				const add = (key, title, s) => {
+					if (!groups.has(key)) groups.set(key, [key, title, []]);
+					groups.get(key)[2].push(s);
 				};
-				const details = el("details", {}, el("summary", { textContent: "See each game" }), ...list.map(scoreCard));
-				return el(
-					"div",
-					{ className: "card" },
-					el("div", { className: "meta", textContent: `${list.length} odd games · ${modeName(list[0])}played as ${list[0].player} · newest ${list[0].created_at.slice(0, 10)}` }),
-					el(
-						"div",
-						{},
-						el("span", { className: "score-big", textContent: `${best} ` }),
-						el("b", { textContent: list[0].nickname }),
-						el("span", { className: "suspect", textContent: "Suspicious" }),
-					),
-					...[...flags.values()].map((fs) => el("span", { className: "flag", textContent: fs.length > 1 ? `${fs[0]} · ${fs.length} games` : fs[0] })),
-					el(
-						"div",
-						{ className: "row" },
-						el("button", { type: "button", className: "primary", textContent: "All look fine", onclick: act("show") }),
-						el("button", { type: "button", className: "danger", textContent: "Hide all", onclick: act("hide") }),
-					),
-					details,
-				);
+				for (const s of data.submissions) {
+					const into = s.merge_into && data.ideas.find((i) => i.id === s.merge_into);
+					if (into) add(`merge ${into.id}`, `Add to "${into.title}"`, s);
+					else if (s.note?.startsWith("Reject")) add("reject", "Suggested: reject", s);
+					else if (s.note?.startsWith("Add to the board")) add("new", "New for the board", s);
+					else add("decide", "Needs a decision", s);
+				}
+				const order = (key) => (key === "new" ? 0 : key.startsWith("merge") ? 1 : key === "decide" ? 2 : 3);
+				const list = [...groups.values()].sort((a, b) => order(a[0]) - order(b[0]) || a[1].localeCompare(b[1]));
+				for (const g of list) g[2].sort((a, b) => (a.title ?? a.text).localeCompare(b.title ?? b.text) || a.id - b.id);
+				return list;
 			}
 
 			function submissionCard(s) {
 				// A tidied-up draft if there is one, otherwise their own words.
 				const title = el("input", { type: "text", value: s.title ?? s.text.slice(0, 80), maxLength: 80 });
-				const description = el("textarea", { value: s.description ?? s.text, maxLength: 500 });
+				const description = el("textarea", { value: s.description ?? s.text, maxLength: 500, rows: 2 });
 				const app = appSelect(s.app);
 				const credit = el("input", { type: "checkbox" });
 				const mergeInto = el(
 					"select",
 					{},
-					el("option", { value: "", textContent: "Add to an existing idea…" }),
-					...data.ideas.map((i) => el("option", { value: i.id, textContent: `${appName(i.app)}: ${i.title}`, selected: i.id === s.merge_into })),
+					el("option", { value: "", textContent: "Add to an idea…" }),
+					...data.ideas.filter((i) => i.status !== "hidden").map((i) => el("option", { value: i.id, textContent: `${appName(i.app)}: ${i.title}`, selected: i.id === s.merge_into })),
 				);
-				const act = (action, extra = {}) => async () => {
-					try {
-						await api(`submissions/${s.id}`, { action, ...extra });
-						toast(action === "reject" ? "Rejected" : action === "merge" ? "Added to idea" : "On the board!");
-						await load();
-					} catch (err) {
-						toast(err.message);
-					}
-				};
-				// Easy to scan: the idea as it would read on the board, what they actually wrote, and the
-				// suggestion. The fields to change it sit below, and the actions down the right.
-				const headline = el("h3", { className: "sub-title", textContent: title.value });
+				const act = (action, extra, done) => run(() => api(`submissions/${s.id}`, { action, ...extra }), done);
+				const headline = el("h3", { textContent: title.value });
 				title.addEventListener("input", () => (headline.textContent = title.value));
-				const details = el(
-					"div",
-					{ className: "sub-main" },
-					el("div", { className: "meta", textContent: `${appName(s.app)} · ${s.nickname ? `from ${s.nickname}` : "no name"} · ${s.created_at.slice(0, 10)}` }),
-					headline,
-					el("p", { className: "sub-quote", textContent: `They wrote: "${s.text}"` }),
-					s.note ? el("p", { className: "draft-note", textContent: s.note }) : null,
-					el(
-						"div",
-						{ className: "sub-fields" },
-						el("label", {}, el("span", { textContent: "Title" }), title),
-						el("label", {}, el("span", { textContent: "Game or app" }), app),
-						el("label", { className: "wide" }, el("span", { textContent: "Description" }), description),
-					),
-					s.nickname ? el("label", { className: "check" }, credit, `Credit "${s.nickname}" on the board`) : null,
-				);
-				// The button the suggestion points to gets an outline: an existing idea to add it to, a
-				// note starting "Reject", or one starting "Add to the board".
+				// The button the suggestion points to gets an outline.
 				const suggested = s.merge_into ? "merge" : s.note?.startsWith("Reject") ? "reject" : s.note?.startsWith("Add to the board") ? "add" : null;
 				const mark = (which, className = "") => (suggested === which ? `${className} suggested`.trim() : className);
-				const actions = el(
+				return el(
 					"div",
-					{ className: "sub-actions" },
-					el("button", {
-						type: "button",
-						className: mark("add", "primary"),
-						textContent: "Add to board",
-						onclick: () => act("approve", { title: title.value, description: description.value, app: app.value, credit: credit.checked })(),
-					}),
-					...(data.ideas.length
-						? [
-								mergeInto,
-								el("button", {
-									type: "button",
-									className: mark("merge"),
-									textContent: "Add to that idea",
-									onclick: () => (mergeInto.value ? act("merge", { ideaId: mergeInto.value })() : toast("Pick an idea first")),
-								}),
-							]
-						: []),
-					el("button", { type: "button", className: mark("reject", "danger"), textContent: "Reject", onclick: act("reject") }),
+					{ className: "sub" },
+					el(
+						"div",
+						{},
+						el("div", { className: "meta", textContent: `${appName(s.app)} · ${s.nickname ? `from ${s.nickname}` : "no name"} · ${s.created_at.slice(0, 10)}` }),
+						headline,
+						el("p", { className: "quote", textContent: `They wrote: "${s.text}"` }),
+						s.note ? el("p", { className: "note", textContent: s.note }) : null,
+						el(
+							"div",
+							{ className: "fields" },
+							field("Title", title),
+							field("Game or app", app),
+							field("Description", description, "wide"),
+						),
+						s.nickname ? el("label", { className: "check" }, credit, `Credit "${s.nickname}" on the board`) : null,
+					),
+					el(
+						"div",
+						{ className: "actions" },
+						el("button", {
+							type: "button",
+							className: mark("add", "primary"),
+							textContent: "Add to board",
+							onclick: () => act("approve", { title: title.value, description: description.value, app: app.value, credit: credit.checked }, "On the board!")(),
+						}),
+						mergeInto,
+						el("button", {
+							type: "button",
+							className: mark("merge"),
+							textContent: "Add to that idea",
+							onclick: () => (mergeInto.value ? act("merge", { ideaId: mergeInto.value }, "Added to idea")() : toast("Pick an idea first")),
+						}),
+						el("button", { type: "button", className: mark("reject", "danger"), textContent: "Reject", onclick: act("reject", {}, "Rejected") }),
+					),
 				);
-				return el("div", { className: "card sub-card" }, details, actions);
 			}
+
+			// ---------- Ideas on the board ----------
 
 			function renderIdeas() {
 				const box = document.getElementById("ideas");
 				box.replaceChildren();
-				if (!data.ideas.length) {
-					box.append(el("div", { className: "card empty", textContent: "No ideas on the board yet." }));
-					return;
-				}
+				if (!data.ideas.length) return box.append(el("div", { className: "empty", textContent: "No ideas on the board yet." }));
 				for (const app of data.apps) {
 					const ideas = data.ideas.filter((i) => i.app === app.slug);
 					if (!ideas.length) continue;
-					box.append(el("h2", { textContent: app.name }));
-					for (const idea of ideas) {
-						const title = el("input", { type: "text", value: idea.title, maxLength: 80 });
-						const description = el("textarea", { value: idea.description, maxLength: 500 });
-						const credit = el("input", { type: "text", value: idea.credit ?? "", maxLength: 20, placeholder: "No credit" });
-						const status = el("select", {}, ...STATUSES.map((s) => el("option", { value: s, textContent: s, selected: s === idea.status })));
-						box.append(
-							el(
-								"div",
-								{ className: "card" },
-								el("div", { className: "votes", textContent: `▲ ${idea.votes}` }),
-								el("label", { textContent: "Title" }),
-								title,
-								el("label", { textContent: "Description" }),
-								description,
-								el(
-									"div",
-									{ className: "row" },
-									el("div", {}, el("label", { textContent: "Status" }), status),
-									el("div", {}, el("label", { textContent: "Credit" }), credit),
-									el("button", {
-										type: "button",
-										className: "primary",
-										textContent: "Save",
-										onclick: async () => {
-											try {
-												await api(`ideas/${idea.id}`, { title: title.value, description: description.value, credit: credit.value, status: status.value });
-												toast("Saved");
-												await load();
-											} catch (err) {
-												toast(err.message);
-											}
-										},
-									}),
-								),
-							),
-						);
+					box.append(el("h2", { textContent: `${app.name} (${ideas.length})` }));
+					for (const [status, title, open] of STATUS_GROUPS) {
+						const list = ideas.filter((i) => i.status === status).sort((a, b) => b.votes - a.votes || a.title.localeCompare(b.title));
+						if (list.length) box.append(group(`ideas ${app.slug} ${status}`, title, list.length, open, ...list.map(ideaRow)));
 					}
 				}
 			}
 
-			// Players made with the builder: approve to put them in the game, hide to take them out.
+			function ideaRow(idea) {
+				const title = el("input", { type: "text", value: idea.title, maxLength: 80 });
+				const description = el("textarea", { value: idea.description, maxLength: 500, rows: 2 });
+				const credit = el("input", { type: "text", value: idea.credit ?? "", maxLength: 20, placeholder: "No credit" });
+				const status = el("select", {}, ...STATUSES.map((s) => el("option", { value: s, textContent: s, selected: s === idea.status })));
+				return el(
+					"div",
+					{ className: "idea" },
+					el("div", { className: "votes", title: "Votes", textContent: `▲${idea.votes}` }),
+					title,
+					status,
+					el("div", { className: "credit" }, credit),
+					el("button", {
+						type: "button",
+						className: "primary save",
+						textContent: "Save",
+						onclick: run(() => api(`ideas/${idea.id}`, { title: title.value, description: description.value, credit: credit.value, status: status.value }), "Saved"),
+					}),
+					el("details", {}, el("summary", { textContent: idea.description ? `Description: ${idea.description.slice(0, 90)}${idea.description.length > 90 ? "…" : ""}` : "Add a description" }), description),
+				);
+			}
+
+			// ---------- Players ----------
+
 			function renderPlayers() {
 				const box = document.getElementById("players");
 				box.replaceChildren();
-				if (!data.players.length) {
-					box.append(el("div", { className: "card empty", innerHTML: "No players yet.<br>They're made at /players/" }));
-					return;
+				if (!data.players.length) return box.append(el("div", { className: "empty", innerHTML: "No players yet.<br>They're made at /players/" }));
+				const by = (status) => data.players.filter((p) => p.status === status).sort((a, b) => a.name.localeCompare(b.name));
+				const sections = [
+					["new", "Requests waiting", true],
+					["approved", "In the game", true],
+					["hidden", "Hidden", false],
+				];
+				for (const [status, title, open] of sections) {
+					const list = by(status);
+					if (list.length) box.append(group(`players ${status}`, title, list.length, open, el("div", { className: "tiles" }, ...list.map(playerTile))));
 				}
-				for (const p of data.players) box.append(playerCard(p));
 			}
 
 			// A player's face in their own colours, drawn by the same code as the game. Until it's
 			// drawn (or if it can't be), the plain body shows.
 			let recolorKit;
+			const kit = () => (recolorKit ??= import(`${SITE}/players/recolor.js`));
+			let basesList;
+			const bases = () => (basesList ??= kit().then(({ loadBases }) => loadBases(`${SITE}/`)));
 			function paintFace(img, p) {
-				recolorKit ??= import(`${SITE}/players/recolor.js`);
-				recolorKit
-					.then(async ({ loadBases, loadBase, thumbnail }) => {
-						const base = (await loadBases(`${SITE}/`)).find((b) => b.id === p.base);
+				kit()
+					.then(async ({ loadBase, thumbnail }) => {
+						const base = (await bases()).find((b) => b.id === p.base);
 						if (!base) return;
 						const loaded = await loadBase(base, `${SITE}/`);
 						const colours = { skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name };
-						img.src = thumbnail(loaded, colours, 128).toDataURL();
+						img.src = thumbnail(loaded, colours, 112).toDataURL();
 					})
 					.catch(() => {});
 			}
 
-			function playerCard(p) {
-				const name = el("input", { type: "text", value: p.name, maxLength: 12 });
-				const face = el("img", { src: `${SITE}/assets/characters/bases/${p.base}/thumb.webp`, alt: "", width: 64, height: 64 });
+			// A request that looks like someone already in the game: the same name, or the same look.
+			function lookalike(p) {
+				const others = data.players.filter((o) => o.id !== p.id && o.status === "approved");
+				const sameName = others.find((o) => o.name.toLowerCase() === p.name.toLowerCase());
+				if (sameName) return `Same name as ${sameName.name}, who's already in the game.`;
+				const sameLook = others.find((o) => o.base === p.base && PARTS.every((part) => o[part] === p[part]));
+				if (sameLook) return `Looks the same as ${sameLook.name}, who's already in the game.`;
+				return null;
+			}
+
+			function playerTile(p) {
+				const face = el("img", { src: `${SITE}/assets/characters/bases/${p.base}/thumb.webp`, alt: "", width: 56, height: 56 });
 				paintFace(face, p);
-				const look = new URLSearchParams({ base: p.base, name: p.name });
-				for (const part of ["skin", "hair", "jersey", "team", "shoes"]) look.set(part, p[part].slice(1));
-				if (p.number) look.set("number", p.number);
-				look.set("teamName", p.team_name);
-				const act = (action) => async () => {
-					if (action === "delete" && !confirm(`Delete ${p.name} for good?`)) return;
-					try {
-						await api(`players/${p.id}`, { action, name: name.value });
-						toast(action === "approve" ? "In the game!" : action === "hide" ? "Hidden" : action === "delete" ? "Deleted" : "Saved");
-						await load();
-					} catch (err) {
-						toast(err.message);
-					}
-				};
-				return (
+				const save = (body, done) => run(() => api(`players/${p.id}`, { name: p.name, ...body }), done);
+				const warn = p.status === "new" ? lookalike(p) : null;
+				const editor = playerEditor(p, face);
+				editor.hidden = true;
+				return el(
+					"div",
+					{ className: "player" },
+					face,
 					el(
 						"div",
-						{ className: "card player" },
-						face,
-						el(
-							"div",
-							{ className: "player-info" },
-							el("div", { className: "meta", textContent: `${p.status === "new" ? "Waiting" : p.status === "approved" ? "In the game" : "Hidden"} · ${p.base} · ${p.created_at.slice(0, 10)}` }),
-							el(
-								"div",
-								{ className: "chips" },
-								...["skin", "hair", "jersey", "team", "shoes"].map((part) => el("span", { title: part, style: `background:${p[part]}` })),
-								el("b", { className: "number", textContent: `${p.team_name} ${p.number ? `#${p.number}` : "(no number)"}` }),
-							),
-							el("a", { href: `${SITE}/players/?${look}`, target: "_blank", textContent: "See them move ▸" }),
-							el("label", { textContent: "Name" }),
-							name,
-							el(
-								"div",
-								{ className: "row" },
-								p.status !== "approved" ? el("button", { type: "button", className: "primary", textContent: "Put in game", onclick: act("approve") }) : null,
-								p.status === "approved" ? el("button", { type: "button", textContent: "Hide", onclick: act("hide") }) : null,
-								el("button", { type: "button", textContent: "Save name", onclick: act("rename") }),
-								el("button", { type: "button", className: "danger", textContent: "Delete", onclick: act("delete") }),
-							),
-						),
-					)
+						{},
+						el("div", { className: "name", textContent: p.name }),
+						el("div", { className: "meta", textContent: `${p.base} · ${p.team_name} ${p.number ? `#${p.number}` : "(no number)"} · ${p.created_at.slice(0, 10)}` }),
+						el("div", { className: "swatches" }, ...PARTS.map((part) => el("span", { title: part, style: `background:${p[part]}` }))),
+					),
+					warn ? el("div", { className: "warn", textContent: warn }) : null,
+					el(
+						"div",
+						{ className: "buttons" },
+						p.status !== "approved" ? el("button", { type: "button", className: "primary", textContent: "Put in game", onclick: save({ action: "approve" }, "In the game!") }) : null,
+						p.status !== "hidden" ? el("button", { type: "button", textContent: "Hide", onclick: save({ action: "hide" }, "Hidden") }) : null,
+						el("button", { type: "button", textContent: "Edit", onclick: () => (editor.hidden = !editor.hidden) }),
+					),
+					editor,
 				);
 			}
 
-			// Leaderboard scores: odd ones not yet looked at first, then the last two weeks.
+			// Everything about a player: name, body, colours, number, team and where they are.
+			function playerEditor(p, face) {
+				const name = el("input", { type: "text", value: p.name, maxLength: 12 });
+				const base = el("select", {}, el("option", { value: p.base, textContent: p.base, selected: true }));
+				bases().then((list) => base.replaceChildren(...list.map((b) => el("option", { value: b.id, textContent: b.name, selected: b.id === p.base })))).catch(() => {});
+				const colours = Object.fromEntries(PARTS.map((part) => [part, el("input", { type: "color", value: p[part], title: part })]));
+				const number = el("input", { type: "text", value: p.number ?? "", maxLength: 2, placeholder: "None", inputMode: "numeric" });
+				const team = el("input", { type: "text", value: p.team_name, maxLength: 12 });
+				const status = el(
+					"select",
+					{},
+					...[["new", "Waiting"], ["approved", "In the game"], ["hidden", "Hidden"]].map(([v, t]) => el("option", { value: v, textContent: t, selected: v === p.status })),
+				);
+				// The face updates as things change, before saving.
+				const current = () => ({ ...p, base: base.value, ...Object.fromEntries(PARTS.map((part) => [part, colours[part].value])), number: number.value, team_name: team.value.toUpperCase() });
+				for (const input of [base, ...Object.values(colours), number, team]) input.addEventListener("input", () => paintFace(face, current()));
+				const look = () => {
+					const c = current();
+					const q = new URLSearchParams({ base: c.base, name: name.value });
+					for (const part of PARTS) q.set(part, c[part].slice(1));
+					if (c.number) q.set("number", c.number);
+					q.set("teamName", c.team_name);
+					return `${SITE}/players/?${q}`;
+				};
+				const action = { new: "unapprove", approved: "approve", hidden: "hide" };
+				return el(
+					"div",
+					{ className: "editor" },
+					field("Name", name),
+					field("Body", base),
+					el("div", { className: "colours" }, ...PARTS.map((part) => field(part, colours[part]))),
+					field("Number", number),
+					field("Team name", team),
+					field("Where", status, "wide"),
+					el(
+						"div",
+						{ className: "buttons wide", style: "display:flex;gap:5px;flex-wrap:wrap;align-items:center" },
+						el("button", {
+							type: "button",
+							className: "primary",
+							textContent: "Save",
+							onclick: run(
+								() =>
+									api(`players/${p.id}`, {
+										action: action[status.value],
+										name: name.value,
+										base: base.value,
+										colours: Object.fromEntries(PARTS.map((part) => [part, colours[part].value])),
+										number: number.value.trim(),
+										teamName: team.value,
+									}),
+								"Saved",
+							),
+						}),
+						el("a", { href: "#", textContent: "See them move ▸", onclick: (e) => (e.preventDefault(), open(look(), "_blank")) }),
+						el("span", { style: "flex:1" }),
+						el("button", {
+							type: "button",
+							className: "danger",
+							textContent: "Delete",
+							onclick: () => confirm(`Delete ${p.name} for good?`) && run(() => api(`players/${p.id}`, { action: "delete" }), "Deleted")(),
+						}),
+					),
+				);
+			}
+
+			// ---------- Scores ----------
+
+			// Odd ones not yet looked at first, then the last two weeks.
 			function renderScores() {
 				const box = document.getElementById("scores");
 				box.replaceChildren();
-				if (!data.scores.length) {
-					box.append(el("div", { className: "card empty", textContent: "No scores yet." }));
-					return;
-				}
-				for (const s of data.scores) box.append(scoreCard(s));
+				if (!data.scores.length) return box.append(el("div", { className: "empty", textContent: "No scores yet." }));
+				for (const s of data.scores) box.append(scoreRow(s));
 			}
 
-			function scoreCard(s) {
+			// Several odd scores from one player: checked together, each one still there to open.
+			function playerScoresRow(list) {
+				const best = list.reduce((a, b) => ((list[0].mode === "around" ? b.score < a.score : b.score > a.score) ? b : a));
+				const flags = new Map();
+				for (const s of list)
+					for (const f of JSON.parse(s.flags)) {
+						const kind = f.replace(/\d+/g, "N"); // "Nx this device's best" from several games is one kind
+						flags.set(kind, [...(flags.get(kind) ?? []), f]);
+					}
+				const all = (action, done) => run(async () => {
+					for (const s of list) await api(`scores/${s.id}`, { action });
+				}, done);
+				return el(
+					"div",
+					{ className: "score" },
+					el("span", { className: "points", textContent: scoreText(best) }),
+					el("b", { textContent: best.nickname }),
+					el("span", { className: "mode meta", textContent: modeName(best) }),
+					el("span", { className: "made meta", textContent: `${list.length} games` }),
+					el("span", { className: "when meta", textContent: list[0].created_at.slice(0, 10) }),
+					el("div", { className: "flags" }, ...[...flags.values()].map((fs) => el("span", { className: "flag", textContent: fs.length > 1 ? `${fs[0]} · ${fs.length} games` : fs[0] }))),
+					el(
+						"div",
+						{ className: "buttons" },
+						el("button", { type: "button", className: "primary", textContent: "All fine", onclick: all("show", `Kept ${list.length} scores`) }),
+						el("button", { type: "button", className: "danger", textContent: "Hide all", onclick: all("hide", `Hid ${list.length} scores`) }),
+					),
+					el("details", {}, el("summary", { textContent: "Each game" }), ...list.map(scoreRow)),
+				);
+			}
+
+			function scoreRow(s) {
 				const flags = JSON.parse(s.flags);
 				const log = JSON.parse(s.log);
 				const gaps = log.slice(1).map((shot, i) => shot[0] - log[i][0]);
 				const fastest = gaps.length ? Math.min(...gaps).toFixed(1) : "-";
 				const odd = suspicious(s);
-				const act = (action) => async () => {
-					try {
-						await api(`scores/${s.id}`, { action });
-						toast(action === "hide" ? "Hidden" : odd ? "Kept on the board" : "On the board");
-						await load();
-					} catch (err) {
-						toast(err.message);
-					}
-				};
-				const status = s.status === "shown" ? "On the board" : "Hidden";
-				return (
+				const act = (action, done) => run(() => api(`scores/${s.id}`, { action }), done);
+				// Who they played as: a built-in player's name, or "Own player" for one made on their device.
+				const who = /^me\d+$/.test(s.player) ? "own player" : s.player;
+				const more = el(
+					"div",
+					{ className: "more", hidden: true },
 					el(
 						"div",
-						{ className: "card" },
-						el("div", { className: "meta", textContent: `${status} · ${s.created_at.slice(0, 16).replace("T", " ")} · ${modeName(s)}played as ${s.player}` }),
-						el(
-							"div",
-							{},
-							el("span", { className: "score-big", textContent: `${scoreText(s)} ` }),
-							el("b", { textContent: s.nickname }),
-							odd ? el("span", { className: "suspect", textContent: "Suspicious" }) : null,
-						),
-						...flags.map((f) => el("span", { className: "flag", textContent: f })),
-						el(
-							"div",
-							{ className: "stats" },
-							el("span", { textContent: `Shots: ${s.made}/${s.shots} (${s.shots ? Math.round((s.made / s.shots) * 100) : 0}%)` }),
-							el("span", { textContent: `Threes made: ${s.threes}` }),
-							el("span", { textContent: `Fastest gap: ${fastest}s` }),
-							el("span", { textContent: `Sent after: ${Math.round(s.real_seconds)}s` }),
-							el("span", { textContent: `Played with: ${s.input ?? "?"}` }),
-							s.hidden_tab ? el("span", { textContent: "Tab hidden mid-game" }) : null,
-						),
-						el(
-							"div",
-							{ className: "shots", title: "Each shot in order: green went in, yellow edge was a three" },
-							...log.map((shot) => el("span", { className: `${shot[2] ? "in" : ""} ${shot[1] ? "three" : ""}`, title: `${shot[0]}s, timing ${shot[3]}` })),
-						),
-						el(
-							"div",
-							{ className: "row" },
-							odd ? el("button", { type: "button", className: "primary", textContent: "Looks fine", onclick: act("show") }) : null,
-							s.status === "hidden" ? el("button", { type: "button", className: "primary", textContent: "Put back on the board", onclick: act("show") }) : null,
-							s.status !== "hidden" ? el("button", { type: "button", className: "danger", textContent: "Hide", onclick: act("hide") }) : null,
-						),
-					)
+						{ className: "stats" },
+						el("span", { textContent: `Threes made: ${s.threes}` }),
+						el("span", { textContent: `Fastest gap: ${fastest}s` }),
+						el("span", { textContent: `Sent after: ${Math.round(s.real_seconds)}s` }),
+						el("span", { textContent: `Played with: ${s.input ?? "?"}` }),
+						s.hidden_tab ? el("span", { textContent: "Tab hidden mid-game" }) : null,
+					),
+					el(
+						"div",
+						{ className: "shots", title: "Each shot in order: green went in, yellow edge was a three" },
+						...log.map((shot) => el("span", { className: `${shot[2] ? "in" : ""} ${shot[1] ? "three" : ""}`, title: `${shot[0]}s, timing ${shot[3]}` })),
+					),
+				);
+				return el(
+					"div",
+					{ className: `score${s.status === "hidden" ? " hidden-score" : ""}` },
+					el("span", { className: "points", textContent: scoreText(s) }),
+					el("b", { className: "who", textContent: s.nickname }),
+					el("span", { className: "mode meta", textContent: `${modeName(s)} · ${who}` }),
+					el("span", { className: "made meta", textContent: `${s.made}/${s.shots} made` }),
+					el("span", { className: "when meta", textContent: s.created_at.slice(5, 16).replace("T", " ") }),
+					// Flags already looked at are greyed out.
+					el(
+						"div",
+						{ className: "flags" },
+						s.status === "hidden" ? el("span", { className: "meta", textContent: "Hidden" }) : null,
+						...flags.map((f) => el("span", { className: odd ? "flag" : "flag seen", textContent: f })),
+					),
+					el(
+						"div",
+						{ className: "buttons" },
+						el("button", { type: "button", textContent: "More", onclick: () => (more.hidden = !more.hidden) }),
+						odd ? el("button", { type: "button", className: "primary", textContent: "Fine", onclick: act("show", "Kept on the board") }) : null,
+						s.status === "hidden"
+							? el("button", { type: "button", className: "primary", textContent: "Show", onclick: act("show", "On the board") })
+							: el("button", { type: "button", className: "danger", textContent: "Hide", onclick: act("hide", "Hidden") }),
+					),
+					more,
 				);
 			}
 
@@ -510,7 +652,7 @@
 			}
 
 			load().catch((err) => {
-				document.getElementById("inbox").replaceChildren(el("div", { className: "card empty", textContent: err.message }));
+				document.getElementById("inbox").replaceChildren(el("div", { className: "empty", textContent: err.message }));
 			});
 		</script>
 	</body>
