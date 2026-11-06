@@ -198,7 +198,7 @@ async function mountBoard(node) {
 	node.replaceChildren(el("p", { className: "fb-loading", textContent: "Loading ideas…" }));
 	let apps, ideas, voted;
 	try {
-		const [cfg, list] = await Promise.all([getConfig(), fetch(`${API}/ideas?device=${deviceId()}`).then((r) => r.json())]);
+		const [cfg, list] = await Promise.all([getConfig(), fetch(`${API}/ideas`, { headers: { "X-Device": deviceId() } }).then((r) => r.json())]);
 		apps = cfg.apps;
 		ideas = list.ideas;
 		voted = new Set(list.voted);

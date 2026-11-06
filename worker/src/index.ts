@@ -1,7 +1,7 @@
 // The API for orsonbrooker.com: this file is the entry point and router; each area has its own file.
 //
 // Public:  GET  /api/config         Turnstile site key and the list of games/apps          ideas.ts
-//          GET  /api/ideas          approved ideas (?app= to filter, &device= to mark own votes)
+//          GET  /api/ideas          approved ideas (?app= to filter; an X-Device header marks own votes)
 //          POST /api/submit         a visitor's idea; goes to the admin inbox, never straight to the board
 //          POST /api/vote           upvote or un-upvote an idea
 //          GET  /api/check?text=    is this text OK? (live checks while typing)              util.ts
@@ -38,7 +38,7 @@ export default {
 			if (url.pathname.startsWith("/api/admin/")) return await admin(request, env, url);
 			if (request.method === "OPTIONS") return cors(request, new Response(null, { status: 204 }));
 			// The same for everyone: kept in the edge cache for a short while (cache.ts).
-			const shared = request.method === "GET" ? cacheKey(url) : null;
+			const shared = request.method === "GET" ? cacheKey(request, url) : null;
 			if (shared) return cors(request, await cached(shared, ctx, () => publicApi(request, env, url)));
 			return cors(request, await publicApi(request, env, url));
 		} catch (err) {
@@ -63,7 +63,7 @@ async function publicApi(request: Request, env: Env, url: URL): Promise<Response
 		case "GET /api/config":
 			return config(env);
 		case "GET /api/ideas":
-			return listIdeas(env, url);
+			return listIdeas(request, env, url);
 		case "POST /api/submit":
 			return submit(request, env);
 		case "POST /api/vote":

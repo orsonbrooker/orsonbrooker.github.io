@@ -3,11 +3,12 @@
 // Run: npm --prefix worker test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_CREDIT, mergeCredit } from "../src/ideas.ts";
+import { cacheKey } from "../src/cache.ts";
+import { deviceOf, MAX_CREDIT, mergeCredit } from "../src/ideas.ts";
 import { notifyMessage } from "../src/notify.ts";
 import { isNickname } from "../src/players.ts";
 import { scoreNickname } from "../src/scores.ts";
-import { clean, isLocalHost, isRude, requireSameOriginJson, RUDE } from "../src/util.ts";
+import { clean, cors, isLocalHost, isRude, requireSameOriginJson, RUDE } from "../src/util.ts";
 import type { Env } from "../src/util.ts";
 
 test("clean tidies spaces, trims, cuts to length and drops anything but text", () => {
@@ -101,4 +102,23 @@ test("the local admin shortcut is only for this machine's own address", () => {
 	for (const url of ["http://192.168.4.23:8787/admin", "http://macbook.local:8787/admin", "https://orsonbrooker.com/admin", "http://localhost.evil.com/admin"])
 		assert.equal(at(url), false, url);
 	assert.equal(at("http://localhost:8787/admin", "192.168.4.40"), false);
+});
+
+test("the ideas list is edge-cached only without a device, and the device stays out of URLs", () => {
+	const key = (url: string, headers: Record<string, string> = {}) => cacheKey(new Request(url, { headers }), new URL(url));
+	const base = "https://orsonbrooker.com/api/ideas";
+	assert.deepEqual(key(base), { key: base, ttl: 30 });
+	assert.deepEqual(key(`${base}?app=basketball&junk=1`), { key: `${base}?app=basketball`, ttl: 30 });
+	// The device in a header (now) or the query (pages cached before the change): personal, never cached.
+	assert.equal(key(base, { "X-Device": "abcdef0123456789abcdef" }), null);
+	assert.equal(key(`${base}?app=basketball`, { "X-Device": "abcdef0123456789abcdef" }), null);
+	assert.equal(key(`${base}?device=abcdef0123456789abcdef`), null);
+	const device = (url: string, headers: Record<string, string> = {}) => deviceOf(new Request(url, { headers }), new URL(url));
+	assert.equal(device(base, { "X-Device": "abc" }), "abc");
+	assert.equal(device(`${base}?device=old`), "old");
+	assert.equal(device(`${base}?device=old`, { "X-Device": "new" }), "new");
+	assert.equal(device(base), "");
+	// Local pages on another port can send the header.
+	const res = cors(new Request(base, { headers: { Origin: "http://localhost:5175" } }), new Response(null));
+	assert.match(res.headers.get("Access-Control-Allow-Headers") ?? "", /\bX-Device\b/);
 });

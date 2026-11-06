@@ -8,19 +8,21 @@
 
 import { modeOf } from "../../shared/rules.js";
 import type { Mode } from "../../shared/rules.js";
+import { deviceOf } from "./ideas.ts";
 
 type Cached = { key: string; ttl: number };
 
 /** Where a public GET is cached, and for how many seconds, or null if it mustn't be. */
-export function cacheKey(url: URL): Cached | null {
+export function cacheKey(request: Request, url: URL): Cached | null {
 	const path = url.pathname;
 	const q = url.searchParams;
 	if (path === "/api/scores") return { key: boardKey(url.origin, modeOf(q.get("mode")), q.get("range") === "all"), ttl: 30 };
 	const id = path.match(/^\/api\/scores\/(\d{1,10})$/);
 	if (id) return { key: `${url.origin}/api/scores/${Number(id[1])}`, ttl: 60 };
 	if (path === "/api/players" || path === "/api/config") return { key: url.origin + path, ttl: 60 };
-	// With a device, the answer marks that device's own votes: never cached.
-	if (path === "/api/ideas" && !q.has("device")) {
+	// With a device (deviceOf in ideas.ts: the X-Device header, or ?device= from older pages), the
+	// answer marks that device's own votes: never cached.
+	if (path === "/api/ideas" && !deviceOf(request, url)) {
 		const app = q.get("app");
 		return { key: `${url.origin}/api/ideas${app ? `?app=${encodeURIComponent(app)}` : ""}`, ttl: 30 };
 	}

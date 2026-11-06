@@ -35,7 +35,7 @@ export function cors(request: Request, response: Response): Response {
 	if (origin && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
 		response.headers.set("Access-Control-Allow-Origin", origin);
 		response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-		response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+		response.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Device");
 	}
 	return response;
 }
