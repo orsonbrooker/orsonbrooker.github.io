@@ -4,3 +4,11 @@ __pycache__/
 .cloudflare/
 .wrangler/
 .character-cache/
+
+# Claude Code: local settings and worktrees (skills in .claude/skills/ are shared)
+.claude/worktrees/
+.claude/launch.json
+.claude/settings.local.json
+
+# Planning notes and other short-lived docs: kept locally, never committed
+notes/
