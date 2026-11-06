@@ -41,6 +41,7 @@ interface Env {
 const STATUSES = ["idea", "planned", "building", "done", "hidden"];
 const MAX_TEXT = 500;
 const MAX_NICKNAME = 20;
+const MAX_CREDIT = 60; // an idea can credit several people, like "Moni, Jude"
 const SUBMISSIONS_PER_HOUR = 5;
 const PLAYERS_PER_HOUR = 3;
 const MAX_PLAYER_NAME = 12;
@@ -701,16 +702,41 @@ async function triage(env: Env, id: number, body: Record<string, unknown>): Prom
 		const title = clean(body.title, 80);
 		if (!title) throw new HttpError(400, "Give the idea a title.");
 		const app = clean(body.app, 40) || sub.app;
-		const credit = body.credit ? sub.nickname : null;
+		// Any name the admin typed (empty for none). An older page sends true to credit their nickname.
+		const credit = typeof body.credit === "string" ? clean(body.credit, MAX_CREDIT) || null : body.credit ? sub.nickname : null;
 		const created = await env.DB.prepare("INSERT INTO ideas (app, title, description, credit) VALUES (?, ?, ?, ?) RETURNING id")
 			.bind(app, title, clean(body.description, MAX_TEXT), credit)
 			.first<{ id: number }>();
 		await env.DB.prepare("UPDATE submissions SET status = 'approved', idea_id = ? WHERE id = ?").bind(created!.id, id).run();
 	} else if (body.action === "merge") {
+		// Adding it to an existing idea can also: update that idea's title and description, count as
+		// an upvote (once per submission, so merging twice can't vote twice), and credit the sender.
 		const ideaId = Number(body.ideaId);
-		const idea = await env.DB.prepare("SELECT id FROM ideas WHERE id = ?").bind(ideaId).first();
+		const idea = await env.DB.prepare("SELECT id, title, description, credit FROM ideas WHERE id = ?")
+			.bind(ideaId)
+			.first<{ id: number; title: string; description: string; credit: string | null }>();
 		if (!idea) throw new HttpError(400, "Pick an idea to merge into.");
-		await env.DB.prepare("UPDATE submissions SET status = 'merged', idea_id = ? WHERE id = ?").bind(ideaId, id).run();
+		const title = body.title === undefined ? idea.title : clean(body.title, 80);
+		if (!title) throw new HttpError(400, "Give the idea a title.");
+		const description = body.description === undefined ? idea.description : clean(body.description, MAX_TEXT);
+		// Their nickname joins the credit ("Moni, Jude"), unless it's already there or won't fit.
+		let credit = idea.credit;
+		const names = (credit ?? "").split(",").map((n) => n.trim().toLowerCase()).filter(Boolean);
+		const nickname = sub.nickname?.trim();
+		if (body.credit && nickname && !names.includes(nickname.toLowerCase())) {
+			const joined = credit ? `${credit}, ${nickname}` : nickname;
+			if (joined.length <= MAX_CREDIT) credit = joined;
+		}
+		const steps = [
+			env.DB.prepare("UPDATE ideas SET title = ?, description = ?, credit = ?, updated_at = datetime('now') WHERE id = ?").bind(title, description, credit, ideaId),
+			env.DB.prepare("UPDATE submissions SET status = 'merged', idea_id = ? WHERE id = ?").bind(ideaId, id),
+		];
+		if (body.upvote)
+			steps.push(
+				env.DB.prepare("INSERT OR IGNORE INTO votes (idea_id, voter, ip_hash) VALUES (?, ?, 'admin')").bind(ideaId, `submission:${id}`),
+				recount(env, ideaId),
+			);
+		await env.DB.batch(steps);
 	} else {
 		throw new HttpError(400, "Unknown action.");
 	}
@@ -728,7 +754,7 @@ async function editIdea(env: Env, id: number, body: Record<string, unknown>): Pr
 		   done_at = CASE WHEN ?4 = 'done' THEN COALESCE(done_at, datetime('now')) ELSE NULL END
 		 WHERE id = ?5`,
 	)
-		.bind(title, clean(body.description, MAX_TEXT), clean(body.credit, MAX_NICKNAME) || null, status, id)
+		.bind(title, clean(body.description, MAX_TEXT), clean(body.credit, MAX_CREDIT) || null, status, id)
 		.run();
 	if (!result.meta.changes) throw new HttpError(404, "No such idea.");
 	return json({ ok: true }, 200, 0);

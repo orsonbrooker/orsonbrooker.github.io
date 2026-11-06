@@ -96,6 +96,10 @@
 			.sub .fields .wide { grid-column: 1 / -1; }
 			.sub .actions { display: flex; flex-direction: column; gap: 5px; }
 			.sub .actions .danger { margin-top: auto; }
+			.sub .credit-row { display: flex; gap: 6px; max-width: 360px; }
+			.sub .credit-row button { white-space: nowrap; }
+			.sub .merge-panel { border-left: 3px solid var(--accent); padding: 4px 0 2px 10px; display: grid; gap: 6px; }
+			.sub .merge-head { font-weight: bold; font-size: 13px; }
 
 			/* Ideas on the board: one line each. */
 			.idea {
@@ -311,7 +315,14 @@
 				const title = el("input", { type: "text", value: s.title ?? s.text.slice(0, 80), maxLength: 80 });
 				const description = el("textarea", { value: s.description ?? s.text, maxLength: 500, rows: 2 });
 				const app = appSelect(s.app);
-				const credit = el("input", { type: "checkbox" });
+				// Who the board credits for it: any name, or empty for none. Their nickname is one tap away.
+				const credit = el("input", { type: "text", maxLength: 60, placeholder: "No credit" });
+				const creditRow = el(
+					"div",
+					{ className: "credit-row" },
+					credit,
+					s.nickname ? el("button", { type: "button", textContent: `Use "${s.nickname}"`, onclick: () => (credit.value = s.nickname) }) : null,
+				);
 				const mergeInto = el(
 					"select",
 					{},
@@ -319,6 +330,41 @@
 					...data.ideas.filter((i) => i.status !== "hidden").map((i) => el("option", { value: i.id, textContent: `${appName(i.app)}: ${i.title}`, selected: i.id === s.merge_into })),
 				);
 				const act = (action, extra, done) => run(() => api(`submissions/${s.id}`, { action, ...extra }), done);
+				// Adding it to an existing idea: that idea's title and description to edit, and whether it
+				// counts as an upvote and credits the sender. Shown once an idea is picked, in place of the
+				// fields for a new idea.
+				const mergeTitle = el("input", { type: "text", maxLength: 80 });
+				const mergeDescription = el("textarea", { maxLength: 500, rows: 2 });
+				const upvote = el("input", { type: "checkbox", checked: true });
+				const creditSender = el("input", { type: "checkbox", checked: !!s.nickname });
+				const mergeHeading = el("div", { className: "merge-head" });
+				const mergePanel = el(
+					"div",
+					{ className: "merge-panel", hidden: true },
+					mergeHeading,
+					el("div", { className: "fields" }, field("Title", mergeTitle, "wide"), field("Description", mergeDescription, "wide")),
+					el("label", { className: "check" }, upvote, "Count it as an upvote"),
+					s.nickname ? el("label", { className: "check" }, creditSender, `Credit "${s.nickname}" too`) : null,
+				);
+				const newFields = el(
+					"div",
+					{ className: "fields" },
+					field("Title", title),
+					field("Game or app", app),
+					field("Description", description, "wide"),
+					el("div", { className: "field wide" }, el("span", { textContent: "Credit on the board" }), creditRow),
+				);
+				const showMerge = () => {
+					const idea = data.ideas.find((i) => String(i.id) === mergeInto.value);
+					mergePanel.hidden = !idea;
+					newFields.hidden = !!idea;
+					if (!idea) return;
+					mergeHeading.textContent = `Adding to "${idea.title}" (${appName(idea.app)} · ▲${idea.votes}${idea.credit ? ` · credit: ${idea.credit}` : ""})`;
+					mergeTitle.value = idea.title;
+					mergeDescription.value = idea.description;
+				};
+				mergeInto.addEventListener("change", showMerge);
+				showMerge();
 				const headline = el("h3", { textContent: title.value });
 				title.addEventListener("input", () => (headline.textContent = title.value));
 				// The button the suggestion points to gets an outline.
@@ -334,14 +380,8 @@
 						headline,
 						el("p", { className: "quote", textContent: `They wrote: "${s.text}"` }),
 						s.note ? el("p", { className: "note", textContent: s.note }) : null,
-						el(
-							"div",
-							{ className: "fields" },
-							field("Title", title),
-							field("Game or app", app),
-							field("Description", description, "wide"),
-						),
-						s.nickname ? el("label", { className: "check" }, credit, `Credit "${s.nickname}" on the board`) : null,
+						newFields,
+						mergePanel,
 					),
 					el(
 						"div",
@@ -350,14 +390,21 @@
 							type: "button",
 							className: mark("add", "primary"),
 							textContent: "Add to board",
-							onclick: () => act("approve", { title: title.value, description: description.value, app: app.value, credit: credit.checked }, "On the board!")(),
+							onclick: () => act("approve", { title: title.value, description: description.value, app: app.value, credit: credit.value.trim() }, "On the board!")(),
 						}),
 						mergeInto,
 						el("button", {
 							type: "button",
 							className: mark("merge"),
 							textContent: "Add to that idea",
-							onclick: () => (mergeInto.value ? act("merge", { ideaId: mergeInto.value }, "Added to idea")() : toast("Pick an idea first")),
+							onclick: () =>
+								mergeInto.value
+									? act(
+											"merge",
+											{ ideaId: mergeInto.value, title: mergeTitle.value, description: mergeDescription.value, upvote: upvote.checked, credit: creditSender.checked },
+											"Added to idea",
+										)()
+									: toast("Pick an idea first"),
 						}),
 						el("button", { type: "button", className: mark("reject", "danger"), textContent: "Reject", onclick: act("reject", {}, "Rejected") }),
 					),
@@ -384,7 +431,7 @@
 			function ideaRow(idea) {
 				const title = el("input", { type: "text", value: idea.title, maxLength: 80 });
 				const description = el("textarea", { value: idea.description, maxLength: 500, rows: 2 });
-				const credit = el("input", { type: "text", value: idea.credit ?? "", maxLength: 20, placeholder: "No credit" });
+				const credit = el("input", { type: "text", value: idea.credit ?? "", maxLength: 60, placeholder: "No credit" });
 				const status = el("select", {}, ...STATUSES.map((s) => el("option", { value: s, textContent: s, selected: s === idea.status })));
 				return el(
 					"div",
