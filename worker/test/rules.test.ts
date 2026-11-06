@@ -7,7 +7,9 @@ import {
 	MONEY,
 	NORMAL,
 	RAINBOW,
+	THREE_POINT_CONTEST,
 	ballKind,
+	contestBall,
 	ballPoints,
 	fireBonus,
 	fireLevelIndex,
@@ -98,4 +100,19 @@ test("modes", () => {
 	assert.equal(modeOf("nope"), "timed");
 	assert.equal(lowWins("around"), true);
 	assert.equal(lowWins("timed"), false);
+});
+
+test("3-point contest: five racks of five, the last ball of each a money ball", () => {
+	assert.equal(modeOf("threes"), "threes");
+	assert.equal(lowWins("threes"), false);
+	assert.deepEqual(THREE_POINT_CONTEST, { racks: 5, balls: 5, seconds: 60 });
+	const balls = Array.from({ length: 26 }, (_, i) => contestBall(i));
+	assert.deepEqual(balls.slice(0, 10), [NORMAL, NORMAL, NORMAL, NORMAL, MONEY, NORMAL, NORMAL, NORMAL, NORMAL, MONEY]);
+	assert.equal(balls.filter((b) => b === MONEY).length, 5);
+	assert.equal(balls[25], null); // no balls left
+	// One rack, made cold: 3 + 3 + 3 + (3 + 1 on fire) + (3 + 1) x 2 for the money ball.
+	const perfect = balls.slice(0, 25).map((kind, i) => [i * 2, 1, 1, 0, kind ?? NORMAL] as [number, number, number, number, number]);
+	assert.equal(recountScore(perfect.slice(0, 5)), 21);
+	// All 25: 21 + 29 + 36 + 36 + 36.
+	assert.equal(recountScore(perfect), 158);
 });

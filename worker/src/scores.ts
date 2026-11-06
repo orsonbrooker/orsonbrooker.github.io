@@ -7,7 +7,7 @@
 // old enough for the game it claims), test mode, the robot check and the daily limit.
 // (Nicknames don't matter: a device's row is per player, whatever name it's sent with.)
 
-import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, lowWins, modeOf } from "../../shared/rules.js";
+import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, THREE_POINT_CONTEST, lowWins, modeOf } from "../../shared/rules.js";
 import type { Mode, Shot } from "../../shared/rules.js";
 import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
@@ -32,6 +32,12 @@ export const ODD_UNCHECKED = "status = 'shown' AND flags != '[]' AND checked = 0
 const FEATURE_FROM = {
 	supernova: "2026-11-05 20:47:00",
 	bonusBalls: "2026-11-05 20:47:00",
+	// The green part of the jump bar moves from shot to shot in Sudden death (from a run of 5), Around
+	// the World and the 3-point contest. Sudden death squeezes it more slowly to make up for it. Older
+	// games on those boards were played with it still. Set to when it goes live.
+	movingGreen: "2026-11-06 20:00:00",
+	// The 3-point contest (racks of five, a money ball last in each). Set to when it goes live.
+	threePointContest: "2026-11-06 20:00:00",
 };
 export const hadFeature = (createdAt: unknown, feature: keyof typeof FEATURE_FROM) => String(createdAt) >= FEATURE_FROM[feature];
 
@@ -309,9 +315,19 @@ export function cardStats(log: Shot[], mode: Mode, score: number, createdAt: unk
 			if (made) spot++;
 		}
 	}
+	// 3-point contest: baskets made from each rack, in order.
+	const racks: number[] = [];
+	if (mode === "threes" && hadFeature(createdAt, "threePointContest"))
+		log.forEach(([, , made], i) => {
+			const rack = Math.floor(i / THREE_POINT_CONTEST.balls);
+			racks[rack] = (racks[rack] ?? 0) + (made ? 1 : 0);
+		});
 	return {
 		bestStreak,
 		onFire,
+		racks,
+		// Whether the green part of the jump bar was moving (it does in some modes, for newer games).
+		movingGreen: mode !== "timed" && hadFeature(createdAt, "movingGreen"),
 		// Left out for games from before these existed.
 		supernova: hadFeature(createdAt, "supernova") ? supernova : null,
 		money: hadFeature(createdAt, "bonusBalls") ? money : null,

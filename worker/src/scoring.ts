@@ -6,13 +6,14 @@
 //   rejected  impossible: the score doesn't match its shots, bonus balls the token didn't give, more
 //             shots than fit in a game, shots too close together. A sudden death game must end on its
 //             first miss, with nothing made after it. An around the world time must come just after
-//             its last spot went in.
+//             its last spot went in. A 3-point contest has at most its racks' balls, every one a
+//             three, with a money ball only (and always) as the last ball of each rack.
 //   flagged   odd but possible: machine-like timing, a huge jump on the device's best, a device's
 //             first game in a mode going straight into this week's top 3, an around the world time
 //             faster than anyone really gets round, far more bonus balls than the shots would give.
 //             On the board straight away, and in the admin inbox to check.
 
-import { AROUND_SPOTS, GAME_SECONDS, MIN_SHOT_GAP, MONEY_CHANCE, RAINBOW, RAINBOW_CHANCE, ballKind, recountScore } from "../../shared/rules.js";
+import { AROUND_SPOTS, GAME_SECONDS, MIN_SHOT_GAP, MONEY_CHANCE, RAINBOW, RAINBOW_CHANCE, THREE_POINT_CONTEST, ballKind, contestBall, recountScore } from "../../shared/rules.js";
 import type { Mode, Shot } from "../../shared/rules.js";
 import { HttpError } from "./http.ts";
 
@@ -31,12 +32,16 @@ export type CheckedGame = {
  */
 export function checkGame(mode: Mode, score: number, rawShots: unknown, token: unknown): CheckedGame {
 	const raw = Array.isArray(rawShots) ? rawShots : [];
-	if (raw.length > (mode === "timed" ? 80 : 500)) throw new HttpError(400, "That's more shots than fit in a game.");
+	const contest = mode === "threes";
+	const contestBalls = THREE_POINT_CONTEST.racks * THREE_POINT_CONTEST.balls;
+	if (raw.length > (mode === "timed" ? 80 : contest ? contestBalls : 500)) throw new HttpError(400, "That's more shots than fit in a game.");
 	const shots: Shot[] = raw.map((s: unknown, i: number) => {
 		if (!Array.isArray(s) || (s.length !== 4 && s.length !== 5) || !s.every((n) => typeof n === "number" && Number.isFinite(n))) throw new HttpError(400, "Bad shot log.");
-		// A bonus ball only counts if this game's token really gave that shot one.
 		const kind = s[4] ?? 0;
-		if (kind !== 0 && kind !== ballKind(String(token), i)) throw new HttpError(400, "Bad shot log.");
+		if (contest) {
+			// Every ball in the racks is a three, and only the last of each rack is a money ball.
+			if (!s[1] || kind !== contestBall(i)) throw new HttpError(400, "Bad shot log.");
+		} else if (kind !== 0 && kind !== ballKind(String(token), i)) throw new HttpError(400, "Bad shot log."); // a bonus ball only counts if this game's token really gave that shot one
 		return [Math.round(s[0] * 100) / 100, s[1] ? 1 : 0, s[2] ? 1 : 0, Math.round(s[3] * 1000) / 1000, kind];
 	});
 
@@ -49,7 +54,7 @@ export function checkGame(mode: Mode, score: number, rawShots: unknown, token: u
 	} else if (!Number.isInteger(score) || score < 1 || score !== recountScore(shots)) throw new HttpError(400, "That score doesn't match its shots.");
 
 	const times = shots.map((s) => s[0]);
-	const maxTime = mode === "timed" ? GAME_SECONDS + 0.5 : 6 * 3600;
+	const maxTime = mode === "timed" ? GAME_SECONDS + 0.5 : contest ? THREE_POINT_CONTEST.seconds + 0.5 : 6 * 3600;
 	if (times.some((t, i) => t < 0 || t > maxTime || (i > 0 && t < times[i - 1]))) throw new HttpError(400, "Bad shot log.");
 	if (mode === "survival") {
 		// It ends on the first miss. A shot already in the air then doesn't count, so nothing after it is made.
@@ -59,7 +64,11 @@ export function checkGame(mode: Mode, score: number, rawShots: unknown, token: u
 	const gaps = times.slice(1).map((t, i) => t - times[i]);
 	if (gaps.some((g) => g < MIN_SHOT_GAP)) throw new HttpError(400, "Those shots came too quickly.");
 
-	const minSeconds = mode === "timed" ? GAME_SECONDS - 1 : Math.max(times.at(-1) ?? 0, mode === "around" ? score / 10 : 0) - 1;
+	// A 3-point contest runs the whole clock, unless every rack was shot before it ran out.
+	const minSeconds =
+		mode === "timed" ? GAME_SECONDS - 1
+		: contest && shots.length < contestBalls ? THREE_POINT_CONTEST.seconds - 1
+		: Math.max(times.at(-1) ?? 0, mode === "around" ? score / 10 : 0) - 1;
 	return { shots, gaps, made: shots.filter((s) => s[2]).length, minSeconds };
 }
 
@@ -110,7 +119,8 @@ export function oddFlags(mode: Mode, score: number, game: CheckedGame, pastBest:
 	const bonus = shots.filter((s) => s[4]).length;
 	const rainbows = shots.filter((s) => s[4] === RAINBOW).length;
 	const rare = (p: number, k: number) => atLeast(shots.length, p, k) * BONUS_RARITY < 1;
-	if (rare(MONEY_CHANCE + RAINBOW_CHANCE, bonus) || rare(RAINBOW_CHANCE, rainbows))
+	// (A 3-point contest's money balls come from the racks, not the token.)
+	if (mode !== "threes" && rare(MONEY_CHANCE + RAINBOW_CHANCE, bonus) || rare(RAINBOW_CHANCE, rainbows))
 		flags.push(`${bonus} bonus balls (${rainbows} rainbow) in ${shots.length} shots: a very lucky start token`);
 	return flags;
 }
