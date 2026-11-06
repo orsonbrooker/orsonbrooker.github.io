@@ -62,11 +62,11 @@ flowchart LR
 | Area | Files | What it does |
 |---|---|---|
 | Game entry | `game.js` | Starts the game and wires the pieces below together: the one button (press, release), the screens' buttons, boot, `window.game` in `?debug`. |
-| Engine | `engine/` | `court.js` the court in metres and `project()` onto the isometric art, 3-point line, random spots; `physics.js` fixed-step ball physics (`PHYSICS_STEP`), rim and backboard collisions, reported through callbacks; `loop.js` the frame loop; `input.js` tap/Space/hold, Escape, arrow keys in pickers; `draw.js` canvas helpers (ball sprites, banner, popups, wall scoreboard digits, shoe finder); `storage.js`. |
-| Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness; `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update; `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces. |
+| Engine | `engine/` | `court.js` the court being played (from `content/courts.js`) in metres and `project()` onto the isometric art, 3-point line, random spots; `physics.js` fixed-step ball physics (`PHYSICS_STEP`) with the court's gravity and wind, rim and backboard collisions, reported through callbacks; `loop.js` the frame loop; `input.js` tap/Space/hold, Escape, arrow keys in pickers; `draw.js` canvas helpers (ball sprites, banner, popups, wall scoreboard digits, shoe finder); `storage.js`. |
+| Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness; `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update; `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces, a higher jump; `court.js` switching courts (measurements, physics, art). |
 | Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, shared `points.js`) | Time attack, Sudden death, Around the World, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. |
 | Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player; `panels.js` help and leaderboard; `over.js` game over. |
-| Game content | `content/` | Tables: how each fire level and ball looks, the wall scoreboard art, the Around the World spots, Sudden death run calls and end-of-game calls. |
+| Game content | `content/` | Tables: the courts (`courts.js`), what each player is good at (`attributes.js`), how each fire level and ball looks, the wall scoreboard art, the Around the World spots, Sudden death run calls and end-of-game calls. |
 | Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log. Used by the game and the Worker. |
 | Scoring extras | `daily.js`, `content/looks.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
 | Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots and aim wobble. |
@@ -166,6 +166,28 @@ Terms used across the code:
   offline) the game uses a random seed throughout. It's kept in `state.rngSeed`; `?debug` can set it with
   `window.game.setSeed()`. Effects, sounds and which announcer line plays stay on `Math.random`.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
+
+## Courts
+
+A court is an entry in `content/courts.js`: its art (the court image and the hoop front drawn over the ball),
+how the art maps to metres (origin, one metre along each floor direction, pixels per metre of height), the room's
+size, the rim and backboard, the painted 3-point line (distance every 10 degrees, since it isn't a circle), the
+default spot, and physics settings (gravity, optional wind). `engine/court.js` and `engine/physics.js` export
+the active court's numbers as live bindings (`RIM`, `BOARD`, `GRAVITY`, ...), so the rest of the code reads
+them as before; `play/court.js` `useCourt(id)` switches all of it (and the art) at once. Players only get the
+gym for now. The test courts (`test: true`, the gym with low gravity or wind) are only reachable from `?debug`:
+`await window.game.setCourt("gym-low-gravity")` before starting a game. A new court needs its own art, and a
+look at the Around the World spots (`content/around.js`), which are placed round the hoop by angle and distance.
+
+## Player attributes
+
+What each player is good at, in `content/attributes.js` (`PLAYER_ATTRIBUTES`, by player id): `timing` (the green
+zone's width, times this), `jump` (metres higher at the top of the jump: drawn higher, and the ball leaves from
+there) and `three` (on a 3-pointer, timing mistakes and wobble are divided by this). Everyone is neutral
+(`timing: 1, jump: 0, three: 1`, exactly how the game always played) until values are set there; players made on
+a device are always neutral. The picker shows a player's skills only when they have some. The server needs no
+change: it checks scores from the shot log, and the release timing in the log is measured in that player's own
+green-zone widths.
 
 ## How a score gets on the board
 
