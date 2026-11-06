@@ -37,7 +37,7 @@ async function loadBuilt(entry) {
   return { meta: loaded.meta, img: recolor(loaded, entry.colours), loaded };
 }
 
-export async function loadCharacter(id) {
+async function loadCharacter(id) {
   if (!characters.loaded.has(id)) {
     const entry = characters.list.find((c) => c.id === id) ?? characters.list[0];
     const loading = entry.base

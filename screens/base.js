@@ -2,7 +2,7 @@
 // on this device, and the sound and music buttons.
 
 import { sound } from "../audio.js?v=b614856c";
-import { save, load } from "../engine/storage.js?v=1cb284ce";
+import { load, save } from "../engine/storage.js?v=1cb284ce";
 import { state } from "../play/state.js?v=21175a94";
 import { icon } from "../ui/icons.js?v=c284e3ca";
 

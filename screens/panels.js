@@ -1,9 +1,9 @@
 // The help and leaderboard panels, which open over whichever screen is showing and go back to it.
 
 import { renderBoard } from "../leaderboard.js?v=b6aedccd";
-import { boardBody, boardFace } from "../play/players.js?v=d7ad86ef";
+import { boardBody, boardFace } from "../play/players.js?v=c442a8cf";
 import { state } from "../play/state.js?v=21175a94";
-import { $, openScreen, screens, showScreen, stage } from "../screens/base.js?v=38ec8a3f";
+import { $, openScreen, screens, showScreen, stage } from "../screens/base.js?v=b44aeb9d";
 
 // ---------- Leaderboard ----------
 
@@ -35,7 +35,7 @@ export function wireBoardTabs() {
 // ---------- Help ----------
 
 let helpReturn = null;
-export function openHelp() {
+function openHelp() {
   helpReturn = openScreen();
   showScreen("help");
   $("help-close").focus({ preventScroll: true });

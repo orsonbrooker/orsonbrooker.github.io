@@ -8,12 +8,12 @@ import { COURT_PX, EU, EV, PX_PER_M, RIM, isThreePointSpot, project } from "../e
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "../engine/physics.js?v=0433c248";
 import { save } from "../engine/storage.js?v=1cb284ce";
 import { startToken } from "../leaderboard.js?v=b6aedccd";
-import { frameCount, sheet, shoePoints } from "../play/players.js?v=d7ad86ef";
+import { frameCount, sheet, shoePoints } from "../play/players.js?v=c442a8cf";
 import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss } from "../play/react.js?v=60e50f8e";
-import { updateHud } from "../play/scene.js?v=06cd75e0";
+import { updateHud } from "../play/scene.js?v=bb8007ec";
 import { ANIM_FPS, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state } from "../play/state.js?v=21175a94";
-import { showScreen } from "../screens/base.js?v=38ec8a3f";
-import { endGame } from "../screens/over.js?v=0161a9ae";
+import { showScreen } from "../screens/base.js?v=b44aeb9d";
+import { endGame } from "../screens/over.js?v=09605d98";
 import { GAME_SECONDS } from "../shared/rules.js?v=3d6a7e83";
 
 const SLOW_MO = 0.35; // game speed while a shot at the buzzer drops toward the hoop

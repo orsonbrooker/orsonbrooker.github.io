@@ -4,7 +4,7 @@
 import { sound } from "../audio.js?v=b614856c";
 import { runCall } from "../content/calls.js?v=567f9a3e";
 import { COURT_PX } from "../engine/court.js?v=7f81b538";
-import { pointsMode, scorePoints } from "../modes/points.js?v=eecfaf2c";
+import { pointsMode, scorePoints } from "../modes/points.js?v=51afce5d";
 import { addPopup, announce, confettiBurst, fireStage, pixelFx } from "../play/react.js?v=60e50f8e";
 import { made, player, setAnim, state } from "../play/state.js?v=21175a94";
 

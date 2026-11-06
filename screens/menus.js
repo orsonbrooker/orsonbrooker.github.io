@@ -2,13 +2,13 @@
 // player. The first time someone plays, choosing a player comes first and then the game starts.
 
 import { load, save } from "../engine/storage.js?v=1cb284ce";
-import { characters, setFace, useCharacter } from "../play/players.js?v=d7ad86ef";
-import { startGame } from "../play/round.js?v=8fbdc07f";
-import { updateHud } from "../play/scene.js?v=06cd75e0";
+import { characters, setFace, useCharacter } from "../play/players.js?v=c442a8cf";
+import { startGame } from "../play/round.js?v=4b82712f";
+import { updateHud } from "../play/scene.js?v=bb8007ec";
 import { mode, modes, state } from "../play/state.js?v=21175a94";
 import { removeMyPlayer } from "../players/recolor.js?v=9235830f";
-import { charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js?v=38ec8a3f";
-import { showDaily } from "../screens/over.js?v=0161a9ae";
+import { charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js?v=b44aeb9d";
+import { showDaily } from "../screens/over.js?v=09605d98";
 import { MODES } from "../shared/rules.js?v=3d6a7e83";
 import { confirmDialog } from "../ui/confirm.js?v=a65ef360";
 import { icon } from "../ui/icons.js?v=c284e3ca";

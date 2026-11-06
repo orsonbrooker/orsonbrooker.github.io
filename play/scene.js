@@ -4,10 +4,10 @@
 import { BOARD_ART } from "../content/looks.js?v=964e275c";
 import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, project } from "../engine/court.js?v=7f81b538";
 import { BALL_FRAMES, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow } from "../engine/draw.js?v=c80d3ab8";
-import { currentFrame, frameCount, sheet } from "../play/players.js?v=d7ad86ef";
+import { currentFrame, frameCount, sheet } from "../play/players.js?v=c442a8cf";
 import { fireLevel, nextBallBadge, pixelFx, timingWindow } from "../play/react.js?v=60e50f8e";
 import { DEBUG, JUMP_APEX, JUMP_FRAME_TIME, hints, mode, player, state } from "../play/state.js?v=21175a94";
-import { howTo, stage } from "../screens/base.js?v=38ec8a3f";
+import { howTo, stage } from "../screens/base.js?v=b44aeb9d";
 import { NORMAL } from "../shared/rules.js?v=3d6a7e83";
 
 const canvas = document.getElementById("game");
