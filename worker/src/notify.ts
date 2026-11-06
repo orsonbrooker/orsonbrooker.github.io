@@ -9,20 +9,25 @@ export async function notify(env: Env): Promise<void> {
 	const players = await env.DB.prepare("SELECT COUNT(*) AS n FROM players WHERE status = 'new'").first<{ n: number }>();
 	const votes = await env.DB.prepare("SELECT COUNT(*) AS n FROM votes WHERE created_at > datetime('now', '-7 days')").first<{ n: number }>();
 	const odd = await env.DB.prepare(`SELECT COUNT(*) AS n FROM scores WHERE ${ODD_UNCHECKED}`).first<{ n: number }>();
-	const ideas = row?.n ?? 0;
-	const newPlayers = players?.n ?? 0;
-	const oddScores = odd?.n ?? 0;
-	if (!ideas && !newPlayers && !oddScores) return;
+	const message = notifyMessage({ ideas: row?.n ?? 0, players: players?.n ?? 0, oddScores: odd?.n ?? 0, votes: votes?.n ?? 0 });
+	if (!message) return;
+	await fetch(`https://ntfy.sh/${env.NTFY_TOPIC}`, {
+		method: "POST",
+		headers: { Title: "Things to check", Click: `${env.SITE_URL}/admin`, Tags: "basketball" },
+		body: message,
+	});
+}
+
+/** The notification's text, or null when nothing is waiting (votes alone don't need a look). */
+export function notifyMessage(counts: { ideas: number; players: number; oddScores: number; votes: number }): string | null {
+	const { ideas, players, oddScores, votes } = counts;
+	if (!ideas && !players && !oddScores) return null;
 	const waiting = [
 		ideas && `${ideas} new idea${ideas === 1 ? "" : "s"}`,
-		newPlayers && `${newPlayers} new player${newPlayers === 1 ? "" : "s"}`,
+		players && `${players} new player${players === 1 ? "" : "s"}`,
 		oddScores && `${oddScores} odd-looking score${oddScores === 1 ? "" : "s"}`,
 	]
 		.filter(Boolean)
 		.join(" and ");
-	await fetch(`https://ntfy.sh/${env.NTFY_TOPIC}`, {
-		method: "POST",
-		headers: { Title: "Things to check", Click: `${env.SITE_URL}/admin`, Tags: "basketball" },
-		body: `${waiting} waiting, and ${votes?.n ?? 0} votes this week.`,
-	});
+	return `${waiting} waiting, and ${votes} votes this week.`;
 }

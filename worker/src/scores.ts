@@ -10,7 +10,7 @@
 import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, lowWins, modeOf } from "../../shared/rules.js";
 import type { Mode, Shot } from "../../shared/rules.js";
 import { HttpError } from "./http.ts";
-import { MAX_PLAYER_NAME, PLAYER_PARTS } from "./players.ts";
+import { MAX_PLAYER_NAME, PLAYER_PARTS, isNickname } from "./players.ts";
 import { checkGame, oddFlags } from "./scoring.ts";
 import { checkTurnstile, clean, hash, ipKey, isRude, json, readJson, RUDE } from "./util.ts";
 import type { Env } from "./util.ts";
@@ -31,7 +31,7 @@ const FEATURE_FROM = {
 	supernova: "2026-11-05 20:47:00",
 	bonusBalls: "2026-11-05 20:47:00",
 };
-const hadFeature = (createdAt: unknown, feature: keyof typeof FEATURE_FROM) => String(createdAt) >= FEATURE_FROM[feature];
+export const hadFeature = (createdAt: unknown, feature: keyof typeof FEATURE_FROM) => String(createdAt) >= FEATURE_FROM[feature];
 
 // A start token says when the game started, signed so it can't be made up. The score must come
 // at least a game's length later (or, in sudden death, after its last shot), and each token only
@@ -132,9 +132,9 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 }
 
 // A leaderboard nickname: checked the same way for the preview and the real thing.
-function scoreNickname(body: Record<string, unknown>): string {
+export function scoreNickname(body: Record<string, unknown>): string {
 	const nickname = clean(body.nickname, MAX_PLAYER_NAME);
-	if (!/^[\p{L}\p{N}][\p{L}\p{N} '-]*$/u.test(nickname)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
+	if (!isNickname(nickname)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
 	if (isRude(nickname)) throw new HttpError(400, RUDE);
 	return nickname;
 }
@@ -222,7 +222,26 @@ export async function scoreDetail(env: Env, id: number): Promise<Response> {
 			 ${week ? `AND o.${WEEK}` : ""} ORDER BY CASE WHEN s.mode = 'around' THEN o.score ELSE -o.score END, o.id LIMIT 10`, // around the world: fastest first
 		).bind(id);
 	const [week, all] = await env.DB.batch([top(true), top(false)]);
-	const log = JSON.parse(row.log) as Shot[];
+	const { log, colours, ...rest } = row;
+	const { green, ...stats } = cardStats(JSON.parse(log) as Shot[], rest.mode as Mode, Number(rest.score), rest.created_at);
+	return json(
+		{
+			...rest,
+			colours: colours ? JSON.parse(colours) : null,
+			...stats,
+			top: { week: week.results, all: all.results },
+			green,
+		},
+		200,
+		60,
+	);
+}
+
+/**
+ * The stats on a game's card, from its shot log. `score` is the saved score (fire bonuses come from
+ * it, so older games keep what they really got) and `createdAt` decides which features it had.
+ */
+export function cardStats(log: Shot[], mode: Mode, score: number, createdAt: unknown) {
 	const fireAt = FIRE_RULES[0].streak;
 	let streak = 0;
 	let bestStreak = 0;
@@ -247,16 +266,16 @@ export async function scoreDetail(env: Env, id: number): Promise<Response> {
 	}
 	// Points from being on fire and from bonus balls (around the world's score is a time, so none).
 	// From the score itself, so older games keep the fire bonus they really got.
-	const bonusPoints = row.mode === "around" ? 0 : Math.max(0, Number(row.score) - plainPoints);
+	const bonusPoints = mode === "around" ? 0 : Math.max(0, score - plainPoints);
 	// Sudden death: the hottest fire the run reached (0 none, 1 on fire, 2 purple, 3 supernova), and
 	// how the shot that ended it was let go (timing in green-zone widths: under 0 early, over 0 late).
-	const levels = FIRE_RULES.filter((f) => f.streak < supernovaAt || hadFeature(row.created_at, "supernova"));
+	const levels = FIRE_RULES.filter((f) => f.streak < supernovaAt || hadFeature(createdAt, "supernova"));
 	const hottestFire = levels.filter((f) => bestStreak >= f.streak).length;
 	const last = log.at(-1);
-	const missTiming = row.mode === "survival" && last && !last[2] ? last[3] : null;
+	const missTiming = mode === "survival" && last && !last[2] ? last[3] : null;
 	// Around the world: tries at each spot, until the last one went in.
 	const tries: number[] = [];
-	if (row.mode === "around") {
+	if (mode === "around") {
 		let spot = 0;
 		for (const [, , made] of log) {
 			if (spot >= AROUND_SPOTS) break;
@@ -264,26 +283,18 @@ export async function scoreDetail(env: Env, id: number): Promise<Response> {
 			if (made) spot++;
 		}
 	}
-	const { log: _log, colours, ...rest } = row;
-	return json(
-		{
-			...rest,
-			colours: colours ? JSON.parse(colours) : null,
-			bestStreak,
-			onFire,
-			// Left out for games from before these existed.
-			supernova: hadFeature(row.created_at, "supernova") ? supernova : null,
-			money: hadFeature(row.created_at, "bonusBalls") ? money : null,
-			rainbow: hadFeature(row.created_at, "bonusBalls") ? rainbow : null,
-			bonusPoints,
-			hottestFire,
-			missTiming,
-			tries,
-			top: { week: week.results, all: all.results },
-			// Let go in the green part of the jump bar (timing is in green-zone widths from the apex).
-			green: log.filter((shot) => Math.abs(shot[3]) <= 0.5).length,
-		},
-		200,
-		60,
-	);
+	return {
+		bestStreak,
+		onFire,
+		// Left out for games from before these existed.
+		supernova: hadFeature(createdAt, "supernova") ? supernova : null,
+		money: hadFeature(createdAt, "bonusBalls") ? money : null,
+		rainbow: hadFeature(createdAt, "bonusBalls") ? rainbow : null,
+		bonusPoints,
+		hottestFire,
+		missTiming,
+		tries,
+		// Let go in the green part of the jump bar (timing is in green-zone widths from the apex).
+		green: log.filter((shot) => Math.abs(shot[3]) <= 0.5).length,
+	};
 }

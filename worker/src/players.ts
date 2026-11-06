@@ -10,6 +10,9 @@ export const MAX_TEAM_NAME = 10;
 export const PLAYER_PARTS = ["skin", "hair", "jersey", "team", "shoes"] as const;
 const PLAYERS_PER_HOUR = 3;
 
+/** A nickname starts with a letter or number, then letters, numbers, spaces, ' and -. */
+export const isNickname = (name: string) => /^[\p{L}\p{N}][\p{L}\p{N} '-]*$/u.test(name);
+
 export async function listPlayers(env: Env): Promise<Response> {
 	const players = await env.DB.prepare(
 		"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name FROM players WHERE status = 'approved' ORDER BY name COLLATE NOCASE",
@@ -20,7 +23,7 @@ export async function listPlayers(env: Env): Promise<Response> {
 export async function createPlayer(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
 	const name = clean(body.name, MAX_PLAYER_NAME);
-	if (!/^[\p{L}\p{N}][\p{L}\p{N} '-]*$/u.test(name)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
+	if (!isNickname(name)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
 	const base = clean(body.base, 30);
 	if (!/^[a-z0-9-]+$/.test(base)) throw new HttpError(400, "Pick a body.");
 	const colours = (body.colours ?? {}) as Record<string, unknown>;

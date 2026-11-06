@@ -89,6 +89,18 @@ export async function vote(request: Request, env: Env): Promise<Response> {
 	return json({ votes: row?.votes ?? 0, up: !!body.up });
 }
 
+/**
+ * An idea's credit once a merged submission's sender joins it ("Moni, Jude"): unchanged if they're
+ * already there (any case), if there's no nickname, or if it wouldn't fit in MAX_CREDIT.
+ */
+export function mergeCredit(credit: string | null, nickname: string | null | undefined): string | null {
+	const names = (credit ?? "").split(",").map((n) => n.trim().toLowerCase()).filter(Boolean);
+	const name = nickname?.trim();
+	if (!name || names.includes(name.toLowerCase())) return credit;
+	const joined = credit ? `${credit}, ${name}` : name;
+	return joined.length <= MAX_CREDIT ? joined : credit;
+}
+
 /** Sets an idea's vote count from its votes. */
 export function recount(env: Env, ideaId: number) {
 	return env.DB.prepare("UPDATE ideas SET votes = (SELECT COUNT(*) FROM votes WHERE idea_id = ?1) WHERE id = ?1").bind(ideaId);

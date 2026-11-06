@@ -3,7 +3,7 @@
 
 import adminPage from "./admin.html?raw";
 import { HttpError } from "./http.ts";
-import { MAX_CREDIT, MAX_TEXT, STATUSES, recount } from "./ideas.ts";
+import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
 import { MAX_PLAYER_NAME, MAX_TEAM_NAME, PLAYER_PARTS } from "./players.ts";
 import { ODD_UNCHECKED } from "./scores.ts";
 import { clean, json, readJson } from "./util.ts";
@@ -79,14 +79,7 @@ async function triage(env: Env, id: number, body: Record<string, unknown>): Prom
 		const title = body.title === undefined ? idea.title : clean(body.title, 80);
 		if (!title) throw new HttpError(400, "Give the idea a title.");
 		const description = body.description === undefined ? idea.description : clean(body.description, MAX_TEXT);
-		// Their nickname joins the credit ("Moni, Jude"), unless it's already there or won't fit.
-		let credit = idea.credit;
-		const names = (credit ?? "").split(",").map((n) => n.trim().toLowerCase()).filter(Boolean);
-		const nickname = sub.nickname?.trim();
-		if (body.credit && nickname && !names.includes(nickname.toLowerCase())) {
-			const joined = credit ? `${credit}, ${nickname}` : nickname;
-			if (joined.length <= MAX_CREDIT) credit = joined;
-		}
+		const credit = body.credit ? mergeCredit(idea.credit, sub.nickname) : idea.credit;
 		const steps = [
 			env.DB.prepare("UPDATE ideas SET title = ?, description = ?, credit = ?, updated_at = datetime('now') WHERE id = ?").bind(title, description, credit, ideaId),
 			env.DB.prepare("UPDATE submissions SET status = 'merged', idea_id = ? WHERE id = ?").bind(ideaId, id),
