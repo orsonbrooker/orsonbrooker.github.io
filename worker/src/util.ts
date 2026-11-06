@@ -26,8 +26,19 @@ const CH = "[\\p{L}\\p{N}$@!]";
 const SPACED_OUT = new RegExp(`(?<!${CH})${CH}(?:[^\\p{L}\\p{N}$@!]{1,3}${CH}(?!${CH}))+`, "gu");
 /** Text with any spaced-out letters joined up: "f u c k" and "f.u.c.k" read as "fuck". */
 export const joinSpacedLetters = (text: string) => text.replace(SPACED_OUT, (run) => run.replace(/[^\p{L}\p{N}$@!]/gu, ""));
+// Words the library misses, checked on the text squashed to lower-case letters with look-alike digits
+// and symbols swapped back (so "N3gg3r cheese" is caught). Add to this when one gets through; keep each
+// pattern tight enough not to catch innocent words (e.g. "snigger" is allowed).
+const LOOKALIKES: Record<string, string> = { "4": "a", "@": "a", "3": "e", "1": "i", "!": "i", "0": "o", "5": "s", $: "s", "7": "t" };
+const squash = (text: string) =>
+	text
+		.toLowerCase()
+		.replace(/[4@3105$!7]/g, (c) => LOOKALIKES[c])
+		.replace(/[^a-z]/g, "");
+const EXTRA_RUDE = [/(?<!s)n[ie]+gg+[aeuh]/];
+const extraRude = (text: string) => EXTRA_RUDE.some((pattern) => pattern.test(squash(text)));
 export const isRude = (...texts: (string | null | undefined)[]) =>
-	texts.some((t) => !!t && (rudeWords.hasMatch(t) || rudeWords.hasMatch(joinSpacedLetters(t))));
+	texts.some((t) => !!t && (rudeWords.hasMatch(t) || rudeWords.hasMatch(joinSpacedLetters(t)) || extraRude(t)));
 export const RUDE = "Let's keep it friendly. Try different words.";
 
 export function json(data: unknown, status = 200, maxAge = 0): Response {

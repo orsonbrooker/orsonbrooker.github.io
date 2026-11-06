@@ -24,6 +24,9 @@ test("clean tidies spaces, trims, cuts to length and drops anything but text", (
 test("the rude-word filter catches disguised words but not innocent ones", () => {
 	for (const t of ["a$$hole", "sh1t", "b1tch", "fuuuck"]) assert.equal(isRude(t), true, t);
 	for (const t of ["assassin", "class", "Scunthorpe", "Dickens", "Cockatoo", "shitake", "basketball"]) assert.equal(isRude(t), false, t);
+	// Racial slurs the library missed (one reached the leaderboard), including look-alike spellings.
+	for (const t of ["Neggercheese", "N3gg3r", "n i g g a", "NIGGAH", "n1gg4"]) assert.equal(isRude(t), true, t);
+	for (const t of ["snigger", "Nigel", "Niger", "Nigeria", "vinegar", "eggnog", "Megan", "Negative"]) assert.equal(isRude(t), false, t);
 	// Any one of several texts; empty ones are fine.
 	assert.equal(isRude("Moni", null, undefined, ""), false);
 	assert.equal(isRude("Moni", "a$$hole"), true);
