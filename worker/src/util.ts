@@ -50,6 +50,20 @@ export async function readJson(request: Request): Promise<Record<string, unknown
 	throw new HttpError(400, "Bad request.");
 }
 
+/**
+ * Only the admin page itself may change things: a JSON body (which a plain form on another site
+ * can't send without asking first) from this same site. Browsers say where a request came from in
+ * Sec-Fetch-Site; older ones only send Origin, which must then be this site (or the local Worker).
+ */
+export function requireSameOriginJson(request: Request, env: Env): void {
+	const type = (request.headers.get("Content-Type") ?? "").split(";")[0].trim().toLowerCase();
+	const site = request.headers.get("Sec-Fetch-Site");
+	const origin = request.headers.get("Origin");
+	const own = [new URL(request.url).origin, new URL(env.SITE_URL).origin];
+	const sameOrigin = site ? site === "same-origin" : !!origin && own.includes(origin);
+	if (type !== "application/json" || !sameOrigin) throw new HttpError(403, "Not allowed.");
+}
+
 /** Text as sent, with runs of spaces made one, trimmed and cut to `max`. Anything but a string is "". */
 export function clean(value: unknown, max: number): string {
 	return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";

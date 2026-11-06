@@ -6,7 +6,7 @@ import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
 import { MAX_PLAYER_NAME, MAX_TEAM_NAME, PLAYER_PARTS } from "./players.ts";
 import { ODD_UNCHECKED } from "./scores.ts";
-import { clean, json, readJson } from "./util.ts";
+import { clean, json, readJson, requireSameOriginJson } from "./util.ts";
 import type { Env } from "./util.ts";
 
 export async function adminHtml(request: Request, env: Env): Promise<Response> {
@@ -26,6 +26,8 @@ export async function adminHtml(request: Request, env: Env): Promise<Response> {
 
 export async function admin(request: Request, env: Env, url: URL): Promise<Response> {
 	await requireAdmin(request, env);
+	// Changes only come from the admin page itself, never a form or script on another site.
+	if (request.method !== "GET") requireSameOriginJson(request, env);
 	const parts = url.pathname.split("/").filter(Boolean); // api, admin, ...
 	if (request.method === "GET" && parts[2] === "inbox") {
 		const [submissions, ideas, apps, players, scores] = await env.DB.batch([
