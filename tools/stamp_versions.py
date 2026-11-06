@@ -14,8 +14,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 IMPORTS = [
     ('ui/form.js', ['ui/icons.js']),  # before the files that import it
     ('ui/confirm.js', ['ui/icons.js']),  # before game.js, which imports it
-    ('leaderboard.js', ['ui/icons.js', 'ui/form.js']),  # before game.js, which imports it
-    ('game.js', ['leaderboard.js', 'bonus.js', 'daily.js', 'fx.js', 'audio.js', 'phrases.js', 'players/recolor.js', 'ui/icons.js', 'ui/confirm.js']),
+    ('leaderboard.js', ['ui/icons.js', 'ui/form.js', 'shared/rules.js']),  # before game.js, which imports it
+    ('game.js', ['leaderboard.js', 'shared/rules.js', 'daily.js', 'fx.js', 'audio.js', 'phrases.js', 'players/recolor.js', 'ui/icons.js', 'ui/confirm.js']),
     ('players/builder.js', ['players/recolor.js', 'ui/form.js']),
     ('feedback/widget.js', ['ui/icons.js', 'ui/form.js']),
     ('ui/nav.js', ['ui/icons.js']),

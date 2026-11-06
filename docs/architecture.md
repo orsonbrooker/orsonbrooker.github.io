@@ -49,14 +49,15 @@ flowchart LR
 | Game loop and physics | `game.js` | Fixed-step simulation (`PHYSICS_STEP`), ball in metres on an isometric court (`project()`), rim and backboard collisions, shot timing from the jump. |
 | Modes | `game.js` (`MODES`, `around()`, `survival()`) | Time attack, Sudden death, Around the World. |
 | Screens and input | `game.js` | Title, choose a game, choose a player, help, leaderboard, game over; tap/Space/hold, arrow keys in pickers. |
-| Scoring extras | `bonus.js`, `daily.js`, `game.js` (`FIRE_LEVELS`) | Bonus balls, daily challenge, fire levels. |
+| Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log. Used by the game and the Worker. |
+| Scoring extras | `daily.js`, `game.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
 | Sound | `audio.js`, `phrases.js`, `assets/voice/` | Music that builds, effects, announcer clips (device voice as fallback). |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
 | Players | `assets/characters/`, `players/recolor.js`, `players/builder.js` | Built-in sprites; builder bodies recoloured from region maps. |
 | Shared UI | `ui/` | Nav, icons, styled dialogs, form helpers. |
 | Ideas widget | `feedback/` | The "Got an idea?" button on each page. |
-| Server | `worker/src/index.ts` | Ideas, votes, players, scores, admin API, weekly ntfy. |
+| Server | `worker/src/index.ts`, `worker/src/scoring.ts` | Ideas, votes, players, scores, admin API, weekly ntfy. `scoring.ts` checks a sent game against the rules, with no database, so it's tested on its own (`worker/test/`). |
 | Art and voice tools | `tools/` | Character sheets, region maps, announcer clips, icons, share images. |
 
 ## Domain model
@@ -136,8 +137,8 @@ Terms used across the code:
   kind is 0 normal, 1 money, 2 rainbow.
 - **Start token:** signed by the Worker when a game starts (`<ms>.<nonce>.<hmac>`), used once. Bonus balls are
   decided from it, so the server can check them.
-- **Fire levels:** 3 in a row +1 a basket, 6 (purple) +2, 10 (blue supernova) +3. The same table is in `game.js`
-  (`FIRE_LEVELS`) and the Worker (`FIRE_BONUS`).
+- **Fire levels:** 3 in a row +1 a basket, 6 (purple) +2, 10 (blue supernova) +3: `FIRE_RULES` in
+  `shared/rules.js`. `game.js` adds how each looks (`FIRE_LOOKS`) and how much it widens the timing window.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
 
 ## How a score gets on the board
@@ -161,8 +162,9 @@ sequenceDiagram
   Note over D: flagged scores show in the admin inbox<br/>until marked fine or hidden
 ```
 
-Scoring rules exist in both the game and the Worker (`recountScore`, `ballKind`, `ballPoints`, mode rules).
-They must stay identical.
+The game and the Worker use the same scoring rules from `shared/rules.js` (`recountScore`, `ballKind`,
+`ballPoints`, `FIRE_RULES`, modes), so the server recounts a game exactly as the game scored it. The checks in
+the middle are `checkGame` and `oddFlags` in `worker/src/scoring.ts`.
 
 ## How an idea becomes a feature
 

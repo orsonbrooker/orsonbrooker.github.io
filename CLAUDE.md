@@ -17,8 +17,8 @@ plan for growing the game and the iOS app; read it when working on structure.
   `/games/shootaround/` (uses `<base href="/">`, so the game's code and assets live at the repo root),
   `/players/` (builder), `/ideas/`, `404.html`, `/lab/` (hidden effects test page).
 - **Game:** `game.js` (loop, physics, modes, screens, input, drawing), `leaderboard.js`, `audio.js`,
-  `phrases.js` (announcer lines), `fx.js` + `effects/` + `vendor/pixelfx/` (pixel effects), `bonus.js`
-  (bonus balls), `daily.js` (daily challenge), `players/recolor.js` (builder players' colours).
+  `phrases.js` (announcer lines), `fx.js` + `effects/` + `vendor/pixelfx/` (pixel effects), `shared/rules.js`
+  (scoring rules, shared with the Worker), `daily.js` (daily challenge), `players/recolor.js` (builder players' colours).
   Canvas 2D, isometric court image, ball physics in metres with a fixed step.
 - **Server:** `worker/` is one Cloudflare Worker on `orsonbrooker.com/api/*` and `/admin*`, with a D1
   database. Code is `worker/src/index.ts`, the admin page is `worker/src/admin.html`, schema changes are
@@ -49,8 +49,10 @@ plan for growing the game and the iOS app; read it when working on structure.
 - **Leaderboard features:** anything new that scores or shows on a player's card must only count for
   games played after it went live: add it to `FEATURE_FROM` in `worker/src/index.ts`. Work out derived
   numbers from the saved score, never by re-scoring old shot logs with today's rules.
-- **Scoring logic exists twice:** the game and the Worker both score shots (fire bonuses, bonus balls,
-  modes). Change both together and keep them identical (e.g. `bonus.js` and its copy in the Worker).
+- **Scoring rules live once, in `shared/rules.js`:** fire levels and bonuses, bonus balls, points, modes,
+  recounting a shot log. The game imports it in the browser and the Worker imports it to check scores, so
+  never copy a rule into either side. The server's checks on a sent game are in `worker/src/scoring.ts`.
+  Run `npm --prefix worker test` after changing either (Node's test runner, no extra installs).
 - **Be lenient on cheating:** reject only the impossible; flag the odd ones for the admin and keep them
   on the board.
 
@@ -79,7 +81,9 @@ python3 tools/dev/copy_live_db.py                     # optional: real ideas, pl
 - **Automated play:** the app's browser pane pauses the game when hidden, so use the headless puppeteer
   browser for gameplay tests. Drive real input by dispatching Space keydown/keyup on `window` and releasing
   at the top of the jump (`player.anim === "jump" && player.t >= 0.29`).
-- **Type-check the Worker:** `cd worker && npx tsc --noEmit -p .` (needs `worker/.cloudflare/types`).
+- **Type-check the Worker:** `cd worker && npx tsc --noEmit -p .` (needs `worker/.cloudflare/types`; it
+  checks `shared/` too).
+- **Tests:** `npm --prefix worker test` runs `worker/test/*.test.ts` (scoring rules and score checks).
 - **Local database:** `npx cf d1 raw <id> --local --persist-to .cloudflare/state --sql "..."` (`d1 query`
   has no local mode; very long SQL must be split up).
 

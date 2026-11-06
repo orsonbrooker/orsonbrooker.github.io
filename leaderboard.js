@@ -7,6 +7,7 @@
 
 import { say } from "./ui/form.js?v=fd569ffc";
 import { icon } from "./ui/icons.js?v=c284e3ca";
+import { lowWins } from "./shared/rules.js?v=3d6a7e83";
 
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = LOCAL ? "http://localhost:8787/api" : "/api";
@@ -90,7 +91,7 @@ function when(at) {
 const el = (tag, props = {}) => Object.assign(document.createElement(tag), props);
 
 // Around the world is timed: its score is the time in tenths of a second, and lower is better.
-const lowWins = (mode) => mode === "around";
+// (lowWins, from shared/rules.js, says Around the World ranks the fastest first.)
 const scoreText = (mode, score) => (lowWins(mode) ? `${(score / 10).toFixed(1)}s` : String(score));
 const scoresWord = (mode) => (lowWins(mode) ? "times" : "scores");
 

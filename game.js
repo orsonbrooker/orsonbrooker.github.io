@@ -8,9 +8,9 @@ import { createFxLayer } from "./fx.js?v=61e6d0cd";
 import { pickPhrase } from "./phrases.js?v=481ae699";
 import { confirmDialog } from "./ui/confirm.js?v=a65ef360";
 import { fillIcons, icon } from "./ui/icons.js?v=c284e3ca";
-import { MONEY, NORMAL, RAINBOW, ballKind, ballPoints } from "./bonus.js?v=80033a4c";
+import { AROUND_SPOTS, FIRE_RULES, GAME_SECONDS, MODES, MONEY, NORMAL, RAINBOW, ballKind, ballPoints } from "./shared/rules.js?v=3d6a7e83";
 import { countsIn, doneToday, markDone, progress, streakDays, todaysChallenge } from "./daily.js?v=6f3b9099";
-import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=1a917651";
+import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=b6aedccd";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=9235830f";
 
 const COURT_PX = 2048;
@@ -49,16 +49,14 @@ const BOARD_ART = {
   right: { label: "TIME", labelAt: [190, 46], cover: [142, 26, 96, 34], window: [149, 69, 83, 69] },
 };
 
-const GAME_SECONDS = 60;
-// Ways to play, each with its own best:
-//   timed     time attack: score as much as you can in 60 seconds (has a leaderboard)
-//   survival  sudden death: no clock, keep shooting until the first miss (has a leaderboard)
+// Ways to play (MODES, in shared/rules.js), each with its own best and leaderboard:
+//   timed     time attack: score as much as you can in 60 seconds
+//   survival  sudden death: no clock, keep shooting until the first miss
 //   around    around the world: score from each spot around the key in order, as fast as you can
-//             (the best is the lowest time, kept on this device)
-const MODES = ["timed", "survival", "around"];
+//             (the best is the lowest time)
 const BEST_KEYS = { timed: "orson-hoops-best", survival: "orson-hoops-best-survival", around: "orson-hoops-best-around" };
 const bestKey = (mode) => BEST_KEYS[mode] ?? BEST_KEYS.timed;
-const AROUND_SPOT_COUNT = 7; // one for each spot in AROUND_LAYOUT
+const AROUND_SPOT_COUNT = AROUND_SPOTS; // one for each spot in AROUND_LAYOUT
 const PHYSICS_STEP = 1 / 240;
 const LAUNCH_ANGLE = (52 * Math.PI) / 180;
 
@@ -69,40 +67,17 @@ const TIMING_WINDOW = 0.13;
 
 // Like NBA Jam: two makes in a row heats him up, three puts him on fire until he misses,
 // keeping it going turns the flames purple, and ten in a row goes blue-white supernova.
-// Add a level here to go even further (and to FIRE_BONUS in worker/src/index.ts, which
-// checks scores).
-//   streak: makes in a row to reach it
+// How many makes each level needs, and its bonus points, are in FIRE_RULES (shared/rules.js,
+// which the server uses to check scores too). Here is how each level looks and plays:
 //   window: timing window is this much wider
-//   bonus:  extra points per basket
-const FIRE_LEVELS = [
-  {
-    streak: 3,
-    window: 1.4,
-    bonus: 1,
-    phrase: "onFire",
-    stillPhrase: "stillOnFire",
-    color: "#ff9f43",
-    fx: { palette: "fire", radius: 5 },
-  },
-  {
-    streak: 6,
-    window: 1.6,
-    bonus: 2,
-    phrase: "purpleFire",
-    stillPhrase: "stillPurpleFire",
-    color: "#c77dff",
-    fx: { palette: "purpleFire", radius: 6 },
-  },
-  {
-    streak: 10,
-    window: 1.7,
-    bonus: 3,
-    phrase: "supernova",
-    stillPhrase: "stillSupernova",
-    color: "#8fd8ff",
-    fx: { palette: "supernova", radius: 7 },
-  },
+const FIRE_LOOKS = [
+  { window: 1.4, phrase: "onFire", stillPhrase: "stillOnFire", color: "#ff9f43", fx: { palette: "fire", radius: 5 } },
+  { window: 1.6, phrase: "purpleFire", stillPhrase: "stillPurpleFire", color: "#c77dff", fx: { palette: "purpleFire", radius: 6 } },
+  { window: 1.7, phrase: "supernova", stillPhrase: "stillSupernova", color: "#8fd8ff", fx: { palette: "supernova", radius: 7 } },
 ];
+//   streak: makes in a row to reach it
+//   bonus:  extra points per basket
+const FIRE_LEVELS = FIRE_RULES.map((rule, i) => ({ ...rule, ...FIRE_LOOKS[i] }));
 const BANNER_SECONDS = 1.7;
 const BUZZER_CELEBRATION = 3.2; // seconds to celebrate a buzzer beater before the game-over screen
 const SLOW_MO = 0.35; // game speed while a shot at the buzzer drops toward the hoop

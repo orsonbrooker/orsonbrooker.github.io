@@ -10,12 +10,15 @@
 		"strict": true,
 		"noEmit": true,
 		"allowImportingTsExtensions": true,
+		"allowJs": true,
+		"checkJs": true,
 		"isolatedModules": true,
 		"verbatimModuleSyntax": true,
 		"skipLibCheck": true
 	},
 	"include": [
 		"src",
+		"../shared",
 		"cloudflare.config.ts",
 		".cloudflare/types"
 	]

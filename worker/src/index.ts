@@ -19,6 +19,10 @@
 
 import { englishDataset, englishRecommendedTransformers, RegExpMatcher } from "obscenity";
 import adminPage from "./admin.html?raw";
+import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, lowWins, modeOf } from "../../shared/rules.js";
+import type { Mode, Shot } from "../../shared/rules.js";
+import { HttpError } from "./http.ts";
+import { checkGame, oddFlags } from "./scoring.ts";
 
 // Rude-word check for everything people type. It sees through tricks like "a$$" and spacing,
 // without blocking innocent words that happen to contain rude ones.
@@ -274,34 +278,14 @@ async function checkTurnstile(request: Request, env: Env, token: unknown) {
 // ---------- Leaderboard ----------
 //
 // The game runs in the browser, so a score can't be fully trusted. Instead each score comes with
-// its shot log and the server checks it hangs together:
-//   rejected  impossible: a bad or reused start token, sent too soon after the game started, the
-//             score doesn't match its shots, more shots than fit in a minute, or test (?debug) mode.
-//             A sudden death game must end on its first miss, with nothing made after it. An around
-//             the world time must come just after its last spot went in.
-//   flagged   odd but possible: machine-like timing, a perfect game of 30+ shots, a huge jump on the
-//             device's best. On the board straight away, and in Orson's admin inbox so he can hide it.
-//             (Nicknames don't matter: a device's row is per player, whatever name it's sent with.)
-//   shown     everything else, straight away.
+// its shot log, and the server checks it hangs together by the game's own rules (shared/rules.js).
+// What's rejected and what's flagged is in scoring.ts. Here: the start token (signed, used once, and
+// old enough for the game it claims), test mode, the robot check and the daily limit.
+// (Nicknames don't matter: a device's row is per player, whatever name it's sent with.)
 
-const GAME_SECONDS = 60;
-// Three modes, each with its own leaderboard: 60 seconds, sudden death (shoot until the first miss),
-// or around the world (all 7 spots, against the clock).
-type Mode = "timed" | "survival" | "around";
-const modeOf = (value: unknown): Mode => (value === "survival" || value === "around" ? value : "timed");
-// Around the world's "score" is its time in tenths of a second, so lower is better.
-const AROUND_SPOTS = 7;
-const lowWins = (mode: Mode) => mode === "around";
 const order = (mode: Mode) => (lowWins(mode) ? "ASC" : "DESC");
 // Odd-looking scores Orson hasn't looked at yet: they're in the admin inbox.
 const ODD_UNCHECKED = "status = 'shown' AND flags != '[]' AND checked = 0";
-const MIN_SHOT_GAP = 1.0; // seconds: release, flight, moving spot and jumping again take longer than this
-// The game's fire levels (FIRE_LEVELS in game.js), biggest first.
-const FIRE_BONUS = [
-	{ streak: 10, bonus: 3 },
-	{ streak: 6, bonus: 2 },
-	{ streak: 3, bonus: 1 },
-];
 // When each scoring feature arrived in the game (UTC, like created_at). A leaderboard card only
 // shows a feature's stats for games played after it, since older games didn't have it (before
 // supernova, purple fire just carried on past 10 in a row). Add each new feature that changes
@@ -311,33 +295,6 @@ const FEATURE_FROM = {
 	bonusBalls: "2026-11-05 20:47:00",
 };
 const hadFeature = (createdAt: unknown, feature: keyof typeof FEATURE_FROM) => String(createdAt) >= FEATURE_FROM[feature];
-// seconds in, 3-pointer (1/0), made (1/0), release timing, bonus ball (0 normal, 1 money, 2 rainbow)
-type Shot = [number, number, number, number, number];
-
-// Bonus balls, the same as bonus.js in the game: which shots get one comes from the start token.
-const MONEY = 1;
-const RAINBOW = 2;
-function ballKind(token: string, index: number): number {
-	let h = 0x811c9dc5;
-	const text = `${token}#${index}`;
-	for (let i = 0; i < text.length; i++) {
-		h ^= text.charCodeAt(i);
-		h = Math.imul(h, 0x01000193) >>> 0;
-	}
-	h ^= h >>> 16;
-	h = Math.imul(h, 0x85ebca6b);
-	h ^= h >>> 13;
-	h = Math.imul(h, 0xc2b2ae35);
-	h = (h ^ (h >>> 16)) >>> 0;
-	const roll = h / 2 ** 32;
-	return roll < 1 / 40 ? RAINBOW : roll < 1 / 40 + 1 / 8 ? MONEY : 0;
-}
-function ballPoints(kind: number, three: number, fireBonus: number): number {
-	if (kind === RAINBOW) return 5 + fireBonus;
-	const points = (three ? 3 : 2) + fireBonus;
-	return kind === MONEY ? points * 2 : points;
-}
-
 // A start token says when the game started, signed so it can't be made up. The score must come
 // at least a game's length later (or, in sudden death, after its last shot), and each token only
 // counts once.
@@ -356,26 +313,6 @@ async function checkGameToken(env: Env, token: unknown, minSeconds: number): Pro
 	return seconds;
 }
 
-// The game's own rules: 2 or 3 points, plus a bonus while on fire (3, 6 or 10 makes in a row).
-function recountScore(shots: Shot[]): number {
-	let score = 0;
-	let streak = 0;
-	for (const [, three, made, , kind] of shots) {
-		if (!made) {
-			streak = 0;
-			continue;
-		}
-		score += ballPoints(kind, three, FIRE_BONUS.find((f) => streak >= f.streak)?.bonus ?? 0);
-		streak++;
-	}
-	return score;
-}
-
-const spread = (values: number[]) => {
-	const mean = values.reduce((a, b) => a + b, 0) / values.length;
-	return Math.sqrt(values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length);
-};
-
 async function postScore(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
 	if (body.debug) throw new HttpError(400, "Scores from test mode don't count.");
@@ -392,35 +329,11 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 			? JSON.stringify(Object.fromEntries(PLAYER_PARTS.map((p) => [p, String(sent[p]).toLowerCase()])))
 			: null;
 
-	// The shot log, and the score it adds up to.
-	const raw = Array.isArray(body.shots) ? body.shots : [];
-	if (raw.length > (mode === "timed" ? 80 : 500)) throw new HttpError(400, "That's more shots than fit in a game.");
-	const shots: Shot[] = raw.map((s: unknown, i: number) => {
-		if (!Array.isArray(s) || (s.length !== 4 && s.length !== 5) || !s.every((n) => typeof n === "number" && Number.isFinite(n))) throw new HttpError(400, "Bad shot log.");
-		// A bonus ball only counts if this game's token really gave that shot one.
-		const kind = s[4] ?? 0;
-		if (kind !== 0 && kind !== ballKind(String(body.token), i)) throw new HttpError(400, "Bad shot log.");
-		return [Math.round(s[0] * 100) / 100, s[1] ? 1 : 0, s[2] ? 1 : 0, Math.round(s[3] * 1000) / 1000, kind];
-	});
+	// The shot log and score, by the game's rules (scoring.ts), then the token: signed, unused, old enough.
 	const score = Number(body.score);
-	if (mode === "around") {
-		// The time: once the last spot goes in, just after that shot was let go. No bonus balls here.
-		const lastSpot = shots.reduce((found, s, i) => (found.made < AROUND_SPOTS && s[2] ? { made: found.made + 1, at: i } : found), { made: 0, at: -1 });
-		const seconds = score / 10;
-		if (!Number.isInteger(score) || lastSpot.made < AROUND_SPOTS || shots.some((s) => s[4]) || seconds < shots[lastSpot.at][0] || seconds > shots[lastSpot.at][0] + 5)
-			throw new HttpError(400, "That time doesn't match its shots.");
-	} else if (!Number.isInteger(score) || score < 1 || score !== recountScore(shots)) throw new HttpError(400, "That score doesn't match its shots.");
-	const times = shots.map((s) => s[0]);
-	const maxTime = mode === "timed" ? GAME_SECONDS + 0.5 : 6 * 3600;
-	if (times.some((t, i) => t < 0 || t > maxTime || (i > 0 && t < times[i - 1]))) throw new HttpError(400, "Bad shot log.");
-	if (mode === "survival") {
-		// It ends on the first miss. A shot already in the air then doesn't count, so nothing after it is made.
-		const miss = shots.findIndex((s) => !s[2]);
-		if (miss < 0 || shots.slice(miss).some((s) => s[2])) throw new HttpError(400, "A sudden death game ends on its first miss.");
-	}
-	const realSeconds = await checkGameToken(env, body.token, mode === "timed" ? GAME_SECONDS - 1 : Math.max(times.at(-1) ?? 0, mode === "around" ? score / 10 : 0) - 1);
-	const gaps = times.slice(1).map((t, i) => t - times[i]);
-	if (gaps.some((g) => g < MIN_SHOT_GAP)) throw new HttpError(400, "Those shots came too quickly.");
+	const game = checkGame(mode, score, body.shots, body.token);
+	const { shots, made } = game;
+	const realSeconds = await checkGameToken(env, body.token, game.minSeconds);
 	await checkTurnstile(request, env, body.turnstileToken);
 
 	const ipHash = await ipKey(request, env);
@@ -433,17 +346,7 @@ async function postScore(request: Request, env: Env): Promise<Response> {
 	const past = history.results[0] as { best: number | null };
 
 	// Odd but possible: it still goes on the board, flagged for Orson to look at.
-	const made = shots.filter((s) => s[2]).length;
-	const flags: string[] = [];
-	if (shots.length >= 10 && spread(shots.map((s) => s[3])) < 0.03) flags.push("Every release timed the same, like a script");
-	if (gaps.length >= 9 && spread(gaps) < 0.05) flags.push("Shots taken at a machine-like steady rhythm");
-	// A perfect game isn't odd on its own: good players often make all 30+ (fire widens the green
-	// zone), and that flag was almost every one in the inbox. The checks above catch scripts.
-	// In sudden death every shot but the last goes in, so only a very long run is odd.
-	if (mode === "survival" && made >= 50) flags.push(`${made} in a row before missing`);
-	if (mode === "around") {
-		if ((past.best ?? 0) > 0 && score * 2 < past.best!) flags.push(`Twice as fast as this device's best (${past.best! / 10}s)`);
-	} else if ((past.best ?? 0) >= 10 && score > past.best! * 2.5) flags.push(`${Math.round(score / past.best!)}x this device's best (${past.best})`);
+	const flags = oddFlags(mode, score, game, past.best);
 	const status = "shown";
 
 	const inserted = await env.DB.prepare(
@@ -582,12 +485,12 @@ async function scoreDetail(env: Env, id: number): Promise<Response> {
 		).bind(id);
 	const [week, all] = await env.DB.batch([top(true), top(false)]);
 	const log = JSON.parse(row.log) as Shot[];
-	const fireAt = Math.min(...FIRE_BONUS.map((f) => f.streak));
+	const fireAt = FIRE_RULES[0].streak;
 	let streak = 0;
 	let bestStreak = 0;
 	let onFire = 0;
 	let supernova = 0;
-	const supernovaAt = Math.max(...FIRE_BONUS.map((f) => f.streak));
+	const supernovaAt = FIRE_RULES[FIRE_RULES.length - 1].streak;
 	// Bonus balls: how many came up, and how many went in.
 	const money = { seen: 0, made: 0 };
 	const rainbow = { seen: 0, made: 0 };
@@ -609,7 +512,7 @@ async function scoreDetail(env: Env, id: number): Promise<Response> {
 	const bonusPoints = row.mode === "around" ? 0 : Math.max(0, Number(row.score) - plainPoints);
 	// Sudden death: the hottest fire the run reached (0 none, 1 on fire, 2 purple, 3 supernova), and
 	// how the shot that ended it was let go (timing in green-zone widths: under 0 early, over 0 late).
-	const levels = [...FIRE_BONUS].reverse().filter((f) => f.streak < supernovaAt || hadFeature(row.created_at, "supernova"));
+	const levels = FIRE_RULES.filter((f) => f.streak < supernovaAt || hadFeature(row.created_at, "supernova"));
 	const hottestFire = levels.filter((f) => bestStreak >= f.streak).length;
 	const last = log.at(-1);
 	const missTiming = row.mode === "survival" && last && !last[2] ? last[3] : null;
@@ -834,15 +737,6 @@ async function requireAdmin(request: Request, env: Env): Promise<string> {
 }
 
 // ---------- Helpers ----------
-
-class HttpError extends Error {
-	constructor(
-		public status: number,
-		message: string,
-	) {
-		super(message);
-	}
-}
 
 function json(data: unknown, status = 200, maxAge = 0): Response {
 	return new Response(JSON.stringify(data), {
