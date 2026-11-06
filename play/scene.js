@@ -6,7 +6,7 @@ import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, 
 import { BALL_FRAMES, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow } from "../engine/draw.js";
 import { currentFrame, frameCount, jumpLift, sheet } from "../play/players.js";
 import { fireLevel, nextBallBadge, pixelFx, timingWindow, zoneCenter } from "../play/react.js";
-import { drawReplay } from "../play/replay.js";
+import { drawReplay, replayGreen } from "../play/replay.js";
 import { DEBUG, JUMP_APEX, JUMP_FRAME_TIME, hints, mode, player, state } from "../play/state.js";
 import { howTo, stage } from "../screens/base.js";
 import { NORMAL } from "../shared/rules.js";
@@ -87,8 +87,10 @@ function drawMeter() {
 
   ctx.fillStyle = "rgba(43, 22, 34, 0.85)";
   ctx.fillRect(x - 6, top - 6, 36, height + 12);
-  const zoneTop = top + height * (1 - (zoneCenter() + timingWindow() * 0.5) / total); // the top of the jump, unless the mode moves it
-  const zoneH = (height * timingWindow()) / total;
+  // The top of the jump, unless the mode moves it; in a replay, where it was for that shot.
+  const green = (state.phase === "replay" && replayGreen()) || { center: zoneCenter(), window: timingWindow() };
+  const zoneTop = top + height * (1 - (green.center + green.window * 0.5) / total);
+  const zoneH = (height * green.window) / total;
   ctx.fillStyle = fireLevel()?.color ?? "#3ddc84";
   ctx.fillRect(x, zoneTop, 24, zoneH);
   ctx.fillStyle = "#fff";

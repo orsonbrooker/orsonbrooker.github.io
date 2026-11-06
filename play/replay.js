@@ -26,12 +26,13 @@ const CALM = matchMedia("(prefers-reduced-motion: reduce)");
 // ---------- Recording ----------
 
 // At each release while playing (play/round.js): what's needed to fly the same ball again.
-export function recordShot(ball, releaseAnim, releaseT) {
+export function recordShot(ball, releaseAnim, releaseT, green) {
   const shot = {
     who: characters.selected,
     at: { u: player.u, v: player.v },
     anim: releaseAnim, // "jump", or "gather" if they let go before leaving the ground
     t: releaseT, // seconds into that animation
+    green, // where the timing bar's green was and how wide ({ center, window }), to draw it the same
     start: { u: ball.u, v: ball.v, z: ball.z, vu: ball.vu, vv: ball.vv, vz: ball.vz },
     fire: ball.fire ? FIRE_LEVELS.indexOf(ball.fire) : -1,
     kind: ball.kind,
@@ -76,6 +77,8 @@ export function bestShot() {
 let replay = null; // the replay showing: { shot, ball, cheered, doneAt, restore }
 
 export const replaying = () => replay !== null;
+// The green on the timing bar during a replay: where it was for that shot (it may have moved since).
+export const replayGreen = () => replay?.shot.green ?? null;
 
 // From the game-over screen: play the best shot again.
 export async function startReplay() {

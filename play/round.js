@@ -9,7 +9,7 @@ import { GRAVITY, stepBall as physicsStep, stepFixed } from "../engine/physics.j
 import { save } from "../engine/storage.js";
 import { startToken } from "../leaderboard.js";
 import { frameCount, jumpLift, sheet, shoePoints } from "../play/players.js";
-import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss } from "../play/react.js";
+import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss, timingWindow, zoneCenter } from "../play/react.js";
 import { recordMade, recordShot, updateReplay } from "../play/replay.js";
 import { updateHud } from "../play/scene.js";
 import { ANIM_FPS, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state } from "../play/state.js";
@@ -77,6 +77,8 @@ function gaussian() {
 export function shoot(timing) {
   const releaseAnim = player.anim;
   const releaseT = player.t;
+  // The green as they saw it, for the replay (before this shot is logged, which moves it on).
+  const green = { center: zoneCenter(), window: timingWindow() };
   if (!hints.learned) {
     hints.learned = true;
     save("orson-hoops-learned", true);
@@ -143,7 +145,7 @@ export function shoot(timing) {
   if (state.phase === "playing") {
     ball.log = [Math.round(mode().gameSeconds() * 100) / 100, ball.three ? 1 : 0, 0, Math.round(clamped * 1000) / 1000, ball.kind];
     state.shotLog.push(ball.log);
-    ball.replay = recordShot(ball, releaseAnim, releaseT); // for the instant replay (play/replay.js)
+    ball.replay = recordShot(ball, releaseAnim, releaseT, green); // for the instant replay (play/replay.js)
   }
   player.activeBall = ball;
   player.airT = player.anim === "jump" ? player.t : Infinity; // let go from a gather: not in the air
