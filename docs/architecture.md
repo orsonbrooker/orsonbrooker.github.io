@@ -73,7 +73,7 @@ flowchart LR
 | Players | `assets/characters/`, `players/recolor.js`, `players/builder.js` | Built-in sprites; builder bodies recoloured from region maps. |
 | Shared UI | `ui/` | Nav, icons, styled dialogs, form helpers. |
 | Ideas widget | `feedback/` | The "Got an idea?" button on each page. |
-| Server | `worker/src/index.ts`, `worker/src/scoring.ts` | Ideas, votes, players, scores, admin API, weekly ntfy. `scoring.ts` checks a sent game against the rules, with no database, so it's tested on its own (`worker/test/`). |
+| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `admin.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); the admin page and API with the Access check; the weekly ntfy; shared helpers (JSON, CORS, hashing, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
 | Art and voice tools | `tools/` | Character sheets, region maps, announcer clips, icons, share images. |
 
 ## Domain model
