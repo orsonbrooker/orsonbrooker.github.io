@@ -182,7 +182,9 @@ header p {
 .stage[data-phase="playing"] #help-button,
 .stage[data-phase="ending"] #help-button,
 .stage[data-phase="playing"] #board-button,
-.stage[data-phase="ending"] #board-button {
+.stage[data-phase="ending"] #board-button,
+.stage[data-phase="replay"] #help-button,
+.stage[data-phase="replay"] #board-button {
   display: none;
 }
 
@@ -538,6 +540,10 @@ header p {
 .panel button:active {
   transform: translate(2px, 2px);
   box-shadow: 1px 1px 0 var(--ink);
+}
+
+.panel .over-actions [hidden] {
+  display: none;
 }
 
 .over-actions .icon {

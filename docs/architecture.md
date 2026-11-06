@@ -63,7 +63,7 @@ flowchart LR
 |---|---|---|
 | Game entry | `game.js` | Starts the game and wires the pieces below together: the one button (press, release), the screens' buttons, boot, `window.game` in `?debug`. |
 | Engine | `engine/` | `court.js` the court in metres and `project()` onto the isometric art, 3-point line, random spots; `physics.js` fixed-step ball physics (`PHYSICS_STEP`), rim and backboard collisions, reported through callbacks; `loop.js` the frame loop; `input.js` tap/Space/hold, Escape, arrow keys in pickers; `draw.js` canvas helpers (ball sprites, banner, popups, wall scoreboard digits, shoe finder); `storage.js`. |
-| Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness; `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update; `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces. |
+| Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness; `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update; `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces; `replay.js` instant replays (recording each release, picking the best shot, playing it again). |
 | Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, shared `points.js`) | Time attack, Sudden death, Around the World, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. |
 | Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player; `panels.js` help and leaderboard; `over.js` game over. |
 | Game content | `content/` | Tables: how each fire level and ball looks, the wall scoreboard art, the Around the World spots, Sudden death run calls and end-of-game calls. |
@@ -165,6 +165,14 @@ Terms used across the code:
   are made at the game's first draw (the first release); if the token hasn't come back by then (or never does,
   offline) the game uses a random seed throughout. It's kept in `state.rngSeed`; `?debug` can set it with
   `window.game.setSeed()`. Effects, sounds and which announcer line plays stay on `Math.random`.
+- **Instant replay:** after any game, the game-over screen's Replay button plays the game's best shot again
+  in slow motion (a buzzer beater, else the most points, else a swish; the later one on a tie), then goes
+  back. Nothing is recorded frame by frame: at each release `play/replay.js` keeps who shot from where, how
+  far into the jump they let go, the ball's start (position and speed in court metres), its fire level and
+  kind (`state.replayShots`, never sent). The physics has a fixed step and balls don't touch each other, so
+  stepping the same start again gives the same flight exactly; `window.game.checkReplays()` in `?debug`
+  re-flies every shot and checks each goes in or out as it did. A replay changes nothing about the score,
+  the shot log or what's sent.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
 
 ## How a score gets on the board
@@ -222,6 +230,8 @@ stateDiagram-v2
   ChoosePlayer --> Playing
   Playing --> GameOver: time up / first miss / last spot
   GameOver --> Playing: Play again
+  GameOver --> Replay: Replay (best shot, slow motion)
+  Replay --> GameOver: done, or tap to skip
   GameOver --> ChooseGame: Change game
   GameOver --> ChoosePlayer: Change player
   ChooseGame --> Title: Back

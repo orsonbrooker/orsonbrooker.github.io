@@ -16,6 +16,7 @@ import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { characters, loadImage, loadRoster } from "./play/players.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow } from "./play/react.js";
+import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js";
 import { checkDecided, shoot, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
 import { DEBUG, JUMP_APEX, mode, player, setAnim, setSeed, state } from "./play/state.js";
@@ -38,6 +39,8 @@ function press() {
   sound.unlock();
 
   if (!screens.help.hidden) return;
+  // A tap during a replay skips it.
+  if (state.phase === "replay") return endReplay();
   // Tapping to start: choose a game, then a player, then play.
   if (state.phase === "title") openModes();
   else if (state.phase === "over") {
@@ -55,6 +58,7 @@ function press() {
 function release() {
   if (!state.pressed) return;
   state.pressed = false;
+  if (state.phase === "replay") return; // the replay moves the player itself
   if (player.anim === "gather") shoot(-2.5);
   else if (player.anim === "jump") shoot((player.t - JUMP_APEX) / timingWindow());
 }
@@ -76,6 +80,7 @@ $("again").addEventListener("click", () => {
   if (performance.now() - state.overAt > 900) startGame();
 });
 $("change-player").addEventListener("click", () => openSelect());
+$("replay").addEventListener("click", startReplay);
 $("got-idea").addEventListener("click", () => window.dispatchEvent(new CustomEvent("feedback:open", { detail: { app: "basketball" } })));
 $("help-button").addEventListener("click", toggleHelp);
 $("help-close").addEventListener("click", closeHelp);
@@ -100,6 +105,7 @@ listenForInput({
   escape() {
     if (!screens.help.hidden) closeHelp();
     else if (!screens.board.hidden) closeBoard();
+    else if (state.phase === "replay") endReplay();
     else if (state.phase === "select" || state.phase === "modes") showTitle();
   },
   // Choosing a game or a player: the arrow keys move between the cards.
@@ -128,7 +134,7 @@ async function boot() {
   }
   if (DEBUG) {
     const pickSpot = () => mode().pickSpot();
-    window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed };
+    window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed, bestShot, checkReplays };
   }
   resize();
   new ResizeObserver(resize).observe(stage);

@@ -160,7 +160,8 @@ main checkout.
 - Shootaround modes: Time attack (60s), Sudden death (first miss ends it; gets harder), Around the World
   (7 spots, fastest time). Each has its own leaderboard (This week / All time, one row per player per
   device). Fire at 3 in a row (+1), purple at 6 (+2), blue supernova at 10 (+3); money and rainbow balls;
-  a daily challenge kept on the device.
+  a daily challenge kept on the device. After any game, Replay plays its best shot again in slow motion
+  (re-flown from what was recorded at the release, not recorded frames; see `play/replay.js`).
 - The flow: tap or Space to play, choose a game, choose a player.
 - Players: Orson, Jethro, and kids' own players from the builder (10 bodies, recoloured from region maps);
   requests wait in the admin inbox. Only add real kids as players if Orson knows them and their family is OK

@@ -83,6 +83,9 @@ export const PHRASES = {
   // The daily challenge, done.
   challenge: ["Challenge complete!", "Daily challenge done!"],
 
+  // An instant replay of the game's best shot, after the game.
+  replay: ["Let's see that again!", "Instant replay!", "Run it back!", "One more time, in slow motion!"],
+
   // Scored after the buzzer went.
   buzzer: ["At the buzzer!", "Just under the wire!", "Buzzer beater!"],
 
