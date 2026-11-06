@@ -9,13 +9,15 @@
 
 import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, lowWins, modeOf } from "../../shared/rules.js";
 import type { Mode, Shot } from "../../shared/rules.js";
+import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_PLAYER_NAME, PLAYER_PARTS, isNickname } from "./players.ts";
 import { checkGame, oddFlags } from "./scoring.ts";
-import { checkTurnstile, clean, hash, ipKey, isRude, json, readJson, RUDE } from "./util.ts";
+import { checkTurnstile, clean, hash, ipKey, isRude, json, rateLimit, readJson, RUDE } from "./util.ts";
 import type { Env } from "./util.ts";
 
 const SCORES_PER_DAY = 40;
+const PREVIEWS_PER_DAY = 300;
 
 // On the leaderboard each device has one row per player it plays as (a built-in one, or one made
 // in the builder), at its best, whatever nicknames it was sent with. The row shows its latest one.
@@ -114,6 +116,8 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 		)
 		.first<{ id: number }>();
 	if (!inserted) throw new HttpError(400, "That game's score is already in.");
+	// So the board shows it straight away, not after the edge cache runs out (cache.ts).
+	await forget(new URL(request.url).origin, { boards: [mode] });
 	// Their own player's earlier scores get its latest look too (including ones from before colours were sent).
 	if (colours)
 		await env.DB.prepare("UPDATE scores SET colours = ?, base = ? WHERE device = ? AND player = ? AND id != ?")
@@ -166,6 +170,8 @@ export async function leaderboard(env: Env, url: URL): Promise<Response> {
 // the game only offers the leaderboard for a new best. Nothing is saved.
 export async function previewScore(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
+	// It reads the whole week's board, so it's limited too (generously: it's asked once or twice a game).
+	await rateLimit(request, env, "preview", PREVIEWS_PER_DAY, "That's a lot of games for one day! Try again tomorrow.");
 	const nickname = scoreNickname(body);
 	const device = clean(body.device, 64);
 	if (device.length < 16) throw new HttpError(400, "Bad request.");

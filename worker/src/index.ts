@@ -21,6 +21,7 @@
 // Cron:    weekly phone notification of things to check                                  notify.ts
 
 import { admin, adminHtml } from "./admin.ts";
+import { cacheKey, cached } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { config, listIdeas, submit, vote } from "./ideas.ts";
 import { notify } from "./notify.ts";
@@ -30,12 +31,15 @@ import { cors, isRude, json } from "./util.ts";
 import type { Env } from "./util.ts";
 
 export default {
-	async fetch(request, env): Promise<Response> {
+	async fetch(request, env, ctx): Promise<Response> {
 		const url = new URL(request.url);
 		try {
 			if (url.pathname === "/admin" || url.pathname === "/admin/") return await adminHtml(request, env);
 			if (url.pathname.startsWith("/api/admin/")) return await admin(request, env, url);
 			if (request.method === "OPTIONS") return cors(request, new Response(null, { status: 204 }));
+			// The same for everyone: kept in the edge cache for a short while (cache.ts).
+			const shared = request.method === "GET" ? cacheKey(url) : null;
+			if (shared) return cors(request, await cached(shared, ctx, () => publicApi(request, env, url)));
 			return cors(request, await publicApi(request, env, url));
 		} catch (err) {
 			if (err instanceof HttpError) return cors(request, json({ error: err.message }, err.status));

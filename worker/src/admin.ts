@@ -2,6 +2,9 @@
 // players and scores. Cloudflare Access guards it, and requireAdmin checks Access's signature too.
 
 import adminPage from "./admin.html?raw";
+import { modeOf } from "../../shared/rules.js";
+import type { Mode } from "../../shared/rules.js";
+import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
 import { MAX_PLAYER_NAME, MAX_TEAM_NAME, PLAYER_PARTS } from "./players.ts";
@@ -48,11 +51,25 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 			0,
 		);
 	}
-	if (request.method === "POST" && parts[2] === "submissions") return triage(env, Number(parts[3]), await readJson(request));
-	if (request.method === "POST" && parts[2] === "ideas") return editIdea(env, Number(parts[3]), await readJson(request));
-	if (request.method === "POST" && parts[2] === "players") return editPlayer(env, Number(parts[3]), await readJson(request));
-	if (request.method === "POST" && parts[2] === "scores") return editScore(env, Number(parts[3]), await readJson(request));
-	throw new HttpError(404, "Not found.");
+	const id = Number(parts[3]);
+	if (request.method !== "POST") throw new HttpError(404, "Not found.");
+	// Each change also clears what it changes from the public edge cache (cache.ts).
+	let res: Response;
+	if (parts[2] === "submissions") {
+		res = await triage(env, id, await readJson(request));
+		await forget(url.origin, { ideas: true });
+	} else if (parts[2] === "ideas") {
+		res = await editIdea(env, id, await readJson(request));
+		await forget(url.origin, { ideas: true });
+	} else if (parts[2] === "players") {
+		res = await editPlayer(env, id, await readJson(request));
+		await forget(url.origin, { players: true });
+	} else if (parts[2] === "scores") {
+		const mode = await editScore(env, id, await readJson(request));
+		await forget(url.origin, { boards: [mode], score: id });
+		res = json({ ok: true }, 200, 0);
+	} else throw new HttpError(404, "Not found.");
+	return res;
 }
 
 async function triage(env: Env, id: number, body: Record<string, unknown>): Promise<Response> {
@@ -149,13 +166,13 @@ async function editPlayer(env: Env, id: number, body: Record<string, unknown>): 
 	return json({ ok: true }, 200, 0);
 }
 
-async function editScore(env: Env, id: number, body: Record<string, unknown>): Promise<Response> {
+async function editScore(env: Env, id: number, body: Record<string, unknown>): Promise<Mode> {
 	// "show" keeps it on the board (it looked fine), "hide" takes it off. Either way it's been checked.
 	const status = body.action === "show" ? "shown" : body.action === "hide" ? "hidden" : null;
 	if (!status) throw new HttpError(400, "Unknown action.");
-	const result = await env.DB.prepare("UPDATE scores SET status = ?, checked = 1 WHERE id = ?").bind(status, id).run();
-	if (!result.meta.changes) throw new HttpError(404, "No such score.");
-	return json({ ok: true }, 200, 0);
+	const row = await env.DB.prepare("UPDATE scores SET status = ?, checked = 1 WHERE id = ? RETURNING mode").bind(status, id).first<{ mode: string }>();
+	if (!row) throw new HttpError(404, "No such score.");
+	return modeOf(row.mode);
 }
 
 // Cloudflare Access sits in front of /admin and signs every request it lets through.

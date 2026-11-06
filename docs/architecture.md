@@ -55,6 +55,10 @@ flowchart LR
 ```
 - **Worker** (`worker/src/index.ts`, admin UI in `worker/src/admin.html`): the only server. It answers the API
   and the admin page on the same domain as the site, so there's no cross-site setup in production.
+- **Edge cache** (`worker/src/cache.ts`): public answers that are the same for everyone (the boards, score
+  cards, approved players, config, the ideas list without a device) are kept in Cloudflare's cache for 30-60 s,
+  keyed by the URL with only the parameters the handler reads. A new score or an admin change clears what it
+  changed in that data centre; elsewhere it can be up to a minute old. Nothing personal or admin is cached.
 - **D1:** one SQLite database, changed only through numbered files in `worker/migrations/`.
 
 ## Code map
