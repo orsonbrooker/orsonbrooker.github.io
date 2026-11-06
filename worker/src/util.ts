@@ -1,0 +1,87 @@
+// What every part of the Worker shares: its environment, JSON responses, CORS, reading and tidying
+// what's sent, hashing, the robot check and the rude-word filter.
+
+import { englishDataset, englishRecommendedTransformers, RegExpMatcher } from "obscenity";
+import { HttpError } from "./http.ts";
+
+export interface Env {
+	DB: D1Database;
+	SITE_URL: string;
+	TURNSTILE_SITE_KEY: string;
+	TURNSTILE_SECRET: string;
+	HASH_SECRET: string;
+	ACCESS_TEAM_DOMAIN?: string;
+	ACCESS_AUD?: string;
+	NTFY_TOPIC?: string;
+	DEV_ADMIN?: string; // local development only: skips the Access check
+}
+
+// Rude-word check for everything people type. It sees through tricks like "a$$" and spacing,
+// without blocking innocent words that happen to contain rude ones.
+const rudeWords = new RegExpMatcher({ ...englishDataset.build(), ...englishRecommendedTransformers });
+export const isRude = (...texts: (string | null | undefined)[]) => texts.some((t) => !!t && rudeWords.hasMatch(t));
+export const RUDE = "Let's keep it friendly. Try different words.";
+
+export function json(data: unknown, status = 200, maxAge = 0): Response {
+	return new Response(JSON.stringify(data), {
+		status,
+		headers: { "Content-Type": "application/json", "Cache-Control": maxAge ? `public, max-age=${maxAge}` : "no-store" },
+	});
+}
+
+// The live site calls the API from the same domain. Allow local previews to call it too.
+export function cors(request: Request, response: Response): Response {
+	const origin = request.headers.get("Origin");
+	if (origin && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+		response.headers.set("Access-Control-Allow-Origin", origin);
+		response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+		response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+	}
+	return response;
+}
+
+export async function readJson(request: Request): Promise<Record<string, unknown>> {
+	try {
+		const body = await request.json();
+		if (body && typeof body === "object") return body as Record<string, unknown>;
+	} catch {
+		// fall through
+	}
+	throw new HttpError(400, "Bad request.");
+}
+
+/** Text as sent, with runs of spaces made one, trimmed and cut to `max`. Anything but a string is "". */
+export function clean(value: unknown, max: number): string {
+	return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
+}
+
+export async function hash(env: Env, value: string): Promise<string> {
+	const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(env.HASH_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+	const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
+	return [...new Uint8Array(sig)]
+		.slice(0, 16)
+		.map((b) => b.toString(16).padStart(2, "0"))
+		.join("");
+}
+
+// IP + today's date, hashed: enough to rate limit, never the address itself.
+export function ipKey(request: Request, env: Env): Promise<string> {
+	const ip = request.headers.get("CF-Connecting-IP") ?? "local";
+	return hash(env, `ip:${ip}:${new Date().toISOString().slice(0, 10)}`);
+}
+
+export async function checkTurnstile(request: Request, env: Env, token: unknown) {
+	if (typeof token !== "string" || !token) throw new HttpError(400, "Please finish the robot check.");
+	const form = new FormData();
+	form.append("secret", env.TURNSTILE_SECRET);
+	form.append("response", token);
+	const ip = request.headers.get("CF-Connecting-IP");
+	if (ip) form.append("remoteip", ip);
+	const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: form });
+	const outcome = await res.json<{ success: boolean; hostname?: string }>();
+	if (!outcome.success) throw new HttpError(400, "The robot check didn't work. Please try again.");
+	// On the live site, only accept checks passed on this site (local test keys report another host).
+	if (env.ACCESS_AUD && outcome.hostname !== new URL(env.SITE_URL).hostname) {
+		throw new HttpError(400, "The robot check didn't work. Please try again.");
+	}
+}

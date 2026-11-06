@@ -1,5 +1,5 @@
 // Checking a game sent to the leaderboard, without the database: whether it hangs together by the
-// game's own rules (shared/rules.js), and whether anything about it looks odd. index.ts does the parts
+// game's own rules (shared/rules.js), and whether anything about it looks odd. scores.ts does the parts
 // that need the server (the start token's signature and age, the robot check, the database).
 // Tests: worker/test/scoring.test.ts.
 //
