@@ -6,6 +6,7 @@ import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, 
 import { BALL_FRAMES, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow } from "../engine/draw.js";
 import { currentFrame, frameCount, jumpLift, sheet } from "../play/players.js";
 import { fireLevel, nextBallBadge, pixelFx, timingWindow } from "../play/react.js";
+import { drawReplay } from "../play/replay.js";
 import { DEBUG, JUMP_APEX, JUMP_FRAME_TIME, hints, mode, player, state } from "../play/state.js";
 import { howTo, stage } from "../screens/base.js";
 import { NORMAL } from "../shared/rules.js";
@@ -155,6 +156,7 @@ export function render() {
   drawMeter();
   drawBallBadge();
   drawHint();
+  mode().drawOver?.(ctx);
   drawPopups(ctx, state.popups);
   drawConfetti(ctx, state.confetti);
   pixelFx.draw(ctx, "over");
@@ -163,5 +165,6 @@ export function render() {
     ctx.fillStyle = `rgba(255, 255, 255, ${state.flash * 0.6})`;
     ctx.fillRect(0, 0, COURT_PX, COURT_PX);
   }
+  if (state.phase === "replay") drawReplay(ctx);
   if (DEBUG) drawCourtLines(ctx);
 }

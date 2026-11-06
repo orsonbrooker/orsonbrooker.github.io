@@ -18,7 +18,7 @@ export const TIMING_WINDOW = 0.13;
 export const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16 };
 
 export const state = {
-  phase: "loading", // loading | title | modes | select | playing | ending | over
+  phase: "loading", // loading | title | modes | select | playing | turn (HORSE, between shots) | ending | over | replay
   score: 0,
   mode: "timed",
   best: 0,
@@ -45,6 +45,7 @@ export const state = {
   // For the leaderboard: each shot as [seconds in, 3-pointer, made, release timing], the game's
   // start token from the server, how it was played, and whether the tab was hidden mid-game.
   shotLog: [],
+  replayShots: [], // each shot's release, to fly it again in an instant replay (play/replay.js); never sent
   gameToken: null,
   rngSeed: null, // what this game's random spots and aim came from (its start token, if it had one by then)
   input: "touch",

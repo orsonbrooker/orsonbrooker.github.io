@@ -50,16 +50,20 @@ async function loadCharacter(id) {
   return characters.loaded.get(id);
 }
 
-// Plays as this player from now on (and remembers it).
-export async function useCharacter(id) {
+// Plays as this player from now on (and remembers it, unless it's only for now: a turn in a pass and
+// play game, or a replay).
+export async function useCharacter(id, { remember = true } = {}) {
   const { meta, img, loaded } = await loadCharacter(id);
   sheet.sprites = meta;
   sheet.atlas = img;
   sheet.shoeRegions = loaded?.regionsData ?? null; // builder players: which pixels are shoes
   characters.selected = id;
   player.attrs = attributesFor(id);
-  save("orson-hoops-character", id);
+  if (remember) save("orson-hoops-character", id);
 }
+
+// Starts loading a player's sprite sheet, so switching to them later is quick.
+export const preloadCharacter = (id) => loadCharacter(id).catch(() => {});
 
 // The hand-made players, then ones made on this device, then approved builder players. Falls back to
 // the first player if the remembered one is gone.

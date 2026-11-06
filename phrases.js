@@ -80,8 +80,18 @@ export const PHRASES = {
   aroundLast: ["Last spot!", "One more!", "Bring it home!"],
   aroundDone: ["Around the world!", "World tour complete!", "Passport stamped!"],
 
+  // HORSE (pass and play): the leader made it, someone matched it, a letter, out, and the winner.
+  horseSet: ["Match that!", "Can you copy that?", "Your move!"],
+  horseMatch: ["Matched it!", "Copycat!", "Right back at you!"],
+  horseLetter: ["That's a letter!", "Letter!", "Uh oh, a letter!"],
+  horseOut: ["That spells HORSE!", "You're out!", "H-O-R-S-E!"],
+  horseWin: ["We have a winner!", "Last one standing!", "Champion of HORSE!"],
+
   // The daily challenge, done.
   challenge: ["Challenge complete!", "Daily challenge done!"],
+
+  // An instant replay of the game's best shot, after the game.
+  replay: ["Let's see that again!", "Instant replay!", "Run it back!", "One more time, in slow motion!"],
 
   // Scored after the buzzer went.
   buzzer: ["At the buzzer!", "Just under the wire!", "Buzzer beater!"],

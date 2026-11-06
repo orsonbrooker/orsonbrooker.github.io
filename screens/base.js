@@ -8,7 +8,7 @@ import { icon } from "../ui/icons.js";
 
 export const $ = (id) => document.getElementById(id);
 export const stage = $("stage");
-export const screens = { title: $("title-screen"), select: $("select-screen"), modes: $("mode-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen") };
+export const screens = { title: $("title-screen"), select: $("select-screen"), modes: $("mode-screen"), turn: $("turn-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen") };
 export const tapToPlay = $("tap-to-play");
 export const charPick = $("char-pick");
 

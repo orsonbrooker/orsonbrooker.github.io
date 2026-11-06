@@ -10,6 +10,7 @@ import { save } from "../engine/storage.js";
 import { startToken } from "../leaderboard.js";
 import { frameCount, jumpLift, sheet, shoePoints } from "../play/players.js";
 import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss } from "../play/react.js";
+import { recordMade, recordShot, updateReplay } from "../play/replay.js";
 import { updateHud } from "../play/scene.js";
 import { ANIM_FPS, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state } from "../play/state.js";
 import { showScreen } from "../screens/base.js";
@@ -34,14 +35,17 @@ export function startGame() {
   state.timeScale = 1;
   state.endAt = 0;
   state.shotLog = [];
+  state.replayShots = [];
   state.hiddenTab = false;
   state.gameToken = null;
   state.rngSeed = null;
   resetRandom();
   const game = ++gamesStarted;
-  startToken().then((token) => {
-    if (game === gamesStarted) state.gameToken = token;
-  });
+  // A start token for the leaderboard (pass and play games have none: nothing is sent).
+  if (!mode().passAndPlay)
+    startToken().then((token) => {
+      if (game === gamesStarted) state.gameToken = token;
+    });
   state.buzzerBeater = false;
   state.streak = 0;
   state.coldStreak = 0;
@@ -60,6 +64,7 @@ export function startGame() {
   updateHud();
   sound.gameStart();
   announce("start", "#ffffff");
+  mode().begin?.();
 }
 
 // ---------- Shooting ----------
@@ -70,6 +75,8 @@ function gaussian() {
 
 // `timing` is 0 for a perfect release, negative for early and positive for late.
 export function shoot(timing) {
+  const releaseAnim = player.anim;
+  const releaseT = player.t;
   if (!hints.learned) {
     hints.learned = true;
     save("orson-hoops-learned", true);
@@ -136,6 +143,7 @@ export function shoot(timing) {
   if (state.phase === "playing") {
     ball.log = [Math.round(mode().gameSeconds() * 100) / 100, ball.three ? 1 : 0, 0, Math.round(clamped * 1000) / 1000, ball.kind];
     state.shotLog.push(ball.log);
+    ball.replay = recordShot(ball, releaseAnim, releaseT); // for the instant replay (play/replay.js)
   }
   player.activeBall = ball;
   player.airT = player.anim === "jump" ? player.t : Infinity; // let go from a gather: not in the air
@@ -178,6 +186,7 @@ function scoreBasket(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
   if (!mode().countsShot()) return;
   mode().onMake(b);
+  recordMade(b);
 }
 
 function missedShot(b) {
@@ -210,6 +219,10 @@ export function checkDecided(b) {
 
 function updatePlayer(dt) {
   player.t += dt;
+  if (state.phase === "replay") {
+    updateReplay();
+    return;
+  }
 
   if (player.moving) {
     player.fade -= dt * 6;
@@ -270,6 +283,7 @@ function updatePlayer(dt) {
 
 function update(dt) {
   if (state.phase === "playing") mode().clock(dt);
+  else if (state.phase === "turn") mode().betweenTurns?.(dt);
   else if (state.phase === "ending") {
     // Let the last shot's reaction play out before the game-over screen.
     if (state.balls.every((b) => b.decided)) {
@@ -309,7 +323,7 @@ function update(dt) {
   }
 
   // Flames round the player's shoes while they're on fire (hidden while they fade to a new spot).
-  const fire = state.phase === "playing" || state.phase === "ending" ? fireLevel() : null;
+  const fire = state.phase === "playing" || state.phase === "ending" || state.phase === "replay" ? fireLevel() : null;
   if (state.shoeFire && state.shoeFire.level !== fire) {
     state.shoeFire.stop();
     state.shoeFire = null;
@@ -331,6 +345,7 @@ function updateSlowMo(dt) {
   const dropping = state.phase === "ending" && state.balls.some(
     (b) => b.atBuzzer && !b.decided && b.vz < 0 && b.z < RIM.z + 1.8 && Math.hypot(b.u - RIM.u, b.v - RIM.v) < 1.6,
   );
+  if (state.phase === "replay") return; // a replay sets its own speed (play/replay.js)
   if (dropping && state.timeScale === 1) sound.ooh();
   const target = dropping ? SLOW_MO : 1;
   state.timeScale += (target - state.timeScale) * Math.min(1, dt * 8);
