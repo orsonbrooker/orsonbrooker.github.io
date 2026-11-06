@@ -4,9 +4,11 @@ Orson's website: his pixel-art basketball game **Shootaround**, a player builder
 private admin page. Orson is a kid; his dad (Luke) builds it with him. Players are Orson's friends, so
 everything is written for kids and stays safe for them. More background: `README.md`.
 
-Planning docs and other short-lived notes go in `notes/` (gitignored, local to the main checkout, so it
-may not exist in a worktree). `notes/architecture.md` is the current plan for growing the game and the
-iOS app; read it when working on structure, and keep new plans there rather than committing them.
+**Docs:** `docs/architecture.md` is the living description of how it all works: the pieces, the domain
+model and the main flows, with mermaid diagrams. It's committed; when a change alters something it
+describes, update it in the same commit. Plans, proposals and other short-lived notes go in `notes/`
+(gitignored, kept in the main checkout, so a worktree won't have it). `notes/growth-plan.md` is the current
+plan for growing the game and the iOS app; read it when working on structure.
 
 ## How it's built
 
