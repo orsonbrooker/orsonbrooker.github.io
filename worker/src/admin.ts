@@ -4,6 +4,7 @@
 import adminPage from "./admin.html?raw";
 import { modeOf } from "../../shared/rules.js";
 import type { Mode } from "../../shared/rules.js";
+import { verifyAccessToken } from "./access.ts";
 import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
@@ -175,10 +176,8 @@ async function editScore(env: Env, id: number, body: Record<string, unknown>): P
 	return modeOf(row.mode);
 }
 
-// Cloudflare Access sits in front of /admin and signs every request it lets through.
-// Check that signature too, so the admin API stays locked even if a route is misconfigured.
-let accessKeys: { keys: (JsonWebKey & { kid: string })[]; fetched: number } | null = null;
-
+// Cloudflare Access sits in front of /admin and signs every request it lets through. Check that
+// signature too (access.ts), so the admin API stays locked even if a route is misconfigured.
 async function requireAdmin(request: Request, env: Env): Promise<string> {
 	// "1" only when running locally with `cf dev` (see cloudflare.config.ts). Never honoured once
 	// Access is configured, so even a development-mode deploy can't open the admin page.
@@ -186,30 +185,5 @@ async function requireAdmin(request: Request, env: Env): Promise<string> {
 	if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) throw new HttpError(503, "Admin isn't set up yet.");
 	const token = request.headers.get("Cf-Access-Jwt-Assertion");
 	if (!token) throw new HttpError(403, "Sign in through Cloudflare Access.");
-	const [head, payload, signature] = token.split(".");
-	const header = JSON.parse(b64urlText(head));
-	const claims = JSON.parse(b64urlText(payload));
-
-	if (!accessKeys || Date.now() - accessKeys.fetched > 3600_000) {
-		const res = await fetch(`https://${env.ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`);
-		accessKeys = { keys: (await res.json<{ keys: (JsonWebKey & { kid: string })[] }>()).keys, fetched: Date.now() };
-	}
-	const jwk = accessKeys.keys.find((k) => k.kid === header.kid);
-	if (!jwk) throw new HttpError(403, "Unknown sign-in key.");
-	const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
-	const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64urlBytes(signature), new TextEncoder().encode(`${head}.${payload}`));
-	const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-	if (!valid || !audiences.includes(env.ACCESS_AUD) || claims.exp * 1000 < Date.now() || claims.iss !== `https://${env.ACCESS_TEAM_DOMAIN}`) {
-		throw new HttpError(403, "Sign-in check failed.");
-	}
-	return claims.email;
-}
-
-function b64urlBytes(s: string): Uint8Array {
-	const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "="));
-	return Uint8Array.from(bin, (c) => c.charCodeAt(0));
-}
-
-function b64urlText(s: string): string {
-	return new TextDecoder().decode(b64urlBytes(s));
+	return verifyAccessToken(token, env);
 }
