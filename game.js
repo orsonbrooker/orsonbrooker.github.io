@@ -1,7 +1,6 @@
 // Orson's shootaround: an isometric basketball game (time attack, sudden death, around the world).
 //
-// The ball is simulated in 3D court space (metres) and projected onto the
-// isometric court art. Screen units are "court pixels": the 2048px court image.
+// The court and its projection are in engine/court.js, the ball physics in engine/physics.js.
 
 import { loadVoiceClips, sound } from "./audio.js?v=b614856c";
 import { createFxLayer } from "./fx.js?v=61e6d0cd";
@@ -13,28 +12,9 @@ import { countsIn, doneToday, markDone, progress, streakDays, todaysChallenge } 
 import { renderBoard, showRoundResult, startToken } from "./leaderboard.js?v=b6aedccd";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, removeMyPlayer, thumbnail } from "./players/recolor.js?v=9235830f";
 import { randomSeed, seededStreams } from "./rng.js?v=f0efc919";
-
-const COURT_PX = 2048;
-const PX_PER_M = 132;
-const ORIGIN = { x: 1024, y: 816 }; // back corner of the floor
-const EU = { x: -115.3, y: 64.2 }; // +1m along the left wall (the hoop wall)
-const EV = { x: 114.4, y: 65.8 }; // +1m out from the left wall
-const ROOM_U = 8.2;
-const ROOM_V = 8.25;
-
-const GRAVITY = 9.81;
-const BALL_R = 0.23;
-const RIM_H = 3.05;
-const RIM_R = 0.45; // to the centre of the rim tube
-const RIM_TUBE = 0.035;
-const RIM = { ...unprojectFloor(611, 790 + RIM_H * PX_PER_M), z: RIM_H };
-const BOARD = { v: RIM.v - 0.62, u0: 3.35, u1: 6.4, z0: 2.85, z1: 5.0 };
-// Distance from the hoop to the 3-point line painted in the court art, every 10 degrees
-// from along the baseline (0) round to the other baseline (180). The painted arc is not a circle.
-const THREE_POINT_LINE = [3.1, 3.17, 3.33, 3.6, 3.98, 4.25, 4.48, 4.65, 4.73, 4.74, 4.68, 4.59, 4.46, 4.22, 3.97, 3.67, 3.35, 3.19, 3.1];
-const LINE_CLEARANCE = 0.25; // keep spots this far off the line so it's clear which side he's on
-const THREE_POINT_SHARE = 0.35;
-const HOOP_FRONT_AT = { x: 515, y: 735 };
+import { load, save } from "./engine/storage.js?v=1cb284ce";
+import { BALL_R, BOARD, COURT_PX, DEFAULT_SPOT, EU, EV, HOOP_FRONT_AT, LINE_CLEARANCE, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, isThreePointSpot, project, randomSpot, threePointRadius } from "./engine/court.js?v=7f81b538";
+import { GRAVITY, stepBall as physicsStep, stepFixed } from "./engine/physics.js?v=0433c248";
 
 // The wall scoreboard, in its own skewed coordinates (x runs along the wall, y straight down).
 const BOARD_ART = {
@@ -58,7 +38,6 @@ const BOARD_ART = {
 const BEST_KEYS = { timed: "orson-hoops-best", survival: "orson-hoops-best-survival", around: "orson-hoops-best-around" };
 const bestKey = (mode) => BEST_KEYS[mode] ?? BEST_KEYS.timed;
 const AROUND_SPOT_COUNT = AROUND_SPOTS; // one for each spot in AROUND_LAYOUT
-const PHYSICS_STEP = 1 / 240;
 const LAUNCH_ANGLE = (52 * Math.PI) / 180;
 
 // Jump timing (seconds since leaving the ground). Releasing at the apex is a perfect shot.
@@ -84,7 +63,6 @@ const BUZZER_CELEBRATION = 3.2; // seconds to celebrate a buzzer beater before t
 const SLOW_MO = 0.35; // game speed while a shot at the buzzer drops toward the hoop
 
 const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16 };
-const DEFAULT_SPOT = { u: 4.6, v: 4.6 };
 const DEBUG = new URLSearchParams(location.search).has("debug");
 
 const stage = document.getElementById("stage");
@@ -107,41 +85,6 @@ const howTo = (touch, keys, both) => (HAS_TOUCH && HAS_KEYS ? both : HAS_KEYS ? 
 const muteBtn = document.getElementById("mute");
 const musicBtn = document.getElementById("music");
 const charPick = document.getElementById("char-pick");
-
-// ---------- Projection ----------
-
-function project(u, v, z = 0) {
-  return {
-    x: ORIGIN.x + u * EU.x + v * EV.x,
-    y: ORIGIN.y + u * EU.y + v * EV.y - z * PX_PER_M,
-  };
-}
-
-function unprojectFloor(x, y) {
-  const dx = x - ORIGIN.x;
-  const dy = y - ORIGIN.y;
-  const det = EU.x * EV.y - EV.x * EU.y;
-  return { u: (dx * EV.y - EV.x * dy) / det, v: (EU.x * dy - dx * EU.y) / det };
-}
-
-// ---------- Storage (best score, mute) ----------
-
-function load(key, fallback) {
-  try {
-    const value = localStorage.getItem(key);
-    return value === null ? fallback : JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
-
-function save(key, value) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // Private mode or storage disabled: the game still works, it just forgets.
-  }
-}
 
 // ---------- Sound buttons ----------
 
@@ -426,21 +369,6 @@ function setAnim(name) {
   player.lastDribbleFrame = -1;
 }
 
-function spotDistance(u, v) {
-  return Math.hypot(u - RIM.u, v - RIM.v);
-}
-
-function threePointRadius(u, v) {
-  const deg = Math.max(0, Math.min(180, (Math.atan2(v - RIM.v, u - RIM.u) * 180) / Math.PI));
-  const i = Math.min(THREE_POINT_LINE.length - 2, Math.floor(deg / 10));
-  const f = deg / 10 - i;
-  return THREE_POINT_LINE[i] * (1 - f) + THREE_POINT_LINE[i + 1] * f;
-}
-
-function isThreePointSpot(u, v) {
-  return spotDistance(u, v) > threePointRadius(u, v);
-}
-
 // Around the world: in close on one block, out along the baseline, up to the elbow, the free throw
 // line, then back down the other side, like on a real court. [angle from the hoop, metres out,
 // measured against the key painted on the court]
@@ -494,21 +422,7 @@ function setSeed(seed) {
 function pickSpot() {
   // Around the world: the spot they're on until they make it, then the next.
   if (state.mode === "around") return getAroundSpots()[Math.min(state.aroundAt, AROUND_SPOT_COUNT - 1)];
-  const wantThree = random("spots") < THREE_POINT_SHARE;
-  for (let i = 0; i < 100; i++) {
-    // Keep him roughly in front of the hoop so his back-on shooting pose still faces it.
-    const angle = ((40 + random("spots") * 100) * Math.PI) / 180;
-    const line = threePointRadius(RIM.u + Math.cos(angle), RIM.v + Math.sin(angle));
-    const d = wantThree
-      ? line + LINE_CLEARANCE + random("spots") * 0.7
-      : 2 + random("spots") * (line - LINE_CLEARANCE - 2);
-    const u = RIM.u + Math.cos(angle) * d;
-    const v = RIM.v + Math.sin(angle) * d;
-    if (u < 1.8 || u > ROOM_U - 0.8 || v > ROOM_V - 0.8) continue;
-    if (Math.hypot(u - player.u, v - player.v) < 0.8) continue;
-    return { u, v };
-  }
-  return { ...DEFAULT_SPOT };
+  return randomSpot(() => random("spots"), player);
 }
 
 // Picks the mode for the next game (remembered for next time) and shows its best.
@@ -1093,120 +1007,28 @@ function confettiBurst(count) {
 
 // ---------- Physics ----------
 
-function stepBall(b, dt) {
-  b.age += dt;
-  b.prevZ = b.z;
-  b.vz -= GRAVITY * dt;
-  const drag = 1 - 0.04 * dt;
-  b.vu *= drag;
-  b.vv *= drag;
-  b.vz *= drag;
-  b.u += b.vu * dt;
-  b.v += b.vv * dt;
-  b.z += b.vz * dt;
-  b.spin -= dt * 9;
-
-  collideRim(b);
-  collideBoard(b);
-
-  // Basket: the ball centre drops through the rim plane inside the ring.
-  if (!b.scored && b.prevZ >= RIM.z && b.z < RIM.z && Math.hypot(b.u - RIM.u, b.v - RIM.v) < RIM_R - RIM_TUBE) {
-    b.scored = true;
-    scoreBasket(b);
-  }
-  // The net slows the ball and steers it down.
-  if (b.scored && b.z > RIM.z - 0.6 && b.z < RIM.z) {
-    const k = Math.exp(-7 * dt);
-    b.vu = b.vu * k + (RIM.u - b.u) * 4 * dt;
-    b.vv = b.vv * k + (RIM.v - b.v) * 4 * dt;
-    b.vz = Math.max(b.vz, -3);
-  }
-
-  // Floor (only inside the room; past the front edges the ball drops away).
-  const onCourt = b.u < ROOM_U && b.v < ROOM_V;
-  if (onCourt && b.z < BALL_R) {
-    b.z = BALL_R;
-    if (b.vz < 0) {
-      if (b.vz < -1) sound.bounce(-b.vz);
-      b.squash = Math.min(1, -b.vz / 7);
-      b.vz = -b.vz * 0.72;
-      if (b.vz < 0.5) b.vz = 0;
-      b.vu *= 0.86;
-      b.vv *= 0.86;
-      b.bounces++;
-    }
-    if (b.vz === 0) {
-      const roll = Math.exp(-1.5 * dt);
-      b.vu *= roll;
-      b.vv *= roll;
-    }
-  }
-  // Walls.
-  if (b.v < BALL_R && b.z > 0) {
-    b.v = BALL_R;
-    if (b.vv < 0) b.vv = -b.vv * 0.6;
-  }
-  if (b.u < BALL_R && b.z > 0) {
-    b.u = BALL_R;
-    if (b.vu < 0) b.vu = -b.vu * 0.6;
-  }
-}
-
-function collideRim(b) {
-  const du = b.u - RIM.u;
-  const dv = b.v - RIM.v;
-  const d = Math.hypot(du, dv);
-  if (d < 1e-6) return;
-  // Closest point on the rim circle.
-  const qu = RIM.u + (du / d) * RIM_R;
-  const qv = RIM.v + (dv / d) * RIM_R;
-  let nu = b.u - qu;
-  let nv = b.v - qv;
-  let nz = b.z - RIM.z;
-  const dist = Math.hypot(nu, nv, nz);
-  const min = BALL_R + RIM_TUBE;
-  if (dist >= min || dist < 1e-6) return;
-  nu /= dist;
-  nv /= dist;
-  nz /= dist;
-  b.u = qu + nu * min;
-  b.v = qv + nv * min;
-  b.z = RIM.z + nz * min;
-  const vn = b.vu * nu + b.vv * nv + b.vz * nz;
-  if (vn < 0) {
-    const restitution = 0.55;
-    const friction = 0.9;
-    const tu = b.vu - vn * nu;
-    const tv = b.vv - vn * nv;
-    const tz = b.vz - vn * nz;
-    b.vu = tu * friction - vn * restitution * nu;
-    b.vv = tv * friction - vn * restitution * nv;
-    b.vz = tz * friction - vn * restitution * nz;
-    if (-vn > 0.4) sound.rim(-vn);
-    if (-vn > 1.5) {
+// What the ball hitting things sounds and looks like (engine/physics.js reports the hits).
+const BALL_EVENTS = {
+  basket: (b) => scoreBasket(b),
+  floor(speed) {
+    if (speed > 1) sound.bounce(speed);
+  },
+  rim(speed, qu, qv, nu, nv) {
+    if (speed > 0.4) sound.rim(speed);
+    if (speed > 1.5) {
       const p = project(qu, qv, RIM.z);
       const floor = project(qu, qv, 0);
       pixelFx.spark(p.x, p.y, { floorDrop: floor.y - p.y, flip: nu - nv < 0 });
-      state.shake = Math.max(state.shake, Math.min(1, (-vn - 1.5) / 4));
+      state.shake = Math.max(state.shake, Math.min(1, (speed - 1.5) / 4));
     }
-    b.touchedRim = true;
-  }
-}
-
-function collideBoard(b) {
-  if (b.u < BOARD.u0 - BALL_R * 0.5 || b.u > BOARD.u1 + BALL_R * 0.5) return;
-  if (b.z < BOARD.z0 - BALL_R * 0.5 || b.z > BOARD.z1 + BALL_R * 0.5) return;
-  if (b.v - BALL_R < BOARD.v && b.v > BOARD.v - 0.3) {
-    b.v = BOARD.v + BALL_R;
-    if (b.vv < 0) {
-      if (b.vv < -1) sound.board(-b.vv);
-      if (b.vv < -3) state.shake = Math.max(state.shake, Math.min(0.6, (-b.vv - 3) / 6));
-      b.vv = -b.vv * 0.72;
-      b.vu *= 0.9;
-      b.vz *= 0.9;
-      b.touchedBoard = true;
-    }
-  }
+  },
+  board(speed) {
+    if (speed > 1) sound.board(speed);
+    if (speed > 3) state.shake = Math.max(state.shake, Math.min(0.6, (speed - 3) / 6));
+  },
+};
+function stepBall(b, dt) {
+  physicsStep(b, dt, BALL_EVENTS);
 }
 
 function scoreBasket(b) {
@@ -1536,13 +1358,10 @@ function update(dt) {
   for (const b of state.balls) if (b.squash) b.squash = Math.max(0, b.squash - dt * 8);
 }
 
-let accumulator = 0;
 function stepPhysics(dt) {
-  accumulator += dt;
-  while (accumulator >= PHYSICS_STEP) {
-    for (const b of state.balls) stepBall(b, PHYSICS_STEP);
-    accumulator -= PHYSICS_STEP;
-  }
+  stepFixed(dt, (step) => {
+    for (const b of state.balls) stepBall(b, step);
+  });
 }
 
 // ---------- Rendering ----------
