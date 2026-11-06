@@ -66,6 +66,7 @@ flowchart LR
 | Screens and input | `game.js` | Title, choose a game, choose a player, help, leaderboard, game over; tap/Space/hold, arrow keys in pickers. |
 | Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log. Used by the game and the Worker. |
 | Scoring extras | `daily.js`, `game.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
+| Gameplay randomness | `rng.js`, `game.js` (`random()`) | Seeded streams (sfc32) for shot spots and aim wobble. |
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
 | Sound | `audio.js`, `phrases.js`, `assets/voice/` | Music that builds, effects, announcer clips (device voice as fallback). |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
@@ -154,6 +155,11 @@ Terms used across the code:
   decided from it, so the server can check them.
 - **Fire levels:** 3 in a row +1 a basket, 6 (purple) +2, 10 (blue supernova) +3: `FIRE_RULES` in
   `shared/rules.js`. `game.js` adds how each looks (`FIRE_LOOKS`) and how much it widens the timing window.
+- **Seed:** the start token also seeds the game's gameplay randomness (`rng.js`): one stream for where he shoots
+  from, one for each shot's aim wobble, so the same token and the same inputs give the same game. The streams
+  are made at the game's first draw (the first release); if the token hasn't come back by then (or never does,
+  offline) the game uses a random seed throughout. It's kept in `state.rngSeed`; `?debug` can set it with
+  `window.game.setSeed()`. Effects, sounds and which announcer line plays stay on `Math.random`.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
 
 ## How a score gets on the board
