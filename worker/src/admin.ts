@@ -21,9 +21,8 @@ const blocks = (tag: string) =>
 	[...adminPage.matchAll(new RegExp(`<${tag}(\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, "g"))].filter((m) => !/\ssrc=/.test(m[1] ?? "")).map((m) => m[2]);
 
 /**
- * What the admin page may load: its own inline script and styles, the pixel font from Google Fonts,
- * player pictures and the recolouring code from the main site (another port when testing locally),
- * and the admin API. Images include data: and blob: (faces are drawn on a canvas).
+ * What the admin page may load: its own inline script and styles, the pixel font, player pictures and
+ * the recolouring code from the main site (another port when testing locally), and the admin API. Images include data: and blob: (faces are drawn on a canvas).
  */
 export async function adminCsp(site: string): Promise<string> {
 	inlineHashes ??= Promise.all([Promise.all(blocks("script").map(sha256)), Promise.all(blocks("style").map(sha256))]).then(([scripts, styles]) => ({
@@ -35,8 +34,8 @@ export async function adminCsp(site: string): Promise<string> {
 	return [
 		"default-src 'none'",
 		`script-src ${own} ${scripts.join(" ")}`,
-		`style-src ${styles.join(" ")} https://fonts.googleapis.com`,
-		"font-src https://fonts.gstatic.com",
+		`style-src ${styles.join(" ")}`,
+		`font-src ${own}`,
 		`img-src ${own} data: blob:`,
 		`connect-src ${own}`,
 		"base-uri 'none'",

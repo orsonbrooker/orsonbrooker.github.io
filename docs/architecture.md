@@ -39,7 +39,8 @@ flowchart LR
   (`.github/workflows/pages.yml`) runs `npm run build` (`vite.config.js`) and publishes `dist/` to GitHub
   Pages, cached by Cloudflare. Each page keeps its URL; scripts and stylesheets get hashed names in
   `dist/build/`, so new code always gets past the cache, and everything fetched by URL at runtime
-  (`assets/`, `icons/`, manifests, `robots.txt`, `sitemap.xml`, `CNAME`) is copied unhashed. The build puts
+  (`assets/`, `icons/`, manifests, `robots.txt`, `sitemap.xml`, `CNAME`) is copied unhashed. The pixel font is self-hosted (`@fontsource/press-start-2p`,
+  bundled through `styles.css`; a fixed-name copy in `fonts/` for the admin page): no font service sees visitors. The build puts
   the commit into the game as the version it sends with scores. The iOS app (Capacitor) can wrap the same
   `dist/`.
 

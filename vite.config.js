@@ -3,7 +3,7 @@
 // copied across unchanged (STATIC below). GitHub Actions builds and publishes it on every push to main
 // (.github/workflows/pages.yml). A new page goes in PAGES; a new file fetched by URL goes in STATIC.
 import { execSync } from "node:child_process";
-import { cpSync, existsSync } from "node:fs";
+import { cpSync, existsSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
@@ -81,7 +81,12 @@ function gameVersion() {
   };
 }
 
-// Copies STATIC into dist/ after the bundle is written.
+// The pixel font's files at a fixed address, for the admin page (served by the Worker, so not part of
+// this build). The site's own pages get the font through styles.css, with hashed names.
+const FONT_DIR = "node_modules/@fontsource/press-start-2p/files";
+const FONT_OUT = "fonts/press-start-2p";
+
+// Copies STATIC (and the admin page's font) into dist/ after the bundle is written.
 function copyStatic() {
   let outDir;
   return {
@@ -96,6 +101,9 @@ function copyStatic() {
         if (!existsSync(from)) this.error(`missing static file: ${path}`);
         cpSync(from, resolve(outDir, path), { recursive: true });
       }
+      for (const file of readdirSync(resolve(ROOT, FONT_DIR)).filter((f) => f.endsWith(".woff2"))) {
+        cpSync(resolve(ROOT, FONT_DIR, file), resolve(outDir, FONT_OUT, file));
+      }
     },
   };
 }
@@ -106,6 +114,8 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     assetsDir: "build",
+    // Font files stay files (never inlined into every stylesheet); the browser fetches only what it uses.
+    assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
     modulePreload: { polyfill: false }, // every browser the game runs in has modulepreload
     rollupOptions: {
       input: Object.fromEntries(Object.entries(PAGES).map(([name, page]) => [name, resolve(ROOT, page)])),

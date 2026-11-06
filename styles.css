@@ -1,3 +1,7 @@
+/* The pixel font, served from this site (Fontsource's copy of Google's files, same subsets and
+   font-display: swap), so no visitor's browser asks a font service for it. */
+@import "@fontsource/press-start-2p/400.css";
+
 :root {
   --bg: #a6798e;
   --ink: #2b1622;
