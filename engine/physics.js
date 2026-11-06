@@ -6,7 +6,7 @@
 //   on.board(speed)                    hit the backboard
 //   on.floor(speed)                    bounced on the floor
 
-import { BALL_R, BOARD, RIM, RIM_R, RIM_TUBE, ROOM_U, ROOM_V } from "../engine/court.js?v=7f81b538";
+import { BALL_R, BOARD, RIM, RIM_R, RIM_TUBE, ROOM_U, ROOM_V } from "../engine/court.js";
 
 export const GRAVITY = 9.81;
 export const PHYSICS_STEP = 1 / 240;

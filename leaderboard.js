@@ -5,9 +5,9 @@
 // token and the game's shot log, and the server checks they add up (see worker/src/index.ts,
 // postScore). Odd-looking scores still show, flagged for Orson to check.
 
-import { say } from "./ui/form.js?v=fd569ffc";
-import { icon } from "./ui/icons.js?v=c284e3ca";
-import { lowWins } from "./shared/rules.js?v=3d6a7e83";
+import { say } from "./ui/form.js";
+import { icon } from "./ui/icons.js";
+import { lowWins } from "./shared/rules.js";
 
 const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
 const API = LOCAL ? "http://localhost:8787/api" : "/api";

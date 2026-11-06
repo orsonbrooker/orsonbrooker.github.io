@@ -1,13 +1,13 @@
 // The game-over screen: the result and whether it's a new best, the daily challenge line, and the
 // leaderboard result under it (where a new best this week would land, and the button to put it on).
 
-import { countsIn, doneToday, progress, streakDays, todaysChallenge } from "../daily.js?v=6f3b9099";
-import { save } from "../engine/storage.js?v=1cb284ce";
-import { showRoundResult } from "../leaderboard.js?v=b6aedccd";
-import { boardFace, characters } from "../play/players.js?v=c442a8cf";
-import { announce, checkDaily } from "../play/react.js?v=60e50f8e";
-import { DEBUG, mode, state } from "../play/state.js?v=21175a94";
-import { $, showScreen } from "../screens/base.js?v=b44aeb9d";
+import { countsIn, doneToday, progress, streakDays, todaysChallenge } from "../daily.js";
+import { save } from "../engine/storage.js";
+import { showRoundResult } from "../leaderboard.js";
+import { boardFace, characters } from "../play/players.js";
+import { announce, checkDaily } from "../play/react.js";
+import { DEBUG, mode, state } from "../play/state.js";
+import { $, showScreen } from "../screens/base.js";
 
 // The game's version (game.js's ?v= stamp), sent with scores.
 let gameVersion = null;

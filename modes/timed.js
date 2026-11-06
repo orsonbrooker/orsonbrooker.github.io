@@ -1,12 +1,12 @@
 // Time attack: score as much as you can in 60 seconds. A shot in the air at the buzzer still counts
 // (and if it goes in, that's a buzzer beater).
 
-import { sound } from "../audio.js?v=b614856c";
-import { pointsMode, scorePoints } from "../modes/points.js?v=51afce5d";
-import { fireStage } from "../play/react.js?v=60e50f8e";
-import { updateHud } from "../play/scene.js?v=bb8007ec";
-import { player, setAnim, state } from "../play/state.js?v=21175a94";
-import { GAME_SECONDS } from "../shared/rules.js?v=3d6a7e83";
+import { sound } from "../audio.js";
+import { pointsMode, scorePoints } from "../modes/points.js";
+import { fireStage } from "../play/react.js";
+import { updateHud } from "../play/scene.js";
+import { player, setAnim, state } from "../play/state.js";
+import { GAME_SECONDS } from "../shared/rules.js";
 
 export default {
   ...pointsMode,

@@ -1,0 +1,25 @@
+# Weekly pull requests for security fixes and updates: the site's build tools (Vite), the Worker's
+# packages, and the GitHub Actions the Pages workflow uses (pinned to exact commits).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      site:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /worker
+    schedule:
+      interval: weekly
+    groups:
+      worker:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

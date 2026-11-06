@@ -12,16 +12,16 @@ plan for growing the game and the iOS app; read it when working on structure.
 
 ## How it's built
 
-- **Site:** plain JavaScript modules. Today there's no build step live: GitHub Pages serves `main` as it is
-  at orsonbrooker.com, behind Cloudflare (which caches scripts for 4 hours). Pages: `/` (`index.html`,
-  `home/`), `/games/shootaround/` (uses `<base href="/">`, so the game's code and assets live at the repo
-  root), `/players/` (builder), `/ideas/`, `404.html`, `/lab/` (hidden effects test page).
-- **Vite build (being moved to):** `npm ci` then `npm run build` bundles every page into `dist/` (hashed
-  scripts and stylesheets in `dist/build/`, runtime files such as `assets/` and `icons/` copied unhashed).
-  Config: `vite.config.js` (a new page goes in its `PAGES`; a new file fetched by URL at runtime goes in
-  `STATIC` unless it's under `assets/` or `icons/`). `.github/workflows/pages.yml` builds on every push to
-  `main` but **deploys only after the cutover**, when Luke switches the Pages source to "GitHub Actions".
-  The source must keep working unbuilt until then. Cutover steps: `notes/vite-cutover.md`.
+- **Site:** plain JavaScript modules (no framework), built with Vite. On every push to `main`, GitHub
+  Actions (`.github/workflows/pages.yml`) runs `npm run build` and publishes `dist/` to GitHub Pages at
+  orsonbrooker.com, behind Cloudflare. Pages: `/` (`index.html`, `home/`), `/games/shootaround/` (uses
+  `<base href="/">`, so the game's code and assets live at the repo root), `/players/` (builder), `/ideas/`,
+  `404.html`, `/lab/` (hidden effects test page).
+- **Build:** `vite.config.js` bundles each page's scripts and stylesheets into `dist/build/` with hashed
+  names (so new code always reaches visitors), and copies files the code fetches by URL (`assets/`,
+  `icons/`, manifests, `CNAME`) unchanged. A new page goes in its `PAGES`; a new file fetched by URL at
+  runtime goes in `STATIC` unless it's under `assets/` or `icons/`. New JS modules need nothing special:
+  import them normally. The build stamps the commit into the game as the version it sends with scores.
 - **Game:** `game.js` (the entry point that wires it up), `engine/` (court and projection, physics, loop,
   input, drawing helpers), `play/` (the shared state, shooting and the update, reactions, drawing the court,
   players), `modes/` (one file per mode, same shape), `content/` (looks, spots, calls), `screens/` (menus,
@@ -66,11 +66,31 @@ plan for growing the game and the iOS app; read it when working on structure.
 - **Be lenient on cheating:** reject only the impossible; flag the odd ones for the admin and keep them
   on the board.
 
+## Security (the repo is public)
+
+Assume anyone can read every line and the whole history. A review on 6 Nov 2026 found no secrets in the
+code or history, and no XSS or SQL injection; keep it that way:
+- User-typed text (nicknames, ideas, player and team names, credits) only ever reaches the page through
+  `textContent`; `innerHTML` only with constant strings or `icon()`. Every value in SQL is bound.
+- Fine to be public: the D1 database id, the Turnstile site key, the Access team domain and AUD.
+- Every cheap-to-call write needs a per-IP limit (and Turnstile where a kid types something); public reads
+  go through the Worker's short cache so a request loop can't use up the free tier's daily D1 quota.
+- Admin: Cloudflare Access plus the Worker's own token check; admin POSTs must be same-origin JSON. The
+  local `DEV_ADMIN` bypass only works for requests to localhost.
+- Kids' privacy: public responses show dates, never exact times; nicknames, not real names; no third-party
+  trackers.
+- `tools/dev/lan_server.py` (phone testing, reachable by anyone on the Wi-Fi) never serves hidden files or
+  `worker/`, `notes/`, `tools/`, `art/`. Don't serve the main checkout's root with any other server on
+  `0.0.0.0`: `worker/.secrets.json` holds the production secrets.
+- GitHub Actions are pinned to exact commits; Dependabot opens weekly update PRs (`.github/dependabot.yml`).
+  Pin new packages to exact versions.
+
 ## Running it locally
 
 From a worktree, set up once:
 
 ```sh
+npm ci                                                # the site's build tools (Vite)
 npm --prefix worker ci
 cp ../../../worker/.dev.vars worker/                  # from the main checkout
 cp -R ../../../worker/.cloudflare/types worker/.cloudflare/  # generated types, else tsc fails
@@ -81,19 +101,21 @@ python3 tools/dev/copy_live_db.py                     # optional: real ideas, pl
 - **Worker:** `cd worker && npx vite --port 8787 --strictPort` (`cf dev` can't take a port). It must run from `worker/`: `npx vite` at the repo root is the site's build, and answers every URL with a page. Add `--host`
   to reach it from a phone. It listens on IPv6 (`localhost`, not `127.0.0.1`). `/admin` needs no sign-in
   locally.
-- **Site:** `python3 -m http.server 5173 --bind 127.0.0.1` from the worktree. The game uses the local
-  Worker when on localhost. Other sessions may already hold 5173 or 8787: check with `lsof -i :PORT` and
-  pick a free one.
-- **Built site:** `npm ci` once, then `npm run dev -- --port <port> --strictPort` (Vite dev server), or
-  `npm run build` and `python3 -m http.server <port> --bind 127.0.0.1 --directory dist` to check what will
-  be deployed after the cutover. Until then, also check the unbuilt site still works.
-- **Phone or iPad:** `python3 tools/dev/lan_server.py 5174` and open `http://<Mac IP>:5174/games/shootaround/`
-  (`ipconfig getifaddr en0`).
+- **Site:** `npm run dev -- --port 5173 --strictPort` (Vite's dev server, from the repo root) while working,
+  then before going live `npm run build` and serve what will be deployed:
+  `python3 -m http.server 5175 --bind 127.0.0.1 --directory dist`. The game uses the local Worker when on
+  localhost. Other sessions may already hold these ports: check with `lsof -i :PORT` and pick a free one.
+- **Phone or iPad:** `npm run build`, then `python3 tools/dev/lan_server.py 5174 dist` and open
+  `http://<Mac IP>:5174/games/shootaround/` (`ipconfig getifaddr en0`).
 - **Test mode:** add `?debug` to the game URL: shows the rim and lines, exposes `window.game`, and scores
   can't be sent.
-- **Automated play:** the app's browser pane pauses the game when hidden, so use the headless puppeteer
-  browser for gameplay tests. Drive real input by dispatching Space keydown/keyup on `window` and releasing
-  at the top of the jump (`player.anim === "jump" && player.t >= 0.29`).
+- **Automated play:** `node tools/dev/play.mjs` plays every mode in a headless Chrome and sends the scores to
+  the local Worker (instructions at its top). Use your own headless Chrome as it describes: the app's browser
+  pane pauses the game when hidden, and the shared puppeteer browser gets navigated by other sessions. It
+  drives real input (Space keydown/keyup on `window`, letting go when `player.anim === "jump" && player.t >= 0.29`).
+  In `?debug`, `window.game.setSeed(...)` makes a game repeatable: the same seed and input give the same game.
+- **Page check:** `node tools/dev/check_pages.mjs 9333 http://localhost:5175` opens every page of the built
+  site in the same headless Chrome and lists script errors and failed loads.
 - **Type-check the Worker:** `cd worker && npx tsc --noEmit -p .` (needs `worker/.cloudflare/types`; it
   checks `shared/` too).
 - **Tests:** `npm --prefix worker test` runs `worker/test/*.test.ts` (scoring rules and score checks).
@@ -103,23 +125,20 @@ python3 tools/dev/copy_live_db.py                     # optional: real ideas, pl
 ## Going live
 
 Use the `go-live` skill. In short, in this order: live database migration, then `cf deploy` (only if the
-Worker changed), then push `main`, wait for Pages to build that commit (`sh tools/dev/wait_pages.sh <sha>`),
-then check the live files and API. Then tell Luke to `git pull` in the main checkout. After the Vite
-cutover, "Pages built" means the Pages workflow's deploy job finished for that commit.
+Worker changed), then push `main`, wait for the Pages workflow to build and deploy that commit
+(`sh tools/dev/wait_pages.sh <sha>`), then check the live pages and API. Then tell Luke to `git pull` in the
+main checkout.
 
 ## Gotchas
 
-- **Version stamps.** The pre-commit hook (`.githooks/pre-commit`, enable once with
-  `git config core.hooksPath .githooks`) runs `tools/stamp_versions.py`, which adds `?v=<hash>` to every
-  script and stylesheet so visitors get new code past the 4-hour cache. A **new** JS module or page must be
-  added to its `IMPORTS`/`ASSETS`/`PAGES` lists (importers after the files they import) and imported with a
-  `?v=00000000` placeholder; otherwise it's never stamped and stays cached. The Vite build strips these
-  stamps (each module is bundled once) and fills in game.js's version itself; after the cutover the
-  stamps, the script and the hook go (see `notes/vite-cutover.md`).
-- **Check live after the Pages build.** Fetching a stamped URL before Pages has built the commit makes
-  Cloudflare cache the old file under the new URL. If that happens: `npx cf cache purge -z orsonbrooker.com
-  --force --body '{"files":["<url>"]}'`. Cloudflare blocks Python's default user agent; use `curl`.
-- **`.nojekyll` must stay.** Without it Pages drops files starting with `_` and the game hangs on "Loading".
+- **Caching.** Cloudflare caches for 4 hours. Scripts and stylesheets have hashed names, so they're never
+  stale, but the pages themselves and files under `assets/` keep their names: if a page looks old right
+  after a deploy, purge it: `npx cf cache purge -z orsonbrooker.com --force --body '{"files":["<url>"]}'`
+  (run from `worker/`). Check live only after `wait_pages.sh` says the deploy succeeded. Cloudflare blocks
+  Python's default user agent; use `curl`.
+- **The old `?v=` stamps are gone** (and `tools/stamp_versions.py` and the pre-commit hook with them). The
+  `?v=` left on icons, in manifests and on sprite URLs in `assets/characters/index.json` are those files'
+  own cache versions: keep them.
 - **Worktrees:** a new worktree has no `node_modules`, `.dev.vars`, generated types, `.character-cache/` or
   `.voice-cache/`; copy what you need from the main checkout, and copy new voice clips back
   (`rsync -a .voice-cache/ <main>/.voice-cache/`). The worktree guard refuses compound shell commands,

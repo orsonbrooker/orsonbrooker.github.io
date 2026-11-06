@@ -2,10 +2,10 @@
 // is being played, and the seeded randomness for where he shoots from and how each shot wobbles.
 // Everything else in play/, modes/ and screens/ reads and changes these.
 
-import { DEFAULT_SPOT } from "../engine/court.js?v=7f81b538";
-import { load } from "../engine/storage.js?v=1cb284ce";
-import { randomSeed, seededStreams } from "../rng.js?v=f0efc919";
-import { GAME_SECONDS } from "../shared/rules.js?v=3d6a7e83";
+import { DEFAULT_SPOT } from "../engine/court.js";
+import { load } from "../engine/storage.js";
+import { randomSeed, seededStreams } from "../rng.js";
+import { GAME_SECONDS } from "../shared/rules.js";
 
 export const DEBUG = new URLSearchParams(location.search).has("debug");
 

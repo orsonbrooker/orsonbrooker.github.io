@@ -2,14 +2,14 @@
 // means another go from the same spot. It's against the clock (counting up), so the best is the
 // lowest time, and there are no bonus balls.
 
-import { sound } from "../audio.js?v=b614856c";
-import { AROUND_LAYOUT } from "../content/around.js?v=8e88ef74";
-import { FIRE_LEVELS } from "../content/looks.js?v=964e275c";
-import { COURT_PX, LINE_CLEARANCE, RIM, ROOM_U, ROOM_V, project, threePointRadius } from "../engine/court.js?v=7f81b538";
-import { addPopup, announce, confettiBurst, fireLevel, fireStage, pixelFx, recordMake } from "../play/react.js?v=60e50f8e";
-import { updateHud } from "../play/scene.js?v=bb8007ec";
-import { state } from "../play/state.js?v=21175a94";
-import { AROUND_SPOTS } from "../shared/rules.js?v=3d6a7e83";
+import { sound } from "../audio.js";
+import { AROUND_LAYOUT } from "../content/around.js";
+import { FIRE_LEVELS } from "../content/looks.js";
+import { COURT_PX, LINE_CLEARANCE, RIM, ROOM_U, ROOM_V, project, threePointRadius } from "../engine/court.js";
+import { addPopup, announce, confettiBurst, fireLevel, fireStage, pixelFx, recordMake } from "../play/react.js";
+import { updateHud } from "../play/scene.js";
+import { state } from "../play/state.js";
+import { AROUND_SPOTS } from "../shared/rules.js";
 
 // The spots in AROUND_LAYOUT (content/around.js), kept off the 3-point line, in court metres.
 let aroundSpots = null;

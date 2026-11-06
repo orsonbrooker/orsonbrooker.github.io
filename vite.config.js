@@ -1,12 +1,9 @@
 // Builds the static site into dist/ (npm run build). Every page keeps its URL; scripts and stylesheets
 // are bundled with hashed names in dist/build/, and everything the code fetches by URL at runtime is
-// copied across unchanged (STATIC below).
-//
-// During the move to this build the unbuilt site must keep working, so the source still carries the
-// ?v=<hash> stamps from tools/stamp_versions.py. The build ignores them: it strips them from imports, so
-// each module is bundled once however it was imported.
-import { createHash } from "node:crypto";
-import { cpSync, existsSync, readFileSync } from "node:fs";
+// copied across unchanged (STATIC below). GitHub Actions builds and publishes it on every push to main
+// (.github/workflows/pages.yml). A new page goes in PAGES; a new file fetched by URL goes in STATIC.
+import { execSync } from "node:child_process";
+import { cpSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
@@ -35,10 +32,7 @@ const STATIC = [
   ".nojekyll",
 ];
 
-const STAMP = /\?v=[0-9a-f]+$/;
-
 // Changes each page before Vite reads it:
-// - strips ?v= stamps from scripts and stylesheets;
 // - on pages with <base href="/"> (the game), makes their relative addresses start at the root, since
 //   Vite resolves them from the page's own folder;
 // - marks every other address (icons, manifests, images, preloads) vite-ignore so it stays exactly as
@@ -50,10 +44,7 @@ function pages() {
       order: "pre",
       handler(html) {
         const rootBase = /<base\s+href="\/"/.test(html);
-        const fix = (url) => {
-          url = url.replace(STAMP, "");
-          return rootBase && !/^(\/|[a-z]+:)/i.test(url) ? `/${url}` : url;
-        };
+        const fix = (url) => (rootBase && !/^(\/|[a-z]+:)/i.test(url) ? `/${url}` : url);
         return html
           .replace(/(<script\b[^>]*\bsrc=")([^"]+)(")/g, (_, a, url, b) => a + fix(url) + b)
           .replace(/<link\b[^>]*>/g, (tag) =>
@@ -67,8 +58,16 @@ function pages() {
   };
 }
 
-// game.js reads its own ?v= stamp as the game version it sends with scores. Bundled, it has no stamp,
-// so put in the same value: the first 8 hex digits of the SHA-1 of game.js, as stamp_versions.py makes it.
+// The game sends its version with every score (game.js reads it from its own address, so `npm run dev`
+// has none). The build puts in the commit it was built from: GITHUB_SHA in Actions, else git here.
+function commit() {
+  try {
+    return (process.env.GITHUB_SHA ?? execSync("git rev-parse HEAD", { cwd: ROOT }).toString()).trim().slice(0, 8);
+  } catch {
+    return "local";
+  }
+}
+
 function gameVersion() {
   const expr = 'new URL(import.meta.url).searchParams.get("v")';
   return {
@@ -77,8 +76,7 @@ function gameVersion() {
     transform(code, id) {
       if (id !== resolve(ROOT, "game.js")) return null;
       if (!code.includes(expr)) this.error(`game.js no longer reads its version with ${expr}; update vite.config.js`);
-      const v = createHash("sha1").update(readFileSync(id, "utf8")).digest("hex").slice(0, 8);
-      return code.replace(expr, JSON.stringify(v));
+      return code.replace(expr, JSON.stringify(commit()));
     },
   };
 }
@@ -104,10 +102,6 @@ function copyStatic() {
 
 export default defineConfig({
   publicDir: false,
-  resolve: {
-    // import "./ui/icons.js?v=c284e3ca" and import "./icons.js" are the same module.
-    alias: [{ find: /^(.+\.(?:js|css))\?v=[0-9a-f]+$/, replacement: "$1" }],
-  },
   build: {
     outDir: "dist",
     emptyOutDir: true,

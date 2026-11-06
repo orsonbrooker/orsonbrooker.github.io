@@ -1,14 +1,14 @@
 // What the modes that score points share (time attack and sudden death): a basket's points and calls,
 // random spots, bonus balls, and a result that's the score, where higher is better.
 
-import { sound } from "../audio.js?v=b614856c";
-import { overCall } from "../content/calls.js?v=567f9a3e";
-import { BALL_BADGES, FIRE_LEVELS } from "../content/looks.js?v=964e275c";
-import { DEFAULT_SPOT, RIM, project, randomSpot } from "../engine/court.js?v=7f81b538";
-import { addPopup, announce, celebrateBuzzerBeater, fireLevel, pixelFx, recordMake } from "../play/react.js?v=60e50f8e";
-import { updateHud } from "../play/scene.js?v=bb8007ec";
-import { player, random, state } from "../play/state.js?v=21175a94";
-import { MONEY, NORMAL, ballPoints } from "../shared/rules.js?v=3d6a7e83";
+import { sound } from "../audio.js";
+import { overCall } from "../content/calls.js";
+import { BALL_BADGES, FIRE_LEVELS } from "../content/looks.js";
+import { DEFAULT_SPOT, RIM, project, randomSpot } from "../engine/court.js";
+import { addPopup, announce, celebrateBuzzerBeater, fireLevel, pixelFx, recordMake } from "../play/react.js";
+import { updateHud } from "../play/scene.js";
+import { player, random, state } from "../play/state.js";
+import { MONEY, NORMAL, ballPoints } from "../shared/rules.js";
 
 // A basket: its points (shared/rules.js), the streak, and the reaction. `celebrateRun(p, levelUp, fire)`
 // lets a mode take over the call for a long run; it returns true if it did.

@@ -2,14 +2,14 @@
 // celebration, the pixel effects layer, fire (and the wider timing window it gives), the next ball's
 // kind, and the stats the daily challenge counts.
 
-import { sound } from "../audio.js?v=b614856c";
-import { BALL_BADGES, CONFETTI_COLORS, FIRE_LEVELS } from "../content/looks.js?v=964e275c";
-import { countsIn, doneToday, markDone, progress, todaysChallenge } from "../daily.js?v=6f3b9099";
-import { COURT_PX, RIM, project } from "../engine/court.js?v=7f81b538";
-import { createFxLayer } from "../fx.js?v=61e6d0cd";
-import { pickPhrase } from "../phrases.js?v=481ae699";
-import { MONEY, NORMAL, RAINBOW, ballKind } from "../shared/rules.js?v=3d6a7e83";
-import { TIMING_WINDOW, mode, state } from "../play/state.js?v=21175a94";
+import { sound } from "../audio.js";
+import { BALL_BADGES, CONFETTI_COLORS, FIRE_LEVELS } from "../content/looks.js";
+import { countsIn, doneToday, markDone, progress, todaysChallenge } from "../daily.js";
+import { COURT_PX, RIM, project } from "../engine/court.js";
+import { createFxLayer } from "../fx.js";
+import { pickPhrase } from "../phrases.js";
+import { MONEY, NORMAL, RAINBOW, ballKind } from "../shared/rules.js";
+import { TIMING_WINDOW, mode, state } from "../play/state.js";
 
 export const pixelFx = createFxLayer();
 

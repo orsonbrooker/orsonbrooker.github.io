@@ -10,13 +10,15 @@ stop and say exactly what is and isn't live.
 
 ## Before
 
-1. Everything is committed in the worktree (`git status --short` is empty). The pre-commit hook has
-   stamped versions; if a new JS module or page was added, check it's in `tools/stamp_versions.py` and its
-   imports carry a `?v=` hash.
+1. Everything is committed in the worktree (`git status --short` is empty), and `npm run build` succeeds
+   (a new page must be in `PAGES` in `vite.config.js`, a new runtime file in `STATIC`). Serve `dist/` and run
+   `node tools/dev/check_pages.mjs` (no errors on any page) and, for game changes, `node tools/dev/play.mjs`
+   against the local Worker (see CLAUDE.md).
 2. `git fetch -q origin`. If `main` moved (`git log --oneline HEAD..origin/main`), look at what changed
    (`git show --stat <sha>`), then `git rebase origin/main`. If someone else changed `worker/`, their change
    will ship with yours when you deploy: say so before deploying.
-3. If the Worker changed, type-check it: `cd worker && npx tsc --noEmit -p .`
+3. If the Worker or `shared/` changed, type-check and test it: `cd worker && npx tsc --noEmit -p .` and
+   `npm --prefix worker test`.
 
 ## In order
 
@@ -26,19 +28,23 @@ stop and say exactly what is and isn't live.
    `cd worker && npx cf deploy --secrets-file /Users/lukebrooker/Code/orsonbrooker.github.io/worker/.secrets.json`
    On "no healthy upstream" or other 5xx, Cloudflare is having trouble: wait and run the same command again.
    Never loop retries while the working tree might change.
-3. **Site:** `git merge-base --is-ancestor origin/main HEAD && git push -q origin HEAD:main`
-4. **Wait for Pages:** `sh tools/dev/wait_pages.sh $(git rev-parse --short HEAD)` (run the two commands
-   separately in a worktree). Don't fetch live files before it says `built`.
+3. **Site:** `git merge-base --is-ancestor origin/main HEAD && git push -q origin HEAD:main`. GitHub Actions
+   builds and publishes it (the Pages workflow).
+4. **Wait for the deploy:** `git rev-parse --short HEAD`, then `sh tools/dev/wait_pages.sh <sha>` (separate
+   commands in a worktree). Don't fetch live files before it says `success`; if it says `failed`, look at
+   the run (`gh run view <id> --log-failed`) and fix forward.
 
 ## Check
 
-- The live page carries the new stamp: `curl -s https://orsonbrooker.com/games/shootaround/ | grep -o 'game.js?v=[0-9a-f]*'`
-  matches the worktree's `games/shootaround/index.html`.
-- A changed file's live bytes match: `curl -s "https://orsonbrooker.com/<file>?v=<hash>" | shasum` vs local.
+- The live page links the new build: the hashed `build/…js` names in
+  `curl -s https://orsonbrooker.com/games/shootaround/` match the worktree's `dist/games/shootaround/index.html`
+  after `npm run build` (and the other pages you changed likewise).
+- The game's version is the commit: it's in the live bundle (`curl -s https://orsonbrooker.com/build/<shootaround file>.js | grep -c <sha>`).
 - API answers: `curl -s -o /dev/null -w "%{http_code}" "https://orsonbrooker.com/api/scores?range=week&mode=timed"`
-  is 200, and `/admin` redirects (302) to Cloudflare Access sign-in.
-- If a stamped URL serves old content, purge it:
-  `npx cf cache purge -z orsonbrooker.com --force --body '{"files":["<url>"]}'`
+  is 200, `curl -s -X POST https://orsonbrooker.com/api/games` returns a token, and `/admin` redirects (302) to
+  Cloudflare Access sign-in.
+- If a page still looks old (pages and `assets/` keep their names and Cloudflare caches for 4 hours), purge
+  it from `worker/`: `npx cf cache purge -z orsonbrooker.com --force --body '{"files":["<url>"]}'`
 
 ## After
 

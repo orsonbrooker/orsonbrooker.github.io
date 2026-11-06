@@ -2,9 +2,9 @@
 // big call banner, score popups, confetti, the hint bubble, the bonus ball badge, the wall
 // scoreboard's lit digits, the debug lines, and finding a player's shoes in their sprite sheet.
 
-import { BALL_LOOKS, BOARD_ART } from "../content/looks.js?v=964e275c";
-import { BOARD, COURT_PX, RIM, RIM_R, ROOM_U, ROOM_V, project, threePointRadius } from "../engine/court.js?v=7f81b538";
-import { MONEY, NORMAL, RAINBOW } from "../shared/rules.js?v=3d6a7e83";
+import { BALL_LOOKS, BOARD_ART } from "../content/looks.js";
+import { BOARD, COURT_PX, RIM, RIM_R, ROOM_U, ROOM_V, project, threePointRadius } from "../engine/court.js";
+import { MONEY, NORMAL, RAINBOW } from "../shared/rules.js";
 
 const FONT = '"Press Start 2P", monospace';
 

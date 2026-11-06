@@ -6,7 +6,7 @@
 // Pages that go with the game also get a "Back to the game" link at the top of their content:
 //   <a class="back-link" data-back-link href="/games/shootaround/"></a>
 
-import { fillIcons, icon } from "../ui/icons.js?v=c284e3ca";
+import { fillIcons, icon } from "../ui/icons.js";
 
 const LINKS = [
   { href: "/games/shootaround/", label: "Play", icon: "play" },

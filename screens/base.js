@@ -1,10 +1,10 @@
 // The page around the court: the screens that lay over it (one at a time), the words for how to play
 // on this device, and the sound and music buttons.
 
-import { sound } from "../audio.js?v=b614856c";
-import { load, save } from "../engine/storage.js?v=1cb284ce";
-import { state } from "../play/state.js?v=21175a94";
-import { icon } from "../ui/icons.js?v=c284e3ca";
+import { sound } from "../audio.js";
+import { load, save } from "../engine/storage.js";
+import { state } from "../play/state.js";
+import { icon } from "../ui/icons.js";
 
 export const $ = (id) => document.getElementById(id);
 export const stage = $("stage");
