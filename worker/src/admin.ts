@@ -13,15 +13,49 @@ import { ODD_UNCHECKED } from "./scores.ts";
 import { clean, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
 import type { Env } from "./util.ts";
 
+// The page's own inline <script> and <style> blocks, by hash, so nothing else inline can run.
+let inlineHashes: Promise<{ scripts: string[]; styles: string[] }> | null = null;
+const sha256 = async (text: string) =>
+	`'sha256-${btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)))))}'`;
+const blocks = (tag: string) =>
+	[...adminPage.matchAll(new RegExp(`<${tag}(\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, "g"))].filter((m) => !/\ssrc=/.test(m[1] ?? "")).map((m) => m[2]);
+
+/**
+ * What the admin page may load: its own inline script and styles, the pixel font from Google Fonts,
+ * player pictures and the recolouring code from the main site (another port when testing locally),
+ * and the admin API. Images include data: and blob: (faces are drawn on a canvas).
+ */
+export async function adminCsp(site: string): Promise<string> {
+	inlineHashes ??= Promise.all([Promise.all(blocks("script").map(sha256)), Promise.all(blocks("style").map(sha256))]).then(([scripts, styles]) => ({
+		scripts,
+		styles,
+	}));
+	const { scripts, styles } = await inlineHashes;
+	const own = site ? `'self' ${site}` : "'self'";
+	return [
+		"default-src 'none'",
+		`script-src ${own} ${scripts.join(" ")}`,
+		`style-src ${styles.join(" ")} https://fonts.googleapis.com`,
+		"font-src https://fonts.gstatic.com",
+		`img-src ${own} data: blob:`,
+		`connect-src ${own}`,
+		"base-uri 'none'",
+		"form-action 'none'",
+		// Never shown inside another site's frame, so buttons can't be click-jacked.
+		"frame-ancestors 'none'",
+	].join("; ");
+}
+
 export async function adminHtml(request: Request, env: Env): Promise<Response> {
 	await requireAdmin(request, env);
+	// The page loads pictures and code from the main site: the local one on port 5173 when testing.
+	const site = new URL(request.url).hostname === "localhost" ? "http://localhost:5173" : new URL(env.SITE_URL).origin;
 	return new Response(adminPage, {
 		headers: {
 			"Content-Type": "text/html; charset=utf-8",
 			"Cache-Control": "no-store",
 			"X-Robots-Tag": "noindex",
-			// Never shown inside another site's frame, so buttons can't be click-jacked.
-			"Content-Security-Policy": "frame-ancestors 'none'",
+			"Content-Security-Policy": await adminCsp(site),
 			"X-Frame-Options": "DENY",
 			"Referrer-Policy": "no-referrer",
 		},
