@@ -149,7 +149,7 @@ sequenceDiagram
   participant D as D1
   G->>W: POST /api/games
   W-->>G: signed start token
-  Note over G: play; log every shot;<br/>bonus balls come from the token
+  Note over G: play, logging every shot<br/>(bonus balls come from the token)
   G->>W: POST /api/scores/preview (score, nickname)
   W->>D: where would it land this week?
   W-->>G: the board around them, or "your best stays"
