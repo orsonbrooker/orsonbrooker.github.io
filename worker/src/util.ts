@@ -16,10 +16,18 @@ export interface Env {
 	DEV_ADMIN?: string; // local development only: skips the Access check
 }
 
-// Rude-word check for everything people type. It sees through tricks like "a$$" and spacing,
-// without blocking innocent words that happen to contain rude ones.
+// Rude-word check for everything people type. It sees through tricks like "a$$" and letters spaced
+// or dotted out ("f u c k", "f.u.c.k"), without blocking innocent words that happen to contain rude ones.
 const rudeWords = new RegExpMatcher({ ...englishDataset.build(), ...englishRecommendedTransformers });
-export const isRude = (...texts: (string | null | undefined)[]) => texts.some((t) => !!t && rudeWords.hasMatch(t));
+// A run of two or more single characters (letters, digits and the look-alikes $ @ !) with a few
+// spaces or dots between each. Only single characters, so ordinary words with spaces between them
+// ("a shot it", "Jo Ann") are never joined together.
+const CH = "[\\p{L}\\p{N}$@!]";
+const SPACED_OUT = new RegExp(`(?<!${CH})${CH}(?:[^\\p{L}\\p{N}$@!]{1,3}${CH}(?!${CH}))+`, "gu");
+/** Text with any spaced-out letters joined up: "f u c k" and "f.u.c.k" read as "fuck". */
+export const joinSpacedLetters = (text: string) => text.replace(SPACED_OUT, (run) => run.replace(/[^\p{L}\p{N}$@!]/gu, ""));
+export const isRude = (...texts: (string | null | undefined)[]) =>
+	texts.some((t) => !!t && (rudeWords.hasMatch(t) || rudeWords.hasMatch(joinSpacedLetters(t))));
 export const RUDE = "Let's keep it friendly. Try different words.";
 
 export function json(data: unknown, status = 200, maxAge = 0): Response {

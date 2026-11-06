@@ -8,7 +8,7 @@ import { deviceOf, MAX_CREDIT, mergeCredit } from "../src/ideas.ts";
 import { notifyMessage } from "../src/notify.ts";
 import { isNickname } from "../src/players.ts";
 import { scoreNickname } from "../src/scores.ts";
-import { clean, cors, isLocalHost, isRude, requireSameOriginJson, RUDE } from "../src/util.ts";
+import { clean, cors, isLocalHost, isRude, joinSpacedLetters, requireSameOriginJson, RUDE } from "../src/util.ts";
 import type { Env } from "../src/util.ts";
 
 test("clean tidies spaces, trims, cuts to length and drops anything but text", () => {
@@ -27,6 +27,27 @@ test("the rude-word filter catches disguised words but not innocent ones", () =>
 	// Any one of several texts; empty ones are fine.
 	assert.equal(isRude("Moni", null, undefined, ""), false);
 	assert.equal(isRude("Moni", "a$$hole"), true);
+});
+
+test("the rude-word filter sees through letters spaced or dotted out", () => {
+	for (const t of ["f u c k", "f.u.c.k", "f-u-c-k", "F. U. C. K.", "s h i t", "b i t c h", "a $ $", "you are a d i c k"]) assert.equal(isRude(t), true, t);
+	// Only runs of single characters are joined, so ordinary words with spaces between them stay apart.
+	assert.equal(joinSpacedLetters("a shot it"), "a shot it");
+	assert.equal(joinSpacedLetters("f u c k"), "fuck");
+	for (const t of [
+		"a shot it",
+		"sh it",
+		"Jo Ann",
+		"T J and A J",
+		"As I said, a big shot",
+		"Make it go 1 2 3 4",
+		"c l a s s",
+		"a s s a s s i n",
+		"Mary-Kate",
+		"O'Neil",
+		...["assassin", "class", "Scunthorpe", "Dickens", "Cockatoo", "shitake", "basketball"],
+	])
+		assert.equal(isRude(t), false, t);
 });
 
 test("nicknames start with a letter or number, then letters, numbers, spaces, ' and -", () => {
