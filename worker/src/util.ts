@@ -64,6 +64,16 @@ export function requireSameOriginJson(request: Request, env: Env): void {
 	if (type !== "application/json" || !sameOrigin) throw new HttpError(403, "Not allowed.");
 }
 
+const LOOPBACK = ["localhost", "127.0.0.1", "[::1]", "::1"];
+/**
+ * Asked for at this machine's own address (localhost, 127.0.0.1 or [::1]), not a network one, and,
+ * where the client's address is known, from this machine too (a Host header is easy to fake).
+ */
+export function isLocalHost(request: Request): boolean {
+	const client = request.headers.get("CF-Connecting-IP");
+	return LOOPBACK.includes(new URL(request.url).hostname) && (!client || LOOPBACK.includes(client) || client === "::ffff:127.0.0.1");
+}
+
 /** Text as sent, with runs of spaces made one, trimmed and cut to `max`. Anything but a string is "". */
 export function clean(value: unknown, max: number): string {
 	return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";

@@ -10,7 +10,7 @@ import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
 import { MAX_PLAYER_NAME, MAX_TEAM_NAME, PLAYER_PARTS } from "./players.ts";
 import { ODD_UNCHECKED } from "./scores.ts";
-import { clean, json, readJson, requireSameOriginJson } from "./util.ts";
+import { clean, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
 import type { Env } from "./util.ts";
 
 export async function adminHtml(request: Request, env: Env): Promise<Response> {
@@ -180,8 +180,9 @@ async function editScore(env: Env, id: number, body: Record<string, unknown>): P
 // signature too (access.ts), so the admin API stays locked even if a route is misconfigured.
 async function requireAdmin(request: Request, env: Env): Promise<string> {
 	// "1" only when running locally with `cf dev` (see cloudflare.config.ts). Never honoured once
-	// Access is configured, so even a development-mode deploy can't open the admin page.
-	if (env.DEV_ADMIN === "1" && !env.ACCESS_AUD) return "dev";
+	// Access is configured, so even a development-mode deploy can't open the admin page, and only
+	// for this machine: a local Worker started with --host doesn't open it to the whole network.
+	if (env.DEV_ADMIN === "1" && !env.ACCESS_AUD && isLocalHost(request)) return "dev";
 	if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) throw new HttpError(503, "Admin isn't set up yet.");
 	const token = request.headers.get("Cf-Access-Jwt-Assertion");
 	if (!token) throw new HttpError(403, "Sign in through Cloudflare Access.");

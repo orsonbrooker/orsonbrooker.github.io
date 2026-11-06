@@ -7,7 +7,7 @@ import { MAX_CREDIT, mergeCredit } from "../src/ideas.ts";
 import { notifyMessage } from "../src/notify.ts";
 import { isNickname } from "../src/players.ts";
 import { scoreNickname } from "../src/scores.ts";
-import { clean, isRude, requireSameOriginJson, RUDE } from "../src/util.ts";
+import { clean, isLocalHost, isRude, requireSameOriginJson, RUDE } from "../src/util.ts";
 import type { Env } from "../src/util.ts";
 
 test("clean tidies spaces, trims, cuts to length and drops anything but text", () => {
@@ -92,4 +92,13 @@ test("admin changes need JSON from the admin page's own site", () => {
 	blocked({ ...json, Origin: "https://evil.example" });
 	blocked({ ...json }); // no way to tell where it came from
 	blocked({ ...json, Origin: "http://localhost:5173" }, local);
+});
+
+test("the local admin shortcut is only for this machine's own address", () => {
+	const at = (url: string, ip?: string) => isLocalHost(new Request(url, { headers: ip ? { "CF-Connecting-IP": ip } : {} }));
+	for (const url of ["http://localhost:8787/admin", "http://127.0.0.1:8787/admin", "http://[::1]:8787/admin"]) assert.equal(at(url), true, url);
+	assert.equal(at("http://localhost:8787/admin", "127.0.0.1"), true);
+	for (const url of ["http://192.168.4.23:8787/admin", "http://macbook.local:8787/admin", "https://orsonbrooker.com/admin", "http://localhost.evil.com/admin"])
+		assert.equal(at(url), false, url);
+	assert.equal(at("http://localhost:8787/admin", "192.168.4.40"), false);
 });
