@@ -267,7 +267,7 @@
 				scrollTo(0, y);
 			}
 
-			const modeName = (s) => (s.mode === "survival" ? "Sudden death" : s.mode === "around" ? "Around the world" : "Time attack");
+			const modeName = (s) => ({ survival: "Sudden death", around: "Around the world", threes: "3-point contest" })[s.mode] ?? "Time attack";
 			// Around the world scores are times in tenths of a second.
 			const scoreText = (s) => (s.mode === "around" ? `${(s.score / 10).toFixed(1)}s` : String(s.score));
 			// Odd-looking scores Orson hasn't looked at yet. They're on the board until he hides them.

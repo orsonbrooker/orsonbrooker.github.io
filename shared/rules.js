@@ -7,7 +7,7 @@
 export const GAME_SECONDS = 60;
 
 /** The game modes, each with its own leaderboard. */
-export const MODES = /** @type {const} */ (["timed", "survival", "around"]);
+export const MODES = /** @type {const} */ (["timed", "survival", "around", "threes"]);
 /** @typedef {typeof MODES[number]} Mode */
 
 /**
@@ -15,10 +15,29 @@ export const MODES = /** @type {const} */ (["timed", "survival", "around"]);
  * @param {unknown} value
  * @returns {Mode}
  */
-export const modeOf = (value) => (value === "survival" || value === "around" ? value : "timed");
+export const modeOf = (value) => (value === "survival" || value === "around" || value === "threes" ? value : "timed");
 
 /** Around the World: spots to score from, in order. Its "score" is the time in tenths of a second. */
 export const AROUND_SPOTS = 7;
+
+/**
+ * 3-point contest: a rack of balls at each spot round the 3-point line, shot in order. Every shot is a
+ * three, and the last ball of each rack is a money ball (double points). It ends when the clock runs
+ * out or the last rack is shot, whichever comes first. Its score is points, like Time attack.
+ */
+export const THREE_POINT_CONTEST = { racks: 5, balls: 5, seconds: GAME_SECONDS };
+
+/**
+ * The ball for shot number `index` (0 is the first) in a 3-point contest: the last of each rack is a
+ * money ball. Past the last rack there are no balls left (null).
+ * @param {number} index
+ * @returns {number | null}
+ */
+export function contestBall(index) {
+  const { racks, balls } = THREE_POINT_CONTEST;
+  if (index >= racks * balls) return null;
+  return index % balls === balls - 1 ? MONEY : NORMAL;
+}
 
 /**
  * Around the World ranks the lowest time first; the other modes the highest score.

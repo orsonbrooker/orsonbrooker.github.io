@@ -162,9 +162,12 @@ main checkout.
 
 ## Product notes
 
-- Shootaround modes: Time attack (60s), Sudden death (first miss ends it; gets harder), Around the World
-  (7 spots, fastest time), and HORSE (2-4 players pass one device; match the leader's shot or get a
-  letter; no leaderboard, nothing sent). The scored ones each have their own leaderboard (This week / All time, one row per player per
+- Shootaround modes: Time attack (60s), Sudden death (first miss ends it; gets harder: the green shrinks
+  and, from 5 in a row, moves), Around the World (7 spots, fastest time; the green moves a little), the
+  3-point contest (5 racks of 5 threes in 60s, the last ball of each a money ball; the green moves), which
+  stays hidden outside `?debug` until Luke's rack art is in (`art/three-point-contest.md`), and HORSE (2-4
+  players pass one device; match the leader's shot or get a letter; no leaderboard, nothing sent). The
+  scored ones each have their own leaderboard (This week / All time, one row per player per
   device). Fire at 3 in a row (+1), purple at 6 (+2), blue supernova at 10 (+3); money and rainbow balls;
   a daily challenge kept on the device. After any game, Replay plays its best shot again in slow motion
   (re-flown from what was recorded at the release, not recorded frames; see `play/replay.js`).

@@ -15,12 +15,12 @@ import { startLoop } from "./engine/loop.js";
 import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { COURTS, court, useCourt } from "./play/court.js";
-import { characters, loadRoster } from "./play/players.js";
-import { celebrateBuzzerBeater, pixelFx, timingWindow } from "./play/react.js";
+import { characters, loadImage, loadRoster } from "./play/players.js";
+import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play/react.js";
 import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js";
 import { checkDecided, shoot, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
-import { DEBUG, JUMP_APEX, mode, player, setAnim, setSeed, state } from "./play/state.js";
+import { DEBUG, mode, player, setAnim, setSeed, state } from "./play/state.js";
 import { $, charPick, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
 import { openModes, openSelect, selectBack, selectCharacter, setMode, showTitle, startTeam } from "./screens/menus.js";
 import { setGameVersion } from "./screens/over.js";
@@ -62,7 +62,7 @@ function release() {
   state.pressed = false;
   if (state.phase === "replay") return; // the replay moves the player itself
   if (player.anim === "gather") shoot(-2.5);
-  else if (player.anim === "jump") shoot((player.t - JUMP_APEX) / timingWindow());
+  else if (player.anim === "jump") shoot((player.t - zoneCenter()) / timingWindow());
 }
 
 // ---------- Buttons on the screens ----------
@@ -141,7 +141,7 @@ async function boot() {
   }
   if (DEBUG) {
     const pickSpot = () => mode().pickSpot();
-    window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, get RIM() { return RIM; }, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed, setCourt: useCourt, courts: COURTS, get court() { return court; }, bestShot, checkReplays };
+    window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, get RIM() { return RIM; }, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed, setCourt: useCourt, courts: COURTS, get court() { return court; }, bestShot, checkReplays, zoneCenter };
   }
   resize();
   new ResizeObserver(resize).observe(stage);

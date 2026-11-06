@@ -3,11 +3,11 @@
 // Run: npm --prefix worker test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MONEY, RAINBOW, recountScore } from "../../shared/rules.js";
+import { MONEY, RAINBOW, contestBall, recountScore } from "../../shared/rules.js";
 import { cardStats, hadFeature, publicDay } from "../src/scores.ts";
 
 type Shot = [number, number, number, number, number];
-const NEW = "2026-11-06 10:00:00"; // after supernova and bonus balls
+const NEW = "2026-11-08 10:00:00"; // after supernova, bonus balls, the moving green zone and the 3-point contest
 const OLD = "2026-11-05 12:00:00"; // before them
 
 const shot = (i: number, made: boolean, timing = 0, kind = 0, three = 0): Shot => [1 + i * 1.5, three, made ? 1 : 0, timing, kind];
@@ -32,6 +32,8 @@ test("a Time attack card: streaks, fire, bonus balls, bonus points, green releas
 	assert.deepEqual(stats, {
 		bestStreak: 10,
 		onFire: 2, // at 3 in the first run, and again after the miss
+		racks: [], // only for the 3-point contest
+		movingGreen: false, // Time attack's green zone stays put
 		supernova: 1,
 		money: { seen: 1, made: 1 },
 		rainbow: { seen: 1, made: 0 },
@@ -70,6 +72,25 @@ test("an around the world card counts tries at each spot, and no bonus points", 
 	const stats = cardStats(log, "around", 175, NEW);
 	assert.deepEqual(stats.tries, [2, 1, 3, 1, 1, 1, 1]); // the miss after the 7th spot isn't counted
 	assert.equal(stats.bonusPoints, 0);
+});
+
+test("a 3-point contest card counts makes from each rack", () => {
+	const made = [1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0];
+	const log = made.map((m, i) => shot(i, !!m, 0, contestBall(i) ?? 0, 1));
+	const stats = cardStats(log, "threes", recountScore(log), NEW);
+	assert.deepEqual(stats.racks, [4, 0, 5, 1]);
+	assert.equal(stats.money.seen, 3);
+	assert.equal(stats.movingGreen, true);
+	assert.deepEqual(cardStats(log, "threes", recountScore(log), OLD).racks, []); // from before the contest
+});
+
+test("the moving green zone shows on newer cards in the modes that have it", () => {
+	const log = [shot(0, true), shot(1, false)];
+	assert.equal(cardStats(log, "survival", 2, NEW).movingGreen, true);
+	assert.equal(cardStats(log, "around", 30, NEW).movingGreen, true);
+	assert.equal(cardStats(log, "survival", 2, OLD).movingGreen, false);
+	assert.equal(cardStats(log, "timed", 2, NEW).movingGreen, false);
+	assert.equal(hadFeature("2026-11-06 19:59:59", "movingGreen"), false);
 });
 
 test("a card only shows the day a game was played, as the day in Melbourne", () => {

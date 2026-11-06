@@ -2,7 +2,7 @@
 // Run: npm --prefix worker test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MONEY, MONEY_CHANCE, RAINBOW_CHANCE, ballKind, recountScore } from "../../shared/rules.js";
+import { MONEY, MONEY_CHANCE, RAINBOW_CHANCE, ballKind, contestBall, recountScore } from "../../shared/rules.js";
 import { AROUND_FASTEST, atLeast, checkGame, oddFlags } from "../src/scoring.ts";
 
 type Shot = [number, number, number, number, number];
@@ -86,6 +86,47 @@ test("around the world: the time must come just after the last spot", () => {
 	const money = trip.map((s) => [...s] as Shot);
 	money[0][4] = MONEY;
 	rejects(() => checkGame("around", 172, money, "x"), /Bad shot log|time doesn't match/);
+});
+
+// A believable 3-point contest: a shot every ~2.3 seconds from the racks, all threes, the money ball
+// last in each rack.
+function contest(count = 25): Shot[] {
+	return Array.from({ length: count }, (_, i) => [1 + i * 2.3 + ((i * 13) % 7) * 0.05, 1, i % 4 === 3 ? 0 : 1, ((i * 37) % 11) / 20 - 0.25, contestBall(i) ?? 0] as Shot);
+}
+
+test("a real 3-point contest passes, and its money balls are the racks'", () => {
+	const all = contest();
+	const game = checkGame("threes", recountScore(all), all, TOKEN);
+	assert.equal(game.shots.length, 25);
+	assert.equal(game.minSeconds, Math.max(...all.map((s) => s[0])) - 1); // every rack shot: it can end early
+	assert.deepEqual(oddFlags("threes", recountScore(all), game, 60), []); // 5 money balls isn't a lucky token
+	const timeUp = contest(20);
+	assert.equal(checkGame("threes", recountScore(timeUp), timeUp, TOKEN).minSeconds, 59); // the clock ran out
+});
+
+test("a forged 3-point contest is rejected", () => {
+	// A two in a contest: every ball is a three.
+	const two = contest();
+	two[3][1] = 0;
+	rejects(() => checkGame("threes", recountScore(two), two, TOKEN), /Bad shot log/);
+	// A money ball that isn't the last of its rack, or a rack's last ball claimed as normal.
+	const early = contest();
+	early[2][4] = MONEY;
+	rejects(() => checkGame("threes", recountScore(early), early, TOKEN), /Bad shot log/);
+	const plain = contest();
+	plain[4][4] = 0;
+	rejects(() => checkGame("threes", recountScore(plain), plain, TOKEN), /Bad shot log/);
+	// A rainbow ball, more balls than the racks hold, a score that doesn't add up, or after the buzzer.
+	const rainbow = contest();
+	rainbow[0][4] = 2;
+	rejects(() => checkGame("threes", recountScore(rainbow), rainbow, TOKEN), /Bad shot log/);
+	const extra = [...contest(), [59, 1, 1, 0, 0] as Shot];
+	rejects(() => checkGame("threes", recountScore(extra), extra, TOKEN), /more shots than fit/);
+	const all = contest();
+	rejects(() => checkGame("threes", recountScore(all) + 6, all, TOKEN), /doesn't match its shots/);
+	const late = contest(20);
+	late[19][0] = 61;
+	rejects(() => checkGame("threes", recountScore(late), late, TOKEN), /Bad shot log/);
 });
 
 test("odd games are flagged, not rejected", () => {

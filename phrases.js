@@ -86,6 +86,11 @@ export const PHRASES = {
   horseLetter: ["That's a letter!", "Letter!", "Uh oh, a letter!"],
   horseOut: ["That spells HORSE!", "You're out!", "H-O-R-S-E!"],
   horseWin: ["We have a winner!", "Last one standing!", "Champion of HORSE!"],
+  // 3-point contest: on to the next rack, the last rack, a whole rack made, every rack shot.
+  rackNext: ["Next rack!", "New rack!", "Keep it moving!"],
+  rackLast: ["Last rack!", "Final rack!", "One rack left!"],
+  rackPerfect: ["Perfect rack!", "Five for five!", "Cleaned out the rack!"],
+  contestDone: ["That's the contest!", "Racks are empty!", "Out of balls!"],
 
   // The daily challenge, done.
   challenge: ["Challenge complete!", "Daily challenge done!"],

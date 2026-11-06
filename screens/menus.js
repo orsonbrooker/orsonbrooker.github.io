@@ -3,6 +3,7 @@
 
 import { attributesFor, skillWords } from "../content/attributes.js";
 import { load, save } from "../engine/storage.js";
+import { modeShown } from "../modes/index.js";
 import { characters, setFace, useCharacter } from "../play/players.js";
 import { startGame } from "../play/round.js";
 import { updateHud } from "../play/scene.js";
@@ -13,9 +14,13 @@ import { showDaily } from "../screens/over.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
 
+// Modes that aren't out yet (modeShown, modes/index.js): their card, leaderboard tab and help go.
+for (const el of document.querySelectorAll("[data-mode], [data-board-mode], [data-help-mode]"))
+  if (!modeShown(el.dataset.mode ?? el.dataset.boardMode ?? el.dataset.helpMode)) el.remove();
+
 // Picks the mode for the next game (remembered for next time) and shows its best.
 export function setMode(id) {
-  state.mode = modes[id] ? id : "timed";
+  state.mode = modes[id] && modeShown(id) ? id : "timed";
   state.best = mode().bestKey ? load(mode().bestKey, 0) : 0;
   save("orson-hoops-mode", state.mode);
   updateHud();
