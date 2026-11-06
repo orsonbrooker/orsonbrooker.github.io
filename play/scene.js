@@ -4,7 +4,7 @@
 import { BOARD_ART } from "../content/looks.js";
 import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, project } from "../engine/court.js";
 import { BALL_FRAMES, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow } from "../engine/draw.js";
-import { currentFrame, frameCount, sheet } from "../play/players.js";
+import { currentFrame, frameCount, jumpLift, sheet } from "../play/players.js";
 import { fireLevel, nextBallBadge, pixelFx, timingWindow } from "../play/react.js";
 import { DEBUG, JUMP_APEX, JUMP_FRAME_TIME, hints, mode, player, state } from "../play/state.js";
 import { howTo, stage } from "../screens/base.js";
@@ -51,7 +51,7 @@ function renderScoreboard() {
 function drawPlayer() {
   const [sx, sy, w, h, ox, oy] = currentFrame();
   const scale = 1 / sheet.sprites.res;
-  const p = project(player.u, player.v);
+  const p = project(player.u, player.v, jumpLift());
   ctx.globalAlpha = Math.max(0, player.fade);
   ctx.drawImage(sheet.atlas, sx, sy, w, h, p.x + ox * scale, p.y + oy * scale, w * scale, h * scale);
   ctx.globalAlpha = 1;

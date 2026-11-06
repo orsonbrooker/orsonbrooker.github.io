@@ -5,10 +5,11 @@
 // made with the builder (/players/) come from the API once approved, drawn from a base body in
 // their chosen colours.
 
+import { attributesFor } from "../content/attributes.js";
 import { project } from "../engine/court.js";
 import { shoesIn } from "../engine/draw.js";
 import { load, save } from "../engine/storage.js";
-import { ANIM_FPS, JUMP_FRAME_TIME, player } from "../play/state.js";
+import { ANIM_FPS, JUMP_APEX, JUMP_FRAME_TIME, player } from "../play/state.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, thumbnail } from "../players/recolor.js";
 
 const PLAYERS_API = ["localhost", "127.0.0.1"].includes(location.hostname) ? "http://localhost:8787/api/players" : "/api/players";
@@ -56,6 +57,7 @@ export async function useCharacter(id) {
   sheet.atlas = img;
   sheet.shoeRegions = loaded?.regionsData ?? null; // builder players: which pixels are shoes
   characters.selected = id;
+  player.attrs = attributesFor(id);
   save("orson-hoops-character", id);
 }
 
@@ -164,12 +166,24 @@ export function currentFrame() {
   return frames[Math.min(i, frames.length - 1)];
 }
 
+// How far a higher jump (the player's `jump` attribute) lifts him right now, in metres: most at the
+// top of the jump, none on the floor. 0 for a neutral player.
+export function jumpLift() {
+  const extra = player.attrs.jump;
+  if (!extra) return 0;
+  const air = 2 * JUMP_APEX; // takeoff to landing
+  const t = player.anim === "jump" ? player.t : player.anim === "release" ? player.airT + player.t : 0;
+  if (!(t > 0 && t < air)) return 0;
+  const f = t / air;
+  return extra * 4 * f * (1 - f);
+}
+
 // The player's shoes right now, in court pixels.
 export function shoePoints() {
   const { sprites, atlas, shoeRegions } = sheet;
   const [, , , , ox, oy] = currentFrame();
   const scale = 1 / sprites.res;
-  const p = project(player.u, player.v);
+  const p = project(player.u, player.v, jumpLift());
   const frames = sprites.frames[player.anim];
   const i = frames.indexOf(currentFrame());
   const feet = shoesIn(atlas, sprites, shoeRegions)[player.anim][i];

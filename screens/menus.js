@@ -1,6 +1,7 @@
 // The way into a game: the title screen, then choose a game (each card shows its best), then choose a
 // player. The first time someone plays, choosing a player comes first and then the game starts.
 
+import { attributesFor, skillWords } from "../content/attributes.js";
 import { load, save } from "../engine/storage.js";
 import { characters, setFace, useCharacter } from "../play/players.js";
 import { startGame } from "../play/round.js";
@@ -78,6 +79,9 @@ function renderPicker() {
       const name = document.createElement("span");
       name.textContent = c.name;
       button.append(img, name);
+      // What they're good at, only for players given attributes (content/attributes.js).
+      const skills = skillWords(attributesFor(c.id));
+      for (const words of skills) button.append(Object.assign(document.createElement("small"), { className: "skill", textContent: words }));
       button.addEventListener("click", async () => {
         await selectCharacter(c.id);
         save("orson-hoops-chosen", true);

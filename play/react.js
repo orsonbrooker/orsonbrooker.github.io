@@ -9,7 +9,7 @@ import { COURT_PX, RIM, project } from "../engine/court.js";
 import { createFxLayer } from "../fx.js";
 import { pickPhrase } from "../phrases.js";
 import { MONEY, NORMAL, RAINBOW, ballKind } from "../shared/rules.js";
-import { TIMING_WINDOW, mode, state } from "../play/state.js";
+import { TIMING_WINDOW, mode, player, state } from "../play/state.js";
 
 export const pixelFx = createFxLayer();
 
@@ -32,9 +32,10 @@ export function fireStage() {
 }
 
 // How long around the top of the jump a release still counts as perfect: wider on fire, narrower
-// as the mode squeezes it (sudden death, the longer the run goes).
+// as the mode squeezes it (sudden death, the longer the run goes), and wider or narrower for a
+// player whose `timing` attribute says so (content/attributes.js).
 export function timingWindow() {
-  return TIMING_WINDOW * (fireLevel()?.window ?? 1) * (1 - mode().squeeze());
+  return TIMING_WINDOW * (fireLevel()?.window ?? 1) * (1 - mode().squeeze()) * player.attrs.timing;
 }
 
 // The next ball's kind: money or rainbow now and then, but only in games that score points.

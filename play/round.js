@@ -8,7 +8,7 @@ import { COURT_PX, EU, EV, PX_PER_M, RIM, isThreePointSpot, project } from "../e
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "../engine/physics.js";
 import { save } from "../engine/storage.js";
 import { startToken } from "../leaderboard.js";
-import { frameCount, sheet, shoePoints } from "../play/players.js";
+import { frameCount, jumpLift, sheet, shoePoints } from "../play/players.js";
 import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss } from "../play/react.js";
 import { updateHud } from "../play/scene.js";
 import { ANIM_FPS, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state } from "../play/state.js";
@@ -87,7 +87,9 @@ export function shoot(timing) {
   const ahead = Math.max(0, Math.min(1, screenPerM ? offX / screenPerM : 0.5));
   const u = player.u + du * ahead;
   const v = player.v + dv * ahead;
-  const z = (project(u, v).y - (ground.y + offY)) / PX_PER_M;
+  let z = (project(u, v).y - (ground.y + offY)) / PX_PER_M;
+  const lift = jumpLift(); // a player who jumps higher lets go higher (content/attributes.js)
+  if (lift) z += lift;
 
   // Releasing late (on the way down) flattens the shot.
   const clamped = Math.max(-2.5, Math.min(2.5, timing));
@@ -99,8 +101,12 @@ export function shoot(timing) {
   const cos = Math.cos(angle);
   const ideal = Math.sqrt((GRAVITY * d * d) / (2 * cos * cos * (d * Math.tan(angle) - dz)));
 
-  const speed = ideal * (1 + 0.11 * clamped + 0.012 * gaussian());
-  const sideways = 0.012 * gaussian() + 0.012 * clamped * Math.sign(gaussian());
+  // A good 3-point shooter (content/attributes.js) is less off on a 3: his timing mistakes and the
+  // wobble shrink. (Times 1 for everyone else, which leaves the numbers exactly as they were.)
+  const three = isThreePointSpot(player.u, player.v);
+  const steady = three ? 1 / player.attrs.three : 1;
+  const speed = ideal * (1 + 0.11 * clamped * steady + 0.012 * gaussian() * steady);
+  const sideways = 0.012 * gaussian() * steady + 0.012 * clamped * Math.sign(gaussian()) * steady;
   const hu = du * cos - dv * sideways;
   const hv = dv * cos + du * sideways;
 
@@ -116,7 +122,7 @@ export function shoot(timing) {
     touchedBoard: false,
     decided: false,
     bounces: 0,
-    three: isThreePointSpot(player.u, player.v),
+    three,
     fire: fireLevel(),
     kind: nextBallKind(),
     prevZ: z,
@@ -132,6 +138,7 @@ export function shoot(timing) {
     state.shotLog.push(ball.log);
   }
   player.activeBall = ball;
+  player.airT = player.anim === "jump" ? player.t : Infinity; // let go from a gather: not in the air
   setAnim("release");
 }
 
