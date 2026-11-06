@@ -22,7 +22,10 @@ plan for growing the game and the iOS app; read it when working on structure.
   `STATIC` unless it's under `assets/` or `icons/`). `.github/workflows/pages.yml` builds on every push to
   `main` but **deploys only after the cutover**, when Luke switches the Pages source to "GitHub Actions".
   The source must keep working unbuilt until then. Cutover steps: `notes/vite-cutover.md`.
-- **Game:** `game.js` (loop, physics, modes, screens, input, drawing), `leaderboard.js`, `audio.js`,
+- **Game:** `game.js` (the entry point that wires it up), `engine/` (court and projection, physics, loop,
+  input, drawing helpers), `play/` (the shared state, shooting and the update, reactions, drawing the court,
+  players), `modes/` (one file per mode, same shape), `content/` (looks, spots, calls), `screens/` (menus,
+  help, leaderboard, game over), `leaderboard.js`, `audio.js`,
   `phrases.js` (announcer lines), `fx.js` + `effects/` + `vendor/pixelfx/` (pixel effects), `shared/rules.js`
   (scoring rules, shared with the Worker), `daily.js` (daily challenge), `players/recolor.js` (builder players' colours).
   Canvas 2D, isometric court image, ball physics in metres with a fixed step.

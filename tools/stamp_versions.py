@@ -15,7 +15,25 @@ IMPORTS = [
     ('ui/form.js', ['ui/icons.js']),  # before the files that import it
     ('ui/confirm.js', ['ui/icons.js']),  # before game.js, which imports it
     ('leaderboard.js', ['ui/icons.js', 'ui/form.js', 'shared/rules.js']),  # before game.js, which imports it
-    ('game.js', ['leaderboard.js', 'shared/rules.js', 'rng.js', 'daily.js', 'fx.js', 'audio.js', 'phrases.js', 'players/recolor.js', 'ui/icons.js', 'ui/confirm.js']),
+    # The game (game.js and its folders): each file after the ones it imports.
+    ('engine/physics.js', ['engine/court.js']),
+    ('content/looks.js', ['shared/rules.js']),
+    ('engine/draw.js', ['content/looks.js', 'engine/court.js', 'shared/rules.js']),
+    ('play/state.js', ['engine/court.js', 'engine/storage.js', 'rng.js', 'shared/rules.js']),
+    ('play/react.js', ['audio.js', 'content/looks.js', 'daily.js', 'engine/court.js', 'fx.js', 'phrases.js', 'shared/rules.js', 'play/state.js']),
+    ('play/players.js', ['engine/court.js', 'engine/draw.js', 'engine/storage.js', 'play/state.js', 'players/recolor.js']),
+    ('screens/base.js', ['audio.js', 'engine/storage.js', 'play/state.js', 'ui/icons.js']),
+    ('play/scene.js', ['content/looks.js', 'engine/court.js', 'engine/draw.js', 'play/players.js', 'play/react.js', 'play/state.js', 'screens/base.js', 'shared/rules.js']),
+    ('modes/points.js', ['audio.js', 'content/calls.js', 'content/looks.js', 'engine/court.js', 'play/react.js', 'play/scene.js', 'play/state.js', 'shared/rules.js']),
+    ('modes/timed.js', ['audio.js', 'modes/points.js', 'play/react.js', 'play/scene.js', 'play/state.js', 'shared/rules.js']),
+    ('modes/survival.js', ['audio.js', 'content/calls.js', 'engine/court.js', 'modes/points.js', 'play/react.js', 'play/state.js']),
+    ('modes/around.js', ['audio.js', 'content/around.js', 'content/looks.js', 'engine/court.js', 'play/react.js', 'play/scene.js', 'play/state.js', 'shared/rules.js']),
+    ('modes/index.js', ['modes/around.js', 'modes/survival.js', 'modes/timed.js', 'play/state.js']),
+    ('screens/over.js', ['daily.js', 'engine/storage.js', 'leaderboard.js', 'play/players.js', 'play/react.js', 'play/state.js', 'screens/base.js']),
+    ('play/round.js', ['audio.js', 'content/looks.js', 'engine/court.js', 'engine/physics.js', 'engine/storage.js', 'leaderboard.js', 'play/players.js', 'play/react.js', 'play/scene.js', 'play/state.js', 'screens/base.js', 'screens/over.js', 'shared/rules.js']),
+    ('screens/menus.js', ['engine/storage.js', 'play/players.js', 'play/round.js', 'play/scene.js', 'play/state.js', 'players/recolor.js', 'screens/base.js', 'screens/over.js', 'shared/rules.js', 'ui/confirm.js', 'ui/icons.js']),
+    ('screens/panels.js', ['leaderboard.js', 'play/players.js', 'play/state.js', 'screens/base.js']),
+    ('game.js', ['audio.js', 'engine/court.js', 'engine/draw.js', 'engine/input.js', 'engine/loop.js', 'engine/storage.js', 'modes/index.js', 'play/players.js', 'play/react.js', 'play/round.js', 'play/scene.js', 'play/state.js', 'screens/base.js', 'screens/menus.js', 'screens/over.js', 'screens/panels.js', 'ui/icons.js']),  # last: its version covers all of the above
     ('players/builder.js', ['players/recolor.js', 'ui/form.js']),
     ('feedback/widget.js', ['ui/icons.js', 'ui/form.js']),
     ('ui/nav.js', ['ui/icons.js']),

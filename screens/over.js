@@ -1,0 +1,83 @@
+// The game-over screen: the result and whether it's a new best, the daily challenge line, and the
+// leaderboard result under it (where a new best this week would land, and the button to put it on).
+
+import { countsIn, doneToday, progress, streakDays, todaysChallenge } from "../daily.js?v=6f3b9099";
+import { save } from "../engine/storage.js?v=1cb284ce";
+import { showRoundResult } from "../leaderboard.js?v=b6aedccd";
+import { boardFace, characters } from "../play/players.js?v=c442a8cf";
+import { announce, checkDaily } from "../play/react.js?v=60e50f8e";
+import { DEBUG, mode, state } from "../play/state.js?v=21175a94";
+import { $, showScreen } from "../screens/base.js?v=b44aeb9d";
+
+// The game's version (game.js's ?v= stamp), sent with scores.
+let gameVersion = null;
+export function setGameVersion(version) {
+  gameVersion = version;
+}
+
+export function endGame() {
+  state.phase = "over";
+  state.overAt = performance.now();
+  checkDaily(); // things only known at the end, like the final score
+  const m = mode();
+  const result = m.result();
+  const isBest = m.isBetter(result, state.best);
+  if (isBest) {
+    state.best = result;
+    save(m.bestKey, result);
+  }
+  const call = m.endCall(result, isBest);
+  if (call) announce(call, "#ffe066");
+  const text = m.overText(result, isBest);
+  $("over-title").textContent = text.title;
+  $("final-score").textContent = text.final;
+  $("final-unit").textContent = text.unit;
+  $("over-detail").textContent = text.detail;
+  showDaily();
+  showScreen("over");
+  showRound();
+}
+
+// The daily challenge line on the game select and game-over screens.
+export function showDaily() {
+  const challenge = todaysChallenge();
+  const days = streakDays();
+  const inARow = days > 1 ? ` ${days} days in a row!` : "";
+  $("mode-daily").textContent = doneToday() ? `Today's challenge done!${inARow}` : `Today's challenge: ${challenge.text}`;
+  let over;
+  if (state.dailyDone) over = `Daily challenge complete!${inARow}`;
+  else if (doneToday()) over = `Daily challenge done for today.${inARow}`;
+  else if (state.stats && countsIn(challenge, state.mode)) over = `Daily challenge: ${challenge.text} (${progress(challenge, state.stats)} of ${challenge.goal})`;
+  else over = `Daily challenge: ${challenge.text}`;
+  $("over-daily").textContent = over;
+}
+
+// Under the final score: where a new best this week would land (and the button to put it on),
+// or their own top scores this week.
+function showRound() {
+  const score = mode().boardScore();
+  const c = characters.list.find((p) => p.id === characters.selected);
+  const look = { player: characters.selected, base: c?.base ?? null, colours: c?.mine ? c.colours : null }; // their own player, so everyone sees its face
+  const shots = state.shotLog;
+  showRoundResult($("over-board"), {
+    mode: state.mode,
+    score,
+    look,
+    playerName: c?.name ?? "",
+    ownPlayer: !!c?.mine,
+    canSend: !DEBUG && score > 0,
+    faceFor: boardFace,
+    payload: () =>
+      state.gameToken && {
+        token: state.gameToken,
+        mode: state.mode,
+        score,
+        shots,
+        ...look,
+        input: state.input,
+        hiddenTab: state.hiddenTab,
+        version: gameVersion,
+        debug: DEBUG,
+      },
+  });
+}
