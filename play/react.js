@@ -115,6 +115,7 @@ export function recordMiss() {
 export function checkDaily() {
   const challenge = todaysChallenge();
   if (state.dailyDone || doneToday() || !state.stats || !countsIn(challenge, state.mode)) return;
+  if (mode().passAndPlay) return; // a game between friends on one device isn't anyone's own
   state.stats.score = state.score;
   state.stats.buzzerBeater = state.buzzerBeater;
   if (progress(challenge, state.stats) < challenge.goal) return;

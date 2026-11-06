@@ -64,9 +64,9 @@ flowchart LR
 | Game entry | `game.js` | Starts the game and wires the pieces below together: the one button (press, release), the screens' buttons, boot, `window.game` in `?debug`. |
 | Engine | `engine/` | `court.js` the court in metres and `project()` onto the isometric art, 3-point line, random spots; `physics.js` fixed-step ball physics (`PHYSICS_STEP`), rim and backboard collisions, reported through callbacks; `loop.js` the frame loop; `input.js` tap/Space/hold, Escape, arrow keys in pickers; `draw.js` canvas helpers (ball sprites, banner, popups, wall scoreboard digits, shoe finder); `storage.js`. |
 | Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness; `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update; `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces; `replay.js` instant replays (recording each release, picking the best shot, playing it again). |
-| Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, shared `points.js`) | Time attack, Sudden death, Around the World, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. |
-| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player; `panels.js` help and leaderboard; `over.js` game over. |
-| Game content | `content/` | Tables: how each fire level and ball looks, the wall scoreboard art, the Around the World spots, Sudden death run calls and end-of-game calls. |
+| Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, `horse.js`, shared `points.js`) | Time attack, Sudden death, Around the World, HORSE (pass and play, no leaderboard), one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. |
+| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player (or several, for pass and play); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `over.js` game over (and the Replay button). |
+| Game content | `content/` | Tables: how each fire level and ball looks, the wall scoreboard art, the Around the World spots, the HORSE spots and spot map, Sudden death run calls and end-of-game calls. |
 | Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log. Used by the game and the Worker. |
 | Scoring extras | `daily.js`, `content/looks.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
 | Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots and aim wobble. |
@@ -228,7 +228,11 @@ stateDiagram-v2
   Title --> ChooseGame: tap or Space
   ChooseGame --> ChoosePlayer
   ChoosePlayer --> Playing
-  Playing --> GameOver: time up / first miss / last spot
+  ChoosePlayer --> Turn: HORSE, 2 to 4 players, Start
+  Turn --> Playing: I'm ready (the leader picks a spot)
+  Playing --> Turn: HORSE, after each shot ("Pass to Jethro!")
+  Turn --> Title: Stop this game
+  Playing --> GameOver: time up / first miss / last spot / one left without HORSE
   GameOver --> Playing: Play again
   GameOver --> Replay: Replay (best shot, slow motion)
   Replay --> GameOver: done, or tap to skip
@@ -239,6 +243,17 @@ stateDiagram-v2
 ```
 
 Help and the leaderboard open over any of these and return to where they were.
+
+**HORSE (pass and play)** is a mode (`modes/horse.js`) with a few optional hooks no other mode uses
+(documented in `modes/index.js`): `passAndPlay` makes choosing a player pick 2 to 4 players in turn order
+(the same picker, remembered as `orson-hoops-team`), `setPlayers` and `begin` start it, and between shots
+the phase is `turn`, where the game calls the mode's `betweenTurns(dt)` and the turn screen
+(`screens/horse.js`) shows who's up, everyone's letters and the spot on a little map of the court. The leader
+picks a spot (one is picked at random to start from, from the seeded "spots" stream); if they make it, each
+other player still in has to make the same shot or get a letter; a missed lead shot passes the lead on.
+Each turn plays as that player without changing the device's chosen player (`useCharacter(id, { remember:
+false })`; the title and choose-a-game screens switch back). There's no fire (every shot is the same for
+everyone), no bonus balls, no best, no daily challenge, no start token and no leaderboard: nothing is sent.
 
 ## Players' art
 

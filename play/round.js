@@ -41,9 +41,11 @@ export function startGame() {
   state.rngSeed = null;
   resetRandom();
   const game = ++gamesStarted;
-  startToken().then((token) => {
-    if (game === gamesStarted) state.gameToken = token;
-  });
+  // A start token for the leaderboard (pass and play games have none: nothing is sent).
+  if (!mode().passAndPlay)
+    startToken().then((token) => {
+      if (game === gamesStarted) state.gameToken = token;
+    });
   state.buzzerBeater = false;
   state.streak = 0;
   state.coldStreak = 0;
@@ -62,6 +64,7 @@ export function startGame() {
   updateHud();
   sound.gameStart();
   announce("start", "#ffffff");
+  mode().begin?.();
 }
 
 // ---------- Shooting ----------
@@ -273,6 +276,7 @@ function updatePlayer(dt) {
 
 function update(dt) {
   if (state.phase === "playing") mode().clock(dt);
+  else if (state.phase === "turn") mode().betweenTurns?.(dt);
   else if (state.phase === "ending") {
     // Let the last shot's reaction play out before the game-over screen.
     if (state.balls.every((b) => b.decided)) {

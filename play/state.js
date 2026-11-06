@@ -17,7 +17,7 @@ export const TIMING_WINDOW = 0.13;
 export const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16 };
 
 export const state = {
-  phase: "loading", // loading | title | modes | select | playing | ending | over | replay
+  phase: "loading", // loading | title | modes | select | playing | turn (HORSE, between shots) | ending | over | replay
   score: 0,
   mode: "timed",
   best: 0,

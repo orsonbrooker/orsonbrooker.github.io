@@ -487,8 +487,237 @@ header p {
   margin: 0;
 }
 
+/* ---------- Pass and play (HORSE) ---------- */
+
+/* Choosing who's playing: a number on each chosen player for their turn. */
+.char-pick .card {
+  position: relative;
+}
+
+/* Several are picked at once, so every chosen card stays marked wherever the focus is. */
+.char-pick.team .card[aria-pressed="true"],
+.char-pick.team:has(.card:focus) .card[aria-pressed="true"]:not(:focus) {
+  border-color: #ffe066;
+  background: rgba(255, 224, 102, 0.18);
+}
+
+.char-pick.team .card:focus {
+  border-color: var(--accent);
+}
+
+.char-pick .order {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: #ffe066;
+  color: var(--ink);
+  font-size: 11px;
+}
+
+.panel .team-note {
+  margin: 0 0 6px;
+  color: #3ddc84;
+  font-size: clamp(9px, 1.6vw, 12px);
+}
+
+.team-go {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.team-go[hidden] {
+  display: none;
+}
+
+.panel .team-go .primary,
+.panel .turn-go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 60%;
+  padding: 12px 22px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--ink);
+  font-size: clamp(11px, 2vw, 15px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.panel .team-go .primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.team-go .icon,
+.turn-go .icon {
+  width: 1.6em;
+  height: 1.6em;
+}
+
+/* Between turns: pass the device on. */
+.turn-panel {
+  max-width: 520px;
+}
+
+.turn-panel .select-head h2 {
+  color: #ffe066;
+}
+
+.panel .turn-news {
+  margin: 0 0 10px;
+  color: #3ddc84;
+  font-size: clamp(10px, 1.8vw, 13px);
+}
+
+.turn-news[hidden] {
+  display: none;
+}
+
+.turn-who {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  text-align: left;
+}
+
+.turn-who img {
+  flex: none;
+  width: 64px;
+  height: 64px;
+}
+
+.panel .turn-who p {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+/* A little map of the court: the spots to shoot from, numbered, threes in blue. */
+.spot-map {
+  position: relative;
+  width: min(100%, 320px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: 8px;
+  background-color: #2b1622;
+  background-repeat: no-repeat;
+  box-shadow: 3px 3px 0 var(--ink);
+  overflow: hidden;
+}
+
+.panel .spot-map .spot {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  transform: translate(-50%, -50%);
+}
+
+.panel .spot-map .spot.three {
+  background: #a0e7ff;
+}
+
+.panel .spot-map .spot[aria-pressed="true"] {
+  background: #ffe066;
+  outline: 4px solid #fff;
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.panel .spot-map .spot:focus-visible {
+  outline: 4px solid var(--accent);
+}
+
+.panel .spot-map .spot:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.panel .turn-spot {
+  margin: 10px 0 6px;
+  font-size: clamp(9px, 1.6vw, 12px);
+}
+
+/* Everyone's letters. */
+.horse-letters {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.horse-letters li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.horse-letters li.up {
+  outline: 2px solid #ffe066;
+}
+
+.horse-letters li.out {
+  opacity: 0.5;
+}
+
+.horse-letters img {
+  width: 32px;
+  height: 32px;
+}
+
+.panel .horse-letters .name {
+  flex: 1;
+  font-size: 10px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.horse-letters .letters {
+  display: flex;
+  gap: 4px;
+}
+
+.horse-letters b {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.horse-letters b.lit {
+  background: #ff4d4d;
+  color: #fff;
+}
+
 .final-score {
   margin: 0 0 4px;
+  overflow-wrap: anywhere; /* a HORSE winner's name */
 }
 
 .panel .final-score {

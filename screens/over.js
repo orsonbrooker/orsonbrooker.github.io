@@ -37,7 +37,11 @@ export function endGame() {
   $("replay").hidden = !bestShot(); // nothing to replay if nothing went in
   showDaily();
   showScreen("over");
-  showRound();
+  // Pass and play (HORSE) has no leaderboard: nothing is sent.
+  if (m.passAndPlay) {
+    $("over-board").hidden = true;
+    $("over-daily").textContent = "";
+  } else showRound();
 }
 
 // The daily challenge line on the game select and game-over screens.

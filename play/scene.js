@@ -156,6 +156,7 @@ export function render() {
   drawMeter();
   drawBallBadge();
   drawHint();
+  mode().drawOver?.(ctx);
   drawPopups(ctx, state.popups);
   drawConfetti(ctx, state.confetti);
   pixelFx.draw(ctx, "over");
