@@ -3,7 +3,8 @@
 // instead of checking which it is.
 //
 //   id, bestKey          its name in MODES, and where this device keeps its best
-//   bonusBalls           whether money and rainbow balls come up
+//   bonusBalls           whether money and rainbow balls come up (from the start token)
+//   ballKind(i)          optional: the mode's own ball for shot i instead (the 3-point contest's racks)
 // Playing:
 //   startSpot()          where the player stands at the start
 //   pickSpot()           where he goes after each shot
@@ -12,6 +13,8 @@
 //   countsShot()         false once a ball still in the air no longer counts
 //   onMake(b), onMiss(b) a basket; a miss (after the reaction every mode shares)
 //   squeeze()            how much of the timing window is gone (0 to 1)
+//   zoneShift()          optional: the moving green zone (play/zone.js), where the green sits this
+//                        shot in seconds from the top of the jump; missing or 0 keeps it at the top
 //   rumble()             how far the court shakes, in court pixels
 //   drawFloor(ctx)       optional: drawn on the floor, under the players and balls
 // Showing it:
@@ -27,9 +30,16 @@
 
 import around from "../modes/around.js";
 import survival from "../modes/survival.js";
+import threes from "../modes/threes.js";
 import timed from "../modes/timed.js";
-import { modes } from "../play/state.js";
+import { DEBUG, modes } from "../play/state.js";
 
-Object.assign(modes, { timed, survival, around });
+Object.assign(modes, { timed, survival, around, threes });
+
+// The 3-point contest waits for its rack art (art/three-point-contest.md). Until then it's only on
+// "Choose a game", the leaderboard tabs and help in ?debug. Set this to true once the art is in.
+const THREE_POINT_CONTEST_READY = false;
+// Whether players can choose this mode (and see its leaderboard and help).
+export const modeShown = (id) => id !== "threes" || THREE_POINT_CONTEST_READY || DEBUG;
 
 export { SUDDEN_DEATH } from "../modes/survival.js";

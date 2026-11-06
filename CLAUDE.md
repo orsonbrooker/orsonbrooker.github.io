@@ -157,8 +157,10 @@ main checkout.
 
 ## Product notes
 
-- Shootaround modes: Time attack (60s), Sudden death (first miss ends it; gets harder), Around the World
-  (7 spots, fastest time). Each has its own leaderboard (This week / All time, one row per player per
+- Shootaround modes: Time attack (60s), Sudden death (first miss ends it; gets harder: the green shrinks
+  and, from 5 in a row, moves), Around the World (7 spots, fastest time; the green moves a little), and the
+  3-point contest (5 racks of 5 threes in 60s, the last ball of each a money ball; the green moves), which
+  stays hidden outside `?debug` until Luke's rack art is in (`art/three-point-contest.md`). Each has its own leaderboard (This week / All time, one row per player per
   device). Fire at 3 in a row (+1), purple at 6 (+2), blue supernova at 10 (+3); money and rainbow balls;
   a daily challenge kept on the device.
 - The flow: tap or Space to play, choose a game, choose a player.

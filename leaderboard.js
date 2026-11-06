@@ -366,6 +366,20 @@ function cardStats(mode, d, score) {
     ...(d.rainbow?.seen ? [["Rainbow balls made", `${d.rainbow.made} of ${d.rainbow.seen}`]] : []),
     ...(d.bonusPoints ? [["Bonus points", `${d.bonusPoints} of ${score}`]] : []),
   ];
+  const moving = d.movingGreen ? [["Green zone", "Moving"]] : [];
+  if (mode === "threes") {
+    const racks = d.racks ?? [];
+    const best = Math.max(0, ...racks);
+    return [
+      ["Shots made", `${d.made} of ${d.shots}`],
+      ...(d.money?.seen ? [["Money balls made", `${d.money.made} of ${d.money.seen}`]] : []),
+      ...(racks.length ? [["Best rack", `Rack ${racks.indexOf(best) + 1} (${best} of 5)`]] : []),
+      ["Best streak", `${d.bestStreak} in a row`],
+      ...moving,
+      green,
+      sent,
+    ];
+  }
   if (mode === "around") {
     const tries = d.tries ?? [];
     const most = Math.max(0, ...tries);
@@ -374,6 +388,7 @@ function cardStats(mode, d, score) {
       ["Shots taken", d.shots],
       ["First try", `${tries.filter((t) => t === 1).length} of ${AROUND_SPOT_NAMES.length} spots`],
       ...(most > 1 ? [["Toughest spot", `${AROUND_SPOT_NAMES[spot]} (${most} tries)`]] : []),
+      ...moving,
       green,
       sent,
     ];
@@ -388,6 +403,7 @@ function cardStats(mode, d, score) {
       ["Hottest fire", FIRE_NAMES[d.hottestFire ?? 0]],
       ...balls,
       ...(miss ? [["The miss", miss]] : []),
+      ...moving,
       green,
       sent,
     ];
@@ -435,7 +451,7 @@ function showScoreCard(row, rank, range, mode, bodyFor) {
         <button type="submit" class="fb-button fb-primary">Close</button>
       </div>
     </form>`;
-  const where = { survival: " in sudden death", around: " around the world" }[mode] ?? "";
+  const where = { survival: " in sudden death", around: " around the world", threes: " in the 3-point contest" }[mode] ?? "";
   dialog.querySelector(".lb-card-rank").textContent = `#${rank} ${range === "week" ? "this week" : "all time"}${where}`;
   dialog.querySelector("h2").textContent = row.nickname; // typed by visitors: text only
   dialog.querySelector(".lb-score span").textContent = lowWins(mode) ? (row.score / 10).toFixed(1) : row.score;

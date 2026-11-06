@@ -80,6 +80,12 @@ export const PHRASES = {
   aroundLast: ["Last spot!", "One more!", "Bring it home!"],
   aroundDone: ["Around the world!", "World tour complete!", "Passport stamped!"],
 
+  // 3-point contest: on to the next rack, the last rack, a whole rack made, every rack shot.
+  rackNext: ["Next rack!", "New rack!", "Keep it moving!"],
+  rackLast: ["Last rack!", "Final rack!", "One rack left!"],
+  rackPerfect: ["Perfect rack!", "Five for five!", "Cleaned out the rack!"],
+  contestDone: ["That's the contest!", "Racks are empty!", "Out of balls!"],
+
   // The daily challenge, done.
   challenge: ["Challenge complete!", "Daily challenge done!"],
 

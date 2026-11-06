@@ -64,12 +64,13 @@ flowchart LR
 | Game entry | `game.js` | Starts the game and wires the pieces below together: the one button (press, release), the screens' buttons, boot, `window.game` in `?debug`. |
 | Engine | `engine/` | `court.js` the court in metres and `project()` onto the isometric art, 3-point line, random spots; `physics.js` fixed-step ball physics (`PHYSICS_STEP`), rim and backboard collisions, reported through callbacks; `loop.js` the frame loop; `input.js` tap/Space/hold, Escape, arrow keys in pickers; `draw.js` canvas helpers (ball sprites, banner, popups, wall scoreboard digits, shoe finder); `storage.js`. |
 | Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness; `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update; `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces. |
-| Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, shared `points.js`) | Time attack, Sudden death, Around the World, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. |
+| Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, `threes.js`, shared `points.js`) | Time attack, Sudden death, Around the World, 3-point contest, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. The 3-point contest is hidden (except in `?debug`) until its rack art is in: `THREE_POINT_CONTEST_READY` in `modes/index.js`, brief in `art/three-point-contest.md`. |
+| Moving green zone | `play/zone.js`, `zoneCenter()` in `play/react.js` | A mechanic a mode switches on with `zoneShift()`: the green part of the timing bar moves to a new place each shot (from the seeded "zone" stream), and a release is timed from the green's middle. On in Sudden death (from 5 in a row, further as the run grows), Around the World (gently) and the 3-point contest. |
 | Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player; `panels.js` help and leaderboard; `over.js` game over. |
-| Game content | `content/` | Tables: how each fire level and ball looks, the wall scoreboard art, the Around the World spots, Sudden death run calls and end-of-game calls. |
+| Game content | `content/` | Tables: how each fire level and ball looks, the wall scoreboard art, the Around the World spots, the 3-point contest's racks (`threes.js`, with where its art goes), Sudden death run calls and end-of-game calls. |
 | Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log. Used by the game and the Worker. |
 | Scoring extras | `daily.js`, `content/looks.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
-| Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots and aim wobble. |
+| Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots, aim wobble and where a moving green zone goes. |
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
 | Sound | `audio.js`, `phrases.js`, `assets/voice/` | Music that builds, effects, announcer clips (device voice as fallback). |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
@@ -130,7 +131,7 @@ erDiagram
   }
   scores {
     int id PK
-    text mode "timed, survival, around"
+    text mode "timed, survival, around, threes (3-point contest)"
     int score "points, or tenths of a second for around"
     text player "orson, jethro, a builder id, or me123 (own player)"
     text device "hashed device id"
@@ -154,14 +155,16 @@ Terms used across the code:
 - **Rate limits:** the `rate_limits` table counts calls to cheap routes (votes, the score preview) per hashed IP
   per day, one upsert a call, so even toggling a vote uses up the day's allowance. The weekly cron clears old days.
 - **Shot log:** one entry per shot, `[seconds in, three (1/0), made (1/0), release timing, ball kind]`. Release
-  timing is measured in green-zone widths from the top of the jump; `|t| <= 0.5` is "let go in the green". Ball
-  kind is 0 normal, 1 money, 2 rainbow.
+  timing is measured in green-zone widths from the middle of the green (the top of the jump, unless the mode
+  moves it); `|t| <= 0.5` is "let go in the green". Ball kind is 0 normal, 1 money, 2 rainbow. In a 3-point
+  contest every shot is a three and the money balls are each rack's last ball (`contestBall`), not the token's.
 - **Start token:** signed by the Worker when a game starts (`<ms>.<nonce>.<hmac>`), used once. Bonus balls are
   decided from it, so the server can check them.
 - **Fire levels:** 3 in a row +1 a basket, 6 (purple) +2, 10 (blue supernova) +3: `FIRE_RULES` in
   `shared/rules.js`. `content/looks.js` adds how each looks and how much it widens the timing window.
 - **Seed:** the start token also seeds the game's gameplay randomness (`rng.js`): one stream for where he shoots
-  from, one for each shot's aim wobble, so the same token and the same inputs give the same game. The streams
+  from, one for each shot's aim wobble, one for where a moving green zone goes (each stream is seeded by its
+  name, so adding one doesn't change what the others give), so the same token and the same inputs give the same game. The streams
   are made at the game's first draw (the first release); if the token hasn't come back by then (or never does,
   offline) the game uses a random seed throughout. It's kept in `state.rngSeed`; `?debug` can set it with
   `window.game.setSeed()`. Effects, sounds and which announcer line plays stay on `Math.random`.

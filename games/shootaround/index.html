@@ -105,12 +105,17 @@
               </button>
               <button type="button" class="mode-card" data-mode="survival">
                 <strong>Sudden death</strong>
-                <span>No clock. Keep shooting until you miss. It gets harder the longer you go!</span>
+                <span>No clock. Keep shooting until you miss. It gets harder the longer you go, and the green starts to move!</span>
                 <em data-best></em>
               </button>
               <button type="button" class="mode-card" data-mode="around">
                 <strong>Around the world</strong>
-                <span>Score from all 7 spots around the key, in order, as fast as you can.</span>
+                <span>Score from all 7 spots around the key, in order, as fast as you can. Watch the green: it moves!</span>
+                <em data-best></em>
+              </button>
+              <button type="button" class="mode-card" data-mode="threes">
+                <strong>3-point contest</strong>
+                <span>5 racks, 5 balls each, all threes, 60 seconds. The last ball in each rack is a money ball!</span>
                 <em data-best></em>
               </button>
             </div>
@@ -145,6 +150,7 @@
               <button type="button" role="tab" data-board-mode="timed" aria-selected="true">Time attack</button>
               <button type="button" role="tab" data-board-mode="survival" aria-selected="false">Sudden death</button>
               <button type="button" role="tab" data-board-mode="around" aria-selected="false">Around the world</button>
+              <button type="button" role="tab" data-board-mode="threes" aria-selected="false">3-point contest</button>
             </div>
             <div class="board-tabs" role="tablist" aria-label="When">
               <button type="button" role="tab" data-range="week" aria-selected="true">This week</button>
@@ -165,8 +171,9 @@
               <li><strong>Let go</strong> at the top of the jump to shoot. Watch the bar: let go in the green.</li>
             </ol>
             <p><strong>Time attack:</strong> score as many points as you can in 60 seconds. Shots from behind the arc are worth 3. Make 3 in a row and you're on fire!</p>
-            <p><strong>Sudden death:</strong> no clock. Keep shooting until you miss. One miss and it's over!</p>
-            <p><strong>Around the world:</strong> score from all 7 spots around the key, in order, as fast as you can. Miss and you shoot from the same spot again.</p>
+            <p><strong>Sudden death:</strong> no clock. Keep shooting until you miss. One miss and it's over! Make 5 in a row and the green starts moving, so watch the bar.</p>
+            <p><strong>Around the world:</strong> score from all 7 spots around the key, in order, as fast as you can. Miss and you shoot from the same spot again. The green moves a little each shot.</p>
+            <p data-help-mode="threes"><strong>3-point contest:</strong> shoot every ball from 5 racks around the 3-point line in 60 seconds. Every shot is a three, and the last ball in each rack is a gold money ball worth double. The green moves every shot!</p>
             <p>Keep scoring for blue supernova fire at 10 in a row. Watch for a gold money ball (double points) and the rare rainbow ball (5 points)!</p>
             <button class="primary" id="help-close" type="button">Got it</button>
           </div>
