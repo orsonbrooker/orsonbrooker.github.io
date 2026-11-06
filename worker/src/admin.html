@@ -50,6 +50,25 @@
 			.card { background: var(--panel); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
 			.meta { font-size: 13px; opacity: 0.8; margin-bottom: 8px; }
 			.quote { font-size: 18px; margin: 0 0 12px; white-space: pre-wrap; }
+			.draft-note { margin: 0 0 12px; padding: 8px 12px; border-left: 3px solid #ffe066; background: rgba(255, 224, 102, 0.1); font-size: 15px; }
+			/* Inbox ideas: details on the left, actions down the right (stacked underneath on a phone). */
+			main:has(.sub-card) { max-width: 1100px; }
+			.sub-card { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 20px; }
+			.sub-title { font-size: 20px; margin: 0 0 4px; }
+			.sub-quote { margin: 0 0 10px; font-size: 14px; opacity: 0.75; white-space: pre-wrap; }
+			.sub-fields { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 8px 10px; }
+			.sub-fields label { margin: 0; }
+			.sub-fields label span { display: block; font-size: 12px; margin-bottom: 3px; opacity: 0.8; }
+			.sub-fields .wide { grid-column: 1 / -1; }
+			.sub-fields textarea { min-height: 48px; }
+			.sub-actions { display: flex; flex-direction: column; gap: 8px; }
+			.sub-actions .danger { margin-top: auto; }
+			.sub-actions .suggested { outline: 3px solid #ffe066; outline-offset: 2px; }
+			@media (max-width: 700px) {
+				.sub-card { grid-template-columns: 1fr; gap: 12px; }
+				.sub-fields { grid-template-columns: 1fr; }
+				.sub-actions .danger { margin-top: 0; }
+			}
 			label { display: block; font-size: 13px; margin: 8px 0 4px; opacity: 0.9; }
 			input[type="text"], textarea, select {
 				width: 100%;
@@ -218,15 +237,16 @@
 			}
 
 			function submissionCard(s) {
-				const title = el("input", { type: "text", value: s.text.slice(0, 80), maxLength: 80 });
-				const description = el("textarea", { value: s.text, maxLength: 500 });
+				// A tidied-up draft if there is one, otherwise their own words.
+				const title = el("input", { type: "text", value: s.title ?? s.text.slice(0, 80), maxLength: 80 });
+				const description = el("textarea", { value: s.description ?? s.text, maxLength: 500 });
 				const app = appSelect(s.app);
 				const credit = el("input", { type: "checkbox" });
 				const mergeInto = el(
 					"select",
 					{},
 					el("option", { value: "", textContent: "Add to an existing idea…" }),
-					...data.ideas.map((i) => el("option", { value: i.id, textContent: `${appName(i.app)}: ${i.title}` })),
+					...data.ideas.map((i) => el("option", { value: i.id, textContent: `${appName(i.app)}: ${i.title}`, selected: i.id === s.merge_into })),
 				);
 				const act = (action, extra = {}) => async () => {
 					try {
@@ -237,44 +257,53 @@
 						toast(err.message);
 					}
 				};
-				return (
+				// Easy to scan: the idea as it would read on the board, what they actually wrote, and the
+				// suggestion. The fields to change it sit below, and the actions down the right.
+				const headline = el("h3", { className: "sub-title", textContent: title.value });
+				title.addEventListener("input", () => (headline.textContent = title.value));
+				const details = el(
+					"div",
+					{ className: "sub-main" },
+					el("div", { className: "meta", textContent: `${appName(s.app)} · ${s.nickname ? `from ${s.nickname}` : "no name"} · ${s.created_at.slice(0, 10)}` }),
+					headline,
+					el("p", { className: "sub-quote", textContent: `They wrote: "${s.text}"` }),
+					s.note ? el("p", { className: "draft-note", textContent: s.note }) : null,
 					el(
 						"div",
-						{ className: "card" },
-						el("div", { className: "meta", textContent: `${appName(s.app)} · ${s.nickname ? `from ${s.nickname}` : "no name"} · ${s.created_at.slice(0, 10)}` }),
-						el("p", { className: "quote", textContent: s.text }),
-						el("label", { textContent: "Title on the board" }),
-						title,
-						el("label", { textContent: "Description" }),
-						description,
-						el("label", { textContent: "Game or app" }),
-						app,
-						s.nickname ? el("label", { className: "check" }, credit, `Credit "${s.nickname}" on the board`) : null,
-						el(
-							"div",
-							{ className: "row" },
-							el("button", {
-								type: "button",
-								className: "primary",
-								textContent: "Add to board",
-								onclick: () => act("approve", { title: title.value, description: description.value, app: app.value, credit: credit.checked })(),
-							}),
-							el("button", { type: "button", className: "danger", textContent: "Reject", onclick: act("reject") }),
-						),
-						data.ideas.length
-							? el(
-									"div",
-									{ className: "row" },
-									mergeInto,
-									el("button", {
-										type: "button",
-										textContent: "Merge",
-										onclick: () => (mergeInto.value ? act("merge", { ideaId: mergeInto.value })() : toast("Pick an idea first")),
-									}),
-								)
-							: null,
-					)
+						{ className: "sub-fields" },
+						el("label", {}, el("span", { textContent: "Title" }), title),
+						el("label", {}, el("span", { textContent: "Game or app" }), app),
+						el("label", { className: "wide" }, el("span", { textContent: "Description" }), description),
+					),
+					s.nickname ? el("label", { className: "check" }, credit, `Credit "${s.nickname}" on the board`) : null,
 				);
+				// The button the suggestion points to gets an outline: an existing idea to add it to, a
+				// note starting "Reject", or one starting "Add to the board".
+				const suggested = s.merge_into ? "merge" : s.note?.startsWith("Reject") ? "reject" : s.note?.startsWith("Add to the board") ? "add" : null;
+				const mark = (which, className = "") => (suggested === which ? `${className} suggested`.trim() : className);
+				const actions = el(
+					"div",
+					{ className: "sub-actions" },
+					el("button", {
+						type: "button",
+						className: mark("add", "primary"),
+						textContent: "Add to board",
+						onclick: () => act("approve", { title: title.value, description: description.value, app: app.value, credit: credit.checked })(),
+					}),
+					...(data.ideas.length
+						? [
+								mergeInto,
+								el("button", {
+									type: "button",
+									className: mark("merge"),
+									textContent: "Add to that idea",
+									onclick: () => (mergeInto.value ? act("merge", { ideaId: mergeInto.value })() : toast("Pick an idea first")),
+								}),
+							]
+						: []),
+					el("button", { type: "button", className: mark("reject", "danger"), textContent: "Reject", onclick: act("reject") }),
+				);
+				return el("div", { className: "card sub-card" }, details, actions);
 			}
 
 			function renderIdeas() {

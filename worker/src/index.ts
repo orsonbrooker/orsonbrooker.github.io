@@ -668,7 +668,7 @@ async function admin(request: Request, env: Env, url: URL): Promise<Response> {
 	const parts = url.pathname.split("/").filter(Boolean); // api, admin, ...
 	if (request.method === "GET" && parts[2] === "inbox") {
 		const [submissions, ideas, apps, players, scores] = await env.DB.batch([
-			env.DB.prepare("SELECT id, app, text, nickname, created_at FROM submissions WHERE status = 'new' ORDER BY id"),
+			env.DB.prepare("SELECT id, app, text, nickname, created_at, title, description, note, merge_into FROM submissions WHERE status = 'new' ORDER BY id"),
 			env.DB.prepare("SELECT id, app, title, description, credit, status, votes FROM ideas ORDER BY app, votes DESC"),
 			env.DB.prepare("SELECT slug, name FROM apps ORDER BY name"),
 			env.DB.prepare(
