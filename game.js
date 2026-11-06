@@ -3,7 +3,7 @@
 //   engine/   the court and its projection, ball physics, the frame loop, input, drawing helpers
 //   play/     the game in progress: the shared state, players, shooting and the update, reactions, drawing the court
 //   modes/    one file per way to play, all with the same shape (modes/index.js)
-//   content/  tables: fire and ball looks, the around-the-world spots, the announcer's bigger calls
+//   content/  tables: the courts, player attributes, fire and ball looks, the around-the-world spots, the announcer's bigger calls
 //   screens/  the title, choosing a game and a player, help, the leaderboard, game over
 // Scoring rules shared with the server are in shared/rules.js.
 
@@ -14,7 +14,8 @@ import { listenForInput } from "./engine/input.js";
 import { startLoop } from "./engine/loop.js";
 import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
-import { characters, loadImage, loadRoster } from "./play/players.js";
+import { COURTS, court, useCourt } from "./play/court.js";
+import { characters, loadRoster } from "./play/players.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow } from "./play/react.js";
 import { checkDecided, shoot, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
@@ -114,12 +115,11 @@ async function boot() {
   loadVoiceClips();
   try {
     await loadRoster();
-    const [hoopImg] = await Promise.all([
-      loadImage("assets/hoop-front.webp"),
+    await Promise.all([
+      useCourt(), // the default court: its measurements, physics and art
       selectCharacter(characters.selected),
       document.fonts?.load('48px "Press Start 2P"').catch(() => {}),
     ]);
-    art.hoopFront = hoopImg;
     art.ballSprites = makeBallSprites();
   } catch (err) {
     tapToPlay.textContent = "Oops! The game could not load. Try refreshing the page.";
@@ -128,7 +128,7 @@ async function boot() {
   }
   if (DEBUG) {
     const pickSpot = () => mode().pickSpot();
-    window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, RIM, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed };
+    window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, get RIM() { return RIM; }, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed, setCourt: useCourt, courts: COURTS, get court() { return court; } };
   }
   resize();
   new ResizeObserver(resize).observe(stage);
