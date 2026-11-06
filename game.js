@@ -18,6 +18,9 @@ import { BALL_BADGES, BALL_LOOKS, BOARD_ART, CONFETTI_COLORS, FIRE_LEVELS } from
 import { load, save } from "./engine/storage.js?v=1cb284ce";
 import { BALL_R, BOARD, COURT_PX, DEFAULT_SPOT, EU, EV, HOOP_FRONT_AT, LINE_CLEARANCE, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, isThreePointSpot, project, randomSpot, threePointRadius } from "./engine/court.js?v=7f81b538";
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "./engine/physics.js?v=0433c248";
+import { BALL_FRAMES, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow, makeBallSprites, shoesIn } from "./engine/draw.js?v=c80d3ab8";
+import { listenForInput } from "./engine/input.js?v=a24ea9fb";
+import { startLoop } from "./engine/loop.js?v=2d2d9faa";
 
 // Ways to play (MODES, in shared/rules.js), each with its own best and leaderboard:
 //   timed     time attack: score as much as you can in 60 seconds
@@ -100,51 +103,6 @@ for (const btn of [muteBtn, musicBtn]) {
   });
 }
 syncSoundButtons();
-
-// ---------- Ball sprite (drawn in code so it can spin) ----------
-
-// The seams turn while the light stays put, drawn fresh for each frame so the pixels stay crisp
-// (rotating one picture smears its pixels). The seam pattern repeats every half turn.
-const BALL_FRAMES = 12;
-
-// look: the ball's colours (BALL_LOOKS in content/looks.js).
-function makeBallSprite(turn, look = BALL_LOOKS[NORMAL]) {
-  const size = 16;
-  const c = document.createElement("canvas");
-  c.width = c.height = size;
-  const g = c.getContext("2d");
-  const mid = (size - 1) / 2;
-  const cos = Math.cos(turn), sin = Math.sin(turn);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const d = Math.hypot(x - mid, y - mid);
-      if (d > 7.6) continue;
-      // the seams, in the ball's own turned frame
-      const rx = mid + (x - mid) * cos + (y - mid) * sin;
-      const ry = mid - (x - mid) * sin + (y - mid) * cos;
-      let color = look.rainbow
-        ? `hsl(${Math.round(((rx + ry) * 22) % 360)}, 90%, ${x + y > 19 ? 48 : 60}%)`
-        : x + y > 19 ? look.shade : look.main;
-      if (Math.hypot(x - 5, y - 4.5) < 2) color = look.shine;
-      const seam =
-        Math.abs(rx - mid) < 0.6 ||
-        Math.abs(ry - mid) < 0.6 ||
-        Math.abs(Math.hypot(rx + 4, ry - mid) - 9.5) < 0.6 ||
-        Math.abs(Math.hypot(rx - 19, ry - mid) - 9.5) < 0.6;
-      if (seam) color = look.seam;
-      if (d > 6.7) color = look.edge;
-      g.fillStyle = color;
-      g.fillRect(x, y, 1, 1);
-    }
-  }
-  return c;
-}
-
-// One spinning set of frames for each kind of ball.
-function makeBallSprites() {
-  const frames = (look) => Array.from({ length: BALL_FRAMES }, (_, i) => makeBallSprite((i / BALL_FRAMES) * Math.PI, look));
-  return { [NORMAL]: frames(BALL_LOOKS[NORMAL]), [MONEY]: frames(BALL_LOOKS[MONEY]), [RAINBOW]: frames(BALL_LOOKS[RAINBOW]) };
-}
 
 // The next ball's kind: money or rainbow now and then, but only in games that score points.
 function nextBallKind() {
@@ -663,67 +621,6 @@ function release() {
   else if (player.anim === "jump") shoot((player.t - JUMP_APEX) / timingWindow());
 }
 
-// Arrow keys move between the cards when choosing a game or a player: to the nearest card that
-// way, so it works however the cards wrap. Enter or Space picks the one in focus.
-function arrowMove(key) {
-  if (document.querySelector("dialog[open]")) return false;
-  const area = state.phase === "modes" && !screens.modes.hidden ? screens.modes.querySelector(".mode-cards")
-    : state.phase === "select" && !screens.select.hidden ? charPick : null;
-  if (!area) return false;
-  const cards = [...area.querySelectorAll(".mode-card, .card")];
-  const current = cards.includes(document.activeElement) ? document.activeElement : null;
-  if (!current) {
-    (area.querySelector('[aria-pressed="true"]') ?? cards[0])?.focus({ preventScroll: true });
-    return true;
-  }
-  const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[key];
-  const centre = (el) => {
-    const r = el.getBoundingClientRect();
-    return [r.left + r.width / 2, r.top + r.height / 2];
-  };
-  const [cx, cy] = centre(current);
-  let best = null;
-  let bestScore = Infinity;
-  for (const card of cards) {
-    if (card === current) continue;
-    const [x, y] = centre(card);
-    const along = (x - cx) * dir[0] + (y - cy) * dir[1];
-    if (along < 4) continue; // not that way
-    const across = Math.abs((x - cx) * dir[1] + (y - cy) * dir[0]);
-    const score = along + across * 3; // prefer cards in line over ones off to the side
-    if (score < bestScore) [best, bestScore] = [card, score];
-  }
-  best?.focus({ preventScroll: true });
-  best?.scrollIntoView({ block: "nearest" });
-  return true;
-}
-
-// Typing in a form (like the ideas box) shouldn't make Orson shoot.
-const typing = (e) => e.target instanceof Element && e.target.closest("input, textarea, select, button, dialog");
-
-window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && !document.querySelector("dialog[open]")) {
-    if (!screens.help.hidden) closeHelp();
-    else if (!screens.board.hidden) closeBoard();
-    else if (state.phase === "select" || state.phase === "modes") showTitle();
-    return;
-  }
-  if (e.key.startsWith("Arrow") && arrowMove(e.key)) {
-    e.preventDefault();
-    return;
-  }
-  if (e.code !== "Space" && e.key !== " ") return;
-  if (typing(e)) return;
-  e.preventDefault();
-  state.input = "keyboard";
-  if (!e.repeat) press();
-});
-window.addEventListener("keyup", (e) => {
-  if (e.code !== "Space" && e.key !== " ") return;
-  if (typing(e)) return;
-  e.preventDefault();
-  release();
-});
 
 // Taps on the screens' panels and buttons are theirs, not a shot. (The title screen lets taps through.)
 for (const el of Object.values(screens).filter((el) => el !== screens.title))
@@ -755,47 +652,23 @@ fillIcons(stage);
 
 // The whole game area takes presses, not just the court: on a phone there's room below the
 // court for a thumb to hold down without covering the player.
-const pad = document.querySelector(".game-page") ?? stage;
-// Things on the page that are tapped for their own sake, not to shoot.
-const OWN_TAPS = "a, button, input, select, textarea, dialog, .panel-screen";
-
-let activePointer = null;
-pad.addEventListener("pointerdown", (e) => {
-  if (e.pointerType === "mouse" && e.button !== 0) return;
-  if (!e.target.closest(OWN_TAPS)) state.input = e.pointerType === "mouse" ? "mouse" : "touch";
-  if (activePointer !== null || e.target.closest(OWN_TAPS)) return;
-  activePointer = e.pointerId;
-  try {
-    pad.setPointerCapture(e.pointerId);
-  } catch {
-    // Capture is a nicety; pointerup on the pad still ends the press.
-  }
-  e.preventDefault();
-  stage.focus({ preventScroll: true }); // so Space keeps working after a click below the court
-  press();
-});
-// Stops iOS long-press callouts, text selection and scrolling while holding to shoot.
-pad.addEventListener(
-  "touchstart",
-  (e) => {
-    if (!e.target.closest(OWN_TAPS)) e.preventDefault();
+listenForInput({
+  pad: document.querySelector(".game-page") ?? stage,
+  stage,
+  press,
+  release,
+  setInput: (how) => {
+    state.input = how;
   },
-  { passive: false },
-);
-function pointerEnd(e) {
-  if (e.pointerId !== activePointer) return;
-  activePointer = null;
-  release();
-}
-pad.addEventListener("pointerup", pointerEnd);
-pad.addEventListener("pointercancel", pointerEnd);
-pad.addEventListener("lostpointercapture", pointerEnd);
-pad.addEventListener("contextmenu", (e) => {
-  if (!e.target.closest(OWN_TAPS)) e.preventDefault();
-});
-window.addEventListener("blur", () => {
-  activePointer = null;
-  release();
+  escape() {
+    if (!screens.help.hidden) closeHelp();
+    else if (!screens.board.hidden) closeBoard();
+    else if (state.phase === "select" || state.phase === "modes") showTitle();
+  },
+  // Choosing a game or a player: the arrow keys move between the cards.
+  cards: () =>
+    state.phase === "modes" && !screens.modes.hidden ? screens.modes.querySelector(".mode-cards")
+    : state.phase === "select" && !screens.select.hidden ? charPick : null,
 });
 
 // ---------- Shooting ----------
@@ -1310,62 +1183,6 @@ function resize() {
   }
 }
 
-// Where the shoes are in each frame of a sprite sheet: for every frame, two [x, y] points (sprite pixels from the
-// frame's corner) at the bottom middle of each shoe. Builder players have a colour map marking their shoe pixels
-// (region 5), which is exact whatever colour the shoes are. Hand-made players don't, so their shoes are found by
-// the lowest pixels in each column of the bottom of the frame, skipping warm colours so the ball and skin aren't
-// mistaken for shoes. Cached per sheet.
-const SHOES = 5;
-const feetCache = new WeakMap();
-function shoesIn(sheet, meta, regions) {
-  if (feetCache.has(sheet)) return feetCache.get(sheet);
-  const c = document.createElement("canvas");
-  c.width = sheet.width;
-  c.height = sheet.height;
-  const g = c.getContext("2d", { willReadFrequently: true });
-  g.drawImage(sheet, 0, 0);
-  const result = {};
-  for (const [anim, frames] of Object.entries(meta.frames)) {
-    result[anim] = frames.map(([sx, sy, w, h]) => {
-      const px = g.getImageData(sx, sy, w, h).data;
-      const isShoe = regions
-        ? (x, y) => regions.data[((sy + y) * regions.width + sx + x) * 4] === SHOES
-        : (x, y) => {
-            const i = (y * w + x) * 4;
-            const [r, gg, b, a] = [px[i], px[i + 1], px[i + 2], px[i + 3]];
-            return a >= 128 && !(r - b > 40 && r >= gg); // skip warm colours: ball, skin
-          };
-      const bottom = new Array(w).fill(-1);
-      for (let x = 0; x < w; x++) {
-        for (let y = h - 1; y >= h * 0.6; y--) {
-          if (!isShoe(x, y)) continue;
-          bottom[x] = y;
-          break;
-        }
-      }
-      // runs of columns that reach the bottom fifth of the frame
-      const runs = [];
-      for (let x = 0; x < w; x++) {
-        if (bottom[x] < (regions ? 0 : h * 0.8)) continue;
-        const run = runs.at(-1);
-        if (run && x - run.x1 <= 2) run.x1 = x;
-        else runs.push({ x0: x, x1: x });
-      }
-      let feet = runs.filter((r) => r.x1 - r.x0 >= 3).sort((a, b) => b.x1 - b.x0 - (a.x1 - a.x0)).slice(0, 2);
-      if (feet.length === 1) {
-        const { x0, x1 } = feet[0], m = (x0 + x1) >> 1;
-        feet = [{ x0, x1: m }, { x0: m + 1, x1 }];
-      }
-      if (!feet.length) return [[w * 0.35, h], [w * 0.65, h]];
-      return feet
-        .map(({ x0, x1 }) => [(x0 + x1) / 2, Math.max(...bottom.slice(x0, x1 + 1))])
-        .sort((a, b) => a[0] - b[0]);
-    });
-  }
-  feetCache.set(sheet, result);
-  return result;
-}
-
 // The player's shoes right now, in court pixels.
 function shoePoints() {
   const [, , , , ox, oy] = currentFrame();
@@ -1384,14 +1201,6 @@ function currentFrame() {
   else if (player.anim === "idle" || player.anim === "dribble") i = Math.floor(player.t * ANIM_FPS[player.anim]) % frames.length;
   else i = Math.floor(player.t * ANIM_FPS[player.anim]);
   return frames[Math.min(i, frames.length - 1)];
-}
-
-function drawShadow(u, v, rx, ry, alpha) {
-  const p = project(u, v);
-  ctx.fillStyle = `rgba(45, 20, 35, ${alpha})`;
-  ctx.beginPath();
-  ctx.ellipse(p.x, p.y, rx, ry, 0, 0, Math.PI * 2);
-  ctx.fill();
 }
 
 function drawPlayer() {
@@ -1439,40 +1248,6 @@ function drawMeter() {
   ctx.fillRect(x - 6, top + height * (1 - fill) - 4, 36, 8);
 }
 
-function drawConfetti() {
-  for (const c of state.confetti) {
-    ctx.save();
-    ctx.translate(c.x, c.y);
-    ctx.rotate(c.rot);
-    ctx.fillStyle = c.color;
-    ctx.fillRect(-c.size / 2, -c.size / 4, c.size, c.size / 2);
-    ctx.restore();
-  }
-}
-
-function drawBanner() {
-  const b = state.banner;
-  if (!b) return;
-  const pop = b.age < 0.12 ? 0.6 + (b.age / 0.12) * 0.55 : b.age < 0.22 ? 1.15 - ((b.age - 0.12) / 0.1) * 0.15 : 1;
-  const fade = Math.min(1, (b.duration - b.age) / 0.3);
-  ctx.save();
-  ctx.font = '64px "Press Start 2P", monospace';
-  const width = ctx.measureText(b.text).width;
-  const fit = Math.min(b.big ? 1.6 : 1, 1800 / width);
-  ctx.translate(COURT_PX / 2, 120);
-  ctx.scale(pop * fit, pop * fit);
-  ctx.globalAlpha = fade;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.lineJoin = "round";
-  ctx.lineWidth = 16;
-  ctx.strokeStyle = "#2b1622";
-  ctx.strokeText(b.text, 0, 0);
-  ctx.fillStyle = b.color;
-  ctx.fillText(b.text, 0, 0);
-  ctx.restore();
-}
-
 // The very first shot: what to do next, in a bubble over the player. Never shown again after that.
 const hints = { learned: load("orson-hoops-learned", false) };
 // Around the world: the seven spots on the floor, numbered, with the one they're on lit up.
@@ -1503,20 +1278,7 @@ function drawAroundSpots() {
 function drawBallBadge() {
   const badge = BALL_BADGES[nextBallKind()];
   if (!badge || player.moving || player.fade < 0.6) return;
-  const p = project(player.u, player.v);
-  const pulse = 1 + 0.08 * Math.sin(performance.now() / 120);
-  ctx.save();
-  ctx.translate(p.x, p.y - 470);
-  ctx.scale(pulse, pulse);
-  ctx.font = '26px "Press Start 2P", monospace';
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.lineWidth = 8;
-  ctx.strokeStyle = "#2b1622";
-  ctx.strokeText(badge.text, 0, 0);
-  ctx.fillStyle = badge.color;
-  ctx.fillText(badge.text, 0, 0);
-  ctx.restore();
+  drawBadge(ctx, badge, project(player.u, player.v));
 }
 
 function drawHint() {
@@ -1527,142 +1289,20 @@ function drawHint() {
     : player.anim === "gather" || player.anim === "jump" ? "Let go at the top!"
     : "";
   if (!text) return;
-  const p = project(player.u, player.v);
-  ctx.save();
-  ctx.font = '34px "Press Start 2P", monospace';
-  const w = ctx.measureText(text).width + 56;
-  const x = Math.max(w / 2 + 20, Math.min(COURT_PX - w / 2 - 20, p.x));
-  const y = p.y - 520;
-  const blink = 0.85 + 0.15 * Math.sin(performance.now() / 180);
-  ctx.globalAlpha = blink;
-  ctx.fillStyle = "rgba(43, 22, 34, 0.9)";
-  ctx.beginPath();
-  ctx.roundRect(x - w / 2, y - 40, w, 80, 14);
-  ctx.moveTo(p.x - 18, y + 40);
-  ctx.lineTo(p.x, y + 66);
-  ctx.lineTo(p.x + 18, y + 40);
-  ctx.fill();
-  ctx.fillStyle = "#ffe066";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(text, x, y + 3);
-  ctx.restore();
-}
-
-function drawPopups() {
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = '48px "Press Start 2P", monospace';
-  ctx.lineWidth = 10;
-  ctx.strokeStyle = "#2b1622";
-  for (const p of state.popups) {
-    const y = p.y - p.age * 80;
-    ctx.globalAlpha = Math.min(1, (1.2 - p.age) * 3);
-    ctx.strokeText(p.text, p.x, y);
-    ctx.fillStyle = p.color;
-    ctx.fillText(p.text, p.x, y);
-  }
-  ctx.globalAlpha = 1;
-}
-
-function drawDebug() {
-  ctx.strokeStyle = "lime";
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  for (let i = 0; i <= 48; i++) {
-    const a = (i / 48) * Math.PI * 2;
-    const p = project(RIM.u + Math.cos(a) * RIM_R, RIM.v + Math.sin(a) * RIM_R, RIM.z);
-    i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
-  }
-  ctx.stroke();
-  const corners = [
-    [BOARD.u0, BOARD.z0], [BOARD.u1, BOARD.z0], [BOARD.u1, BOARD.z1], [BOARD.u0, BOARD.z1], [BOARD.u0, BOARD.z0],
-  ];
-  ctx.strokeStyle = "cyan";
-  ctx.beginPath();
-  corners.forEach(([u, z], i) => {
-    const p = project(u, BOARD.v, z);
-    i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
-  });
-  ctx.stroke();
-  ctx.strokeStyle = "yellow";
-  ctx.beginPath();
-  for (let i = 0; i <= 36; i++) {
-    const a = (i / 36) * Math.PI;
-    const r = threePointRadius(RIM.u + Math.cos(a), RIM.v + Math.sin(a));
-    const p = project(RIM.u + Math.cos(a) * r, RIM.v + Math.sin(a) * r);
-    i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
-  }
-  ctx.stroke();
-  const room = [[0, 0], [ROOM_U, 0], [ROOM_U, ROOM_V], [0, ROOM_V], [0, 0]];
-  ctx.strokeStyle = "red";
-  ctx.beginPath();
-  room.forEach(([u, v], i) => {
-    const p = project(u, v);
-    i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
-  });
-  ctx.stroke();
+  drawHintBubble(ctx, text, project(player.u, player.v));
 }
 
 // ---------- Wall scoreboard ----------
 
-const SEGMENTS = ["abcdef", "bc", "abdeg", "abcdg", "bcfg", "acdfg", "acdefg", "abc", "abcdefg", "abcdfg"];
-const scoreboard = document.createElement("canvas");
-scoreboard.width = BOARD_ART.area.w;
-scoreboard.height = BOARD_ART.area.h;
+const wallScoreboard = createWallScoreboard();
 let scoreboardDirty = true;
 
-function drawDigit(g, digit, x, y, w, h, t) {
-  const half = h / 2;
-  const rects = {
-    a: [x + t, y, w - 2 * t, t],
-    b: [x + w - t, y + t, t, half - 1.5 * t],
-    c: [x + w - t, y + half + t / 2, t, half - 1.5 * t],
-    d: [x + t, y + h - t, w - 2 * t, t],
-    e: [x, y + half + t / 2, t, half - 1.5 * t],
-    f: [x, y + t, t, half - 1.5 * t],
-    g: [x + t, y + half - t / 2, w - 2 * t, t],
-  };
-  for (const [seg, r] of Object.entries(rects)) {
-    g.fillStyle = SEGMENTS[digit].includes(seg) ? BOARD_ART.lit : BOARD_ART.unlit;
-    g.fillRect(...r);
-  }
-}
-
-function drawPanel(g, panel, value) {
-  const [cx, cy, cw, ch] = panel.cover;
-  g.fillStyle = BOARD_ART.face;
-  g.fillRect(cx, cy, cw, ch);
-  g.fillStyle = BOARD_ART.label;
-  g.fillText(panel.label, ...panel.labelAt);
-
-  const [wx, wy, ww, wh] = panel.window;
-  g.fillStyle = BOARD_ART.window;
-  g.fillRect(wx, wy, ww, wh);
-  const digits = String(Math.min(999, value)).padStart(2, "0").split("").map(Number);
-  const gap = digits.length > 2 ? 5 : 8;
-  const w = digits.length > 2 ? 20 : 28;
-  const h = 50;
-  const total = digits.length * w + (digits.length - 1) * gap;
-  digits.forEach((d, i) => drawDigit(g, d, wx + (ww - total) / 2 + i * (w + gap), wy + (wh - h) / 2, w, h, 6));
-}
-
 function renderScoreboard() {
-  const g = scoreboard.getContext("2d");
-  const { origin, slope, area } = BOARD_ART;
-  g.setTransform(1, 0, 0, 1, 0, 0);
-  g.clearRect(0, 0, area.w, area.h);
-  g.setTransform(1, slope, 0, 1, origin.x - area.x, origin.y - area.y);
-  g.font = '16px "Press Start 2P", monospace';
-  g.textAlign = "center";
-  g.textBaseline = "middle";
   // Around the world: which spot they're on, out of seven.
-  if (around()) drawPanel(g, { ...BOARD_ART.left, label: "SPOT" }, Math.min(state.aroundAt + 1, AROUND_SPOT_COUNT));
-  else drawPanel(g, BOARD_ART.left, state.score);
+  const left = around() ? ["SPOT", Math.min(state.aroundAt + 1, AROUND_SPOT_COUNT)] : ["SCORE", state.score];
   // Sudden death has no clock: the right side counts makes instead.
-  if (survival()) drawPanel(g, { ...BOARD_ART.right, label: "MADE" }, made());
-  else if (around()) drawPanel(g, BOARD_ART.right, Math.floor(state.elapsed));
-  else drawPanel(g, BOARD_ART.right, Math.ceil(state.timeLeft));
+  const right = survival() ? ["MADE", made()] : around() ? ["TIME", Math.floor(state.elapsed)] : ["TIME", Math.ceil(state.timeLeft)];
+  wallScoreboard.draw(left, right);
   scoreboardDirty = false;
 }
 
@@ -1684,16 +1324,16 @@ function render() {
   ctx.imageSmoothingQuality = "high";
 
   if (scoreboardDirty) renderScoreboard();
-  ctx.drawImage(scoreboard, BOARD_ART.area.x, BOARD_ART.area.y);
+  ctx.drawImage(wallScoreboard.canvas, BOARD_ART.area.x, BOARD_ART.area.y);
 
   drawAroundSpots();
 
   // Floor shadows first.
-  drawShadow(player.u, player.v, 70, 26, 0.35 * Math.max(0, player.fade));
+  drawShadow(ctx, player.u, player.v, 70, 26, 0.35 * Math.max(0, player.fade));
   for (const b of state.balls) {
     if (b.u > ROOM_U || b.v > ROOM_V) continue;
     const lift = Math.max(0, b.z);
-    drawShadow(b.u, b.v, 30 / (1 + lift * 0.15), 12 / (1 + lift * 0.15), 0.3 / (1 + lift * 0.3));
+    drawShadow(ctx, b.u, b.v, 30 / (1 + lift * 0.15), 12 / (1 + lift * 0.15), 0.3 / (1 + lift * 0.3));
   }
 
   pixelFx.draw(ctx, "under"); // fire trails behind the balls, floor flames behind the player
@@ -1708,18 +1348,17 @@ function render() {
   drawMeter();
   drawBallBadge();
   drawHint();
-  drawPopups();
-  drawConfetti();
+  drawPopups(ctx, state.popups);
+  drawConfetti(ctx, state.confetti);
   pixelFx.draw(ctx, "over");
-  drawBanner();
+  drawBanner(ctx, state.banner);
   if (state.flash > 0) {
     ctx.fillStyle = `rgba(255, 255, 255, ${state.flash * 0.6})`;
     ctx.fillRect(0, 0, COURT_PX, COURT_PX);
   }
-  if (DEBUG) drawDebug();
+  if (DEBUG) drawCourtLines(ctx);
 }
 
-let last = performance.now();
 // Slow motion while a shot released before the buzzer drops toward the hoop.
 function updateSlowMo(dt) {
   const dropping = state.phase === "ending" && state.balls.some(
@@ -1744,15 +1383,12 @@ function updateCelebration(dt) {
   state.confetti = state.confetti.filter((c) => c.y < COURT_PX + 50);
 }
 
-function frame(now) {
-  const dt = Math.min(0.05, (now - last) / 1000);
-  last = now;
+function tick(dt) {
   updateSlowMo(dt);
   stepPhysics(dt * state.timeScale);
   update(dt * state.timeScale);
   updateCelebration(dt);
   render();
-  requestAnimationFrame(frame);
 }
 
 // ---------- Boot ----------
@@ -1794,10 +1430,7 @@ async function boot() {
   showTitle();
   if (location.hash === "#leaderboard") openBoard("week");
   updateHud();
-  requestAnimationFrame((now) => {
-    last = now;
-    frame(now);
-  });
+  startLoop(tick);
 }
 
 boot();
