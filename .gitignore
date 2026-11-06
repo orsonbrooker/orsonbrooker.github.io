@@ -1,4 +1,4 @@
-node_modules
+node_modules/
 __pycache__/
 .voice-cache/
 .cloudflare/
@@ -12,3 +12,6 @@ __pycache__/
 
 # Planning notes and other short-lived docs: kept locally, never committed
 notes/
+
+# Vite build output (npm run build)
+dist/

@@ -35,9 +35,24 @@ flowchart LR
   Worker -. cron .-> Ntfy
 ```
 
-- **Static site:** plain JS modules with no build step, published from `main` by GitHub Pages and cached by
-  Cloudflare. `tools/stamp_versions.py` (run by the pre-commit hook) adds `?v=<hash>` to every script and
-  stylesheet so new code gets past the cache.
+- **Static site:** plain JS modules, published from `main` by GitHub Pages and cached by Cloudflare. Today
+  Pages serves the repo as it is, with no build step, and `tools/stamp_versions.py` (run by the pre-commit
+  hook) adds `?v=<hash>` to every script and stylesheet so new code gets past the cache.
+- **Vite build (live after the cutover):** `npm run build` (`vite.config.js`) bundles each page into `dist/`
+  at the same URL: scripts and stylesheets get hashed names in `dist/build/`, so they get past the cache
+  without stamps, and everything fetched by URL at runtime (`assets/`, `icons/`, manifests, `robots.txt`,
+  `sitemap.xml`, `CNAME`) is copied unhashed. The build ignores the `?v=` stamps, so the source works both
+  ways during the move. `.github/workflows/pages.yml` builds on every push to `main`; it deploys `dist/`
+  only once the Pages source is switched to "GitHub Actions". After the cutover the stamps and the hook
+  are retired, and the iOS app (Capacitor) can wrap the same `dist/`.
+
+```mermaid
+flowchart LR
+  Src["main: pages, JS modules,<br/>assets/"] --> Build["Pages workflow<br/>npm run build"]
+  Build --> Dist["dist/<br/>pages, build/ hashed js and css,<br/>assets/ unhashed"]
+  Dist -- "after the cutover" --> Pages2["GitHub Pages"]
+  Src -- "until the cutover" --> Pages2
+```
 - **Worker** (`worker/src/index.ts`, admin UI in `worker/src/admin.html`): the only server. It answers the API
   and the admin page on the same domain as the site, so there's no cross-site setup in production.
 - **D1:** one SQLite database, changed only through numbered files in `worker/migrations/`.
