@@ -23,7 +23,7 @@ uv run --with pillow python3 tools/build_game_cards.py
 
 ## Adding a new game or app
 
-Give it its own folder (e.g. `spelling/index.html`), copy the `<head>` tags from `index.html` and update the title, description, canonical, `og:url` and share image (add one to `tools/build_share_images.py`), then add the page to `sitemap.xml` and to `PAGES` in `tools/stamp_versions.py`.
+Give it its own folder (e.g. `spelling/index.html`), copy the `<head>` tags from `index.html` and update the title, description, canonical, `og:url` and share image (add one to `tools/build_share_images.py`), then add the page to `sitemap.xml`, to `PAGES` in `tools/stamp_versions.py` and to `PAGES` in `vite.config.js`.
 
 To let players send ideas about it, add the widget and register the game:
 

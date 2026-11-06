@@ -12,10 +12,16 @@ plan for growing the game and the iOS app; read it when working on structure.
 
 ## How it's built
 
-- **Site:** plain JavaScript modules, no build step. GitHub Pages serves `main` at orsonbrooker.com,
-  behind Cloudflare (which caches scripts for 4 hours). Pages: `/` (`index.html`, `home/`),
-  `/games/shootaround/` (uses `<base href="/">`, so the game's code and assets live at the repo root),
-  `/players/` (builder), `/ideas/`, `404.html`, `/lab/` (hidden effects test page).
+- **Site:** plain JavaScript modules. Today there's no build step live: GitHub Pages serves `main` as it is
+  at orsonbrooker.com, behind Cloudflare (which caches scripts for 4 hours). Pages: `/` (`index.html`,
+  `home/`), `/games/shootaround/` (uses `<base href="/">`, so the game's code and assets live at the repo
+  root), `/players/` (builder), `/ideas/`, `404.html`, `/lab/` (hidden effects test page).
+- **Vite build (being moved to):** `npm ci` then `npm run build` bundles every page into `dist/` (hashed
+  scripts and stylesheets in `dist/build/`, runtime files such as `assets/` and `icons/` copied unhashed).
+  Config: `vite.config.js` (a new page goes in its `PAGES`; a new file fetched by URL at runtime goes in
+  `STATIC` unless it's under `assets/` or `icons/`). `.github/workflows/pages.yml` builds on every push to
+  `main` but **deploys only after the cutover**, when Luke switches the Pages source to "GitHub Actions".
+  The source must keep working unbuilt until then. Cutover steps: `notes/vite-cutover.md`.
 - **Game:** `game.js` (loop, physics, modes, screens, input, drawing), `leaderboard.js`, `audio.js`,
   `phrases.js` (announcer lines), `fx.js` + `effects/` + `vendor/pixelfx/` (pixel effects), `bonus.js`
   (bonus balls), `daily.js` (daily challenge), `players/recolor.js` (builder players' colours).
@@ -72,6 +78,9 @@ python3 tools/dev/copy_live_db.py                     # optional: real ideas, pl
 - **Site:** `python3 -m http.server 5173 --bind 127.0.0.1` from the worktree. The game uses the local
   Worker when on localhost. Other sessions may already hold 5173 or 8787: check with `lsof -i :PORT` and
   pick a free one.
+- **Built site:** `npm ci` once, then `npm run dev -- --port <port> --strictPort` (Vite dev server), or
+  `npm run build` and `python3 -m http.server <port> --bind 127.0.0.1 --directory dist` to check what will
+  be deployed after the cutover. Until then, also check the unbuilt site still works.
 - **Phone or iPad:** `python3 tools/dev/lan_server.py 5174` and open `http://<Mac IP>:5174/games/shootaround/`
   (`ipconfig getifaddr en0`).
 - **Test mode:** add `?debug` to the game URL: shows the rim and lines, exposes `window.game`, and scores
@@ -87,7 +96,8 @@ python3 tools/dev/copy_live_db.py                     # optional: real ideas, pl
 
 Use the `go-live` skill. In short, in this order: live database migration, then `cf deploy` (only if the
 Worker changed), then push `main`, wait for Pages to build that commit (`sh tools/dev/wait_pages.sh <sha>`),
-then check the live files and API. Then tell Luke to `git pull` in the main checkout.
+then check the live files and API. Then tell Luke to `git pull` in the main checkout. After the Vite
+cutover, "Pages built" means the Pages workflow's deploy job finished for that commit.
 
 ## Gotchas
 
@@ -95,7 +105,9 @@ then check the live files and API. Then tell Luke to `git pull` in the main chec
   `git config core.hooksPath .githooks`) runs `tools/stamp_versions.py`, which adds `?v=<hash>` to every
   script and stylesheet so visitors get new code past the 4-hour cache. A **new** JS module or page must be
   added to its `IMPORTS`/`ASSETS`/`PAGES` lists (importers after the files they import) and imported with a
-  `?v=00000000` placeholder; otherwise it's never stamped and stays cached.
+  `?v=00000000` placeholder; otherwise it's never stamped and stays cached. The Vite build strips these
+  stamps (each module is bundled once) and fills in game.js's version itself; after the cutover the
+  stamps, the script and the hook go (see `notes/vite-cutover.md`).
 - **Check live after the Pages build.** Fetching a stamped URL before Pages has built the commit makes
   Cloudflare cache the old file under the new URL. If that happens: `npx cf cache purge -z orsonbrooker.com
   --force --body '{"files":["<url>"]}'`. Cloudflare blocks Python's default user agent; use `curl`.

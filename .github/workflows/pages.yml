@@ -1,0 +1,70 @@
+# Builds the site with Vite (npm run build) and publishes dist/ to GitHub Pages.
+#
+# NOT LIVE YET. Pages still serves the main branch as it is ("Deploy from a branch"). Until Luke
+# switches the repo's Settings > Pages > Source to "GitHub Actions", this workflow only builds: the
+# source job reads the Pages source and the deploy job is skipped unless it is GitHub Actions, so
+# nothing is published from here and the live site doesn't change. Once the source is "GitHub
+# Actions", every push to main deploys dist/.
+# Cutover steps: notes/vite-cutover.md (in the main checkout) and docs/architecture.md.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time; a newer push waits rather than cancelling one that's half done.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  # Reads the repo's Pages source. Until it is "workflow" (GitHub Actions), deploy is skipped.
+  source:
+    runs-on: ubuntu-latest
+    permissions:
+      pages: read
+    outputs:
+      type: ${{ steps.source.outputs.type }}
+    steps:
+      - id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          type=$(gh api "repos/${{ github.repository }}/pages" --jq .build_type || echo unknown)
+          echo "Pages source: $type"
+          echo "type=$type" >> "$GITHUB_OUTPUT"
+          if [ "$type" != "workflow" ]; then
+            echo "::notice::Pages is not set to deploy from GitHub Actions yet, so this run only builds."
+          fi
+
+  deploy:
+    needs: [build, source]
+    if: needs.source.outputs.type == 'workflow'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
