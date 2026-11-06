@@ -157,7 +157,7 @@ Terms used across the code:
 - **Start token:** signed by the Worker when a game starts (`<ms>.<nonce>.<hmac>`), used once. Bonus balls are
   decided from it, so the server can check them.
 - **Fire levels:** 3 in a row +1 a basket, 6 (purple) +2, 10 (blue supernova) +3: `FIRE_RULES` in
-  `shared/rules.js`. `game.js` adds how each looks (`FIRE_LOOKS`) and how much it widens the timing window.
+  `shared/rules.js`. `content/looks.js` adds how each looks and how much it widens the timing window.
 - **Seed:** the start token also seeds the game's gameplay randomness (`rng.js`): one stream for where he shoots
   from, one for each shot's aim wobble, so the same token and the same inputs give the same game. The streams
   are made at the game's first draw (the first release); if the token hasn't come back by then (or never does,
