@@ -1,7 +1,7 @@
 // The ideas board: the list of ideas, votes, and ideas people send in (which wait in the admin inbox).
 
 import { HttpError } from "./http.ts";
-import { checkTurnstile, clean, hash, ipKey, isRude, json, readJson, RUDE } from "./util.ts";
+import { checkTurnstile, clean, hash, ipKey, isRude, json, rateLimit, readJson, RUDE } from "./util.ts";
 import type { Env } from "./util.ts";
 
 export const STATUSES = ["idea", "planned", "building", "done", "hidden"];
@@ -9,7 +9,7 @@ export const MAX_TEXT = 500;
 const MAX_NICKNAME = 20;
 export const MAX_CREDIT = 60; // an idea can credit several people, like "Moni, Jude"
 const SUBMISSIONS_PER_HOUR = 5;
-const VOTES_PER_DAY = 60;
+const VOTES_PER_DAY = 500; // vote and un-vote calls from one IP (a whole family or school class shares one)
 
 export async function config(env: Env): Promise<Response> {
 	const apps = await env.DB.prepare("SELECT slug, name FROM apps ORDER BY name").all();
@@ -70,14 +70,14 @@ export async function vote(request: Request, env: Env): Promise<Response> {
 	const ideaId = Number(body.ideaId);
 	const device = clean(body.device, 64);
 	if (!Number.isInteger(ideaId) || device.length < 16) throw new HttpError(400, "Bad vote.");
+	// Every vote and un-vote counts, so flipping one back and forth can't go on forever.
+	await rateLimit(request, env, "vote", VOTES_PER_DAY, "That's a lot of votes for one day!");
 	const idea = await env.DB.prepare("SELECT id FROM ideas WHERE id = ? AND status != 'hidden'").bind(ideaId).first();
 	if (!idea) throw new HttpError(404, "That idea isn't on the board.");
 
 	const voter = await hash(env, `device:${device}`);
 	const ipHash = await ipKey(request, env);
 	if (body.up) {
-		const today = await env.DB.prepare("SELECT COUNT(*) AS n FROM votes WHERE ip_hash = ?").bind(ipHash).first<{ n: number }>();
-		if ((today?.n ?? 0) >= VOTES_PER_DAY) throw new HttpError(429, "That's a lot of votes for one day!");
 		await env.DB.batch([
 			env.DB.prepare("INSERT OR IGNORE INTO votes (idea_id, voter, ip_hash) VALUES (?, ?, ?)").bind(ideaId, voter, ipHash),
 			recount(env, ideaId),

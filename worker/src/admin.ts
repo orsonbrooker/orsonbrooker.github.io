@@ -2,22 +2,60 @@
 // players and scores. Cloudflare Access guards it, and requireAdmin checks Access's signature too.
 
 import adminPage from "./admin.html?raw";
+import { modeOf } from "../../shared/rules.js";
+import type { Mode } from "../../shared/rules.js";
+import { verifyAccessToken } from "./access.ts";
+import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
 import { MAX_PLAYER_NAME, MAX_TEAM_NAME, PLAYER_PARTS } from "./players.ts";
 import { ODD_UNCHECKED } from "./scores.ts";
-import { clean, json, readJson } from "./util.ts";
+import { clean, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
 import type { Env } from "./util.ts";
+
+// The page's own inline <script> and <style> blocks, by hash, so nothing else inline can run.
+let inlineHashes: Promise<{ scripts: string[]; styles: string[] }> | null = null;
+const sha256 = async (text: string) =>
+	`'sha256-${btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text)))))}'`;
+const blocks = (tag: string) =>
+	[...adminPage.matchAll(new RegExp(`<${tag}(\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, "g"))].filter((m) => !/\ssrc=/.test(m[1] ?? "")).map((m) => m[2]);
+
+/**
+ * What the admin page may load: its own inline script and styles, the pixel font from Google Fonts,
+ * player pictures and the recolouring code from the main site (another port when testing locally),
+ * and the admin API. Images include data: and blob: (faces are drawn on a canvas).
+ */
+export async function adminCsp(site: string): Promise<string> {
+	inlineHashes ??= Promise.all([Promise.all(blocks("script").map(sha256)), Promise.all(blocks("style").map(sha256))]).then(([scripts, styles]) => ({
+		scripts,
+		styles,
+	}));
+	const { scripts, styles } = await inlineHashes;
+	const own = site ? `'self' ${site}` : "'self'";
+	return [
+		"default-src 'none'",
+		`script-src ${own} ${scripts.join(" ")}`,
+		`style-src ${styles.join(" ")} https://fonts.googleapis.com`,
+		"font-src https://fonts.gstatic.com",
+		`img-src ${own} data: blob:`,
+		`connect-src ${own}`,
+		"base-uri 'none'",
+		"form-action 'none'",
+		// Never shown inside another site's frame, so buttons can't be click-jacked.
+		"frame-ancestors 'none'",
+	].join("; ");
+}
 
 export async function adminHtml(request: Request, env: Env): Promise<Response> {
 	await requireAdmin(request, env);
+	// The page loads pictures and code from the main site: the local one on port 5173 when testing.
+	const site = new URL(request.url).hostname === "localhost" ? "http://localhost:5173" : new URL(env.SITE_URL).origin;
 	return new Response(adminPage, {
 		headers: {
 			"Content-Type": "text/html; charset=utf-8",
 			"Cache-Control": "no-store",
 			"X-Robots-Tag": "noindex",
-			// Never shown inside another site's frame, so buttons can't be click-jacked.
-			"Content-Security-Policy": "frame-ancestors 'none'",
+			"Content-Security-Policy": await adminCsp(site),
 			"X-Frame-Options": "DENY",
 			"Referrer-Policy": "no-referrer",
 		},
@@ -26,6 +64,8 @@ export async function adminHtml(request: Request, env: Env): Promise<Response> {
 
 export async function admin(request: Request, env: Env, url: URL): Promise<Response> {
 	await requireAdmin(request, env);
+	// Changes only come from the admin page itself, never a form or script on another site.
+	if (request.method !== "GET") requireSameOriginJson(request, env);
 	const parts = url.pathname.split("/").filter(Boolean); // api, admin, ...
 	if (request.method === "GET" && parts[2] === "inbox") {
 		const [submissions, ideas, apps, players, scores] = await env.DB.batch([
@@ -46,11 +86,25 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 			0,
 		);
 	}
-	if (request.method === "POST" && parts[2] === "submissions") return triage(env, Number(parts[3]), await readJson(request));
-	if (request.method === "POST" && parts[2] === "ideas") return editIdea(env, Number(parts[3]), await readJson(request));
-	if (request.method === "POST" && parts[2] === "players") return editPlayer(env, Number(parts[3]), await readJson(request));
-	if (request.method === "POST" && parts[2] === "scores") return editScore(env, Number(parts[3]), await readJson(request));
-	throw new HttpError(404, "Not found.");
+	const id = Number(parts[3]);
+	if (request.method !== "POST") throw new HttpError(404, "Not found.");
+	// Each change also clears what it changes from the public edge cache (cache.ts).
+	let res: Response;
+	if (parts[2] === "submissions") {
+		res = await triage(env, id, await readJson(request));
+		await forget(url.origin, { ideas: true });
+	} else if (parts[2] === "ideas") {
+		res = await editIdea(env, id, await readJson(request));
+		await forget(url.origin, { ideas: true });
+	} else if (parts[2] === "players") {
+		res = await editPlayer(env, id, await readJson(request));
+		await forget(url.origin, { players: true });
+	} else if (parts[2] === "scores") {
+		const mode = await editScore(env, id, await readJson(request));
+		await forget(url.origin, { boards: [mode], score: id });
+		res = json({ ok: true }, 200, 0);
+	} else throw new HttpError(404, "Not found.");
+	return res;
 }
 
 async function triage(env: Env, id: number, body: Record<string, unknown>): Promise<Response> {
@@ -147,50 +201,24 @@ async function editPlayer(env: Env, id: number, body: Record<string, unknown>): 
 	return json({ ok: true }, 200, 0);
 }
 
-async function editScore(env: Env, id: number, body: Record<string, unknown>): Promise<Response> {
+async function editScore(env: Env, id: number, body: Record<string, unknown>): Promise<Mode> {
 	// "show" keeps it on the board (it looked fine), "hide" takes it off. Either way it's been checked.
 	const status = body.action === "show" ? "shown" : body.action === "hide" ? "hidden" : null;
 	if (!status) throw new HttpError(400, "Unknown action.");
-	const result = await env.DB.prepare("UPDATE scores SET status = ?, checked = 1 WHERE id = ?").bind(status, id).run();
-	if (!result.meta.changes) throw new HttpError(404, "No such score.");
-	return json({ ok: true }, 200, 0);
+	const row = await env.DB.prepare("UPDATE scores SET status = ?, checked = 1 WHERE id = ? RETURNING mode").bind(status, id).first<{ mode: string }>();
+	if (!row) throw new HttpError(404, "No such score.");
+	return modeOf(row.mode);
 }
 
-// Cloudflare Access sits in front of /admin and signs every request it lets through.
-// Check that signature too, so the admin API stays locked even if a route is misconfigured.
-let accessKeys: { keys: (JsonWebKey & { kid: string })[]; fetched: number } | null = null;
-
+// Cloudflare Access sits in front of /admin and signs every request it lets through. Check that
+// signature too (access.ts), so the admin API stays locked even if a route is misconfigured.
 async function requireAdmin(request: Request, env: Env): Promise<string> {
 	// "1" only when running locally with `cf dev` (see cloudflare.config.ts). Never honoured once
-	// Access is configured, so even a development-mode deploy can't open the admin page.
-	if (env.DEV_ADMIN === "1" && !env.ACCESS_AUD) return "dev";
+	// Access is configured, so even a development-mode deploy can't open the admin page, and only
+	// for this machine: a local Worker started with --host doesn't open it to the whole network.
+	if (env.DEV_ADMIN === "1" && !env.ACCESS_AUD && isLocalHost(request)) return "dev";
 	if (!env.ACCESS_TEAM_DOMAIN || !env.ACCESS_AUD) throw new HttpError(503, "Admin isn't set up yet.");
 	const token = request.headers.get("Cf-Access-Jwt-Assertion");
 	if (!token) throw new HttpError(403, "Sign in through Cloudflare Access.");
-	const [head, payload, signature] = token.split(".");
-	const header = JSON.parse(b64urlText(head));
-	const claims = JSON.parse(b64urlText(payload));
-
-	if (!accessKeys || Date.now() - accessKeys.fetched > 3600_000) {
-		const res = await fetch(`https://${env.ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs`);
-		accessKeys = { keys: (await res.json<{ keys: (JsonWebKey & { kid: string })[] }>()).keys, fetched: Date.now() };
-	}
-	const jwk = accessKeys.keys.find((k) => k.kid === header.kid);
-	if (!jwk) throw new HttpError(403, "Unknown sign-in key.");
-	const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
-	const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, b64urlBytes(signature), new TextEncoder().encode(`${head}.${payload}`));
-	const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
-	if (!valid || !audiences.includes(env.ACCESS_AUD) || claims.exp * 1000 < Date.now() || claims.iss !== `https://${env.ACCESS_TEAM_DOMAIN}`) {
-		throw new HttpError(403, "Sign-in check failed.");
-	}
-	return claims.email;
-}
-
-function b64urlBytes(s: string): Uint8Array {
-	const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "="));
-	return Uint8Array.from(bin, (c) => c.charCodeAt(0));
-}
-
-function b64urlText(s: string): string {
-	return new TextDecoder().decode(b64urlBytes(s));
+	return verifyAccessToken(token, env);
 }

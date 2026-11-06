@@ -9,13 +9,15 @@
 
 import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, lowWins, modeOf } from "../../shared/rules.js";
 import type { Mode, Shot } from "../../shared/rules.js";
+import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_PLAYER_NAME, PLAYER_PARTS, isNickname } from "./players.ts";
 import { checkGame, oddFlags } from "./scoring.ts";
-import { checkTurnstile, clean, hash, ipKey, isRude, json, readJson, RUDE } from "./util.ts";
+import { checkTurnstile, clean, hash, ipKey, isRude, json, rateLimit, readJson, RUDE } from "./util.ts";
 import type { Env } from "./util.ts";
 
 const SCORES_PER_DAY = 40;
+const PREVIEWS_PER_DAY = 1000; // one per game, plus one per pause while typing a name; a class shares an IP
 
 // On the leaderboard each device has one row per player it plays as (a built-in one, or one made
 // in the builder), at its best, whatever nicknames it was sent with. The row shows its latest one.
@@ -76,15 +78,21 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 
 	const ipHash = await ipKey(request, env);
 	const deviceHash = await hash(env, `device:${device}`);
-	const [today, history] = await env.DB.batch([
+	const [today, history, standing] = await env.DB.batch([
 		env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?").bind(ipHash),
 		env.DB.prepare(`SELECT ${lowWins(mode) ? "MIN" : "MAX"}(score) AS best FROM scores WHERE device = ? AND mode = ?`).bind(deviceHash, mode),
+		// Where it would land on this week's board (ties go after, as on the board).
+		env.DB.prepare(
+			`SELECT COUNT(*) + 1 AS rank FROM (SELECT ${lowWins(mode) ? "MIN" : "MAX"}(score) AS best FROM scores WHERE status = 'shown' AND mode = ?1 AND ${WEEK} GROUP BY device, player)
+			 WHERE best ${lowWins(mode) ? "<=" : ">="} ?2`,
+		).bind(mode, score),
 	]);
 	if (((today.results[0] as { n: number }).n ?? 0) >= SCORES_PER_DAY) throw new HttpError(429, "That's a lot of games for one day! Try again tomorrow.");
 	const past = history.results[0] as { best: number | null };
+	const weekRank = (standing.results[0] as { rank: number }).rank;
 
 	// Odd but possible: it still goes on the board, flagged for Orson to look at.
-	const flags = oddFlags(mode, score, game, past.best);
+	const flags = oddFlags(mode, score, game, past.best, weekRank);
 	const status = "shown";
 
 	const inserted = await env.DB.prepare(
@@ -114,6 +122,8 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 		)
 		.first<{ id: number }>();
 	if (!inserted) throw new HttpError(400, "That game's score is already in.");
+	// So the board shows it straight away, not after the edge cache runs out (cache.ts).
+	await forget(new URL(request.url).origin, { boards: [mode] });
 	// Their own player's earlier scores get its latest look too (including ones from before colours were sent).
 	if (colours)
 		await env.DB.prepare("UPDATE scores SET colours = ?, base = ? WHERE device = ? AND player = ? AND id != ?")
@@ -166,6 +176,8 @@ export async function leaderboard(env: Env, url: URL): Promise<Response> {
 // the game only offers the leaderboard for a new best. Nothing is saved.
 export async function previewScore(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
+	// It reads the whole week's board, so it's limited too (generously: it's asked once or twice a game).
+	await rateLimit(request, env, "preview", PREVIEWS_PER_DAY, "That's a lot of games for one day! Try again tomorrow.");
 	const nickname = scoreNickname(body);
 	const device = clean(body.device, 64);
 	if (device.length < 16) throw new HttpError(400, "Bad request.");
@@ -224,17 +236,31 @@ export async function scoreDetail(env: Env, id: number): Promise<Response> {
 	const [week, all] = await env.DB.batch([top(true), top(false)]);
 	const { log, colours, ...rest } = row;
 	const { green, ...stats } = cardStats(JSON.parse(log) as Shot[], rest.mode as Mode, Number(rest.score), rest.created_at);
+	// Only the day each game was played is public, not the time (which would show when a kid plays).
+	const days = (games: unknown[]) => (games as Record<string, unknown>[]).map((g) => ({ ...g, created_at: publicDay(g.created_at) }));
 	return json(
 		{
 			...rest,
+			created_at: publicDay(rest.created_at),
 			colours: colours ? JSON.parse(colours) : null,
 			...stats,
-			top: { week: week.results, all: all.results },
+			top: { week: days(week.results), all: days(all.results) },
 			green,
 		},
 		200,
 		60,
 	);
+}
+
+/**
+ * A saved time ("YYYY-MM-DD HH:MM:SS", UTC) as just the day it was played, in the same format so the
+ * game reads it as before: the day in Melbourne (UTC+10, where the players are), at 12:00 UTC, which
+ * every timezone from UTC-11 to UTC+11 shows as that same day.
+ */
+export function publicDay(createdAt: unknown): string | null {
+	const at = Date.parse(`${String(createdAt).replace(" ", "T")}Z`);
+	if (Number.isNaN(at)) return null;
+	return `${new Date(at + 10 * 3600_000).toISOString().slice(0, 10)} 12:00:00`;
 }
 
 /**

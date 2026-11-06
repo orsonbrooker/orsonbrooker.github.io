@@ -2,8 +2,8 @@
 // Run: npm --prefix worker test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MONEY, ballKind, recountScore } from "../../shared/rules.js";
-import { checkGame, oddFlags } from "../src/scoring.ts";
+import { MONEY, MONEY_CHANCE, RAINBOW_CHANCE, ballKind, recountScore } from "../../shared/rules.js";
+import { AROUND_FASTEST, atLeast, checkGame, oddFlags } from "../src/scoring.ts";
 
 type Shot = [number, number, number, number, number];
 const TOKEN = "1793883270459.972cfa07.10e188c";
@@ -101,4 +101,46 @@ test("odd games are flagged, not rejected", () => {
 	// A perfect game on its own isn't odd.
 	const perfect = timedGame(28).map((s) => [s[0], s[1], 1, s[3], s[4]] as Shot);
 	assert.deepEqual(oddFlags("timed", recountScore(perfect), checkGame("timed", recountScore(perfect), perfect, TOKEN), 150), []);
+});
+
+test("a device's first game in a mode going straight into this week's top 3 is flagged", () => {
+	const shots = timedGame();
+	const score = recountScore(shots);
+	const game = checkGame("timed", score, shots, TOKEN);
+	const first = (flags: string[]) => flags.some((f) => /First game in this mode, straight in at #/.test(f));
+	assert.ok(first(oddFlags("timed", score, game, null, 1)));
+	assert.ok(first(oddFlags("timed", score, game, null, 3)));
+	assert.ok(!first(oddFlags("timed", score, game, null, 4))); // a first game further down is normal
+	assert.ok(!first(oddFlags("timed", score, game, score - 2, 1))); // they've played this mode before
+	assert.ok(!first(oddFlags("timed", score, game, null))); // rank not known
+});
+
+test("an around the world time quicker than anyone gets round is flagged", () => {
+	// Seven makes a second apart: allowed by the shot gap rule, but far quicker than walking to each spot.
+	const rushed: Shot[] = Array.from({ length: 7 }, (_, i) => [0.5 + i, 0, 1, 0.1 * (i % 3), 0]);
+	const game = checkGame("around", 70, rushed, "");
+	assert.ok(oddFlags("around", 70, game, null).some((f) => /Round in 7s, faster than anyone/.test(f)));
+	// The best real trips, about 11.6 s, aren't.
+	const real: Shot[] = [0.98, 2.48, 4.15, 5.85, 7.6, 9.33, 10.93].map((t, i) => [t, 0, 1, [-0.177, -0.132, 0.055, -0.433][i % 4], 0]);
+	assert.deepEqual(oddFlags("around", 116, checkGame("around", 116, real, ""), 120), []);
+	assert.ok(AROUND_FASTEST < 116);
+});
+
+test("far more bonus balls than the shots would give is flagged", () => {
+	// A start token picked for its luck (new tokens are free): look for one giving 13+ bonus balls in 30 shots.
+	let lucky = "";
+	for (let n = 0; !lucky; n++) {
+		const token = `1793883270459.${n.toString(16).padStart(8, "0")}.x`;
+		if (Array.from({ length: 30 }, (_, i) => ballKind(token, i)).filter(Boolean).length >= 13) lucky = token;
+	}
+	const shots: Shot[] = Array.from({ length: 30 }, (_, i) => [1 + i * 1.9 + (i % 4) * 0.07, i % 4 === 0 ? 1 : 0, i % 5 === 4 ? 0 : 1, ((i * 37) % 11) / 20 - 0.25, ballKind(lucky, i)]);
+	const score = recountScore(shots);
+	assert.ok(oddFlags("timed", score, checkGame("timed", score, shots, lucky), 100).some((f) => /bonus balls .* a very lucky start token/.test(f)));
+	// An ordinary token's share isn't: the luckiest real game so far had 10 in 33 shots.
+	assert.ok(atLeast(33, MONEY_CHANCE + RAINBOW_CHANCE, 10) > 1 / 2000);
+	assert.ok(atLeast(30, MONEY_CHANCE + RAINBOW_CHANCE, 13) < 1 / 2000);
+	assert.ok(atLeast(30, RAINBOW_CHANCE, 6) < 1 / 2000);
+	assert.equal(atLeast(5, 0.5, 0), 1);
+	assert.ok(Math.abs(atLeast(2, 0.5, 1) - 0.75) < 1e-12);
+	assert.ok(atLeast(3, 0.5, 4) === 0);
 });

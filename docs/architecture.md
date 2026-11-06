@@ -51,6 +51,10 @@ flowchart LR
 ```
 - **Worker** (`worker/src/index.ts`, admin UI in `worker/src/admin.html`): the only server. It answers the API
   and the admin page on the same domain as the site, so there's no cross-site setup in production.
+- **Edge cache** (`worker/src/cache.ts`): public answers that are the same for everyone (the boards, score
+  cards, approved players, config, the ideas list without a device) are kept in Cloudflare's cache for 30-60 s,
+  keyed by the URL with only the parameters the handler reads. A new score or an admin change clears what it
+  changed in that data centre; elsewhere it can be up to a minute old. Nothing personal or admin is cached.
 - **D1:** one SQLite database, changed only through numbered files in `worker/migrations/`.
 
 ## Code map
@@ -72,7 +76,7 @@ flowchart LR
 | Players | `assets/characters/`, `players/recolor.js`, `players/builder.js` | Built-in sprites; builder bodies recoloured from region maps. |
 | Shared UI | `ui/` | Nav, icons, styled dialogs, form helpers. |
 | Ideas widget | `feedback/` | The "Got an idea?" button on each page. |
-| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `admin.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); the admin page and API with the Access check; the weekly ntfy; shared helpers (JSON, CORS, hashing, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
+| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `admin.ts`, `access.ts`, `cache.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
 | Art and voice tools | `tools/` | Character sheets, region maps, announcer clips, icons, share images. |
 
 ## Domain model
@@ -147,6 +151,8 @@ Terms used across the code:
   in that browser only, ids like `me1793858104451`; their look travels with their scores as `base` + `colours`).
 - **Device:** a random id kept in the browser, stored server-side only as a keyed hash. The leaderboard shows one
   row per device + player per mode, with the latest nickname.
+- **Rate limits:** the `rate_limits` table counts calls to cheap routes (votes, the score preview) per hashed IP
+  per day, one upsert a call, so even toggling a vote uses up the day's allowance. The weekly cron clears old days.
 - **Shot log:** one entry per shot, `[seconds in, three (1/0), made (1/0), release timing, ball kind]`. Release
   timing is measured in green-zone widths from the top of the jump; `|t| <= 0.5` is "let go in the green". Ball
   kind is 0 normal, 1 money, 2 rainbow.
@@ -176,7 +182,7 @@ sequenceDiagram
   W-->>G: the board around them, or "your best stays"
   G->>W: POST /api/scores (token, shot log, score, Turnstile)
   W->>W: reject the impossible: bad or reused token, too soon,<br/>score not matching its shots, bonus balls the token didn't give,<br/>shots too close together, debug mode
-  W->>W: flag the odd: script-like timing, big jump on the device's best
+  W->>W: flag the odd: script-like timing, big jump on the device's best,<br/>first game straight into the week's top 3, too-quick trip, lucky token
   W->>D: insert (status shown, flags)
   W-->>G: rank
   Note over D: flagged scores show in the admin inbox<br/>until marked fine or hidden

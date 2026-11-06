@@ -69,8 +69,8 @@ export const NORMAL = 0;
 export const MONEY = 1;
 export const RAINBOW = 2;
 
-const MONEY_CHANCE = 1 / 8;
-const RAINBOW_CHANCE = 1 / 40;
+export const MONEY_CHANCE = 1 / 8;
+export const RAINBOW_CHANCE = 1 / 40;
 
 /**
  * The kind of ball for shot number `index` (0 is the first shot) in the game with this token.

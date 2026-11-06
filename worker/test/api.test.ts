@@ -7,7 +7,8 @@ import { MAX_CREDIT, mergeCredit } from "../src/ideas.ts";
 import { notifyMessage } from "../src/notify.ts";
 import { isNickname } from "../src/players.ts";
 import { scoreNickname } from "../src/scores.ts";
-import { clean, isRude, RUDE } from "../src/util.ts";
+import { clean, isLocalHost, isRude, requireSameOriginJson, RUDE } from "../src/util.ts";
+import type { Env } from "../src/util.ts";
 
 test("clean tidies spaces, trims, cuts to length and drops anything but text", () => {
 	assert.equal(clean("  Moni \n\t is   the  goat ", 100), "Moni is the goat");
@@ -69,4 +70,35 @@ test("the weekly notification lists what's waiting, or nothing", () => {
 		notifyMessage({ ideas: 3, players: 1, oddScores: 1, votes: 40 }),
 		"3 new ideas and 1 new player and 1 odd-looking score waiting, and 40 votes this week.",
 	);
+});
+
+test("admin changes need JSON from the admin page's own site", () => {
+	const env = { SITE_URL: "https://orsonbrooker.com" } as Env;
+	const live = "https://orsonbrooker.com/api/admin/ideas/1";
+	const local = "http://localhost:8787/api/admin/ideas/1";
+	const check = (headers: Record<string, string>, url = live) => () => requireSameOriginJson(new Request(url, { method: "POST", headers }), env);
+	const ok = (headers: Record<string, string>, url?: string) => assert.doesNotThrow(check(headers, url));
+	const blocked = (headers: Record<string, string>, url?: string) => assert.throws(check(headers, url), (err: Error & { status?: number }) => err.status === 403);
+	const json = { "Content-Type": "application/json" };
+	ok({ ...json, "Sec-Fetch-Site": "same-origin" });
+	ok({ "Content-Type": "application/json; charset=utf-8", "Sec-Fetch-Site": "same-origin" });
+	ok({ ...json, Origin: "https://orsonbrooker.com" }); // an older browser: no Sec-Fetch-Site
+	ok({ ...json, "Sec-Fetch-Site": "same-origin" }, local);
+	ok({ ...json, Origin: "http://localhost:8787" }, local);
+	blocked({ "Content-Type": "text/plain", "Sec-Fetch-Site": "same-origin" });
+	blocked({ "Content-Type": "application/x-www-form-urlencoded", Origin: "https://orsonbrooker.com" });
+	blocked({ ...json, "Sec-Fetch-Site": "cross-site", Origin: "https://orsonbrooker.com" });
+	blocked({ ...json, "Sec-Fetch-Site": "same-site" });
+	blocked({ ...json, Origin: "https://evil.example" });
+	blocked({ ...json }); // no way to tell where it came from
+	blocked({ ...json, Origin: "http://localhost:5173" }, local);
+});
+
+test("the local admin shortcut is only for this machine's own address", () => {
+	const at = (url: string, ip?: string) => isLocalHost(new Request(url, { headers: ip ? { "CF-Connecting-IP": ip } : {} }));
+	for (const url of ["http://localhost:8787/admin", "http://127.0.0.1:8787/admin", "http://[::1]:8787/admin"]) assert.equal(at(url), true, url);
+	assert.equal(at("http://localhost:8787/admin", "127.0.0.1"), true);
+	for (const url of ["http://192.168.4.23:8787/admin", "http://macbook.local:8787/admin", "https://orsonbrooker.com/admin", "http://localhost.evil.com/admin"])
+		assert.equal(at(url), false, url);
+	assert.equal(at("http://localhost:8787/admin", "192.168.4.40"), false);
 });
