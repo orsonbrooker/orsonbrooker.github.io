@@ -2,151 +2,151 @@
  {
   "id": "spiky",
   "name": "Spiky",
-  "atlas": "assets/characters/bases/spiky/sprites.webp?v=78c93209",
-  "meta": "assets/characters/bases/spiky/sprites.json?v=78d60751",
-  "regions": "assets/characters/bases/spiky/regions.png?v=5a407966",
-  "thumb": "assets/characters/bases/spiky/thumb.webp?v=8c607a9b",
+  "atlas": "assets/characters/bases/spiky/sprites.webp?v=9a76aafd",
+  "meta": "assets/characters/bases/spiky/sprites.json?v=a6666c8f",
+  "regions": "assets/characters/bases/spiky/regions.png?v=6c16dbfc",
+  "thumb": "assets/characters/bases/spiky/thumb.webp?v=6644c738",
   "colours": {
-   "skin": "#b8826c",
+   "skin": "#b7826d",
    "hair": "#8f6b4c",
-   "jersey": "#d5e1e4",
-   "team": "#33557a",
-   "shoes": "#343242"
+   "jersey": "#cad6da",
+   "team": "#33557b",
+   "shoes": "#413f4f"
   }
  },
  {
   "id": "curly",
   "name": "Curly",
-  "atlas": "assets/characters/bases/curly/sprites.webp?v=5b779b0e",
-  "meta": "assets/characters/bases/curly/sprites.json?v=801ef0ea",
-  "regions": "assets/characters/bases/curly/regions.png?v=b3b80659",
-  "thumb": "assets/characters/bases/curly/thumb.webp?v=9e2ca5d6",
+  "atlas": "assets/characters/bases/curly/sprites.webp?v=639d5503",
+  "meta": "assets/characters/bases/curly/sprites.json?v=92332630",
+  "regions": "assets/characters/bases/curly/regions.png?v=86fd2c6a",
+  "thumb": "assets/characters/bases/curly/thumb.webp?v=0d6e2d50",
   "colours": {
    "skin": "#a06c5a",
    "hair": "#67423a",
-   "jersey": "#d7e1e3",
-   "team": "#34577b",
-   "shoes": "#353241"
+   "jersey": "#cdd6da",
+   "team": "#35577c",
+   "shoes": "#403e4c"
   }
  },
  {
   "id": "buzz",
   "name": "Buzz",
-  "atlas": "assets/characters/bases/buzz/sprites.webp?v=4d177c20",
-  "meta": "assets/characters/bases/buzz/sprites.json?v=8f4b7600",
-  "regions": "assets/characters/bases/buzz/regions.png?v=15edbd38",
-  "thumb": "assets/characters/bases/buzz/thumb.webp?v=8d29cb69",
+  "atlas": "assets/characters/bases/buzz/sprites.webp?v=564a2cbd",
+  "meta": "assets/characters/bases/buzz/sprites.json?v=132ab4d2",
+  "regions": "assets/characters/bases/buzz/regions.png?v=ce162cf4",
+  "thumb": "assets/characters/bases/buzz/thumb.webp?v=dc7bfb93",
   "colours": {
    "skin": "#a6715e",
    "hair": "#6f534b",
-   "jersey": "#d8e3e6",
-   "team": "#335479",
-   "shoes": "#343140"
+   "jersey": "#cdd7dc",
+   "team": "#335579",
+   "shoes": "#3e3b4a"
   }
  },
  {
   "id": "ponytail",
   "name": "Ponytail",
-  "atlas": "assets/characters/bases/ponytail/sprites.webp?v=f61fa757",
-  "meta": "assets/characters/bases/ponytail/sprites.json?v=e74bce7e",
-  "regions": "assets/characters/bases/ponytail/regions.png?v=1805e4af",
-  "thumb": "assets/characters/bases/ponytail/thumb.webp?v=b710f9cc",
+  "atlas": "assets/characters/bases/ponytail/sprites.webp?v=5ea9761b",
+  "meta": "assets/characters/bases/ponytail/sprites.json?v=8b84a0e1",
+  "regions": "assets/characters/bases/ponytail/regions.png?v=8aecbd07",
+  "thumb": "assets/characters/bases/ponytail/thumb.webp?v=6e110e62",
   "colours": {
    "skin": "#9f6a58",
    "hair": "#67433a",
-   "jersey": "#d7e2e4",
-   "team": "#34567a",
-   "shoes": "#33313e"
+   "jersey": "#ccd6da",
+   "team": "#34567b",
+   "shoes": "#3f3d4a"
   }
  },
  {
   "id": "buns",
   "name": "Buns",
-  "atlas": "assets/characters/bases/buns/sprites.webp?v=1ebabd86",
-  "meta": "assets/characters/bases/buns/sprites.json?v=055cbd52",
-  "regions": "assets/characters/bases/buns/regions.png?v=06a9de45",
-  "thumb": "assets/characters/bases/buns/thumb.webp?v=3ff0478d",
+  "atlas": "assets/characters/bases/buns/sprites.webp?v=e4ff7082",
+  "meta": "assets/characters/bases/buns/sprites.json?v=b3bb8415",
+  "regions": "assets/characters/bases/buns/regions.png?v=458b46ed",
+  "thumb": "assets/characters/bases/buns/thumb.webp?v=1939de95",
   "colours": {
    "skin": "#956353",
    "hair": "#452f30",
-   "jersey": "#d6e1e4",
-   "team": "#355679",
-   "shoes": "#343140"
+   "jersey": "#cbd5da",
+   "team": "#35567a",
+   "shoes": "#3f3d4b"
   }
  },
  {
   "id": "headband",
   "name": "Headband",
-  "atlas": "assets/characters/bases/headband/sprites.webp?v=8fc375f7",
-  "meta": "assets/characters/bases/headband/sprites.json?v=3ea6e91a",
-  "regions": "assets/characters/bases/headband/regions.png?v=8c4a7979",
-  "thumb": "assets/characters/bases/headband/thumb.webp?v=b350fc34",
+  "atlas": "assets/characters/bases/headband/sprites.webp?v=2129c350",
+  "meta": "assets/characters/bases/headband/sprites.json?v=dcf34e9c",
+  "regions": "assets/characters/bases/headband/regions.png?v=f3825ea3",
+  "thumb": "assets/characters/bases/headband/thumb.webp?v=e5b24508",
   "colours": {
-   "skin": "#aa735e",
+   "skin": "#aa735d",
    "hair": "#66423d",
-   "jersey": "#d6e1e2",
+   "jersey": "#ccd6d9",
    "team": "#35557a",
-   "shoes": "#33313f"
+   "shoes": "#403d4b"
   }
  },
  {
   "id": "glasses",
   "name": "Glasses",
-  "atlas": "assets/characters/bases/glasses/sprites.webp?v=23ad7d46",
-  "meta": "assets/characters/bases/glasses/sprites.json?v=109ded52",
-  "regions": "assets/characters/bases/glasses/regions.png?v=443d58e2",
-  "thumb": "assets/characters/bases/glasses/thumb.webp?v=b0f5c929",
+  "atlas": "assets/characters/bases/glasses/sprites.webp?v=bd301241",
+  "meta": "assets/characters/bases/glasses/sprites.json?v=03670cfa",
+  "regions": "assets/characters/bases/glasses/regions.png?v=ce5a5fc7",
+  "thumb": "assets/characters/bases/glasses/thumb.webp?v=eadce744",
   "colours": {
-   "skin": "#9c6755",
-   "hair": "#603f36",
-   "jersey": "#d8e2e4",
-   "team": "#374f83",
-   "shoes": "#34313f"
+   "skin": "#9d6756",
+   "hair": "#603e36",
+   "jersey": "#d3dcdf",
+   "team": "#374f84",
+   "shoes": "#3d3b49"
   }
  },
  {
   "id": "cap",
   "name": "Cap",
-  "atlas": "assets/characters/bases/cap/sprites.webp?v=18c6ae98",
-  "meta": "assets/characters/bases/cap/sprites.json?v=1b2970d2",
-  "regions": "assets/characters/bases/cap/regions.png?v=54e0f943",
-  "thumb": "assets/characters/bases/cap/thumb.webp?v=0d739df3",
+  "atlas": "assets/characters/bases/cap/sprites.webp?v=1ef7ee1c",
+  "meta": "assets/characters/bases/cap/sprites.json?v=eb6e32de",
+  "regions": "assets/characters/bases/cap/regions.png?v=03d79680",
+  "thumb": "assets/characters/bases/cap/thumb.webp?v=b938f4bb",
   "colours": {
    "skin": "#bc8570",
-   "hair": "#715143",
-   "jersey": "#d7e2e4",
+   "hair": "#725243",
+   "jersey": "#ccd7db",
    "team": "#33567a",
-   "shoes": "#343140"
+   "shoes": "#403e4c"
   }
  },
  {
   "id": "mullet",
   "name": "Mullet",
-  "atlas": "assets/characters/bases/mullet/sprites.webp?v=42333fe2",
-  "meta": "assets/characters/bases/mullet/sprites.json?v=b2d33cea",
-  "regions": "assets/characters/bases/mullet/regions.png?v=7e61218d",
-  "thumb": "assets/characters/bases/mullet/thumb.webp?v=99ea76b2",
+  "atlas": "assets/characters/bases/mullet/sprites.webp?v=b946a317",
+  "meta": "assets/characters/bases/mullet/sprites.json?v=12611591",
+  "regions": "assets/characters/bases/mullet/regions.png?v=6eba0996",
+  "thumb": "assets/characters/bases/mullet/thumb.webp?v=76aeccb8",
   "colours": {
-   "skin": "#bc8570",
+   "skin": "#bb8570",
    "hair": "#714f40",
-   "jersey": "#d7e2e5",
+   "jersey": "#cdd7dc",
    "team": "#33567a",
-   "shoes": "#343242"
+   "shoes": "#403e4d"
   }
  },
  {
   "id": "braids",
   "name": "Braids",
-  "atlas": "assets/characters/bases/braids/sprites.webp?v=e4da3465",
-  "meta": "assets/characters/bases/braids/sprites.json?v=6203ed88",
-  "regions": "assets/characters/bases/braids/regions.png?v=1c3f696b",
-  "thumb": "assets/characters/bases/braids/thumb.webp?v=e0420fce",
+  "atlas": "assets/characters/bases/braids/sprites.webp?v=4634cf96",
+  "meta": "assets/characters/bases/braids/sprites.json?v=e54cc28b",
+  "regions": "assets/characters/bases/braids/regions.png?v=5e109a14",
+  "thumb": "assets/characters/bases/braids/thumb.webp?v=d7d94fc6",
   "colours": {
    "skin": "#9b6956",
-   "hair": "#4d3835",
-   "jersey": "#d6e1e4",
+   "hair": "#4c3835",
+   "jersey": "#ccd7db",
    "team": "#34557a",
-   "shoes": "#33313e"
+   "shoes": "#3f3d4a"
   }
  }
 ]

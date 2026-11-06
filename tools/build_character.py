@@ -62,9 +62,24 @@ def components(mask):
 
 
 def key(cell, backdrop):
-    """Removes the flat backdrop and any specks, keeping the character (and a loose ball)."""
+    """Removes the flat backdrop and any specks, keeping the character (and a loose ball).
+
+    Backdrop-coloured pixels joined to the edge of the cell are backdrop. A patch the outside can't reach
+    is only backdrop if it's the backdrop colour itself (the gap between an arm and the body): pale
+    shading inside the clothes is near the backdrop colour too, and cutting it out left see-through holes
+    in the jersey.
+    """
     rgb = cell.astype(int)
-    fg = np.abs(rgb - backdrop).sum(2) > 48
+    dist = np.abs(rgb - backdrop).sum(2)
+    near = dist <= 48
+    lab, sizes = components(near)
+    # Each patch's average distance from the backdrop colour (true gaps average well under 14; jersey
+    # shading 30 or more).
+    mean = np.bincount(lab.ravel(), dist.ravel(), len(sizes)) / np.maximum(sizes, 1)
+    is_bg = mean <= 14
+    is_bg[np.unique(np.concatenate([lab[0], lab[-1], lab[:, 0], lab[:, -1]]))] = True
+    is_bg[0] = False
+    fg = ~is_bg[lab]
     lab, sizes = components(fg)
     keep = sizes > max(150, sizes.max() * 0.02)
     keep[0] = False

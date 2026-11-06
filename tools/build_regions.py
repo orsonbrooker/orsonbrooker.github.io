@@ -100,6 +100,37 @@ def tidy(regions, alpha, vals, near_ball):
                     regions[alone & (counts[other] >= 5)] = other
 
 
+def grow(regions, region, allowed, steps):
+    """Spreads a region into allowed pixels it touches, up to `steps` pixels out from where it was."""
+    for _ in range(steps):
+        pad = np.pad(regions == region, 1)
+        touch = pad[:-2, 1:-1] | pad[2:, 1:-1] | pad[1:-1, :-2] | pad[1:-1, 2:]
+        new = allowed & touch & (regions == KEEP)
+        if not new.any():
+            break
+        regions[new] = region
+
+
+def fill_shading(regions, alpha, vals, poses, near_ball):
+    """The base jersey is white with grey folds, and the shoes are dark with grey highlights. The colour
+    tests above only catch the white and the dark, so the greys in between were left as drawn and showed
+    as grey patches on a recoloured jersey or speckled shoes. Grow each region into the greys it touches.
+    """
+    hue, s, v = vals[..., 0] * 360, vals[..., 1], vals[..., 2]
+    # The jersey is a cool white, so its folds are blue-greys: a little more saturated than plain grey.
+    grey = (alpha > 0) & ((s < 0.24) | ((hue > 190) & (hue < 265) & (s < 0.4))) & ~near_ball
+    torso = np.zeros(alpha.shape, bool)
+    feet = np.zeros(alpha.shape, bool)
+    for x, y, w, h, *_ in poses:
+        # Below the head (caps and headbands are white too) and above the socks.
+        torso[y + int(h * 0.26):y + int(h * 0.8), x:x + w] = True
+        feet[y + int(h * 0.85):y + h, x:x + w] = True
+    # Jersey folds: mid greys, not the dark outline.
+    grow(regions, JERSEY, grey & torso & (v > 0.3), 8)
+    # Shoe highlights: lighter greys next to the shoe, but not the bright white soles and socks.
+    grow(regions, SHOES, grey & feet & (v < 0.78), 3)
+
+
 def main():
     base = sys.argv[1]
     folder = os.path.join(ROOT, 'assets', 'characters', 'bases', base)
@@ -215,6 +246,7 @@ def main():
         dark = (alpha[feet] > 0) & (vals[feet][..., 2] < 0.62) & (vals[feet][..., 1] < 0.5) & ~near_ball[feet]
         block[(block == KEEP) & dark] = SHOES
 
+    fill_shading(regions, alpha, vals, poses, near_ball)
     tidy(regions, alpha, vals, ball_zone & ~(regions == SHOES))
 
     # Where a number goes on each pose: the middle of the jersey, higher up on the back.
@@ -311,7 +343,9 @@ def register(base, meta):
         'thumb': v('thumb.webp'),
         'colours': {k: '#%02x%02x%02x' % tuple(c) for k, c in meta['regions'].items()},
     }
-    index = [b for b in index if b['id'] != base] + [entry]
+    # A rebuilt base keeps its place in the list (the builder shows them in this order).
+    at = next((i for i, b in enumerate(index) if b['id'] == base), len(index))
+    index = index[:at] + [entry] + index[at + 1:]
     with open(path, 'w') as f:
         json.dump(index, f, indent=1)
 
