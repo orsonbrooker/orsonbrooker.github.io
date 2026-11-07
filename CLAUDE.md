@@ -111,6 +111,12 @@ python3 tools/dev/copy_live_db.py                     # optional: real ideas, pl
   localhost. Other sessions may already hold these ports: check with `lsof -i :PORT` and pick a free one.
 - **Phone or iPad:** `npm run build`, then `python3 tools/dev/lan_server.py 5174 dist` and open
   `http://<Mac IP>:5174/games/shootaround/` (`ipconfig getifaddr en0`).
+- **iOS app** (Capacitor, `ios/`, `capacitor.config.json`): `npm run build:app` (the site plus
+  `tools/app/prepare.mjs`, making `dist-app/`, which opens on the game), then `npx cap sync ios`, then build
+  in Xcode (`npx cap open ios`) or `xcodebuild` for a simulator. In the app, pages come from
+  `capacitor://localhost` and talk to the live API (`api.js`); the Worker allows that origin. Haptics are
+  `haptics.js`. The robot check (Turnstile) inside the app is untested: sending a score or a player from
+  the app may need App Attest instead.
 - **Test mode:** add `?debug` to the game URL: shows the rim and lines, exposes `window.game`, and scores
   can't be sent. `await window.game.setCourt("gym-low-gravity")` (or `"gym-windy"`) tries a test court
   from `content/courts.js`.

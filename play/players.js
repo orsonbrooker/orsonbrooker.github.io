@@ -5,6 +5,7 @@
 // made with the builder (/players/) come from the API once approved, drawn from a base body in
 // their chosen colours.
 
+import { API } from "../api.js";
 import { attributesFor } from "../content/attributes.js";
 import { project } from "../engine/court.js";
 import { shoesIn } from "../engine/draw.js";
@@ -12,7 +13,7 @@ import { load, save } from "../engine/storage.js";
 import { ANIM_FPS, JUMP_APEX, JUMP_FRAME_TIME, player } from "../play/state.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, thumbnail } from "../players/recolor.js";
 
-const PLAYERS_API = ["localhost", "127.0.0.1"].includes(location.hostname) ? "http://localhost:8787/api/players" : "/api/players";
+const PLAYERS_API = `${API}/players`;
 export const characters = {
   list: [{ id: "orson", name: "Orson", pronoun: "he", atlas: "assets/sprites.webp", meta: "assets/sprites.json", thumb: "" }],
   loaded: new Map(),

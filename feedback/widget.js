@@ -10,11 +10,10 @@
 // The value of data-feedback is the game or app the idea is about. New games need a row in
 // the apps table first (see worker/migrations).
 
+import { API } from "../api.js";
 import { markField, say } from "../ui/form.js";
 import { icon } from "../ui/icons.js";
 
-const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
-const API = LOCAL ? "http://localhost:8787/api" : "/api";
 const STATUSES = [
 	["idea", "Ideas"],
 	["planned", "Planned"],

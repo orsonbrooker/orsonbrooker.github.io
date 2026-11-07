@@ -145,4 +145,9 @@ test("the ideas list is edge-cached only without a device, and the device stays 
 	// Local pages on another port can send the header.
 	const res = cors(new Request(base, { headers: { Origin: "http://localhost:5175" } }), new Response(null));
 	assert.match(res.headers.get("Access-Control-Allow-Headers") ?? "", /\bX-Device\b/);
+	// The iOS app, and nobody else's site.
+	const from = (origin: string) => cors(new Request(base, { headers: { Origin: origin } }), new Response(null)).headers.get("Access-Control-Allow-Origin");
+	assert.equal(from("capacitor://localhost"), "capacitor://localhost");
+	assert.equal(from("capacitor://evil.example"), null);
+	assert.equal(from("https://evil.example"), null);
 });

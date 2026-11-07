@@ -1,0 +1,9 @@
+{
+  "appId": "com.orsonbrooker.shootaround",
+  "appName": "Shootaround",
+  "webDir": "dist-app",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#a6798e"
+  }
+}

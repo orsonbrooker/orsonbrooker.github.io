@@ -7,10 +7,9 @@
 
 import { say } from "./ui/form.js";
 import { icon } from "./ui/icons.js";
+import { API } from "./api.js";
 import { lowWins } from "./shared/rules.js";
 
-const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
-const API = LOCAL ? "http://localhost:8787/api" : "/api";
 const NICKNAME = "orson-hoops-nickname";
 const MY_SCORES = "orson-hoops-my-scores";
 

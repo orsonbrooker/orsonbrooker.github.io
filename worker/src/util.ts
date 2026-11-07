@@ -48,10 +48,11 @@ export function json(data: unknown, status = 200, maxAge = 0): Response {
 	});
 }
 
-// The live site calls the API from the same domain. Allow local previews to call it too.
+// The live site calls the API from the same domain. Allow local previews and the iOS app (whose
+// pages come from inside the app, at capacitor://localhost) to call it too.
 export function cors(request: Request, response: Response): Response {
 	const origin = request.headers.get("Origin");
-	if (origin && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+	if (origin && (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) || origin === "capacitor://localhost")) {
 		response.headers.set("Access-Control-Allow-Origin", origin);
 		response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
 		response.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Device");
