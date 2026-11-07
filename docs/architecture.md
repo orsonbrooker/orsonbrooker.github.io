@@ -73,7 +73,7 @@ flowchart LR
 | Scoring extras | `daily.js`, `content/looks.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
 | Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots, aim wobble and where a moving green zone goes. |
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
-| Sound | `audio.js`, `phrases.js`, `assets/voice/` | Music that builds, effects, announcer clips (device voice as fallback). |
+| Sound | `audio.js`, `phrases.js`, `assets/voice/` | Music that builds, effects, announcer clips (device voice as fallback); lines about the player in he and she versions. |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
 | Players | `assets/characters/`, `players/recolor.js`, `players/builder.js` | Built-in sprites; builder bodies recoloured from region maps. |
 | Shared UI | `ui/` | Nav, icons, styled dialogs, form helpers. |
@@ -128,6 +128,7 @@ erDiagram
     text skin_hair_jersey_team_shoes "five #rrggbb colours"
     text number "0-99 or none"
     text team_name "KINGS by default"
+    text pronoun "he, she, or null (not said)"
     text status "new, approved, hidden"
   }
   scores {
@@ -151,6 +152,12 @@ Terms used across the code:
 - **Player:** who you play as. *Built-in* (Orson, Jethro: `assets/characters/index.json`), *approved builder
   players* (`players` table, status `approved`, shown to everyone) and *own players* (made in the builder, kept
   in that browser only, ids like `me1793858104451`; their look travels with their scores as `base` + `colours`).
+- **Pronoun:** whether a player is a "he" or a "she", for the announcer's lines. Built-in players have it in
+  `index.json` ("he"); builder players answer an optional question in the builder (kept on own players, and in the
+  `players` table's `pronoun`, which the admin can change). `phrases.js` writes lines about the player for a he,
+  with a hand-written she version of each in `SHE`; `pickPhrase(category, pronoun)` uses the she version for a
+  she, and skips those lines altogether for a player who didn't say. The pronoun is the player shooting now
+  (`player.pronoun`, set by `useCharacter`), so in HORSE it follows each turn.
 - **Device:** a random id kept in the browser, stored server-side only as a keyed hash. The leaderboard shows one
   row per device + player per mode, with the latest nickname.
 - **Rate limits:** the `rate_limits` table counts calls to cheap routes (votes, the score preview) per hashed IP

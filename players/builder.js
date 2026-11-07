@@ -1,6 +1,6 @@
 // The player builder: pick a body and colours, watch them dribble and shoot, send it to Orson.
 // Players wait for approval in /admin before they show up in the game's player picker.
-// Open with ?base=curly&skin=c98c5f&hair=26222a&jersey=d63a3a&team=2b2b2f&shoes=f2f2ef&number=7&teamName=KINGS&name=Ace
+// Open with ?base=curly&skin=c98c5f&hair=26222a&jersey=d63a3a&team=2b2b2f&shoes=f2f2ef&number=7&teamName=KINGS&name=Ace&pronoun=he
 // to preload a look.
 
 import { markField, say } from "../ui/form.js";
@@ -29,6 +29,7 @@ const teamInput = document.getElementById("team-name");
 const message = document.getElementById("message");
 const send = document.getElementById("send");
 const previewName = document.getElementById("preview-name");
+const pronounBox = document.getElementById("pronoun");
 
 const params = new URLSearchParams(location.search);
 let bases = [];
@@ -36,6 +37,7 @@ let current; // the loaded base
 let sheet; // its sprite sheet in the chosen colours
 const colours = {};
 const picked = new Set(); // parts the player has chosen a colour for, kept when they switch bodies
+let pronoun = ""; // "he", "she", or "" if they haven't said
 
 function button(props, ...children) {
   const b = Object.assign(document.createElement("button"), { type: "button", ...props });
@@ -100,6 +102,14 @@ async function setup() {
       group.append(b);
     }
   }
+
+  // He or she, for the announcer. Optional: tapping the chosen one again unpicks it.
+  const choosePronoun = (value) => {
+    pronoun = value;
+    for (const b of pronounBox.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.pronoun === pronoun));
+  };
+  for (const b of pronounBox.querySelectorAll("button")) b.addEventListener("click", () => choosePronoun(pronoun === b.dataset.pronoun ? "" : b.dataset.pronoun));
+  if (["he", "she"].includes(params.get("pronoun"))) choosePronoun(params.get("pronoun"));
 
   nameInput.addEventListener("input", checkWords);
   teamInput.addEventListener("input", checkWords);
@@ -246,7 +256,7 @@ play.addEventListener("click", () => {
     nameInput.focus();
     return;
   }
-  const id = saveMyPlayer({ name, base: current.id, colours: { ...colours, teamName: teamInput.value.trim() } });
+  const id = saveMyPlayer({ name, base: current.id, pronoun, colours: { ...colours, teamName: teamInput.value.trim() } });
   try {
     localStorage.setItem("orson-hoops-character", JSON.stringify(id));
     localStorage.setItem("orson-hoops-chosen", "true"); // straight into a game, no player select
@@ -274,7 +284,7 @@ form.addEventListener("submit", async (e) => {
   // leaderboard (the server updates the scores this device played as it).
   const name = nameInput.value.trim();
   const mine = myPlayers().find((p) => p.name.toLowerCase() === name.toLowerCase());
-  if (mine) saveMyPlayer({ ...mine, name, base: current.id, colours: { ...colours, teamName: teamInput.value.trim() } });
+  if (mine) saveMyPlayer({ ...mine, name, base: current.id, pronoun, colours: { ...colours, teamName: teamInput.value.trim() } });
   let device = "";
   try {
     device = localStorage.getItem("orson-device") ?? "";
@@ -291,6 +301,7 @@ form.addEventListener("submit", async (e) => {
         colours,
         number: numberInput.value,
         teamName: teamInput.value.trim(),
+        pronoun,
         localId: mine?.id,
         device,
         turnstileToken: token,

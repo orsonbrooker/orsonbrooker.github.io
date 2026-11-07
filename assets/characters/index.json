@@ -2,6 +2,7 @@
  {
   "id": "orson",
   "name": "Orson",
+  "pronoun": "he",
   "atlas": "assets/sprites.webp?v=5a806c8d",
   "meta": "assets/sprites.json?v=0786ed77",
   "thumb": "assets/characters/orson/thumb.webp?v=dedbdad0"
@@ -9,6 +10,7 @@
  {
   "id": "jethro",
   "name": "Jethro",
+  "pronoun": "he",
   "atlas": "assets/characters/jethro/sprites.webp?v=7d11fce1",
   "meta": "assets/characters/jethro/sprites.json?v=ba614b97",
   "thumb": "assets/characters/jethro/thumb.webp?v=2c37d8cc"

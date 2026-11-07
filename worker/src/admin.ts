@@ -8,7 +8,7 @@ import { verifyAccessToken } from "./access.ts";
 import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
-import { MAX_PLAYER_NAME, MAX_TEAM_NAME, PLAYER_PARTS } from "./players.ts";
+import { MAX_PLAYER_NAME, MAX_TEAM_NAME, parsePronoun, PLAYER_PARTS } from "./players.ts";
 import { ODD_UNCHECKED, renameScores } from "./scores.ts";
 import { clean, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
 import type { Env } from "./util.ts";
@@ -72,7 +72,7 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 			env.DB.prepare("SELECT id, app, title, description, credit, status, votes FROM ideas ORDER BY app, votes DESC"),
 			env.DB.prepare("SELECT slug, name FROM apps ORDER BY name"),
 			env.DB.prepare(
-				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
+				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, pronoun, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
 			),
 			env.DB.prepare(
 				`SELECT id, nickname, score, player, shots, made, threes, real_seconds, input, hidden_tab, log, flags, status, checked, device, mode, created_at
@@ -195,12 +195,15 @@ async function editPlayer(env: Env, id: number, body: Record<string, unknown>): 
 	if (setNumber && number !== null && !/^\d{1,2}$/.test(number)) throw new HttpError(400, "Numbers go from 0 to 99.");
 	const teamName = body.teamName === undefined ? null : clean(body.teamName, MAX_TEAM_NAME).toUpperCase() || "KINGS";
 	if (teamName !== null && !/^[A-Z0-9 ]+$/.test(teamName)) throw new HttpError(400, "Team names use letters and numbers.");
+	// "he", "she", or anything else (like "") for not set.
+	const setPronoun = body.pronoun !== undefined;
 	const result = await env.DB.prepare(
 		`UPDATE players SET name = ?, status = COALESCE(?, status), base = COALESCE(?, base),
 		   skin = COALESCE(?, skin), hair = COALESCE(?, hair), jersey = COALESCE(?, jersey), team = COALESCE(?, team), shoes = COALESCE(?, shoes),
-		   number = CASE WHEN ? THEN ? ELSE number END, team_name = COALESCE(?, team_name), updated_at = datetime('now') WHERE id = ?`,
+		   number = CASE WHEN ? THEN ? ELSE number END, team_name = COALESCE(?, team_name),
+		   pronoun = CASE WHEN ? THEN ? ELSE pronoun END, updated_at = datetime('now') WHERE id = ?`,
 	)
-		.bind(name, status, base, ...colours, setNumber ? 1 : 0, number, teamName, id)
+		.bind(name, status, base, ...colours, setNumber ? 1 : 0, number, teamName, setPronoun ? 1 : 0, parsePronoun(body.pronoun), id)
 		.run();
 	if (!result.meta.changes) throw new HttpError(404, "No such player.");
 	return json({ ok: true }, 200, 0);

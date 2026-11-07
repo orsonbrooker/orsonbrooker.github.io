@@ -66,7 +66,7 @@ export function addPopup(text, color, x, y) {
 }
 
 export function announce(category, color, { big = false } = {}) {
-  const text = pickPhrase(category);
+  const text = pickPhrase(category, player.pronoun);
   state.banner = { text: text.toUpperCase(), color, age: 0, big, duration: big ? BUZZER_CELEBRATION : BANNER_SECONDS };
   sound.say(text);
 }

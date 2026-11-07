@@ -233,6 +233,9 @@ def register(cid, name, sprites, thumb):
         'meta': f'{sprites}.json?v={version(sprites + ".json")}',
         'thumb': f'{thumb}?v={version(thumb)}',
     }
+    # Keep anything else set by hand on the old entry (like its "pronoun").
+    old = next((c for c in index if c['id'] == cid), {})
+    entry = {**old, **entry}
     index = [c for c in index if c['id'] != cid] + [entry]
     with open(index_path, 'w') as f:
         json.dump(index, f, indent=1)

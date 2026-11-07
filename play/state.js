@@ -61,6 +61,7 @@ export const player = {
   activeBall: null,
   moving: false,
   attrs: NEUTRAL, // what this player is good at (content/attributes.js), set when they're chosen
+  pronoun: "he", // "he", "she" or "" (not set): which of the announcer's lines suit them (phrases.js)
   airT: 0, // how long he'd been in the air when he let go (for drawing a higher jump)
 };
 

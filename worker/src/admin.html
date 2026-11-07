@@ -532,7 +532,7 @@
 						"div",
 						{},
 						el("div", { className: "name", textContent: p.name }),
-						el("div", { className: "meta", textContent: `${p.base} · ${p.team_name} ${p.number ? `#${p.number}` : "(no number)"} · ${p.created_at.slice(0, 10)}` }),
+						el("div", { className: "meta", textContent: `${p.base} · ${p.team_name} ${p.number ? `#${p.number}` : "(no number)"} · ${p.pronoun ?? "no he/she"} · ${p.created_at.slice(0, 10)}` }),
 						el("div", { className: "swatches" }, ...PARTS.map((part) => el("span", { title: part, style: `background:${p[part]}` }))),
 					),
 					warn ? el("div", { className: "warn", textContent: warn }) : null,
@@ -555,6 +555,12 @@
 				const colours = Object.fromEntries(PARTS.map((part) => [part, el("input", { type: "color", value: p[part], title: part })]));
 				const number = el("input", { type: "text", value: p.number ?? "", maxLength: 2, placeholder: "None", inputMode: "numeric" });
 				const team = el("input", { type: "text", value: p.team_name, maxLength: 12 });
+				// For the announcer's lines ("She's heating up!"); not set skips the ones that say he or she.
+				const pronoun = el(
+					"select",
+					{},
+					...[["", "Not set"], ["he", "He"], ["she", "She"]].map(([v, t]) => el("option", { value: v, textContent: t, selected: v === (p.pronoun ?? "") })),
+				);
 				const status = el(
 					"select",
 					{},
@@ -568,6 +574,7 @@
 					const q = new URLSearchParams({ base: c.base, name: name.value });
 					for (const part of PARTS) q.set(part, c[part].slice(1));
 					if (c.number) q.set("number", c.number);
+					if (pronoun.value) q.set("pronoun", pronoun.value);
 					q.set("teamName", c.team_name);
 					return `${SITE}/players/?${q}`;
 				};
@@ -580,7 +587,8 @@
 					el("div", { className: "colours" }, ...PARTS.map((part) => field(part, colours[part]))),
 					field("Number", number),
 					field("Team name", team),
-					field("Where", status, "wide"),
+					field("He or she", pronoun),
+					field("Where", status),
 					el(
 						"div",
 						{ className: "buttons wide", style: "display:flex;gap:5px;flex-wrap:wrap;align-items:center" },
@@ -597,6 +605,7 @@
 										colours: Object.fromEntries(PARTS.map((part) => [part, colours[part].value])),
 										number: number.value.trim(),
 										teamName: team.value,
+										pronoun: pronoun.value,
 									}),
 								"Saved",
 							),

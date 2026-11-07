@@ -101,7 +101,7 @@ export async function startReplay() {
   player.activeBall = null;
   setAnim("gather");
   sound.squeak();
-  sound.say(pickPhrase("replay"));
+  sound.say(pickPhrase("replay", player.pronoun));
   replay = { shot, ball: null, cheered: false, doneAt: 0, restore };
 }
 

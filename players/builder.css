@@ -132,3 +132,13 @@
   width: 100%;
   font-size: 12px;
 }
+
+/* He or she: two big buttons; tapping the chosen one again leaves it unanswered. */
+.pronouns button {
+  flex: 1;
+  min-height: 48px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-family: var(--pixel);
+  font-size: 12px;
+}

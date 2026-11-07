@@ -14,7 +14,7 @@ import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, thumbnail } from
 
 const PLAYERS_API = ["localhost", "127.0.0.1"].includes(location.hostname) ? "http://localhost:8787/api/players" : "/api/players";
 export const characters = {
-  list: [{ id: "orson", name: "Orson", atlas: "assets/sprites.webp", meta: "assets/sprites.json", thumb: "" }],
+  list: [{ id: "orson", name: "Orson", pronoun: "he", atlas: "assets/sprites.webp", meta: "assets/sprites.json", thumb: "" }],
   loaded: new Map(),
   selected: load("orson-hoops-character", "orson"),
 };
@@ -59,6 +59,7 @@ export async function useCharacter(id, { remember = true } = {}) {
   sheet.shoeRegions = loaded?.regionsData ?? null; // builder players: which pixels are shoes
   characters.selected = id;
   player.attrs = attributesFor(id);
+  player.pronoun = (characters.list.find((c) => c.id === id) ?? characters.list[0]).pronoun ?? "";
   if (remember) save("orson-hoops-character", id);
 }
 
@@ -93,6 +94,7 @@ async function loadBuiltPlayers() {
       characters.list.push({
         id: `p${p.id}`,
         name: p.name,
+        pronoun: p.pronoun ?? "",
         base: p.base,
         thumb: "/" + base.thumb,
         colours: { skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name ?? DEFAULT_TEAM },
