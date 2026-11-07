@@ -155,6 +155,42 @@ export function scoreNickname(body: Record<string, unknown>): string {
 	return nickname;
 }
 
+const REPORTS_PER_DAY = 30;
+// Shown scores someone has reported that the admin hasn't acted on yet: they're in the admin inbox.
+export const REPORTED = "SELECT r.score_id FROM reports r JOIN scores s ON s.id = r.score_id WHERE r.cleared = 0 AND s.status = 'shown'";
+
+/**
+ * Someone reports a leaderboard row's name as unfriendly. One report per score per IP (and day: the
+ * IP hash includes it), so repeats change nothing. A device reporting its own row is quietly ignored.
+ */
+export async function reportScore(request: Request, env: Env, header: string): Promise<Response> {
+	const body = await readJson(request);
+	const device = header || clean(body.device, 64); // the X-Device header, like the ideas board, or in the body
+	await rateLimit(request, env, "report", REPORTS_PER_DAY, "Thanks! That's plenty of reports for today.");
+	const scoreId = body.scoreId;
+	if (typeof scoreId !== "number" || !Number.isSafeInteger(scoreId) || scoreId < 1) throw new HttpError(400, "Bad request.");
+	const score = await env.DB.prepare("SELECT device FROM scores WHERE id = ? AND status = 'shown'").bind(scoreId).first<{ device: string }>();
+	if (!score) throw new HttpError(404, "That score isn't on the leaderboard.");
+	if (device.length >= 16 && score.device === (await hash(env, `device:${device}`))) return json({ ok: true });
+	await env.DB.prepare("INSERT OR IGNORE INTO reports (score_id, ip_hash) VALUES (?, ?)")
+		.bind(scoreId, await ipKey(request, env))
+		.run();
+	return json({ ok: true });
+}
+
+/**
+ * The admin has dealt with a reported name (renamed it, or it looks fine): every open report on that
+ * device and player's games is cleared, since the board shows one row (and one name) for them.
+ */
+export async function clearReports(env: Env, id: number): Promise<void> {
+	await env.DB.prepare(
+		`UPDATE reports SET cleared = 1
+		 WHERE cleared = 0 AND score_id IN (SELECT o.id FROM scores o, scores s WHERE s.id = ? AND o.device = s.device AND o.player = s.player)`,
+	)
+		.bind(id)
+		.run();
+}
+
 // Card caches cleared after a rename: the newest games' (older cards are rarely open, and only
 // cached for a minute), so a long history doesn't mean hundreds of cache calls.
 const RENAME_FORGETS = 40;

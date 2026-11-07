@@ -1196,12 +1196,16 @@ header p {
 }
 
 .board-list li {
+  display: flex;
+  align-items: center;
   border-radius: 6px;
 }
 
 /* Each row opens a card about that game. */
 .lb-row {
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -1218,6 +1222,37 @@ header p {
 .lb-row:hover,
 .lb-row:focus-visible {
   background: rgba(255, 255, 255, 0.12);
+}
+
+/* The flag on someone else's row: tell Orson's team if a name isn't friendly. */
+.lb-report {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+}
+
+.lb-report .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.lb-report:hover,
+.lb-report:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.lb-report:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 .board-list li:nth-child(odd) {

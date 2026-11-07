@@ -92,6 +92,7 @@ erDiagram
   ideas ||--o{ votes : "gets"
   ideas ||--o{ submissions : "approved or merged into"
   players ||..o{ scores : "played as (by id)"
+  scores ||--o{ reports : "name reported"
 
   apps {
     text slug PK "basketball, new-game, website"
@@ -147,6 +148,11 @@ erDiagram
     text token "start token, used once"
     text version "game.js version"
   }
+  reports {
+    int score_id PK "the board row reported"
+    text ip_hash PK "hashed IP and day: one report each"
+    int cleared "admin has acted on it"
+  }
 ```
 
 Terms used across the code:
@@ -163,7 +169,15 @@ Terms used across the code:
   (`player.pronoun`, set by `useCharacter`), so in HORSE it follows each turn.
 - **Device:** a random id kept in the browser, stored server-side only as a keyed hash. The leaderboard shows one
   row per device + player per mode, with the latest nickname.
-- **Rate limits:** the `rate_limits` table counts calls to cheap routes (votes, the score preview) per hashed IP
+- **Report:** anyone can tap the flag on someone else's leaderboard row (the board panel and the game-over
+  board, never their own rows) to say the name isn't friendly: `POST /api/reports` with `{ scoreId }` and the
+  X-Device header. One `reports` row per score per hashed IP (and day), so repeats are no-ops; a device
+  reporting its own row is ignored; 30 a day per IP. Reported scores still on the board go to the top of the
+  admin inbox ("Reported names", with the count) and the weekly ntfy count, until the admin renames the player,
+  hides that game or presses "Looks fine" (`name-ok`), which mark the reports `cleared`. Rename and Looks fine
+  clear every report on that device and player's games (one row, one name); Hide clears that game's only, so
+  if their next best game shows with the same name it can be reported again.
+- **Rate limits:** the `rate_limits` table counts calls to cheap routes (votes, the score preview, reports) per hashed IP
   per day, one upsert a call, so even toggling a vote uses up the day's allowance. The weekly cron clears old days.
 - **Shot log:** one entry per shot, `[seconds in, three (1/0), made (1/0), release timing, ball kind]`. Release
   timing is measured in green-zone widths from the middle of the green (the top of the jump, unless the mode
@@ -237,7 +251,8 @@ The game and the Worker use the same scoring rules from `shared/rules.js` (`reco
 the middle are `checkGame` and `oddFlags` in `worker/src/scoring.ts`.
 
 In the admin's Scores tab a score can be hidden, kept, or renamed: a new nickname (checked like a player's
-own) goes on every game by that device and player, since the board shows them as one row.
+own) goes on every game by that device and player, since the board shows them as one row. Names someone
+reported (see **Report** above) show in the inbox with the rename box open and a "Looks fine" button.
 
 ## How an idea becomes a feature
 

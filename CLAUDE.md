@@ -178,6 +178,9 @@ main checkout.
   device). Fire at 3 in a row (+1), purple at 6 (+2), blue supernova at 10 (+3); money and rainbow balls;
   a daily challenge kept on the device. After any game, Replay plays its best shot again in slow motion
   (re-flown from what was recorded at the release, not recorded frames; see `play/replay.js`).
+- Leaderboard rows (except your own) have a small flag to report an unfriendly name (Apple asks for this
+  where kids type names). Reports wait in the admin inbox until the name is renamed, hidden or marked
+  "Looks fine".
 - The flow: tap or Space to play, choose a game, choose a player.
 - Players: Orson, Jethro, and kids' own players from the builder (10 bodies, recoloured from region maps);
   requests wait in the admin inbox. A player is a he or a she (from the body: ponytail and buns are she, for now; the admin can override);

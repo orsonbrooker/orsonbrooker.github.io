@@ -124,13 +124,13 @@
 
 			/* Scores: one line each, with the shot by shot behind "Details". */
 			.score {
-				display: grid; grid-template-columns: 64px 150px 210px 80px 90px minmax(0, 1fr) 190px; gap: 8px; align-items: center;
+				display: grid; grid-template-columns: 64px 150px 210px 80px 90px minmax(0, 1fr) minmax(190px, auto); gap: 8px; align-items: center;
 				background: var(--panel); border-radius: 6px; padding: 6px 8px; margin-bottom: 4px;
 			}
 			.score .points { font-family: var(--pixel); font-size: 12px; color: var(--yellow); }
 			.score .flags { display: flex; gap: 4px; flex-wrap: wrap; }
 			.flag { background: var(--bad); color: var(--ink); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
-			.score .buttons { display: flex; gap: 4px; justify-content: end; }
+			.score .buttons { display: flex; gap: 4px; justify-content: end; white-space: nowrap; }
 			.score > details, .score .more { grid-column: 1 / -1; }
 			.score > details summary { cursor: pointer; font-size: 12px; opacity: 0.75; }
 			.score .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -272,6 +272,8 @@
 			const scoreText = (s) => (s.mode === "around" ? `${(s.score / 10).toFixed(1)}s` : String(s.score));
 			// Odd-looking scores Orson hasn't looked at yet. They're on the board until he hides them.
 			const suspicious = (s) => s.status === "shown" && !s.checked && JSON.parse(s.flags).length > 0;
+			// Someone tapped "report" on its row on the leaderboard: the name may not be friendly.
+			const reported = (s) => s.reports > 0;
 
 			// ---------- Inbox: everything that needs a decision ----------
 
@@ -280,12 +282,13 @@
 				const requests = data.players.filter((p) => p.status === "new");
 				// One line per player on a device and game mode, like their row on the leaderboard.
 				const byPlayer = new Map();
-				for (const s of data.scores.filter(suspicious)) {
+				const names = data.scores.filter(reported);
+				for (const s of data.scores.filter((s) => suspicious(s) && !reported(s))) {
 					const key = `${s.device} ${s.player} ${s.mode}`;
 					byPlayer.set(key, [...(byPlayer.get(key) ?? []), s]);
 				}
 				const odd = [...byPlayer.values()];
-				const total = data.submissions.length + requests.length + odd.length;
+				const total = data.submissions.length + requests.length + odd.length + names.length;
 				document.getElementById("inbox-count").textContent = total ? `(${total})` : "";
 				box.replaceChildren();
 				if (!total) return box.append(el("div", { className: "empty", innerHTML: "All caught up!<br>Nothing needs a look." }));
@@ -296,8 +299,10 @@
 						data.submissions.length ? el("span", { textContent: `${data.submissions.length} new ideas` }) : null,
 						requests.length ? el("span", { textContent: `${requests.length} player requests` }) : null,
 						odd.length ? el("span", { textContent: `${odd.length} odd scores` }) : null,
+						names.length ? el("span", { textContent: `${names.length} reported names` }) : null,
 					),
 				);
+				if (names.length) box.append(el("h2", { textContent: `Reported names (${names.length})` }), ...names.map(scoreRow));
 				if (requests.length) box.append(el("h2", { textContent: `Player requests (${requests.length})` }), el("div", { className: "tiles" }, ...requests.map(playerTile)));
 				if (data.submissions.length) {
 					box.append(el("h2", { textContent: `New ideas (${data.submissions.length})` }));
@@ -624,7 +629,7 @@
 
 			// ---------- Scores ----------
 
-			// Odd ones not yet looked at first, then the last two weeks.
+			// Reported and odd ones not yet looked at first, then the last two weeks.
 			function renderScores() {
 				const box = document.getElementById("scores");
 				box.replaceChildren();
@@ -681,7 +686,7 @@
 				nickname.addEventListener("keydown", (e) => e.key === "Enter" && rename());
 				const more = el(
 					"div",
-					{ className: "more", hidden: true },
+					{ className: "more", hidden: !reported(s) }, // a reported name: rename is right there
 					el(
 						"div",
 						{ className: "stats" },
@@ -711,6 +716,7 @@
 						"div",
 						{ className: "flags" },
 						s.status === "hidden" ? el("span", { className: "meta", textContent: "Hidden" }) : null,
+						reported(s) ? el("span", { className: "flag", textContent: `Name reported ${s.reports === 1 ? "once" : `${s.reports} times`}` }) : null,
 						...flags.map((f) => el("span", { className: odd ? "flag" : "flag seen", textContent: f })),
 					),
 					el(
@@ -718,6 +724,7 @@
 						{ className: "buttons" },
 						el("button", { type: "button", textContent: "More", onclick: () => (more.hidden = !more.hidden) }),
 						odd ? el("button", { type: "button", className: "primary", textContent: "Fine", onclick: act("show", "Kept on the board") }) : null,
+						reported(s) ? el("button", { type: "button", className: "primary", textContent: "Looks fine", onclick: act("name-ok", "Name kept") }) : null,
 						s.status === "hidden"
 							? el("button", { type: "button", className: "primary", textContent: "Show", onclick: act("show", "On the board") })
 							: el("button", { type: "button", className: "danger", textContent: "Hide", onclick: act("hide", "Hidden") }),

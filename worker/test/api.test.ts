@@ -95,6 +95,8 @@ test("the weekly notification lists what's waiting, or nothing", () => {
 		notifyMessage({ ideas: 3, players: 1, oddScores: 1, votes: 40 }),
 		"3 new ideas and 1 new player and 1 odd-looking score waiting, and 40 votes this week.",
 	);
+	assert.equal(notifyMessage({ ideas: 0, players: 0, oddScores: 0, reported: 1, votes: 3 }), "1 reported name waiting, and 3 votes this week.");
+	assert.equal(notifyMessage({ ideas: 0, players: 0, oddScores: 2, reported: 2, votes: 0 }), "2 odd-looking scores and 2 reported names waiting, and 0 votes this week.");
 });
 
 test("admin changes need JSON from the admin page's own site", () => {

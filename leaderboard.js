@@ -7,6 +7,7 @@
 
 import { say } from "./ui/form.js";
 import { icon } from "./ui/icons.js";
+import { confirmDialog } from "./ui/confirm.js";
 import { API } from "./api.js";
 import { lowWins } from "./shared/rules.js";
 
@@ -204,7 +205,14 @@ export function showRoundResult(box, round) {
       if (!out || out.kept) return;
       where.textContent = out.rank === 1 ? "Top of the board this week!" : `You'd be #${out.rank} this week!`;
       rankEl.textContent = out.rank;
-      list.replaceChildren(...out.board.map((row) => (row.you ? you : boardRow(row, row.rank, faceFor, mode))));
+      list.replaceChildren(
+        ...out.board.map((row) => {
+          if (row.you) return you;
+          const li = boardRow(row, row.rank, faceFor, mode);
+          if (row.id) li.append(reportButton(row));
+          return li;
+        }),
+      );
     };
     let timer;
     const rename = () => {
@@ -276,6 +284,33 @@ function boardRow(row, rank, faceFor, mode) {
   return li;
 }
 
+// A small flag on someone else's row, to tell Orson's team if their name isn't friendly.
+function reportButton(row) {
+  const button = el("button", { type: "button", className: "lb-report" });
+  button.setAttribute("aria-label", "Report this name");
+  button.innerHTML = icon("flag");
+  button.addEventListener("click", async () => {
+    const yes = await confirmDialog("Report this name?", { yes: "Report", yesIcon: "flag", detail: "Tell Orson's team if a name isn't friendly." });
+    if (!yes) return;
+    let sent = false;
+    let problem = "";
+    try {
+      const res = await fetch(`${API}/reports`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Device": deviceId() },
+        body: JSON.stringify({ scoreId: row.id }),
+      });
+      sent = res.ok;
+      if (!sent) problem = (await res.json().catch(() => ({}))).error ?? "";
+    } catch {
+      // Offline: said below.
+    }
+    if (sent) button.disabled = true;
+    await confirmDialog(sent ? "Thanks! We'll take a look." : problem || "That didn't send. Please try again.", { yes: "Okay", no: null, yesIcon: "" });
+  });
+  return button;
+}
+
 // Fills the leaderboard list. faceFor(row, img) puts the player's face in an <img>, and
 // bodyFor(row) resolves with a canvas of their whole player, for the card a row opens.
 // A board seen before shows straight away, then updates if the server has something newer, so
@@ -317,6 +352,7 @@ function drawBoard(list, note, range, mode, scores, faceFor, bodyFor) {
       button.append(...rowParts(row, i + 1, faceFor, mode));
       button.addEventListener("click", () => showScoreCard(row, i + 1, range, mode, bodyFor));
       li.append(button);
+      if (!mine.has(row.id)) li.append(reportButton(row)); // not on their own rows
       return li;
     }),
   );

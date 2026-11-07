@@ -9,7 +9,7 @@ import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
 import { MAX_PLAYER_NAME, MAX_TEAM_NAME, parsePronoun, PLAYER_PARTS } from "./players.ts";
-import { ODD_UNCHECKED, renameScores } from "./scores.ts";
+import { clearReports, ODD_UNCHECKED, REPORTED, renameScores } from "./scores.ts";
 import { clean, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
 import type { Env } from "./util.ts";
 
@@ -75,8 +75,11 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, pronoun, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
 			),
 			env.DB.prepare(
-				`SELECT id, nickname, score, player, shots, made, threes, real_seconds, input, hidden_tab, log, flags, status, checked, device, mode, created_at
-				 FROM scores WHERE (${ODD_UNCHECKED}) OR created_at > datetime('now', '-14 days') ORDER BY (${ODD_UNCHECKED}) DESC, id DESC LIMIT 200`,
+				// Reported ones (with how many open reports) and odd ones not yet looked at first, then the last two weeks.
+				`SELECT id, nickname, score, player, shots, made, threes, real_seconds, input, hidden_tab, log, flags, status, checked, device, mode, created_at,
+				   (SELECT COUNT(*) FROM reports r WHERE r.score_id = scores.id AND r.cleared = 0 AND scores.status = 'shown') AS reports
+				 FROM scores WHERE id IN (${REPORTED}) OR (${ODD_UNCHECKED}) OR created_at > datetime('now', '-14 days')
+				 ORDER BY id IN (${REPORTED}) DESC, (${ODD_UNCHECKED}) DESC, id DESC LIMIT 200`,
 			),
 		]);
 		return json(
@@ -102,7 +105,11 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 		const body = await readJson(request);
 		if (body.action === "rename") {
 			const { modes, ids } = await renameScores(env, id, body.nickname);
+			await clearReports(env, id); // a new name: reports about the old one are dealt with
 			await forget(url.origin, { boards: modes, scores: ids });
+		} else if (body.action === "name-ok") {
+			// A reported name that looks fine: its reports leave the inbox. Nothing public changes.
+			await clearReports(env, id);
 		} else {
 			const mode = await editScore(env, id, body);
 			await forget(url.origin, { boards: [mode], score: id });
@@ -215,6 +222,8 @@ async function editScore(env: Env, id: number, body: Record<string, unknown>): P
 	if (!status) throw new HttpError(400, "Unknown action.");
 	const row = await env.DB.prepare("UPDATE scores SET status = ?, checked = 1 WHERE id = ? RETURNING mode").bind(status, id).first<{ mode: string }>();
 	if (!row) throw new HttpError(404, "No such score.");
+	// Hidden: reports on this game are dealt with (if their next best game is reported too, it shows up on its own).
+	if (status === "hidden") await env.DB.prepare("UPDATE reports SET cleared = 1 WHERE score_id = ?").bind(id).run();
 	return modeOf(row.mode);
 }
 
