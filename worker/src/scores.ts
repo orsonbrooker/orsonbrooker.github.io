@@ -35,9 +35,9 @@ const FEATURE_FROM = {
 	// The green part of the jump bar moves from shot to shot in Sudden death (from a run of 5), Around
 	// the World and the 3-point contest. Sudden death squeezes it more slowly to make up for it. Older
 	// games on those boards were played with it still.
-	movingGreen: "2026-11-07 01:15:00",
+	movingGreen: "2026-11-07 00:53:00",
 	// The 3-point contest (racks of five, a money ball last in each).
-	threePointContest: "2026-11-07 01:15:00",
+	threePointContest: "2026-11-07 00:53:00",
 };
 export const hadFeature = (createdAt: unknown, feature: keyof typeof FEATURE_FROM) => String(createdAt) >= FEATURE_FROM[feature];
 
