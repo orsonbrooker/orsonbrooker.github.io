@@ -343,6 +343,9 @@ def register(base, meta):
         'thumb': v('thumb.webp'),
         'colours': {k: '#%02x%02x%02x' % tuple(c) for k, c in meta['regions'].items()},
     }
+    # Keep anything else set by hand on the old entry (like its "pronoun", "he" or "she", which builder
+    # players on this body get unless the admin sets their own).
+    entry = {**old, **entry}
     # A rebuilt base keeps its place in the list (the builder shows them in this order).
     at = next((i for i, b in enumerate(index) if b['id'] == base), len(index))
     index = index[:at] + [entry] + index[at + 1:]

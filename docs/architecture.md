@@ -128,7 +128,7 @@ erDiagram
     text skin_hair_jersey_team_shoes "five #rrggbb colours"
     text number "0-99 or none"
     text team_name "KINGS by default"
-    text pronoun "he, she, or null (not said)"
+    text pronoun "he, she, or null (the body's)"
     text status "new, approved, hidden"
   }
   scores {
@@ -153,10 +153,11 @@ Terms used across the code:
   players* (`players` table, status `approved`, shown to everyone) and *own players* (made in the builder, kept
   in that browser only, ids like `me1793858104451`; their look travels with their scores as `base` + `colours`).
 - **Pronoun:** whether a player is a "he" or a "she", for the announcer's lines. Built-in players have it in
-  `index.json` ("he"); builder players answer an optional question in the builder (kept on own players, and in the
-  `players` table's `pronoun`, which the admin can change). `phrases.js` writes lines about the player for a he,
+  `index.json` ("he"); builder players get their body's (`pronoun` in `assets/characters/bases/index.json`:
+  ponytail and buns are "she", the rest "he"), unless the admin sets one of their own (the `players` table's
+  `pronoun`, null meaning "the body's"). `phrases.js` writes lines about the player for a he,
   with a hand-written she version of each in `SHE`; `pickPhrase(category, pronoun)` uses the she version for a
-  she, and skips those lines altogether for a player who didn't say. The pronoun is the player shooting now
+  she, and skips those lines altogether for a player with neither. The pronoun is the player shooting now
   (`player.pronoun`, set by `useCharacter`), so in HORSE it follows each turn.
 - **Device:** a random id kept in the browser, stored server-side only as a keyed hash. The leaderboard shows one
   row per device + player per mode, with the latest nickname.

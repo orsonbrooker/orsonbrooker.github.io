@@ -174,7 +174,7 @@ main checkout.
   (re-flown from what was recorded at the release, not recorded frames; see `play/replay.js`).
 - The flow: tap or Space to play, choose a game, choose a player.
 - Players: Orson, Jethro, and kids' own players from the builder (10 bodies, recoloured from region maps);
-  requests wait in the admin inbox. A player can be a he or a she (optional in the builder, editable in the admin);
+  requests wait in the admin inbox. A player is a he or a she (from the body: ponytail and buns are she, for now; the admin can override);
   the announcer says "She's heating up!" for a she, and skips lines about he or she when it isn't set. A new
   announcer line that says he, his or him needs its she version in `SHE` in `phrases.js` (the tests check). Only add real kids as players if Orson knows them and their family is OK
   with it.

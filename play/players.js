@@ -82,7 +82,7 @@ async function loadBuiltPlayers() {
   const bases = await loadBases().catch(() => []);
   for (const p of myPlayers()) {
     const base = bases.find((b) => b.id === p.base);
-    if (base) characters.list.push({ ...p, mine: true, thumb: "/" + base.thumb, colours: { teamName: DEFAULT_TEAM, ...p.colours } });
+    if (base) characters.list.push({ ...p, pronoun: p.pronoun || base.pronoun || "", mine: true, thumb: "/" + base.thumb, colours: { teamName: DEFAULT_TEAM, ...p.colours } });
   }
   try {
     const res = await fetch(PLAYERS_API);
@@ -94,7 +94,7 @@ async function loadBuiltPlayers() {
       characters.list.push({
         id: `p${p.id}`,
         name: p.name,
-        pronoun: p.pronoun ?? "",
+        pronoun: p.pronoun ?? base.pronoun ?? "", // set by the admin, else the body's
         base: p.base,
         thumb: "/" + base.thumb,
         colours: { skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name ?? DEFAULT_TEAM },

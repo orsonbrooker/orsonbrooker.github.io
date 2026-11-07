@@ -532,7 +532,7 @@
 						"div",
 						{},
 						el("div", { className: "name", textContent: p.name }),
-						el("div", { className: "meta", textContent: `${p.base} · ${p.team_name} ${p.number ? `#${p.number}` : "(no number)"} · ${p.pronoun ?? "no he/she"} · ${p.created_at.slice(0, 10)}` }),
+						el("div", { className: "meta", textContent: `${p.base} · ${p.team_name} ${p.number ? `#${p.number}` : "(no number)"} · ${p.pronoun ?? "he/she by body"} · ${p.created_at.slice(0, 10)}` }),
 						el("div", { className: "swatches" }, ...PARTS.map((part) => el("span", { title: part, style: `background:${p[part]}` }))),
 					),
 					warn ? el("div", { className: "warn", textContent: warn }) : null,
@@ -555,11 +555,11 @@
 				const colours = Object.fromEntries(PARTS.map((part) => [part, el("input", { type: "color", value: p[part], title: part })]));
 				const number = el("input", { type: "text", value: p.number ?? "", maxLength: 2, placeholder: "None", inputMode: "numeric" });
 				const team = el("input", { type: "text", value: p.team_name, maxLength: 12 });
-				// For the announcer's lines ("She's heating up!"); not set skips the ones that say he or she.
+				// For the announcer's lines ("She's heating up!"). Not set: the body's (ponytail and buns are she).
 				const pronoun = el(
 					"select",
 					{},
-					...[["", "Not set"], ["he", "He"], ["she", "She"]].map(([v, t]) => el("option", { value: v, textContent: t, selected: v === (p.pronoun ?? "") })),
+					...[["", "By body"], ["he", "He"], ["she", "She"]].map(([v, t]) => el("option", { value: v, textContent: t, selected: v === (p.pronoun ?? "") })),
 				);
 				const status = el(
 					"select",
