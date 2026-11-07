@@ -50,7 +50,7 @@ export async function gameToken(env: Env): Promise<string> {
 	return `${started}.${nonce}.${await hash(env, `game:${started}.${nonce}`)}`;
 }
 
-async function checkGameToken(env: Env, token: unknown, minSeconds: number): Promise<number> {
+export async function checkGameToken(env: Env, token: unknown, minSeconds: number): Promise<number> {
 	const parts = typeof token === "string" ? token.split(".") : [];
 	if (parts.length !== 3 || parts[2] !== (await hash(env, `game:${parts[0]}.${parts[1]}`))) throw new HttpError(400, "That game can't be checked.");
 	const seconds = (Date.now() - Number(parts[0])) / 1000;

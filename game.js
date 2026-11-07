@@ -25,6 +25,8 @@ import { $, charPick, screens, setUpSoundButtons, stage, tapToPlay } from "./scr
 import { openModes, openSelect, selectBack, selectCharacter, setMode, showTitle, startTeam } from "./screens/menus.js";
 import { setGameVersion } from "./screens/over.js";
 import { closeBoard, closeHelp, openBoard, toggleBoard, toggleHelp, wireBoardTabs } from "./screens/panels.js";
+import { closeShop, wireShop } from "./screens/shop.js";
+import { ballLook, onProgress, refreshProgress } from "./progress.js";
 import { confirmDialog } from "./ui/confirm.js";
 import { fillIcons } from "./ui/icons.js";
 
@@ -40,7 +42,7 @@ function press() {
   state.pressed = true;
   sound.unlock();
 
-  if (!screens.help.hidden) return;
+  if (!screens.help.hidden || !screens.shop.hidden) return;
   // A tap during a replay skips it.
   if (state.phase === "replay") return endReplay();
   // Tapping to start: choose a game, then a player, then play.
@@ -93,6 +95,7 @@ $("help-close").addEventListener("click", closeHelp);
 $("board-button").addEventListener("click", toggleBoard);
 $("board-back").addEventListener("click", closeBoard);
 wireBoardTabs();
+wireShop();
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && state.phase === "playing") state.hiddenTab = true;
 });
@@ -110,6 +113,7 @@ listenForInput({
   },
   escape() {
     if (!screens.help.hidden) closeHelp();
+    else if (!screens.shop.hidden) closeShop();
     else if (!screens.board.hidden) closeBoard();
     else if (state.phase === "replay") endReplay();
     else if (state.phase === "select" || state.phase === "modes") showTitle();
@@ -133,7 +137,7 @@ async function boot() {
       selectCharacter(characters.selected),
       document.fonts?.load('48px "Press Start 2P"').catch(() => {}),
     ]);
-    art.ballSprites = makeBallSprites();
+    art.ballSprites = makeBallSprites(ballLook()); // their ball style from the shop
   } catch (err) {
     tapToPlay.textContent = "Oops! The game could not load. Try refreshing the page.";
     console.error(err);
@@ -146,6 +150,9 @@ async function boot() {
   resize();
   new ResizeObserver(resize).observe(stage);
   state.mode = load("orson-hoops-mode", "timed");
+  // A new ball style (bought here or on another device) shows from the next shot.
+  onProgress(() => (art.ballSprites = makeBallSprites(ballLook())));
+  refreshProgress();
   showTitle();
   if (location.hash === "#leaderboard") openBoard("week");
   updateHud();

@@ -8,7 +8,7 @@ import { icon } from "../ui/icons.js";
 
 export const $ = (id) => document.getElementById(id);
 export const stage = $("stage");
-export const screens = { title: $("title-screen"), select: $("select-screen"), modes: $("mode-screen"), turn: $("turn-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen") };
+export const screens = { title: $("title-screen"), select: $("select-screen"), modes: $("mode-screen"), turn: $("turn-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen"), shop: $("shop-screen") };
 export const tapToPlay = $("tap-to-play");
 export const charPick = $("char-pick");
 
@@ -60,7 +60,7 @@ export function setUpSoundButtons() {
   });
   // Browsers only allow sound after a tap or key press: the first one anywhere starts the music.
   for (const type of ["pointerdown", "keydown"]) window.addEventListener(type, () => sound.unlock(), { capture: true, once: true });
-  for (const btn of [muteBtn, musicBtn, $("help-button"), $("board-button")]) btn.addEventListener("pointerdown", (e) => e.stopPropagation());
+  for (const btn of [muteBtn, musicBtn, $("help-button"), $("board-button"), $("shop-button")]) btn.addEventListener("pointerdown", (e) => e.stopPropagation());
   // Clicked with a mouse or finger, the sound buttons hand focus back to the game, or Space would
   // keep pressing them instead of shooting. (Keyboard users who tabbed to them keep their place.)
   for (const btn of [muteBtn, musicBtn]) {

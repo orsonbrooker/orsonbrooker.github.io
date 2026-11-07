@@ -70,9 +70,10 @@ flowchart LR
 | Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness; `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update; `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces, a higher jump; `court.js` switching courts (measurements, physics, art); `replay.js` instant replays (recording each release, picking the best shot, playing it again). |
 | Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, `horse.js`, `threes.js`, shared `points.js`) | Time attack, Sudden death, Around the World, 3-point contest, HORSE (pass and play, no leaderboard), one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. The 3-point contest is hidden (except in `?debug`) until its rack art is in: `THREE_POINT_CONTEST_READY` in `modes/index.js`, brief in `art/three-point-contest.md`. |
 | Moving green zone | `play/zone.js`, `zoneCenter()` in `play/react.js` | A mechanic a mode switches on with `zoneShift()`: the green part of the timing bar moves to a new place each shot (from the seeded "zone" stream), and a release is timed from the green's middle. On in Sudden death (from 5 in a row, further as the run grows), Around the World (gently) and the 3-point contest. |
-| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player (or several, for pass and play); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `over.js` game over (and the Replay button). |
+| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player (or several, for pass and play); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `shop.js` the shop (ball styles, pairing another device); `over.js` game over (the Replay button, the coins a game earned). |
 | Game content | `content/` | Tables: the courts (`courts.js`), what each player is good at (`attributes.js`), how each fire level and ball looks, the wall scoreboard art, the Around the World spots, the 3-point contest's racks (`threes.js`, with where its art goes), the HORSE spots and spot map, Sudden death run calls and end-of-game calls. |
-| Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log. Used by the game and the Worker. |
+| Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log, coins for a game (`coinsFor`). Used by the game and the Worker. |
+| Shop and saved progress | `shared/shop.js`, `progress.js` | The ball styles coins buy (colours drawn in code, prices the Worker checks); the game's side of saved progress: this device's key, the last known coins and ball, the progress API. |
 | Scoring extras | `daily.js`, `content/looks.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
 | Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots, aim wobble and where a moving green zone goes. |
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
@@ -82,8 +83,9 @@ flowchart LR
 | Shared UI | `ui/` | Nav, icons, styled dialogs, form helpers. |
 | Ideas widget | `feedback/` | The "Got an idea?" button on each page. |
 | Server address | `api.js` | Where the API is: this site's `/api`, the local Worker on localhost, or the live site from the iOS app. |
-| iOS app | `ios/`, `capacitor.config.json`, `tools/app/prepare.mjs`, `haptics.js` | The same pages bundled into an app with Capacitor, opening on the game; a buzz on baskets and fire. |
-| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `admin.ts`, `access.ts`, `cache.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
+| iOS app | `ios/`, `capacitor.config.json`, `tools/app/prepare.mjs` | The same pages bundled into an app with Capacitor, opening on the game. |
+| Haptics | `haptics.js` | A buzz on baskets and fire: Capacitor's Haptics in the app, the Vibration API on Android, and on iPhone Safari (no Vibration API) a hidden `<input switch>` flipped by clicking its label, which plays the system tick (iOS 18+). |
+| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `progress.ts`, `admin.ts`, `access.ts`, `cache.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); coins, buying and pairing (`progress.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
 | Art and voice tools | `tools/` | Character sheets, region maps, announcer clips, icons, share images. |
 
 ## Domain model
@@ -96,6 +98,10 @@ erDiagram
   ideas ||--o{ submissions : "approved or merged into"
   players ||..o{ scores : "played as (by id)"
   scores ||--o{ reports : "name reported"
+  progress ||--|{ progress_devices : "kept on"
+  progress ||--o{ progress_games : "earned coins in"
+  progress ||--o{ progress_items : "owns"
+  progress ||--o{ pair_codes : "joined with"
 
   apps {
     text slug PK "basketball, new-game, website"
@@ -161,6 +167,30 @@ erDiagram
     text name "as typed"
     int score_id "the hidden game it came from"
   }
+  progress {
+    int id PK
+    int coins "to spend"
+    int earned "all ever earned"
+    text ball "ball style in use"
+  }
+  progress_devices {
+    text key_hash PK "hashed random key in the browser"
+    int progress_id FK
+  }
+  progress_games {
+    text token PK "start token: one claim per game"
+    int progress_id FK
+    int coins
+  }
+  progress_items {
+    int progress_id PK
+    text item PK "shop item id"
+  }
+  pair_codes {
+    text code_hash PK "hashed 8-letter code"
+    int progress_id FK
+    text expires_at "10 minutes"
+  }
 ```
 
 Terms used across the code:
@@ -214,6 +244,18 @@ Terms used across the code:
   stepping the same start again gives the same flight exactly; `window.game.checkReplays()` in `?debug`
   re-flies every shot and checks each goes in or out as it did. A replay changes nothing about the score,
   the shot log or what's sent.
+- **Saved progress and coins:** coins are earned only by playing, never bought: 1 a basket, 2 while on fire,
+  5 for a money or rainbow ball that goes in (`coinsFor` in `shared/rules.js`). As a game ends (any mode but
+  HORSE, not in `?debug`) the game sends it to `POST /api/progress/games` with its start token and shot log;
+  the Worker checks it exactly like a leaderboard score (`checkGame`, the token's age) and adds the coins once
+  per token, whether or not the score ever goes on the board. The first coins make a `progress` and give the
+  device a random key (`orson-progress-key` in the browser; the server keeps only a keyed hash). No names,
+  emails or passwords. Coins buy ball styles (`shared/shop.js`; the everyday ball's look, while money and
+  rainbow balls keep theirs so they stand out). To carry progress to another device, one device asks for a
+  pairing code (`/pair`: 8 letters and numbers, works once, for 10 minutes) and the other types it in
+  (`/join`, 15 tries a day per IP); anything the joining device already had is added in, so nothing's lost.
+  A lost device's coins can't be got back. All progress routes are POSTs with the key in the body (never in
+  a URL) and are rate limited per IP.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
 
 ## Courts

@@ -1666,3 +1666,180 @@ header p {
     animation: none;
   }
 }
+
+/* ---------- Coins and the shop ---------- */
+
+.over-coins,
+.coin-count {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  color: #ffd84a;
+}
+
+.over-coins .icon,
+.coin-count .icon,
+.ball-card .price .icon {
+  width: 1.5em;
+  height: 1.5em;
+  flex: none;
+}
+
+.stage[data-phase="playing"] #shop-button,
+.stage[data-phase="ending"] #shop-button,
+.stage[data-phase="replay"] #shop-button {
+  display: none;
+}
+
+.shop-panel .select-head h2 {
+  margin-right: 0;
+}
+
+.shop-panel .coin-count {
+  margin: 0;
+  font-size: clamp(11px, 2vw, 15px);
+}
+
+.shop-note,
+.pair-box p,
+.shop-say {
+  font-family: system-ui, sans-serif;
+  font-size: 15px !important;
+  line-height: 1.4;
+}
+
+.shop-say:empty,
+.pair-say:empty {
+  display: none;
+}
+
+.ball-styles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 10px;
+}
+
+.ball-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 6px;
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.ball-card canvas {
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+}
+
+.ball-card strong {
+  font-size: 10px;
+  font-weight: normal;
+}
+
+.ball-card em {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-style: normal;
+  font-size: 10px;
+  color: #3ddc84;
+}
+
+.ball-card .price {
+  color: #ffd84a;
+}
+
+.ball-card.locked {
+  opacity: 0.6;
+}
+
+.ball-card[aria-pressed="true"],
+.ball-card:focus-visible {
+  border-color: #ffe066;
+  outline: none;
+}
+
+.ball-card:hover {
+  border-color: var(--accent);
+}
+
+.pair-box {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+.pair-box h3 {
+  margin: 0 0 6px;
+  font-size: clamp(10px, 1.8vw, 13px);
+  color: var(--accent);
+}
+
+.pair-actions,
+.pair-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.pair-actions button,
+.pair-form button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: clamp(9px, 1.5vw, 12px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.pair-form .primary {
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.pair-actions .icon,
+.pair-form .icon {
+  width: 1.6em;
+  height: 1.6em;
+}
+
+.pair-form input {
+  flex: 1 1 10em;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 2px solid #ffe066;
+  border-radius: 4px;
+  font: inherit;
+  font-size: 16px; /* no zoom on iPhone */
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.pair-code {
+  margin: 12px 0 0;
+  font-size: clamp(22px, 5vw, 32px) !important;
+  letter-spacing: 0.08em;
+  text-align: center;
+  color: #ffe066;
+  text-shadow: 3px 3px 0 var(--ink);
+}
+
+.pair-form[hidden],
+.pair-code[hidden] {
+  display: none;
+}

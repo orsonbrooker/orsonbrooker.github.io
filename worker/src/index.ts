@@ -13,6 +13,12 @@
 //          POST /api/scores         a finished game's score, with its shot log (checked, see postScore)
 //          POST /api/scores/preview where a game would land, as it ends (nothing saved)
 //          POST /api/reports        report a leaderboard row's name as unfriendly (to the admin inbox)
+//          POST /api/progress       a device's coins and ball styles (its key in the body)    progress.ts
+//          POST /api/progress/games a finished game earns its coins (checked like a score)
+//          POST /api/progress/buy   spend coins on a ball style
+//          POST /api/progress/ball  use a ball style they own
+//          POST /api/progress/pair  a code to carry progress to another device (10 minutes)
+//          POST /api/progress/join  type that code on the other device
 // Admin:   GET  /admin              triage page (behind Cloudflare Access)                 admin.ts
 //          GET  /admin/ideas, /admin/players, /admin/scores   the same page, open on that section
 //          GET  /api/admin/inbox    new submissions, all ideas and apps
@@ -30,6 +36,7 @@ import { HttpError } from "./http.ts";
 import { config, deviceOf, listIdeas, submit, vote } from "./ideas.ts";
 import { notify } from "./notify.ts";
 import { createPlayer, listPlayers } from "./players.ts";
+import { buy, claimGame, getProgress, joinCode, pairCode, useBall } from "./progress.ts";
 import { gameToken, leaderboard, postScore, previewScore, reportScore, scoreDetail } from "./scores.ts";
 import { cors, isAdminPage, isUnfriendly, json } from "./util.ts";
 import type { Env } from "./util.ts";
@@ -55,6 +62,7 @@ export default {
 	async scheduled(_controller, env): Promise<void> {
 		// Daily rate-limit counts are only needed on the day.
 		await env.DB.prepare("DELETE FROM rate_limits WHERE day < date('now', '-1 day')").run();
+		await env.DB.prepare("DELETE FROM pair_codes WHERE expires_at < datetime('now')").run();
 		await notify(env);
 	},
 } satisfies ExportedHandler<Env>;
@@ -90,6 +98,18 @@ async function publicApi(request: Request, env: Env, url: URL): Promise<Response
 			return previewScore(request, env);
 		case "POST /api/reports":
 			return reportScore(request, env, deviceOf(request, url));
+		case "POST /api/progress":
+			return getProgress(request, env);
+		case "POST /api/progress/games":
+			return claimGame(request, env);
+		case "POST /api/progress/buy":
+			return buy(request, env);
+		case "POST /api/progress/ball":
+			return useBall(request, env);
+		case "POST /api/progress/pair":
+			return pairCode(request, env);
+		case "POST /api/progress/join":
+			return joinCode(request, env);
 	}
 	throw new HttpError(404, "Not found.");
 }
