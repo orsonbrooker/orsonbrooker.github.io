@@ -21,7 +21,7 @@ import { HttpError } from "./http.ts";
 import { forget } from "./cache.ts";
 import { checkGameToken } from "./scores.ts";
 import { checkGame } from "./scoring.ts";
-import { clean, hash, ipKey, isRude, json, rateLimit, readJson } from "./util.ts";
+import { clean, hash, ipKey, isUnfriendly, json, rateLimit, readJson } from "./util.ts";
 import type { Env } from "./util.ts";
 
 const NEW_PER_DAY = 30; // new progresses from one IP (a class on one network shares an IP)
@@ -100,11 +100,13 @@ const parseSave = (text: string): Save => {
 	}
 };
 
-// A save a device sent: tidied, without any rude names (typed by kids, though only ever shown back to them).
-function sentSave(value: unknown): Save {
+// A save a device sent: tidied, without any rude or blocked names (typed by kids, though only ever shown
+// back to them).
+async function sentSave(env: Env, value: unknown): Promise<Save> {
 	const s = tidySave(value);
-	s.players = s.players.filter((p) => !isRude(p.name, p.colours.teamName));
-	if (isRude(s.nickname.name)) s.nickname = { name: "", at: 0 };
+	const ok = await Promise.all(s.players.map(async (p) => !(await isUnfriendly(env, p.name, p.colours.teamName))));
+	s.players = s.players.filter((_, i) => ok[i]);
+	if (await isUnfriendly(env, s.nickname.name)) s.nickname = { name: "", at: 0 };
 	return s;
 }
 
@@ -113,7 +115,7 @@ async function mergeSave(request: Request, env: Env, id: number, sent: unknown):
 	if (sent === undefined || sent === null) return;
 	const row = await env.DB.prepare("SELECT save FROM progress WHERE id = ?").bind(id).first<{ save: string }>();
 	const stored = parseSave(row?.save ?? "{}");
-	const merged = mergeSaves(sentSave(sent), stored);
+	const merged = mergeSaves(await sentSave(env, sent), stored);
 	if (sameSave(merged, stored)) return;
 	await rateLimit(request, env, "progress-save", SAVES_PER_DAY, "That's a lot of saving for one day! Try again tomorrow.");
 	await env.DB.prepare("UPDATE progress SET save = ? WHERE id = ?").bind(JSON.stringify(merged), id).run();

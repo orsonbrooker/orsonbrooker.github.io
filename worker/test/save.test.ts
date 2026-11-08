@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mergeSaves, tidySave } from "../../shared/save.js";
 import { claimGame, getProgress, joinCode, pairCode } from "../src/progress.ts";
-import { hash } from "../src/util.ts";
+import { forgetBlockedNames, hash } from "../src/util.ts";
 import type { Env } from "../src/util.ts";
 import { fakeEnv } from "./fake-d1.ts";
 
@@ -100,6 +100,19 @@ test("rude names never get saved", async () => {
 		["Zip"],
 	);
 	assert.equal(out.save.nickname.name, "");
+});
+
+test("names Luke has blocked never get saved either", async () => {
+	const { env, db } = fakeEnv();
+	db.exec("INSERT INTO blocked_names (squashed, name) VALUES ('poohead', 'Poo Head')");
+	forgetBlockedNames(); // the list is kept for a minute per Worker
+	const out = await call(claimGame, env, { ...(await game(env)), save: { players: [player("me1", "PooHead2"), player("me2", "Zip")], nickname: { name: "Mr PooHead", at: 5 } } });
+	assert.deepEqual(
+		out.save.players.map((p) => p.name),
+		["Zip"],
+	);
+	assert.equal(out.save.nickname.name, "");
+	forgetBlockedNames();
 });
 
 test("joining with a code brings the whole save together", async () => {
