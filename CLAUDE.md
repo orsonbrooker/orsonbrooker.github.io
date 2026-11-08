@@ -166,7 +166,7 @@ main checkout.
   `tools/pixelart/video_body.py art/video/orson.json` (needs Luke's videos); after rebuilding, run
   `tools/dev/check_prints.mjs` on `?pixel` and restamp his `?v=` in `assets/characters/index.json`.
   `?old` plays his earlier art.
-- **Picker order** comes from `assets/characters/index.json` (Orson first, then Jethro); rebuilding a
+- **Picker order** comes from `assets/characters/index.json` (Orson first); rebuilding a
   character can move it, so check.
 - **Ideas board data:** the `apps` table holds categories (`basketball` = Shootaround, `new-game`,
   `website`). `done_at` is set when an idea is first marked done; the Done column sorts by it.
@@ -187,7 +187,7 @@ main checkout.
   where kids type names). Reports wait in the admin inbox until the name is renamed, hidden or marked
   "Looks fine".
 - The flow: tap or Space to play, choose a game, choose a player.
-- Players: Orson, Jethro, and kids' own players from the builder (10 bodies, recoloured from region maps);
+- Players: Orson (built in), and kids' own players from the builder (10 bodies, recoloured from region maps);
   requests wait in the admin inbox. A player is a he or a she (from the body: ponytail and buns are she, for now; the admin can override);
   the announcer says "She's heating up!" for a she, and skips lines about he or she when it isn't set. A new
   announcer line that says he, his or him needs its she version in `SHE` in `phrases.js` (the tests check). Only add real kids as players if Orson knows them and their family is OK

@@ -2,7 +2,7 @@
 // the same) unless they're listed in PLAYER_ATTRIBUTES below, and nobody is yet: the leaderboard
 // compares everyone, so Luke and Orson decide the real values.
 //
-// To give a player attributes, add them by player id (built-ins are "orson" and "jethro"; approved
+// To give a player attributes, add them by player id (the built-in one is "orson"; approved
 // builder players are "p" + their id in the players table, e.g. "p12"). Players made on someone's
 // device always get the neutral ones. Leave out anything that should stay neutral.
 //
@@ -23,7 +23,6 @@ const LIMITS = { timing: [0.5, 2], jump: [0, 0.6], three: [0.5, 2] };
 
 export const PLAYER_ATTRIBUTES = {
   // orson: { timing: 1.1 },
-  // jethro: { three: 1.2 },
 };
 
 // A player's attributes: theirs from the table above, neutral for anything not set.

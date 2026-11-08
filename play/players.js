@@ -110,6 +110,9 @@ export async function useCharacter(id, { remember = true } = {}) {
 // Starts loading a player's sprite sheet, so switching to them later is quick.
 export const preloadCharacter = (id) => loadCharacter(id).catch(() => {});
 
+// Built-in players that became builder players: a device that remembered the old one gets the new one.
+const MOVED = { jethro: "p25" };
+
 // The hand-made players, then ones made on this device, then approved builder players. Falls back to
 // the first player if the remembered one is gone.
 export async function loadRoster() {
@@ -130,6 +133,8 @@ export async function loadRoster() {
   if (params.get("teamName")) custom.teamName = params.get("teamName").toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, 10);
   if (orson && Object.keys(custom).length) orson.colours = custom;
   await loadBuiltPlayers();
+  const moved = MOVED[characters.selected];
+  if (moved && characters.list.some((c) => c.id === moved)) characters.selected = moved;
   if (!characters.list.some((c) => c.id === characters.selected)) characters.selected = characters.list[0].id;
 }
 

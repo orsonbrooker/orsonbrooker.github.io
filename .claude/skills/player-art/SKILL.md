@@ -1,6 +1,6 @@
 ---
 name: player-art
-description: Build or rebuild a Shootaround player from a pose sheet (a built-in player like Jethro, or a player-builder body), then check it - cut-out holes, colour regions, poses, picker order. Use when Luke sends a new or redrawn sheet, or players look glitchy.
+description: Build or rebuild a Shootaround player from a pose sheet (a built-in player, or a player-builder body), then check it - cut-out holes, colour regions, poses, picker order. Use when Luke sends a new or redrawn sheet, or players look glitchy.
 ---
 
 # Player art
@@ -11,12 +11,12 @@ poses on a flat backdrop; the tool only does 16:9, 4:3, 1:1, 3:4 and 9:16). Sour
 sprites come from video and can't be rebuilt. Python with Pillow and numpy: `~/.venvs/announcer/bin/python`
 works, or `uv run --with pillow --with numpy python3`. `cwebp` comes from `brew install webp`.
 
-## Built-in player (e.g. Jethro)
+## Built-in player
 
 1. `python tools/build_character.py art/characters/<id>.jpg <id> "<Name>"`
 2. `python tools/check_character.py <id>` and look at `.character-cache/check-<id>.png` (every pose, feet on
    the floor line).
-3. `assets/characters/index.json` sets the picker order: Orson first, then Jethro. Building can move entries.
+3. `assets/characters/index.json` sets the picker order: Orson first. Building can move entries.
 
 ## Builder body (spiky, curly, cap...)
 
