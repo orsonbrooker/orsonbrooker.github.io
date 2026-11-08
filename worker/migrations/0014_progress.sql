@@ -7,6 +7,7 @@ CREATE TABLE progress (
   earned INTEGER NOT NULL DEFAULT 0, -- all ever earned
   ball TEXT NOT NULL DEFAULT 'classic', -- the ball style in use (shared/shop.js)
   save TEXT NOT NULL DEFAULT '{}', -- bests, daily streak, builder players, nickname (JSON, shared/save.js)
+  board TEXT, -- the leaderboard id its devices' games go on (scores.device): its first device's
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -14,9 +15,11 @@ CREATE TABLE progress (
 CREATE TABLE progress_devices (
   key_hash TEXT PRIMARY KEY,
   progress_id INTEGER NOT NULL REFERENCES progress (id),
+  device_hash TEXT, -- this device's leaderboard id, hashed like scores.device
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 ) WITHOUT ROWID;
 CREATE INDEX progress_devices_progress ON progress_devices (progress_id);
+CREATE INDEX progress_devices_device ON progress_devices (device_hash);
 
 -- Games that earned coins: one claim per game (its start token).
 CREATE TABLE progress_games (

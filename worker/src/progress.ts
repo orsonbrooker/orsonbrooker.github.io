@@ -9,11 +9,16 @@
 // The rest of a device's save (bests, daily streak, builder players, nickname; shared/save.js) comes
 // along too: a device sends its own with each call, it's merged into the stored one (nothing lost), and
 // the merged save goes back for the device to keep. It's only ever sent to devices holding the key.
+//
+// Leaderboard rows follow too: each device's hashed leaderboard id is noted against its key, the
+// progress has one (`board`, its first device's) that all its devices' games go on (boardOf in
+// scores.ts), and joining moves the joining device's earlier rows onto it.
 
-import { coinsFor, modeOf } from "../../shared/rules.js";
+import { MODES, coinsFor, modeOf } from "../../shared/rules.js";
 import { mergeSaves, sameSave, tidySave } from "../../shared/save.js";
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../../shared/shop.js";
 import { HttpError } from "./http.ts";
+import { forget } from "./cache.ts";
 import { checkGameToken } from "./scores.ts";
 import { checkGame } from "./scoring.ts";
 import { clean, hash, ipKey, isRude, json, rateLimit, readJson } from "./util.ts";
@@ -60,6 +65,24 @@ async function mustFind(env: Env, key: unknown): Promise<Progress> {
 	const found = await findProgress(env, key);
 	if (!found) throw new HttpError(404, "We couldn't find your coins on this device.");
 	return found;
+}
+
+// A device's leaderboard id, hashed as the scores table keeps it (null if it didn't send one).
+async function deviceHash(env: Env, device: unknown): Promise<string | null> {
+	const d = clean(device, 64);
+	return d.length >= 16 ? hash(env, `device:${d}`) : null;
+}
+
+// Notes which leaderboard id goes with this key, and gives the progress its shared one if it has none
+// yet (this device's). Writes nothing when both are already set.
+async function linkDevice(env: Env, id: number, key: unknown, device: unknown): Promise<void> {
+	const d = await deviceHash(env, device);
+	const k = clean(key, 64);
+	if (!d || !/^[0-9a-f]{48}$/.test(k)) return;
+	await env.DB.batch([
+		env.DB.prepare("UPDATE progress_devices SET device_hash = ?1 WHERE key_hash = ?2 AND device_hash IS NOT ?1").bind(d, await keyHash(env, k)),
+		env.DB.prepare("UPDATE progress SET board = ? WHERE id = ? AND board IS NULL").bind(d, id),
+	]);
 }
 
 type Save = ReturnType<typeof tidySave>;
@@ -119,16 +142,17 @@ async function create(request: Request, env: Env): Promise<{ id: number; key: st
 	return { id: row.id, key };
 }
 
-/** POST /api/progress { key, save? }: their coins, ball styles and save (with this device's merged in). */
+/** POST /api/progress { key, device?, save? }: their coins, ball styles and save (with this device's merged in). */
 export async function getProgress(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
 	const p = await mustFind(env, body.key);
+	await linkDevice(env, p.id, body.key, body.device);
 	await mergeSave(request, env, p.id, body.save);
 	return json(await view(env, p.id));
 }
 
 /**
- * POST /api/progress/games { key?, token, mode, score, shots, save? }: a finished game earns its coins.
+ * POST /api/progress/games { key?, device?, token, mode, score, shots, save? }: a finished game earns its coins.
  * Checked like a leaderboard score, once per game. Without a key (their first coins), a new
  * progress is made and its key sent back.
  */
@@ -154,6 +178,7 @@ export async function claimGame(request: Request, env: Env): Promise<Response> {
 		.first();
 	if (!claimed) throw new HttpError(400, "That game's coins are already in.");
 	await env.DB.prepare("UPDATE progress SET coins = coins + ?1, earned = earned + ?1 WHERE id = ?2").bind(coins, found.id).run();
+	await linkDevice(env, found.id, key ?? body.key, body.device);
 	await mergeSave(request, env, found.id, body.save);
 	return json({ ...(await view(env, found.id, key)), got: coins });
 }
@@ -206,8 +231,9 @@ export async function pairCode(request: Request, env: Env): Promise<Response> {
 }
 
 /**
- * POST /api/progress/join { key?, code, save? }: this device joins the progress the code came from. Any
- * coins, balls and save this device already had are added to it, so nothing's lost.
+ * POST /api/progress/join { key?, device?, code, save? }: this device joins the progress the code came
+ * from. Any coins, balls and save this device already had are added to it, so nothing's lost, and its
+ * leaderboard rows (and those of any devices it was already joined with) move onto the shared ones.
  */
 export async function joinCode(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
@@ -223,11 +249,22 @@ export async function joinCode(request: Request, env: Env): Promise<Response> {
 	const mine = await findProgress(env, body.key);
 	if (mine && mine.id === into) return json(await view(env, into)); // already together
 	let key = clean(body.key, 64);
+	const device = await deviceHash(env, body.device);
+	const board = (await env.DB.prepare("SELECT board FROM progress WHERE id = ?").bind(into).first<{ board: string | null }>())?.board ?? device;
+	// Their rows from before: this device's own, and (if it had progress) its shared ones and its other devices'.
+	const moveRows = board
+		? env.DB.prepare(
+				`UPDATE scores SET device = ?1 WHERE device != ?1 AND (device = ?2
+				   OR device = (SELECT board FROM progress WHERE id = ?3)
+				   OR device IN (SELECT device_hash FROM progress_devices WHERE progress_id = ?3 AND device_hash IS NOT NULL))`,
+			).bind(board, device, mine?.id ?? 0)
+		: null;
 	if (mine) {
 		// Bring this device's coins, balls and save along, then move its devices across.
 		const old = await env.DB.prepare("SELECT save FROM progress WHERE id = ?").bind(mine.id).first<{ save: string }>();
 		await mergeSave(request, env, into, parseSave(old?.save ?? "{}"));
 		await env.DB.batch([
+			...(moveRows ? [moveRows] : []), // first, while its devices are still listed under its old progress
 			env.DB.prepare("UPDATE progress SET coins = coins + ?1, earned = earned + ?2 WHERE id = ?3").bind(mine.coins, mine.earned, into),
 			env.DB.prepare("INSERT OR IGNORE INTO progress_items (progress_id, item, created_at) SELECT ?1, item, created_at FROM progress_items WHERE progress_id = ?2").bind(into, mine.id),
 			env.DB.prepare("DELETE FROM progress_items WHERE progress_id = ?").bind(mine.id),
@@ -239,7 +276,10 @@ export async function joinCode(request: Request, env: Env): Promise<Response> {
 	} else {
 		key = newKey();
 		await env.DB.prepare("INSERT INTO progress_devices (key_hash, progress_id) VALUES (?, ?)").bind(await keyHash(env, key), into).run();
+		if (moveRows) await moveRows.run();
 	}
+	await linkDevice(env, into, key, body.device);
+	if (moveRows) await forget(new URL(request.url).origin, { boards: [...MODES] }); // the boards show the joined rows straight away
 	await mergeSave(request, env, into, body.save);
 	return json(await view(env, into, key));
 }

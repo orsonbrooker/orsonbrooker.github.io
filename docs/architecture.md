@@ -173,10 +173,12 @@ erDiagram
     int earned "all ever earned"
     text ball "ball style in use"
     text save "bests, streak, builder players, nickname (JSON)"
+    text board "leaderboard id its devices share (scores.device)"
   }
   progress_devices {
     text key_hash PK "hashed random key in the browser"
     int progress_id FK
+    text device_hash "this device's leaderboard id, hashed"
   }
   progress_games {
     text token PK "start token: one claim per game"
@@ -207,7 +209,7 @@ Terms used across the code:
   she, and skips those lines altogether for a player with neither. The pronoun is the player shooting now
   (`player.pronoun`, set by `useCharacter`), so in HORSE it follows each turn.
 - **Device:** a random id kept in the browser, stored server-side only as a keyed hash. The leaderboard shows one
-  row per device + player per mode, with the latest nickname.
+  row per device + player per mode, with the latest nickname (devices joined by a pairing code count as one).
 - **Report:** anyone can tap the flag on someone else's leaderboard row (the board panel and the game-over
   board, never their own rows) to say the name isn't friendly: `POST /api/reports` with `{ scoreId }` and the
   X-Device header. One `reports` row per score per hashed IP (and day), so repeats are no-ops; a device
@@ -266,7 +268,14 @@ Terms used across the code:
   fastest for Around the World), the streak from the device that did a challenge last, both devices' players
   (newest first, up to 6, one per name; removed ones are remembered so they stay gone), the nickname typed
   most recently. Players arriving from another device join the picker straight away. The save is only ever
-  sent back to devices holding the key. Leaderboard rows stay per device.
+  sent back to devices holding the key.
+- **Leaderboard rows follow progress too:** the progress calls send the device's leaderboard id, and the
+  Worker notes its hash against the key (`progress_devices.device_hash`). A progress has one shared id
+  (`progress.board`, its first device's); `boardOf` in `scores.ts` sends every joined device's games there,
+  and its own-row checks (the preview, not reporting yourself) use it too. Joining moves the joining device's
+  earlier rows (and those of any devices it was already joined with) onto the shared id, so each player
+  shows once, at their best across all their devices, with the latest nickname. A device with no progress
+  keeps its own rows, as before.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
 
 ## Courts

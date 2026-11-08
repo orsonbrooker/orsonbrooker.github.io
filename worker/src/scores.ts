@@ -6,6 +6,7 @@
 // What's rejected and what's flagged is in scoring.ts. Here: the start token (signed, used once, and
 // old enough for the game it claims), test mode, the robot check and the daily limit.
 // (Nicknames don't matter: a device's row is per player, whatever name it's sent with.)
+// Devices joined by a pairing code (saved progress, progress.ts) share their rows: see boardOf.
 
 import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, THREE_POINT_CONTEST, lowWins, modeOf } from "../../shared/rules.js";
 import type { Mode, Shot } from "../../shared/rules.js";
@@ -23,6 +24,21 @@ const PREVIEWS_PER_DAY = 1000; // one per game, plus one per pause while typing 
 // in the builder), at its best, whatever nicknames it was sent with. The row shows its latest one.
 const WEEK = "created_at > datetime('now', '-7 days')";
 const order = (mode: Mode) => (lowWins(mode) ? "ASC" : "DESC");
+
+/**
+ * Whose rows a device's games go on (the scores table's `device`): its own hashed id, or, once it's
+ * joined other devices with a pairing code, the one they share (`progress.board`). Joining moves its
+ * earlier rows across (joinCode in progress.ts), so each player shows once for all their devices.
+ */
+export async function boardOf(env: Env, device: string): Promise<string> {
+	const own = await hash(env, `device:${device}`);
+	const shared = await env.DB.prepare(
+		"SELECT p.board FROM progress_devices d JOIN progress p ON p.id = d.progress_id WHERE d.device_hash = ? AND p.board IS NOT NULL LIMIT 1",
+	)
+		.bind(own)
+		.first<{ board: string }>();
+	return shared?.board ?? own;
+}
 // Odd-looking scores Orson hasn't looked at yet: they're in the admin inbox.
 export const ODD_UNCHECKED = "status = 'shown' AND flags != '[]' AND checked = 0";
 // When each scoring feature arrived in the game (UTC, like created_at). A leaderboard card only
@@ -83,7 +99,7 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 	await checkTurnstile(request, env, body.turnstileToken);
 
 	const ipHash = await ipKey(request, env);
-	const deviceHash = await hash(env, `device:${device}`);
+	const deviceHash = await boardOf(env, device);
 	const [today, history, standing] = await env.DB.batch([
 		env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?").bind(ipHash),
 		env.DB.prepare(`SELECT ${lowWins(mode) ? "MIN" : "MAX"}(score) AS best FROM scores WHERE device = ? AND mode = ?`).bind(deviceHash, mode),
@@ -171,7 +187,7 @@ export async function reportScore(request: Request, env: Env, header: string): P
 	if (typeof scoreId !== "number" || !Number.isSafeInteger(scoreId) || scoreId < 1) throw new HttpError(400, "Bad request.");
 	const score = await env.DB.prepare("SELECT device FROM scores WHERE id = ? AND status = 'shown'").bind(scoreId).first<{ device: string }>();
 	if (!score) throw new HttpError(404, "That score isn't on the leaderboard.");
-	if (device.length >= 16 && score.device === (await hash(env, `device:${device}`))) return json({ ok: true });
+	if (device.length >= 16 && score.device === (await boardOf(env, device))) return json({ ok: true });
 	await env.DB.prepare("INSERT OR IGNORE INTO reports (score_id, ip_hash) VALUES (?, ?)")
 		.bind(scoreId, await ipKey(request, env))
 		.run();
@@ -269,7 +285,7 @@ export async function previewScore(request: Request, env: Env): Promise<Response
 	const mode = modeOf(body.mode);
 	if (!Number.isInteger(score) || score < 0 || score > (mode === "around" ? 6 * 36000 : 1000)) throw new HttpError(400, "Bad request.");
 	const player = clean(body.player, 40) || "orson";
-	const deviceHash = await hash(env, `device:${device}`);
+	const deviceHash = await boardOf(env, device);
 	const [rows, sent] = await Promise.all([
 		boardRows(env, mode, true, 500, { device: deviceHash, player }),
 		// Their scores already on the board this week, for their own list (the device's id stays private).

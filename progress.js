@@ -11,7 +11,7 @@
 import { API } from "./api.js";
 import { DAILY_KEYS } from "./daily.js";
 import { load, save } from "./engine/storage.js";
-import { NICKNAME_KEYS } from "./leaderboard.js";
+import { NICKNAME_KEYS, deviceId } from "./leaderboard.js";
 import { modes, state } from "./play/state.js";
 import { gonePlayers, myPlayers, setGonePlayers, setMyPlayers } from "./players/recolor.js";
 import { MODES } from "./shared/rules.js";
@@ -91,7 +91,7 @@ async function call(path, body = {}) {
     res = await fetch(`${API}/progress${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: load(KEY, null), save: localSave(), ...body }),
+      body: JSON.stringify({ key: load(KEY, null), device: deviceId(), save: localSave(), ...body }), // device: so their leaderboard rows come along too
     });
   } catch {
     throw Object.assign(new Error("Can't reach the internet right now. Try again soon."), { offline: true });

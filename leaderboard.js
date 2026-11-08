@@ -34,7 +34,7 @@ const save = (key, value) => {
 };
 
 // The same random id the ideas board uses, so each browser counts as one person.
-function deviceId() {
+export function deviceId() {
   try {
     let id = localStorage.getItem("orson-device");
     if (!id) {

@@ -175,7 +175,7 @@ main checkout.
   players pass one device; match the leader's shot, from the same spot with the same moving green, or get
   a letter; no leaderboard, nothing sent). The
   scored ones each have their own leaderboard (This week / All time, one row per player per
-  device). Fire at 3 in a row (+1), purple at 6 (+2), blue supernova at 10 (+3); money and rainbow balls;
+  device, or per set of devices joined with a pairing code). Fire at 3 in a row (+1), purple at 6 (+2), blue supernova at 10 (+3); money and rainbow balls;
   a daily challenge kept on the device. After any game, Replay plays its best shot again in slow motion
   (re-flown from what was recorded at the release, not recorded frames; see `play/replay.js`).
 - Leaderboard rows (except your own) have a small flag to report an unfriendly name (Apple asks for this
