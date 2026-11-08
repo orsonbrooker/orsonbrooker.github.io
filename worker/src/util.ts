@@ -84,6 +84,12 @@ export function requireSameOriginJson(request: Request, env: Env): void {
 	if (type !== "application/json" || !sameOrigin) throw new HttpError(403, "Not allowed.");
 }
 
+// The admin page's own addresses: /admin (the inbox) and one per section (admin.html opens the section
+// from its address). Every one gets the same page, behind the same sign-in check (admin.ts).
+export const ADMIN_SECTIONS = ["ideas", "players", "scores"];
+const ADMIN_PAGE = new RegExp(`^/admin(/(${ADMIN_SECTIONS.join("|")}))?/?$`);
+export const isAdminPage = (path: string) => ADMIN_PAGE.test(path);
+
 const LOOPBACK = ["localhost", "127.0.0.1", "[::1]", "::1"];
 /**
  * Asked for at this machine's own address (localhost, 127.0.0.1 or [::1]), not a network one, and,

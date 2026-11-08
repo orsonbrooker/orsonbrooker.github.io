@@ -29,7 +29,7 @@
 				font-size: 14px;
 			}
 			main { max-width: 1200px; margin: 0 auto; }
-			h1, h2, nav button, .pixel { font-family: var(--pixel); }
+			h1, h2, nav a, .pixel { font-family: var(--pixel); }
 
 			/* Header: title and tabs in one bar that stays at the top. */
 			header {
@@ -39,7 +39,7 @@
 			}
 			h1 { font-size: 14px; margin: 0; text-shadow: 2px 2px 0 var(--ink); }
 			nav { display: flex; gap: 6px; flex: 1; }
-			nav button { flex: 1; font-size: 10px; padding: 9px 8px; }
+			nav a { flex: 1; font-size: 10px; padding: 9px 8px; border-radius: 5px; color: #fff; text-decoration: none; text-align: center; }
 			h2 { font-size: 11px; margin: 18px 0 8px; }
 			.group { margin: 0 0 10px; }
 			.group > summary { cursor: pointer; font-weight: bold; font-size: 15px; padding: 6px 2px; list-style: none; }
@@ -60,8 +60,9 @@
 			button.primary { background: var(--accent); color: var(--ink); }
 			button.danger { background: var(--bad); color: var(--ink); }
 			button.suggested { outline: 3px solid var(--yellow); outline-offset: 1px; }
-			nav button { background: var(--panel); }
-			nav button[aria-selected="true"] { background: var(--accent); color: var(--ink); }
+			nav a { background: var(--panel); }
+			nav a:hover { background: rgba(43, 22, 34, 0.7); }
+			nav a[aria-current="page"] { background: var(--accent); color: var(--ink); }
 
 			input[type="text"], textarea, select {
 				width: 100%;
@@ -110,8 +111,9 @@
 
 			/* Players: a grid of tiles. */
 			.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 6px; }
-			.player { background: var(--panel); border-radius: 8px; padding: 8px; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 4px 10px; align-content: start; }
-			.player img { width: 56px; height: 56px; background: rgba(255, 255, 255, 0.08); border-radius: 6px; image-rendering: pixelated; }
+			.player { background: var(--panel); border-radius: 8px; padding: 8px; display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 4px 10px; align-content: start; }
+			.player img { width: 100px; height: 124px; object-fit: contain; object-position: bottom; background: rgba(255, 255, 255, 0.08); border-radius: 6px; padding: 3px; }
+			.player img.failed { outline: 2px solid var(--bad); }
 			.player .name { font-weight: bold; font-size: 15px; }
 			.player .swatches { display: flex; gap: 3px; margin-top: 3px; }
 			.player .swatches span { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, 0.6); }
@@ -164,10 +166,10 @@
 			<header>
 				<h1>Orson's admin</h1>
 				<nav>
-					<button type="button" id="tab-inbox" aria-selected="true">Inbox <span id="inbox-count"></span></button>
-					<button type="button" id="tab-ideas" aria-selected="false">Ideas</button>
-					<button type="button" id="tab-players" aria-selected="false">Players</button>
-					<button type="button" id="tab-scores" aria-selected="false">Scores</button>
+					<a href="/admin" id="tab-inbox" aria-current="page">Inbox <span id="inbox-count"></span></a>
+					<a href="/admin/ideas" id="tab-ideas">Ideas</a>
+					<a href="/admin/players" id="tab-players">Players</a>
+					<a href="/admin/scores" id="tab-scores">Scores</a>
 				</nav>
 			</header>
 			<section id="inbox"></section>
@@ -494,22 +496,47 @@
 				}
 			}
 
-			// A player's face in their own colours, drawn by the same code as the game. Until it's
-			// drawn (or if it can't be), the plain body shows.
+			// A player front and back in their own colours, number and team name, drawn by the same code
+			// as the builder and the game (players/recolor.js, which the site serves at a fixed address).
+			// Until it's drawn the plain body shows; if it can't be drawn, the picture says so.
 			let recolorKit;
 			const kit = () => (recolorKit ??= import(`${SITE}/players/recolor.js`));
 			let basesList;
 			const bases = () => (basesList ??= kit().then(({ loadBases }) => loadBases(`${SITE}/`)));
-			function paintFace(img, p) {
+			// The colours exactly as the game reads a builder player (play/players.js).
+			const lookOf = (p) => ({ skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name ?? "KINGS" });
+			function paintPlayer(img, p) {
+				const ticket = (img.dataset.ticket = String(Number(img.dataset.ticket ?? 0) + 1));
 				kit()
-					.then(async ({ loadBase, thumbnail }) => {
+					.then(async ({ loadBase, recolor }) => {
 						const base = (await bases()).find((b) => b.id === p.base);
-						if (!base) return;
+						if (!base) throw new Error(`No body called ${p.base}`);
 						const loaded = await loadBase(base, `${SITE}/`);
-						const colours = { skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name };
-						img.src = thumbnail(loaded, colours, 112).toDataURL();
+						const look = lookOf(p);
+						// Standing facing us (team name and number on the front), and dribbling away (number on the back).
+						const frames = [loaded.meta.frames.idle[0], loaded.meta.frames.dribble?.[0]].filter(Boolean);
+						const sheets = frames.map((f) => recolor(loaded, look, f.slice(0, 4)));
+						const gap = 6;
+						const c = document.createElement("canvas");
+						c.width = sheets.reduce((w, s) => w + s.width, 0) + gap * (sheets.length - 1);
+						c.height = Math.max(...sheets.map((s) => s.height));
+						const g = c.getContext("2d");
+						let x = 0;
+						for (const s of sheets) {
+							g.drawImage(s, x, c.height - s.height);
+							x += s.width + gap;
+						}
+						// Only the latest change shows, if the editor redraws quickly.
+						if (img.dataset.ticket !== ticket) return;
+						img.src = c.toDataURL();
+						img.classList.remove("failed");
+						img.title = "";
 					})
-					.catch(() => {});
+					.catch((err) => {
+						console.error(err);
+						img.classList.add("failed");
+						img.title = "Couldn't draw their colours";
+					});
 			}
 
 			// A request that looks like someone already in the game: the same name, or the same look.
@@ -523,8 +550,8 @@
 			}
 
 			function playerTile(p) {
-				const face = el("img", { src: `${SITE}/assets/characters/bases/${p.base}/thumb.webp`, alt: "", width: 56, height: 56 });
-				paintFace(face, p);
+				const face = el("img", { src: `${SITE}/assets/characters/bases/${p.base}/thumb.webp`, alt: "" });
+				paintPlayer(face, p);
 				const save = (body, done) => run(() => api(`players/${p.id}`, { name: p.name, ...body }), done);
 				const warn = p.status === "new" ? lookalike(p) : null;
 				const editor = playerEditor(p, face);
@@ -573,7 +600,7 @@
 				);
 				// The face updates as things change, before saving.
 				const current = () => ({ ...p, base: base.value, ...Object.fromEntries(PARTS.map((part) => [part, colours[part].value])), number: number.value, team_name: team.value.toUpperCase() });
-				for (const input of [base, ...Object.values(colours), number, team]) input.addEventListener("input", () => paintFace(face, current()));
+				for (const input of [base, ...Object.values(colours), number, team]) input.addEventListener("input", () => paintPlayer(face, current()));
 				const look = () => {
 					const c = current();
 					const q = new URLSearchParams({ base: c.base, name: name.value });
@@ -733,15 +760,31 @@
 				);
 			}
 
+			// Each section has its own address (/admin is the inbox, then /admin/ideas and so on), so a
+			// link or a reload opens it and Back goes to the one before. The Worker serves this page for all.
 			const TABS = ["inbox", "ideas", "players", "scores"];
+			const sectionOf = (path) => TABS.find((t) => t !== "inbox" && new RegExp(`^/admin/${t}/?$`).test(path)) ?? "inbox";
+			function show(section) {
+				for (const t of TABS) {
+					const tab = document.getElementById(`tab-${t}`);
+					if (t === section) tab.setAttribute("aria-current", "page");
+					else tab.removeAttribute("aria-current");
+					document.getElementById(t).hidden = t !== section;
+				}
+				document.title = `${section === "inbox" ? "Admin" : `${section[0].toUpperCase()}${section.slice(1)} | Admin`} | Orson Brooker`;
+			}
 			for (const section of TABS) {
-				document.getElementById(`tab-${section}`).addEventListener("click", () => {
-					for (const t of TABS) {
-						document.getElementById(`tab-${t}`).setAttribute("aria-selected", String(t === section));
-						document.getElementById(t).hidden = t !== section;
-					}
+				document.getElementById(`tab-${section}`).addEventListener("click", (e) => {
+					// A new tab or window (cmd-click, middle click) opens the address as a normal link.
+					if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+					e.preventDefault();
+					if (sectionOf(location.pathname) !== section) history.pushState(null, "", e.currentTarget.href);
+					show(section);
+					scrollTo(0, 0);
 				});
 			}
+			addEventListener("popstate", () => show(sectionOf(location.pathname)));
+			show(sectionOf(location.pathname));
 
 			load().catch((err) => {
 				document.getElementById("inbox").replaceChildren(el("div", { className: "empty", textContent: err.message }));

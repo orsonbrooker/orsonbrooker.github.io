@@ -51,7 +51,10 @@ flowchart LR
   Dist --> Pages2["GitHub Pages"] --> CF2["Cloudflare cache"]
 ```
 - **Worker** (`worker/src/index.ts`, admin UI in `worker/src/admin.html`): the only server. It answers the API
-  and the admin page on the same domain as the site, so there's no cross-site setup in production.
+  and the admin page on the same domain as the site, so there's no cross-site setup in production. The admin
+  page has one address per section (`/admin` is the inbox, then `/admin/ideas`, `/admin/players`,
+  `/admin/scores`), all the same page behind the same sign-in check. It draws players front and back with
+  the site's own `players/recolor.js`, which the build copies to a fixed address for it.
 - **Edge cache** (`worker/src/cache.ts`): public answers that are the same for everyone (the boards, score
   cards, approved players, config, the ideas list without a device) are kept in Cloudflare's cache for 30-60 s,
   keyed by the URL with only the parameters the handler reads. A new score or an admin change clears what it

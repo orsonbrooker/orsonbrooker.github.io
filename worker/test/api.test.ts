@@ -8,7 +8,7 @@ import { deviceOf, MAX_CREDIT, mergeCredit } from "../src/ideas.ts";
 import { notifyMessage } from "../src/notify.ts";
 import { isNickname } from "../src/players.ts";
 import { scoreNickname } from "../src/scores.ts";
-import { clean, cors, isLocalHost, isRude, joinSpacedLetters, requireSameOriginJson, RUDE } from "../src/util.ts";
+import { clean, cors, isAdminPage, isLocalHost, isRude, joinSpacedLetters, requireSameOriginJson, RUDE } from "../src/util.ts";
 import type { Env } from "../src/util.ts";
 
 test("clean tidies spaces, trims, cuts to length and drops anything but text", () => {
@@ -128,6 +128,12 @@ test("the local admin shortcut is only for this machine's own address", () => {
 	for (const url of ["http://192.168.4.23:8787/admin", "http://macbook.local:8787/admin", "https://orsonbrooker.com/admin", "http://localhost.evil.com/admin"])
 		assert.equal(at(url), false, url);
 	assert.equal(at("http://localhost:8787/admin", "192.168.4.40"), false);
+});
+
+test("each admin section has its own address, and nothing else under /admin is the page", () => {
+	for (const path of ["/admin", "/admin/", "/admin/ideas", "/admin/players/", "/admin/scores"]) assert.equal(isAdminPage(path), true, path);
+	for (const path of ["/admin/inbox", "/admin/bogus", "/admin/players/x", "/administrator", "/admin//ideas", "/api/admin/ideas"])
+		assert.equal(isAdminPage(path), false, path);
 });
 
 test("the ideas list is edge-cached only without a device, and the device stays out of URLs", () => {
