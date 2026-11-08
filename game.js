@@ -26,6 +26,7 @@ import { openModes, openSelect, refreshPicker, selectBack, selectCharacter, setM
 import { setGameVersion } from "./screens/over.js";
 import { closeBoard, closeHelp, openBoard, toggleBoard, toggleHelp, wireBoardTabs } from "./screens/panels.js";
 import { closeMenu, wireMenu } from "./screens/menu.js";
+import { openPause, pauseOpen, resumeGame, wirePause } from "./screens/pause.js";
 import { closeShop, wireShop } from "./screens/shop.js";
 import { ballLook, onProgress, onSave, refreshProgress } from "./progress.js";
 import { confirmDialog } from "./ui/confirm.js";
@@ -43,7 +44,7 @@ function press() {
   state.pressed = true;
   sound.unlock();
 
-  if (!screens.help.hidden || !screens.shop.hidden || !screens.menu.hidden) return;
+  if (!screens.help.hidden || !screens.shop.hidden || !screens.menu.hidden || pauseOpen()) return;
   // A tap during a replay skips it.
   if (state.phase === "replay") return endReplay();
   // Tapping to start: choose a game, then a player, then play.
@@ -100,6 +101,7 @@ $("board-back").addEventListener("click", closeBoard);
 wireBoardTabs();
 wireShop();
 wireMenu();
+wirePause();
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && state.phase === "playing") state.hiddenTab = true;
 });
@@ -119,6 +121,8 @@ listenForInput({
   escape() {
     if (!screens.help.hidden) closeHelp();
     else if (!screens.menu.hidden) closeMenu();
+    else if (pauseOpen()) resumeGame();
+    else if (state.phase === "playing") openPause();
     else if (!screens.shop.hidden) closeShop();
     else if (!screens.board.hidden) closeBoard();
     else if (state.phase === "replay") endReplay();
@@ -166,7 +170,7 @@ async function boot() {
   if (location.hash === "#leaderboard") openBoard("week");
   updateHud();
   startLoop((dt) => {
-    step(dt);
+    if (!state.paused) step(dt);
     render();
   });
 }

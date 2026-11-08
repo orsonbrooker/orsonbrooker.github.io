@@ -94,6 +94,18 @@ export const sound = {
     }
   },
 
+  // Leaving a game part way (quitting from the Paused screen): back to the menu music, no fanfare.
+  quitGame() {
+    if (!this.ctx) return;
+    music.wanted = null;
+    music.mode = "menu";
+    if (this.musicOn) {
+      stopMusic(false);
+      startMusic("menu");
+    }
+    crowdLevel(0.35);
+  },
+
   gameOver() {
     if (!this.ctx) return;
     music.wanted = null;

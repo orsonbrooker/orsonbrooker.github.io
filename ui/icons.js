@@ -23,6 +23,7 @@ const ICONS = {
   coins: "<path d=\"M6 2h6v2H6zM4 4h2v2H4zm8 0h2v2h-2zm-8 8h2v2H4zm8 0h2v2h-2zm-6 2h6v2H6zM2 6h2v6H2zm12 0h2v6h-2z\"/><path d=\"M14 8h4v2h-4zm-4 10h2v2h-2zm8-8h2v2h-2zm-6 10h2v2h-2zm6-2h2v2h-2z\"/><path d=\"M12 20h6v2h-6zm-4-6h2v4H8zm12-2h2v6h-2zM7 6h4v2H7z\"/><path d=\"M9 6h2v6H9zm6 8h2v4h-2zm-1-2h3v2h-3z\"/>",
   shop: "<path d=\"M3 6h18v2H3zm2 14h14v2H5zM3 8h2v12H3zm16 0h2v12h-2z\"/><path d=\"M7 4h2v6H7zm2-2h6v2H9zm6 2h2v6h-2z\"/>",
   check: "<path d=\"M10 18H8v-2h2v2Zm-2-2H6v-2h2v2Zm4-2v2h-2v-2h2Zm-6 0H4v-2h2v2Zm8 0h-2v-2h2v2Zm2-2h-2v-2h2v2Zm2-2h-2V8h2v2Zm2-2h-2V6h2v2Z\"/>",
+  pause: "<path d=\"M6 4h4v16H6zm8 0h4v16h-4z\"/>",
   menu: "<path d=\"M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z\"/>",
   device: "<path d=\"M6 2h12v2H6zm0 18h12v2H6zM4 4h2v16H4zm14 0h2v16h-2zm-7 13h2v2h-2z\"/>",
 };

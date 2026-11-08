@@ -37,6 +37,7 @@ export function startGame() {
   state.shotLog = [];
   state.replayShots = [];
   state.hiddenTab = false;
+  state.paused = false;
   state.gameToken = null;
   state.rngSeed = null;
   resetRandom();

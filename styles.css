@@ -174,9 +174,12 @@ header p {
   opacity: 0.45;
 }
 
-/* Mid-game only the sound buttons stay: the others would open a screen over the game. */
-.game-page:is([data-phase="playing"], [data-phase="ending"], [data-phase="replay"]) .corner-left,
-.game-page:is([data-phase="playing"], [data-phase="ending"], [data-phase="replay"]) #help-button {
+/* Mid-game: pause and the sound buttons. The others would open a screen over the game. */
+.game-page:is([data-phase="playing"], [data-phase="ending"], [data-phase="replay"]) :is(#menu-button, #board-button, #shop-button, #help-button) {
+  display: none;
+}
+
+.game-page:not([data-phase="playing"]) #pause-button {
   display: none;
 }
 

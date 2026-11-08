@@ -55,6 +55,7 @@
            sound on the right. The bottom corners stay free for thumbs. -->
       <div class="corner corner-left">
         <button id="menu-button" type="button" aria-label="Menu"><span data-icon="menu"></span></button>
+        <button id="pause-button" type="button" aria-label="Pause"><span data-icon="pause"></span></button>
         <button id="board-button" type="button" aria-label="Leaderboard"><span data-icon="trophy"></span></button>
         <button id="shop-button" type="button" aria-label="Shop"><span data-icon="shop"></span></button>
       </div>
@@ -255,6 +256,25 @@
           <p>Keep scoring for blue supernova fire at 10 in a row. Watch for a gold money ball (double points) and the rare rainbow ball (5 points)!</p>
           <p><strong>Instant replay:</strong> after a game, tap Replay to watch your best shot again in slow motion.</p>
           <button class="primary" id="help-close" type="button">Got it</button>
+        </div>
+      </div>
+
+      <!-- Paused mid-game: carry on, start the same game again, or stop it. -->
+      <div class="screen panel-screen" id="pause-screen" hidden>
+        <div class="panel menu-panel">
+          <div class="select-head">
+            <button class="screen-back" id="pause-close" type="button" aria-label="Keep playing"><span data-icon="close"></span></button>
+            <h2>Paused</h2>
+          </div>
+          <div class="menu-list">
+            <button class="primary" type="button" id="pause-resume"><span data-icon="play"></span>Keep playing</button>
+            <button type="button" id="pause-restart"><span data-icon="again"></span>Start again</button>
+            <button type="button" id="pause-quit"><span data-icon="home"></span>Quit this game</button>
+            <div class="menu-pair">
+              <button type="button" data-menu="music" aria-pressed="true"><span data-icon="music"></span><span>Music</span></button>
+              <button type="button" data-menu="sound" aria-pressed="true"><span data-icon="sound"></span><span>Sound</span></button>
+            </div>
+          </div>
         </div>
       </div>
 

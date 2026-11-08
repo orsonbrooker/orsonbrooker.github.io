@@ -10,7 +10,7 @@ export const $ = (id) => document.getElementById(id);
 export const stage = $("stage");
 // The whole page around the court: it takes presses too, and carries the phase for the CSS.
 export const page = $("game-page");
-export const screens = { menu: $("menu-screen"), title: $("title-screen"), select: $("select-screen"), modes: $("mode-screen"), turn: $("turn-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen"), shop: $("shop-screen") };
+export const screens = { pause: $("pause-screen"), menu: $("menu-screen"), title: $("title-screen"), select: $("select-screen"), modes: $("mode-screen"), turn: $("turn-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen"), shop: $("shop-screen") };
 export const tapToPlay = $("tap-to-play");
 export const charPick = $("char-pick");
 
@@ -39,9 +39,9 @@ export const openScreen = () => Object.keys(screens).find((k) => !screens[k].hid
 export function setUpSoundButtons() {
   const muteBtn = $("mute");
   const musicBtn = $("music");
-  // The same two switches in the menu.
-  const menuSound = screens.menu.querySelector('[data-menu="sound"]');
-  const menuMusic = screens.menu.querySelector('[data-menu="music"]');
+  // The same two switches in the menu and on the Paused screen.
+  const menuSounds = document.querySelectorAll('[data-menu="sound"]');
+  const menuMusics = document.querySelectorAll('[data-menu="music"]');
   sound.muted = load("orson-hoops-muted", false);
   sound.musicOn = load("orson-hoops-music", true);
 
@@ -51,15 +51,19 @@ export function setUpSoundButtons() {
     musicBtn.classList.toggle("off", !sound.musicOn);
     musicBtn.setAttribute("aria-label", sound.musicOn ? "Turn music off" : "Turn music on");
     musicBtn.setAttribute("aria-pressed", String(sound.musicOn));
-    menuSound.setAttribute("aria-pressed", String(!sound.muted));
-    menuSound.querySelector("[data-icon]").innerHTML = icon(sound.muted ? "mute" : "sound");
-    menuSound.lastElementChild.textContent = sound.muted ? "Sound off" : "Sound on";
-    menuMusic.setAttribute("aria-pressed", String(sound.musicOn));
-    menuMusic.lastElementChild.textContent = sound.musicOn ? "Music on" : "Music off";
+    for (const menuSound of menuSounds) {
+      menuSound.setAttribute("aria-pressed", String(!sound.muted));
+      menuSound.querySelector("[data-icon]").innerHTML = icon(sound.muted ? "mute" : "sound");
+      menuSound.lastElementChild.textContent = sound.muted ? "Sound off" : "Sound on";
+    }
+    for (const menuMusic of menuMusics) {
+      menuMusic.setAttribute("aria-pressed", String(sound.musicOn));
+      menuMusic.lastElementChild.textContent = sound.musicOn ? "Music on" : "Music off";
+    }
   }
 
-  menuSound.addEventListener("click", () => muteBtn.click());
-  menuMusic.addEventListener("click", () => musicBtn.click());
+  for (const b of menuSounds) b.addEventListener("click", () => muteBtn.click());
+  for (const b of menuMusics) b.addEventListener("click", () => musicBtn.click());
   muteBtn.addEventListener("click", (e) => {
     sound.setMuted(!sound.muted);
     save("orson-hoops-muted", sound.muted);
