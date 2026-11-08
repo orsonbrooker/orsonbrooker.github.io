@@ -10,7 +10,11 @@ import { icon } from "../ui/icons.js";
 
 const list = $("ball-styles");
 const say = (text) => ($("shop-say").textContent = text);
-const pairSay = (text) => ($("pair-say").textContent = text);
+// Pairing messages sit at the bottom of the shop, which scrolls on a phone: bring them into view.
+const pairSay = (text) => {
+  $("pair-say").textContent = text;
+  if (text) $("pair-say").scrollIntoView({ block: "nearest", behavior: REDUCED_MOTION.matches ? "auto" : "smooth" });
+};
 const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
 
 // Each style's spinning frames, made once.
@@ -20,6 +24,12 @@ const framesFor = (style) => frames.get(style.id) ?? frames.set(style.id, makeBa
 const coinText = (n) => `${n} ${n === 1 ? "coin" : "coins"}`;
 
 function render() {
+  // Before their first coins there's nothing to bring, so no code to show (they can still type one in).
+  const saved = hasProgress();
+  $("pair-show").hidden = !saved;
+  $("pair-intro").textContent = saved
+    ? "Bring your coins and balls with you. Show your code here, then type it on the other device."
+    : "Earn some coins first, then you can bring them to another device. Got a code from another device? Type it in here.";
   $("shop-coins").innerHTML = icon("coins");
   $("shop-coins").append(String(progress.coins));
   $("shop-coins").setAttribute("aria-label", coinText(progress.coins));

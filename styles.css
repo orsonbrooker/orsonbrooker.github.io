@@ -1843,3 +1843,7 @@ header p {
 .pair-code[hidden] {
   display: none;
 }
+
+.pair-actions [hidden] {
+  display: none;
+}
