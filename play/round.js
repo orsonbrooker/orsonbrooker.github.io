@@ -8,10 +8,10 @@ import { COURT_PX, EU, EV, PX_PER_M, RIM, isThreePointSpot, project } from "../e
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "../engine/physics.js";
 import { save } from "../engine/storage.js";
 import { startToken } from "../leaderboard.js";
-import { faceHoop, frameCount, loopFps, releaseOffset, sheet, shoePoints } from "../play/players.js";
+import { canJog, faceHoop, faceToward, frameCount, loopFps, releaseOffset, sheet, shoePoints } from "../play/players.js";
 import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss } from "../play/react.js";
 import { updateHud } from "../play/scene.js";
-import { ANIM_FPS, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state } from "../play/state.js";
+import { ANIM_FPS, JOG_MAX_TIME, JOG_SPEED, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state } from "../play/state.js";
 import { showScreen } from "../screens/base.js";
 import { endGame } from "../screens/over.js";
 import { GAME_SECONDS } from "../shared/rules.js";
@@ -56,6 +56,7 @@ export function startGame() {
   player.fade = 1;
   player.activeBall = null;
   player.moving = false;
+  player.path = null;
   setAnim("idle");
   showScreen(null);
   updateHud();
@@ -206,14 +207,47 @@ function updatePlayer(dt) {
   player.t += dt;
 
   if (player.moving) {
-    player.fade -= dt * 6;
-    if (player.fade <= 0) {
-      const spot = mode().pickSpot();
+    // A sheet with jogging moves: he jogs to the next spot, dribbling. Otherwise he fades out and
+    // appears there.
+    if (canJog()) {
+      if (!player.path) {
+        const spot = mode().pickSpot();
+        const dist = Math.hypot(spot.u - player.u, spot.v - player.v);
+        player.path = { from: { u: player.u, v: player.v }, to: spot, t: 0, dur: Math.min(JOG_MAX_TIME, dist / JOG_SPEED) };
+        if (dist > 0.05) {
+          faceToward(spot.u, spot.v);
+          setAnim("run");
+        }
+      }
+      const path = player.path;
+      path.t += dt;
+      const k = path.dur ? Math.min(1, path.t / path.dur) : 1;
+      player.u = path.from.u + (path.to.u - path.from.u) * k;
+      player.v = path.from.v + (path.to.v - path.from.v) * k;
+      if (player.anim === "run") {
+        // footsteps twice a stride, the ball's bounce once
+        const n = frameCount("run");
+        const frame = Math.floor(player.t * loopFps("run")) % n;
+        if (frame !== player.lastRunFrame && (frame === 0 || frame === Math.floor(n / 2))) {
+          sound.step(0.6);
+          if (frame === 0) sound.dribble();
+        }
+        player.lastRunFrame = frame;
+      }
+      if (k < 1) return;
+      player.fade = 1;
+    } else {
+      player.fade -= dt * 6;
+      if (player.fade > 0) return;
+    }
+    {
+      const spot = player.path?.to ?? mode().pickSpot();
+      player.path = null;
       player.u = spot.u;
       player.v = spot.v;
       faceHoop();
       player.moving = false;
-      player.fade = 0;
+      if (!canJog()) player.fade = 0;
       // Already facing the hoop after the first shot: straight to dribbling (or jumping, if held).
       setAnim(state.pressed ? "gather" : "dribble");
       if (isThreePointSpot(spot.u, spot.v)) {

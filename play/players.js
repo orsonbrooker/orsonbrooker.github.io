@@ -210,10 +210,21 @@ export async function boardBody(row) {
 // "dribble-bl", "dribble-b"...; the others just have "dribble".
 const DIRS = ["r", "fr", "f", "fl", "l", "bl", "b", "br"];
 export function faceHoop() {
+  faceToward(RIM.u, RIM.v);
+}
+
+// Faces him toward a point on the court (where he's jogging to, or the hoop).
+export function faceToward(u, v) {
   const p = project(player.u, player.v);
-  const h = project(RIM.u, RIM.v);
+  const h = project(u, v);
   const a = Math.atan2(h.y - p.y, h.x - p.x); // screen angle, down is positive
   player.dir = DIRS[(Math.round(a / (Math.PI / 4)) + 8) % 8];
+}
+
+// Whether this player's sheet has him jogging (in every direction), so he can run between spots.
+export function canJog() {
+  const f = sheet.sprites?.frames;
+  return !!f && DIRS.every((d) => f[`run-${d}`]);
 }
 
 // The name of a move as drawn for the way he's facing (falling back to back-left, then plain).
@@ -242,7 +253,7 @@ export function currentFrame() {
   const frames = sheet.sprites.frames[named(player.anim)];
   let i;
   if (player.anim === "jump") i = Math.floor(player.t / JUMP_FRAME_TIME);
-  else if (player.anim === "idle" || player.anim === "dribble") i = Math.floor(player.t * loopFps(player.anim)) % frames.length;
+  else if (player.anim === "idle" || player.anim === "dribble" || player.anim === "run") i = Math.floor(player.t * loopFps(player.anim)) % frames.length;
   else i = Math.floor(player.t * ANIM_FPS[player.anim]);
   return frames[Math.min(i, frames.length - 1)];
 }

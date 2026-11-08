@@ -12,6 +12,10 @@ export const DEBUG = new URLSearchParams(location.search).has("debug");
 export const LAUNCH_ANGLE = (52 * Math.PI) / 180;
 // Jump timing (seconds since leaving the ground). Releasing at the apex is a perfect shot.
 export const JUMP_FRAME_TIME = 0.085;
+// Jogging between spots (for players drawn jogging): metres a second, and the longest a move takes,
+// so a long run across the court doesn't slow the game down much more than appearing there did.
+export const JOG_SPEED = 4.5;
+export const JOG_MAX_TIME = 0.9;
 export const JUMP_APEX = 0.29;
 export const TIMING_WINDOW = 0.13;
 export const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16 };
@@ -58,6 +62,7 @@ export const player = {
   fade: 1,
   activeBall: null,
   moving: false,
+  path: null, // jogging to the next spot: { from, to, t, dur }
   dir: "bl", // which way he faces the hoop from his spot (b, bl, l...), for sheets drawn that way
 };
 

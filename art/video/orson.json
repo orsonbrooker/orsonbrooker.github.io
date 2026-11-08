@@ -28,6 +28,26 @@
   },
   "shot-left": {
    "video": "/Users/lukebrooker/Downloads/orson-basketball/E-shoot-left.mp4"
+  },
+  "dribble-front": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-front.mp4",
+   "keep_ball": true
+  },
+  "dribble-front-right": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-front-right.mp4",
+   "keep_ball": true
+  },
+  "dribble-right": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-right.mp4",
+   "keep_ball": true
+  },
+  "dribble-back-right": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-back-right.mp4",
+   "keep_ball": true
+  },
+  "dribble-front-left": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-front-left.mov",
+   "keep_ball": true
   }
  },
  "anims": {
@@ -246,6 +266,141 @@
    ],
    "face": "front",
    "anchor": "gather-l"
+  },
+  "jog-f": {
+   "clip": "dribble-front",
+   "frames": [
+    89,
+    91,
+    93,
+    95,
+    97,
+    99,
+    101,
+    103,
+    105
+   ],
+   "fps": 12,
+   "face": "front"
+  },
+  "jog-fr": {
+   "clip": "dribble-front-right",
+   "frames": [
+    96,
+    98,
+    100,
+    102,
+    104,
+    106,
+    108,
+    110,
+    112
+   ],
+   "fps": 12,
+   "face": "front"
+  },
+  "jog-r": {
+   "clip": "dribble-right",
+   "frames": [
+    85,
+    87,
+    89,
+    91,
+    93,
+    95,
+    97,
+    99,
+    101,
+    103
+   ],
+   "fps": 12,
+   "face": "side"
+  },
+  "jog-br": {
+   "clip": "dribble-back-right",
+   "frames": [
+    66,
+    68,
+    70,
+    72,
+    74,
+    76,
+    78,
+    80,
+    82,
+    84,
+    86
+   ],
+   "fps": 12,
+   "face": "back"
+  },
+  "jog-b": {
+   "clip": "dribble-back",
+   "frames": [
+    90,
+    92,
+    94,
+    96,
+    98,
+    100,
+    102,
+    104,
+    106,
+    108,
+    110
+   ],
+   "fps": 12,
+   "face": "back"
+  },
+  "jog-bl": {
+   "clip": "dribble-back-left",
+   "frames": [
+    122,
+    124,
+    126,
+    128,
+    130,
+    132,
+    134,
+    136,
+    138
+   ],
+   "fps": 12,
+   "face": "back"
+  },
+  "jog-l": {
+   "clip": "dribble-left",
+   "frames": [
+    85,
+    87,
+    89,
+    91,
+    93,
+    95,
+    97,
+    99,
+    101,
+    103
+   ],
+   "fps": 12,
+   "face": "side"
+  },
+  "jog-fl": {
+   "clip": "dribble-front-left",
+   "frames": [
+    122,
+    124,
+    126,
+    128,
+    130,
+    132,
+    134,
+    136,
+    138,
+    140
+   ],
+   "fps": 12,
+   "face": "front"
   }
  },
  "spin": {
@@ -1158,6 +1313,362 @@
      6
     ]
    ]
+  },
+  "run-f": {
+   "from": [
+    [
+     "jog-f",
+     0
+    ],
+    [
+     "jog-f",
+     1
+    ],
+    [
+     "jog-f",
+     2
+    ],
+    [
+     "jog-f",
+     3
+    ],
+    [
+     "jog-f",
+     4
+    ],
+    [
+     "jog-f",
+     5
+    ],
+    [
+     "jog-f",
+     6
+    ],
+    [
+     "jog-f",
+     7
+    ],
+    [
+     "jog-f",
+     8
+    ]
+   ],
+   "fps": 12
+  },
+  "run-fr": {
+   "from": [
+    [
+     "jog-fr",
+     0
+    ],
+    [
+     "jog-fr",
+     1
+    ],
+    [
+     "jog-fr",
+     2
+    ],
+    [
+     "jog-fr",
+     3
+    ],
+    [
+     "jog-fr",
+     4
+    ],
+    [
+     "jog-fr",
+     5
+    ],
+    [
+     "jog-fr",
+     6
+    ],
+    [
+     "jog-fr",
+     7
+    ],
+    [
+     "jog-fr",
+     8
+    ]
+   ],
+   "fps": 12
+  },
+  "run-r": {
+   "from": [
+    [
+     "jog-r",
+     0
+    ],
+    [
+     "jog-r",
+     1
+    ],
+    [
+     "jog-r",
+     2
+    ],
+    [
+     "jog-r",
+     3
+    ],
+    [
+     "jog-r",
+     4
+    ],
+    [
+     "jog-r",
+     5
+    ],
+    [
+     "jog-r",
+     6
+    ],
+    [
+     "jog-r",
+     7
+    ],
+    [
+     "jog-r",
+     8
+    ],
+    [
+     "jog-r",
+     9
+    ]
+   ],
+   "fps": 12
+  },
+  "run-br": {
+   "from": [
+    [
+     "jog-br",
+     0
+    ],
+    [
+     "jog-br",
+     1
+    ],
+    [
+     "jog-br",
+     2
+    ],
+    [
+     "jog-br",
+     3
+    ],
+    [
+     "jog-br",
+     4
+    ],
+    [
+     "jog-br",
+     5
+    ],
+    [
+     "jog-br",
+     6
+    ],
+    [
+     "jog-br",
+     7
+    ],
+    [
+     "jog-br",
+     8
+    ],
+    [
+     "jog-br",
+     9
+    ],
+    [
+     "jog-br",
+     10
+    ]
+   ],
+   "fps": 12
+  },
+  "run-b": {
+   "from": [
+    [
+     "jog-b",
+     0
+    ],
+    [
+     "jog-b",
+     1
+    ],
+    [
+     "jog-b",
+     2
+    ],
+    [
+     "jog-b",
+     3
+    ],
+    [
+     "jog-b",
+     4
+    ],
+    [
+     "jog-b",
+     5
+    ],
+    [
+     "jog-b",
+     6
+    ],
+    [
+     "jog-b",
+     7
+    ],
+    [
+     "jog-b",
+     8
+    ],
+    [
+     "jog-b",
+     9
+    ],
+    [
+     "jog-b",
+     10
+    ]
+   ],
+   "fps": 12
+  },
+  "run-bl": {
+   "from": [
+    [
+     "jog-bl",
+     0
+    ],
+    [
+     "jog-bl",
+     1
+    ],
+    [
+     "jog-bl",
+     2
+    ],
+    [
+     "jog-bl",
+     3
+    ],
+    [
+     "jog-bl",
+     4
+    ],
+    [
+     "jog-bl",
+     5
+    ],
+    [
+     "jog-bl",
+     6
+    ],
+    [
+     "jog-bl",
+     7
+    ],
+    [
+     "jog-bl",
+     8
+    ]
+   ],
+   "fps": 12
+  },
+  "run-l": {
+   "from": [
+    [
+     "jog-l",
+     0
+    ],
+    [
+     "jog-l",
+     1
+    ],
+    [
+     "jog-l",
+     2
+    ],
+    [
+     "jog-l",
+     3
+    ],
+    [
+     "jog-l",
+     4
+    ],
+    [
+     "jog-l",
+     5
+    ],
+    [
+     "jog-l",
+     6
+    ],
+    [
+     "jog-l",
+     7
+    ],
+    [
+     "jog-l",
+     8
+    ],
+    [
+     "jog-l",
+     9
+    ]
+   ],
+   "fps": 12
+  },
+  "run-fl": {
+   "from": [
+    [
+     "jog-fl",
+     0
+    ],
+    [
+     "jog-fl",
+     1
+    ],
+    [
+     "jog-fl",
+     2
+    ],
+    [
+     "jog-fl",
+     3
+    ],
+    [
+     "jog-fl",
+     4
+    ],
+    [
+     "jog-fl",
+     5
+    ],
+    [
+     "jog-fl",
+     6
+    ],
+    [
+     "jog-fl",
+     7
+    ],
+    [
+     "jog-fl",
+     8
+    ],
+    [
+     "jog-fl",
+     9
+    ]
+   ],
+   "fps": 12
   }
  },
  "release": {
