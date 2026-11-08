@@ -5,6 +5,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import type { Env } from "../src/util.ts";
 
+// The edge cache the Worker clears after changes (cache.ts): not there in Node, and nothing to clear.
+(globalThis as unknown as { caches: unknown }).caches ??= { default: { delete: async () => true } };
+
 export function fakeEnv(): { env: Env; db: DatabaseSync } {
 	const db = new DatabaseSync(":memory:");
 	const dir = new URL("../migrations/", import.meta.url);

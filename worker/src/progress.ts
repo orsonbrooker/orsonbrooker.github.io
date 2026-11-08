@@ -73,15 +73,20 @@ async function deviceHash(env: Env, device: unknown): Promise<string | null> {
 	return d.length >= 16 ? hash(env, `device:${d}`) : null;
 }
 
-// Notes which leaderboard id goes with this key, and gives the progress its shared one if it has none
-// yet (this device's). Writes nothing when both are already set.
+// Notes which leaderboard id goes with this key (one key per id: a newer key takes it over), gives the
+// progress its shared id if it has none yet (this device's), and moves any of this device's rows still on
+// its own id onto the shared one (a score sent while it was joining lands there). Writes nothing when
+// everything is already in place.
 async function linkDevice(env: Env, id: number, key: unknown, device: unknown): Promise<void> {
 	const d = await deviceHash(env, device);
 	const k = clean(key, 64);
 	if (!d || !/^[0-9a-f]{48}$/.test(k)) return;
+	const kh = await keyHash(env, k);
 	await env.DB.batch([
-		env.DB.prepare("UPDATE progress_devices SET device_hash = ?1 WHERE key_hash = ?2 AND device_hash IS NOT ?1").bind(d, await keyHash(env, k)),
+		env.DB.prepare("UPDATE progress_devices SET device_hash = NULL WHERE device_hash = ?1 AND key_hash != ?2").bind(d, kh),
+		env.DB.prepare("UPDATE progress_devices SET device_hash = ?1 WHERE key_hash = ?2 AND device_hash IS NOT ?1").bind(d, kh),
 		env.DB.prepare("UPDATE progress SET board = ? WHERE id = ? AND board IS NULL").bind(d, id),
+		env.DB.prepare("UPDATE scores SET device = (SELECT board FROM progress WHERE id = ?2) WHERE device = ?1 AND device != (SELECT board FROM progress WHERE id = ?2)").bind(d, id),
 	]);
 }
 
@@ -249,37 +254,42 @@ export async function joinCode(request: Request, env: Env): Promise<Response> {
 	const mine = await findProgress(env, body.key);
 	if (mine && mine.id === into) return json(await view(env, into)); // already together
 	let key = clean(body.key, 64);
-	const device = await deviceHash(env, body.device);
-	const board = (await env.DB.prepare("SELECT board FROM progress WHERE id = ?").bind(into).first<{ board: string | null }>())?.board ?? device;
-	// Their rows from before: this device's own, and (if it had progress) its shared ones and its other devices'.
-	const moveRows = board
-		? env.DB.prepare(
-				`UPDATE scores SET device = ?1 WHERE device != ?1 AND (device = ?2
-				   OR device = (SELECT board FROM progress WHERE id = ?3)
-				   OR device IN (SELECT device_hash FROM progress_devices WHERE progress_id = ?3 AND device_hash IS NOT NULL))`,
-			).bind(board, device, mine?.id ?? 0)
-		: null;
 	if (mine) {
-		// Bring this device's coins, balls and save along, then move its devices across.
+		// Bring this device's coins, balls, save and leaderboard rows along, then move its devices across.
+		// Each step only happens while both progresses are still there: if another join merged either one
+		// away a moment ago (two devices typing each other's codes at once), nothing moves and they're
+		// asked to try again, rather than anything ending up in a progress that's gone.
+		const both = "EXISTS (SELECT 1 FROM progress WHERE id = ?1) AND EXISTS (SELECT 1 FROM progress WHERE id = ?2)";
+		const step = (sql: string) => env.DB.prepare(sql).bind(into, mine.id);
 		const old = await env.DB.prepare("SELECT save FROM progress WHERE id = ?").bind(mine.id).first<{ save: string }>();
 		await mergeSave(request, env, into, parseSave(old?.save ?? "{}"));
 		await env.DB.batch([
-			...(moveRows ? [moveRows] : []), // first, while its devices are still listed under its old progress
-			env.DB.prepare("UPDATE progress SET coins = coins + ?1, earned = earned + ?2 WHERE id = ?3").bind(mine.coins, mine.earned, into),
-			env.DB.prepare("INSERT OR IGNORE INTO progress_items (progress_id, item, created_at) SELECT ?1, item, created_at FROM progress_items WHERE progress_id = ?2").bind(into, mine.id),
-			env.DB.prepare("DELETE FROM progress_items WHERE progress_id = ?").bind(mine.id),
-			env.DB.prepare("UPDATE progress_devices SET progress_id = ?1 WHERE progress_id = ?2").bind(into, mine.id),
-			env.DB.prepare("UPDATE progress_games SET progress_id = ?1 WHERE progress_id = ?2").bind(into, mine.id),
-			env.DB.prepare("DELETE FROM pair_codes WHERE progress_id = ?").bind(mine.id),
-			env.DB.prepare("DELETE FROM progress WHERE id = ?").bind(mine.id),
+			// A progress from before devices were noted has no shared id yet: it takes this one's.
+			step(`UPDATE progress SET board = (SELECT board FROM progress WHERE id = ?2) WHERE id = ?1 AND board IS NULL AND ${both}`),
+			// Rows next, while its devices are still listed under its old progress: its shared ones and each device's own.
+			step(`UPDATE scores SET device = (SELECT board FROM progress WHERE id = ?1)
+			      WHERE ${both} AND (SELECT board FROM progress WHERE id = ?1) IS NOT NULL AND device != (SELECT board FROM progress WHERE id = ?1)
+			        AND (device = (SELECT board FROM progress WHERE id = ?2) OR device IN (SELECT device_hash FROM progress_devices WHERE progress_id = ?2 AND device_hash IS NOT NULL))`),
+			// Its coins as they are now (not as read above: one of its devices may have just earned more).
+			step(`UPDATE progress SET coins = coins + (SELECT coins FROM progress WHERE id = ?2), earned = earned + (SELECT earned FROM progress WHERE id = ?2) WHERE id = ?1 AND ${both}`),
+			step(`INSERT OR IGNORE INTO progress_items (progress_id, item, created_at) SELECT ?1, item, created_at FROM progress_items WHERE progress_id = ?2 AND ${both}`),
+			step(`DELETE FROM progress_items WHERE progress_id = ?2 AND ${both}`),
+			step(`UPDATE progress_devices SET progress_id = ?1 WHERE progress_id = ?2 AND ${both}`),
+			step(`UPDATE progress_games SET progress_id = ?1 WHERE progress_id = ?2 AND ${both}`),
+			step(`DELETE FROM pair_codes WHERE progress_id = ?2 AND ${both}`),
+			step(`DELETE FROM progress WHERE id = ?2 AND ${both}`),
 		]);
+		if ((await findProgress(env, key))?.id !== into) throw new HttpError(409, "That didn't quite work. Get a new code and try again.");
 	} else {
 		key = newKey();
-		await env.DB.prepare("INSERT INTO progress_devices (key_hash, progress_id) VALUES (?, ?)").bind(await keyHash(env, key), into).run();
-		if (moveRows) await moveRows.run();
+		const added = await env.DB.prepare("INSERT INTO progress_devices (key_hash, progress_id) SELECT ?1, ?2 WHERE EXISTS (SELECT 1 FROM progress WHERE id = ?2) RETURNING progress_id")
+			.bind(await keyHash(env, key), into)
+			.first();
+		if (!added) throw new HttpError(409, "That didn't quite work. Get a new code and try again."); // merged into another a moment ago
 	}
+	// This device's own rows come across here (and its shared id is set if the progress had none).
 	await linkDevice(env, into, key, body.device);
-	if (moveRows) await forget(new URL(request.url).origin, { boards: [...MODES] }); // the boards show the joined rows straight away
+	await forget(new URL(request.url).origin, { boards: [...MODES] }); // the boards show the joined rows straight away
 	await mergeSave(request, env, into, body.save);
 	return json(await view(env, into, key));
 }

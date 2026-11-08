@@ -275,7 +275,12 @@ Terms used across the code:
   and its own-row checks (the preview, not reporting yourself) use it too. Joining moves the joining device's
   earlier rows (and those of any devices it was already joined with) onto the shared id, so each player
   shows once, at their best across all their devices, with the latest nickname. A device with no progress
-  keeps its own rows, as before.
+  keeps its own rows, as before. Each progress call also moves any rows still on the device's own id
+  across (a score sent while it was joining), and a device's id is linked to one key only (its newest).
+- **Two joins at once:** a join merges one progress into another in one batch whose every step only runs
+  while both still exist. If another join merged either away a moment before (two devices typing each
+  other's codes at once), nothing moves and the device is asked to get a new code (409), so no coins or
+  devices end up in a progress that's gone.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
 
 ## Courts

@@ -11,9 +11,6 @@ import { hash } from "../src/util.ts";
 import type { Env } from "../src/util.ts";
 import { fakeEnv } from "./fake-d1.ts";
 
-// The edge cache the Worker clears after a join (not there in Node).
-(globalThis as unknown as { caches: unknown }).caches = { default: { delete: async () => true } };
-
 const A = "a".repeat(32);
 const B = "b".repeat(32);
 const C = "c".repeat(32);
@@ -103,4 +100,72 @@ test("a device's id is noted on any progress call, without writing again when no
 	// Another device can't take over a progress's rows by sending its id with someone else's key.
 	await post(getProgress, env, { key: a.key, device: B });
 	assert.equal((db.prepare("SELECT board FROM progress").get() as { board: string }).board, hA);
+});
+
+// ---------- Races and odd cases ----------
+
+type Failed = Error & { status?: number };
+const coinsOf = async (env: Env, key: string | undefined) => ((await post(getProgress, env, { key })) as unknown as { coins: number }).coins;
+const count = (db: DatabaseSync, sql: string, ...args: string[]) => (db.prepare(sql).get(...args) as { n: number }).n;
+const ORPHANS = "SELECT COUNT(*) AS n FROM progress_devices WHERE progress_id NOT IN (SELECT id FROM progress)";
+
+test("a score saved on the device's own row while it was joining moves across next time the game opens", async () => {
+	const { env, db } = fakeEnv();
+	const [hA, hB] = await Promise.all([A, B].map((d) => hash(env, `device:${d}`)));
+	const a = await post(claimGame, env, { ...(await game(env)), device: A });
+	const { code } = await post(pairCode, env, { key: a.key });
+	const b = await post(joinCode, env, { code, device: B }, "198.51.100.7");
+	addScore(db, hB, 50); // sent mid-join: it worked out its row just before the join landed
+	await post(getProgress, env, { key: b.key, device: B });
+	assert.deepEqual(devices(db), new Set([hA]));
+});
+
+test("a device that starts a new progress (its key was reset) goes on the new one's rows, not the old", async () => {
+	const { env, db } = fakeEnv();
+	const hB = await hash(env, `device:${B}`);
+	const a = await post(claimGame, env, { ...(await game(env)), device: A });
+	const { code } = await post(pairCode, env, { key: a.key });
+	await post(joinCode, env, { code, device: B }, "198.51.100.7");
+	assert.notEqual(await boardOf(env, B), hB);
+	await post(claimGame, env, { ...(await game(env)), device: B }, "198.51.100.7"); // no key: a new progress
+	assert.equal(await boardOf(env, B), hB);
+	assert.equal(count(db, "SELECT COUNT(*) AS n FROM progress_devices WHERE device_hash = ?", hB), 1);
+});
+
+test("two devices typing each other's codes at once: the second join changes nothing and asks to try again", async () => {
+	const { env, db } = fakeEnv();
+	const a = await post(claimGame, env, { ...(await game(env)), device: A });
+	const b = await post(claimGame, env, { ...(await game(env)), device: B }, "198.51.100.7");
+	const { code: fromA } = await post(pairCode, env, { key: a.key });
+	const { code: fromB } = await post(pairCode, env, { key: b.key }, "198.51.100.7");
+	const total = (await coinsOf(env, a.key)) + (await coinsOf(env, b.key));
+	// B's join has used A's code; just then A's join (with B's code) merges A into B.
+	const batch = env.DB.batch.bind(env.DB);
+	env.DB.batch = (async (stmts: Parameters<typeof batch>[0]) => {
+		env.DB.batch = batch;
+		await post(joinCode, env, { key: a.key, code: fromB, device: A });
+		return batch(stmts);
+	}) as typeof batch;
+	await assert.rejects(post(joinCode, env, { key: b.key, code: fromA, device: B }, "198.51.100.7"), (err: Failed) => err.status === 409);
+	// One progress left, both keys find it, with both devices' coins, and no device pointing at nothing.
+	assert.equal(count(db, "SELECT COUNT(*) AS n FROM progress"), 1);
+	assert.equal(await coinsOf(env, a.key), total);
+	assert.equal(await coinsOf(env, b.key), total);
+	assert.equal(count(db, ORPHANS), 0);
+});
+
+test("a new device joining a progress that was merged away a moment ago is asked to try again", async () => {
+	const { env, db } = fakeEnv();
+	const a = await post(claimGame, env, { ...(await game(env)), device: A });
+	const { code } = await post(pairCode, env, { key: a.key });
+	const prepare = env.DB.prepare.bind(env.DB);
+	env.DB.prepare = ((sql: string) => {
+		// Just before: A's progress is merged into another one (as joinCode does) and is gone.
+		if (sql.startsWith("INSERT INTO progress_devices (key_hash, progress_id) SELECT"))
+			db.exec("INSERT INTO progress (id) VALUES (99); UPDATE progress_devices SET progress_id = 99; DELETE FROM progress WHERE id != 99;");
+		return prepare(sql);
+	}) as typeof prepare;
+	await assert.rejects(post(joinCode, env, { code, device: C }, "198.51.100.9"), (err: Failed) => err.status === 409);
+	assert.equal(count(db, "SELECT COUNT(*) AS n FROM progress_devices"), 1); // only A's: the new device wasn't added
+	assert.equal(count(db, ORPHANS), 0);
 });
