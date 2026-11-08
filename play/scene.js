@@ -15,11 +15,15 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 // Loaded at boot: the front of the hoop (drawn over the ball as it drops through) and the ball sprites.
 export const art = { hoopFront: null, ballSprites: null };
+// How much bigger the timing bar is drawn: the court shrinks to fit a phone, and the bar with it, so on
+// a small screen it's drawn up to twice as big to stay easy to see (normal size from about 700px wide).
+let meterScale = 1;
 
 export function resize() {
   const rect = stage.getBoundingClientRect();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const size = Math.min(COURT_PX, Math.round(rect.width * dpr));
+  meterScale = rect.width > 0 ? Math.min(2, Math.max(1, 700 / rect.width)) : 1;
   if (canvas.width !== size) {
     canvas.width = canvas.height = size;
   }
@@ -78,23 +82,24 @@ function drawBall(b) {
 function drawMeter() {
   if (player.anim !== "gather" && player.anim !== "jump") return;
   const p = project(player.u, player.v);
+  const k = meterScale;
   const x = p.x + 110;
-  const top = p.y - 400;
-  const height = 260;
+  const height = 260 * k;
+  const top = p.y - 270 - height / 2; // grows from its middle, so it stays level with him
   const total = frameCount("jump") * JUMP_FRAME_TIME;
   const t = player.anim === "jump" ? player.t : 0;
   const fill = Math.min(1, t / total);
 
   ctx.fillStyle = "rgba(43, 22, 34, 0.85)";
-  ctx.fillRect(x - 6, top - 6, 36, height + 12);
+  ctx.fillRect(x - 6 * k, top - 6 * k, 36 * k, height + 12 * k);
   // The top of the jump, unless the mode moves it; in a replay, where it was for that shot.
   const green = (state.phase === "replay" && replayGreen()) || { center: zoneCenter(), window: timingWindow() };
   const zoneTop = top + height * (1 - (green.center + green.window * 0.5) / total);
   const zoneH = (height * green.window) / total;
   ctx.fillStyle = fireLevel()?.color ?? "#3ddc84";
-  ctx.fillRect(x, zoneTop, 24, zoneH);
+  ctx.fillRect(x, zoneTop, 24 * k, zoneH);
   ctx.fillStyle = "#fff";
-  ctx.fillRect(x - 6, top + height * (1 - fill) - 4, 36, 8);
+  ctx.fillRect(x - 6 * k, top + height * (1 - fill) - 4 * k, 36 * k, 8 * k);
 }
 
 // Above the player while the ball in his hands is a bonus ball.
