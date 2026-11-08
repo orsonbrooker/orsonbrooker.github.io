@@ -22,7 +22,7 @@ for (const el of document.querySelectorAll("[data-mode], [data-board-mode], [dat
 // Picks the mode for the next game (remembered for next time) and shows its best.
 export function setMode(id) {
   state.mode = modes[id] && modeShown(id) ? id : "timed";
-  state.best = mode().bestKey ? load(mode().bestKey, 0) : 0;
+  state.best = mode().bestKey ? load(mode().bestKey, 0) : 0; // (saved progress may change it: progress.js)
   save("orson-hoops-mode", state.mode);
   updateHud();
 }
@@ -83,6 +83,11 @@ export const selectBack = () => (selectThenPlay ? openModes() : showTitle());
 // Plays as this player from now on, and shows it if the picker is open.
 export async function selectCharacter(id) {
   await useCharacter(id);
+  if (state.phase === "select") renderPicker();
+}
+
+/** The picker again if it's open (the list of players changed). */
+export function refreshPicker() {
   if (state.phase === "select") renderPicker();
 }
 

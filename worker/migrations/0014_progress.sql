@@ -6,6 +6,7 @@ CREATE TABLE progress (
   coins INTEGER NOT NULL DEFAULT 0, -- to spend
   earned INTEGER NOT NULL DEFAULT 0, -- all ever earned
   ball TEXT NOT NULL DEFAULT 'classic', -- the ball style in use (shared/shop.js)
+  save TEXT NOT NULL DEFAULT '{}', -- bests, daily streak, builder players, nickname (JSON, shared/save.js)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

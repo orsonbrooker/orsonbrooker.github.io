@@ -130,11 +130,10 @@ async function join(e) {
   e.preventDefault();
   const code = $("pair-input").value;
   if (code.replace(/[^0-9a-z]/gi, "").length !== 8) return joinSay("A code is 8 letters and numbers, like ABCD-EFGH.");
-  const before = progress.coins;
   try {
     await joinWithCode(code);
     $("pair-input").value = "";
-    joinSay(before ? `Joined! Your coins are all together now: ${coinText(progress.coins)}.` : `Joined! You've got ${coinText(progress.coins)}.`);
+    joinSay(`Joined! Everything is together now: ${coinText(progress.coins)}, your players and your best scores.`);
   } catch (err) {
     joinSay(err.message);
   }

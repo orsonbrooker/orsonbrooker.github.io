@@ -83,13 +83,30 @@ export async function loadRoster() {
   if (!characters.list.some((c) => c.id === characters.selected)) characters.selected = characters.list[0].id;
 }
 
+// Players made on this device (or on another of theirs, with saved progress), as picker entries.
+function minePlayers(bases) {
+  return myPlayers().flatMap((p) => {
+    const base = bases.find((b) => b.id === p.base);
+    return base ? [{ ...p, pronoun: p.pronoun || base.pronoun || "", mine: true, thumb: "/" + base.thumb, colours: { teamName: DEFAULT_TEAM, ...p.colours } }] : [];
+  });
+}
+
+/** Their own players again, after saved progress brought some from another device (or removed some). */
+export async function reloadMyPlayers() {
+  const bases = await loadBases().catch(() => []);
+  const others = characters.list.filter((c) => !c.mine);
+  const at = others.findIndex((c) => /^p\d+$/.test(c.id)); // before the approved builder players
+  const cut = at < 0 ? others.length : at;
+  characters.list = [...others.slice(0, cut), ...minePlayers(bases), ...others.slice(cut)];
+  for (const id of characters.loaded.keys()) if (/^me\d+$/.test(id)) characters.loaded.delete(id); // colours may have changed
+  const keep = characters.list.some((c) => c.id === characters.selected) ? characters.selected : characters.list[0].id;
+  if (keep !== characters.selected || /^me\d+$/.test(keep)) await useCharacter(keep).catch(() => {});
+}
+
 // Players made on this device (saved by the builder's "Play now"), then approved builder players.
 async function loadBuiltPlayers() {
   const bases = await loadBases().catch(() => []);
-  for (const p of myPlayers()) {
-    const base = bases.find((b) => b.id === p.base);
-    if (base) characters.list.push({ ...p, pronoun: p.pronoun || base.pronoun || "", mine: true, thumb: "/" + base.thumb, colours: { teamName: DEFAULT_TEAM, ...p.colours } });
-  }
+  characters.list.push(...minePlayers(bases));
   try {
     const res = await fetch(PLAYERS_API);
     if (!res.ok) return;

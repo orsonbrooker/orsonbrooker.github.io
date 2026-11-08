@@ -73,7 +73,7 @@ flowchart LR
 | Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player (or several, for pass and play); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `shop.js` the shop (ball styles, pairing another device); `over.js` game over (the Replay button, the coins a game earned). |
 | Game content | `content/` | Tables: the courts (`courts.js`), what each player is good at (`attributes.js`), how each fire level and ball looks, the wall scoreboard art, the Around the World spots, the 3-point contest's racks (`threes.js`, with where its art goes), the HORSE spots and spot map, Sudden death run calls and end-of-game calls. |
 | Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log, coins for a game (`coinsFor`). Used by the game and the Worker. |
-| Shop and saved progress | `shared/shop.js`, `progress.js` | The ball styles coins buy (colours drawn in code, prices the Worker checks); the game's side of saved progress: this device's key, the last known coins and ball, the progress API. |
+| Shop and saved progress | `shared/shop.js`, `shared/save.js`, `progress.js` | The ball styles coins buy (colours drawn in code, prices the Worker checks); what else travels with progress and how two devices' copies merge (shared with the Worker); the game's side of saved progress: this device's key, the last known coins and ball, the progress API. |
 | Scoring extras | `daily.js`, `content/looks.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
 | Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots, aim wobble and where a moving green zone goes. |
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
@@ -172,6 +172,7 @@ erDiagram
     int coins "to spend"
     int earned "all ever earned"
     text ball "ball style in use"
+    text save "bests, streak, builder players, nickname (JSON)"
   }
   progress_devices {
     text key_hash PK "hashed random key in the browser"
@@ -256,6 +257,16 @@ Terms used across the code:
   (`/join`, 15 tries a day per IP); anything the joining device already had is added in, so nothing's lost.
   A lost device's coins can't be got back. All progress routes are POSTs with the key in the body (never in
   a URL) and are rate limited per IP.
+- **What else travels with progress:** personal bests, the daily challenge streak, players made in the
+  builder and the leaderboard nickname (`shared/save.js`). Each kept where it always was in the browser;
+  `progress.js` gathers them into a save and sends it with the progress calls that read or earn (`/progress`
+  at boot and when the shop opens, `/games`, `/join`). The Worker tidies it (known shapes and sizes only,
+  rude names dropped), merges it into the stored copy (`progress.save`) and sends the result back, which the
+  game merges in again and writes back to each place. Merging never loses anything: the better best (the
+  fastest for Around the World), the streak from the device that did a challenge last, both devices' players
+  (newest first, up to 6, one per name; removed ones are remembered so they stay gone), the nickname typed
+  most recently. Players arriving from another device join the picker straight away. The save is only ever
+  sent back to devices holding the key. Leaderboard rows stay per device.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
 
 ## Courts

@@ -5,19 +5,25 @@
 // device, one device asks for a pairing code (works once, for 10 minutes) and the other types it in.
 // Coins come only from checked games (the same checks as the leaderboard, scoring.ts), one claim per
 // game, so they can't be made up any more easily than a score.
+//
+// The rest of a device's save (bests, daily streak, builder players, nickname; shared/save.js) comes
+// along too: a device sends its own with each call, it's merged into the stored one (nothing lost), and
+// the merged save goes back for the device to keep. It's only ever sent to devices holding the key.
 
 import { coinsFor, modeOf } from "../../shared/rules.js";
+import { mergeSaves, sameSave, tidySave } from "../../shared/save.js";
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../../shared/shop.js";
 import { HttpError } from "./http.ts";
 import { checkGameToken } from "./scores.ts";
 import { checkGame } from "./scoring.ts";
-import { clean, hash, ipKey, json, rateLimit, readJson } from "./util.ts";
+import { clean, hash, ipKey, isRude, json, rateLimit, readJson } from "./util.ts";
 import type { Env } from "./util.ts";
 
 const NEW_PER_DAY = 30; // new progresses from one IP (a class on one network shares an IP)
 const GAMES_PER_DAY = 300; // coin claims from one IP
 const CODES_PER_DAY = 30; // pairing codes asked for
 const TRIES_PER_DAY = 15; // pairing codes typed in (also stops guessing)
+const SAVES_PER_DAY = 300; // saves that changed something
 const CODE_MINUTES = 10;
 // No 0/O, 1/I/L: easy to read out and type. 8 of these is about 40 bits, with 15 tries a day.
 const CODE_LETTERS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
@@ -56,15 +62,51 @@ async function mustFind(env: Env, key: unknown): Promise<Progress> {
 	return found;
 }
 
-// What the game shows: coins, the ball in use and what they own (Classic always).
+type Save = ReturnType<typeof tidySave>;
+
+const parseSave = (text: string): Save => {
+	try {
+		return tidySave(JSON.parse(text));
+	} catch {
+		return tidySave({});
+	}
+};
+
+// A save a device sent: tidied, without any rude names (typed by kids, though only ever shown back to them).
+function sentSave(value: unknown): Save {
+	const s = tidySave(value);
+	s.players = s.players.filter((p) => !isRude(p.name, p.colours.teamName));
+	if (isRude(s.nickname.name)) s.nickname = { name: "", at: 0 };
+	return s;
+}
+
+// Merges what a device sent into the stored save (only written if that changed anything).
+async function mergeSave(request: Request, env: Env, id: number, sent: unknown): Promise<void> {
+	if (sent === undefined || sent === null) return;
+	const row = await env.DB.prepare("SELECT save FROM progress WHERE id = ?").bind(id).first<{ save: string }>();
+	const stored = parseSave(row?.save ?? "{}");
+	const merged = mergeSaves(sentSave(sent), stored);
+	if (sameSave(merged, stored)) return;
+	await rateLimit(request, env, "progress-save", SAVES_PER_DAY, "That's a lot of saving for one day! Try again tomorrow.");
+	await env.DB.prepare("UPDATE progress SET save = ? WHERE id = ?").bind(JSON.stringify(merged), id).run();
+}
+
+// What the game shows: coins, the ball in use, what they own (Classic always) and the rest of the save.
 async function view(env: Env, id: number, key?: string) {
 	const [p, items] = await env.DB.batch([
-		env.DB.prepare("SELECT coins, earned, ball FROM progress WHERE id = ?").bind(id),
+		env.DB.prepare("SELECT coins, earned, ball, save FROM progress WHERE id = ?").bind(id),
 		env.DB.prepare("SELECT item FROM progress_items WHERE progress_id = ?").bind(id),
 	]);
-	const row = p.results[0] as { coins: number; earned: number; ball: string };
+	const row = p.results[0] as { coins: number; earned: number; ball: string; save: string };
 	const owned = new Set([DEFAULT_BALL, ...(items.results as { item: string }[]).map((r) => r.item)]);
-	return { ...(key ? { key } : {}), coins: row.coins, earned: row.earned, ball: row.ball, items: BALL_STYLES.filter((s) => owned.has(s.id)).map((s) => s.id) };
+	return {
+		...(key ? { key } : {}),
+		coins: row.coins,
+		earned: row.earned,
+		ball: row.ball,
+		items: BALL_STYLES.filter((s) => owned.has(s.id)).map((s) => s.id),
+		save: parseSave(row.save),
+	};
 }
 
 // A new progress with this device's key in it.
@@ -77,15 +119,16 @@ async function create(request: Request, env: Env): Promise<{ id: number; key: st
 	return { id: row.id, key };
 }
 
-/** POST /api/progress { key }: their coins and ball styles. */
+/** POST /api/progress { key, save? }: their coins, ball styles and save (with this device's merged in). */
 export async function getProgress(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
 	const p = await mustFind(env, body.key);
+	await mergeSave(request, env, p.id, body.save);
 	return json(await view(env, p.id));
 }
 
 /**
- * POST /api/progress/games { key?, token, mode, score, shots }: a finished game earns its coins.
+ * POST /api/progress/games { key?, token, mode, score, shots, save? }: a finished game earns its coins.
  * Checked like a leaderboard score, once per game. Without a key (their first coins), a new
  * progress is made and its key sent back.
  */
@@ -111,6 +154,7 @@ export async function claimGame(request: Request, env: Env): Promise<Response> {
 		.first();
 	if (!claimed) throw new HttpError(400, "That game's coins are already in.");
 	await env.DB.prepare("UPDATE progress SET coins = coins + ?1, earned = earned + ?1 WHERE id = ?2").bind(coins, found.id).run();
+	await mergeSave(request, env, found.id, body.save);
 	return json({ ...(await view(env, found.id, key)), got: coins });
 }
 
@@ -162,8 +206,8 @@ export async function pairCode(request: Request, env: Env): Promise<Response> {
 }
 
 /**
- * POST /api/progress/join { key?, code }: this device joins the progress the code came from. Any coins
- * and balls this device already had are added to it, so nothing's lost.
+ * POST /api/progress/join { key?, code, save? }: this device joins the progress the code came from. Any
+ * coins, balls and save this device already had are added to it, so nothing's lost.
  */
 export async function joinCode(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
@@ -180,7 +224,9 @@ export async function joinCode(request: Request, env: Env): Promise<Response> {
 	if (mine && mine.id === into) return json(await view(env, into)); // already together
 	let key = clean(body.key, 64);
 	if (mine) {
-		// Bring this device's coins and balls along, then move its devices across.
+		// Bring this device's coins, balls and save along, then move its devices across.
+		const old = await env.DB.prepare("SELECT save FROM progress WHERE id = ?").bind(mine.id).first<{ save: string }>();
+		await mergeSave(request, env, into, parseSave(old?.save ?? "{}"));
 		await env.DB.batch([
 			env.DB.prepare("UPDATE progress SET coins = coins + ?1, earned = earned + ?2 WHERE id = ?3").bind(mine.coins, mine.earned, into),
 			env.DB.prepare("INSERT OR IGNORE INTO progress_items (progress_id, item, created_at) SELECT ?1, item, created_at FROM progress_items WHERE progress_id = ?2").bind(into, mine.id),
@@ -194,5 +240,6 @@ export async function joinCode(request: Request, env: Env): Promise<Response> {
 		key = newKey();
 		await env.DB.prepare("INSERT INTO progress_devices (key_hash, progress_id) VALUES (?, ?)").bind(await keyHash(env, key), into).run();
 	}
+	await mergeSave(request, env, into, body.save);
 	return json(await view(env, into, key));
 }

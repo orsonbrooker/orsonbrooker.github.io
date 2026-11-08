@@ -12,6 +12,9 @@ import { API } from "./api.js";
 import { lowWins } from "./shared/rules.js";
 
 const NICKNAME = "orson-hoops-nickname";
+const NICKNAME_AT = "orson-hoops-nickname-at"; // when it was typed: the latest wins across their devices
+/** Where the nickname is kept: saved progress (progress.js) carries it to their other devices. */
+export const NICKNAME_KEYS = { name: NICKNAME, at: NICKNAME_AT };
 const MY_SCORES = "orson-hoops-my-scores";
 
 const load = (key, fallback) => {
@@ -250,7 +253,10 @@ export function showRoundResult(box, round) {
         const out = await res.json();
         if (!res.ok) throw new Error(out.error);
         // Remember a nickname they chose, not just the name of who they happened to play as.
-        if (ownPlayer || nickname.toLowerCase() !== playerName.toLowerCase()) save(NICKNAME, nickname);
+        if ((ownPlayer || nickname.toLowerCase() !== playerName.toLowerCase()) && nickname !== typedBefore) {
+          save(NICKNAME, nickname);
+          save(NICKNAME_AT, Date.now());
+        }
         save(MY_SCORES, [out.id, ...load(MY_SCORES, [])].slice(0, 50));
         game.id = out.id; // so their own list doesn't count it twice
         save(MY_GAMES, games);

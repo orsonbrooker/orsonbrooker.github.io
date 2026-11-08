@@ -25,6 +25,8 @@ export const CHALLENGES = [
 
 const DONE = "orson-hoops-daily";
 const STREAK = "orson-hoops-daily-streak";
+/** Where they're kept: saved progress (progress.js) carries them to their other devices. */
+export const DAILY_KEYS = { done: DONE, streak: STREAK };
 
 const load = (key, fallback) => {
   try {

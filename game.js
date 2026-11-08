@@ -15,18 +15,18 @@ import { startLoop } from "./engine/loop.js";
 import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { COURTS, court, useCourt } from "./play/court.js";
-import { characters, loadImage, loadRoster } from "./play/players.js";
+import { characters, loadImage, loadRoster, reloadMyPlayers } from "./play/players.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play/react.js";
 import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js";
 import { checkDecided, shoot, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
 import { DEBUG, mode, player, setAnim, setSeed, state } from "./play/state.js";
 import { $, charPick, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
-import { openModes, openSelect, selectBack, selectCharacter, setMode, showTitle, startTeam } from "./screens/menus.js";
+import { openModes, openSelect, refreshPicker, selectBack, selectCharacter, setMode, showTitle, startTeam } from "./screens/menus.js";
 import { setGameVersion } from "./screens/over.js";
 import { closeBoard, closeHelp, openBoard, toggleBoard, toggleHelp, wireBoardTabs } from "./screens/panels.js";
 import { closeShop, wireShop } from "./screens/shop.js";
-import { ballLook, onProgress, refreshProgress } from "./progress.js";
+import { ballLook, onProgress, onSave, refreshProgress } from "./progress.js";
 import { confirmDialog } from "./ui/confirm.js";
 import { fillIcons } from "./ui/icons.js";
 
@@ -152,6 +152,8 @@ async function boot() {
   state.mode = load("orson-hoops-mode", "timed");
   // A new ball style (bought here or on another device) shows from the next shot.
   onProgress(() => (art.ballSprites = makeBallSprites(ballLook())));
+  // Players made on their other devices (saved progress) join the picker.
+  onSave(() => reloadMyPlayers().then(refreshPicker));
   refreshProgress();
   showTitle();
   if (location.hash === "#leaderboard") openBoard("week");
