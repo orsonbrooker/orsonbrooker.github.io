@@ -48,6 +48,9 @@
   "dribble-front-left": {
    "video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-front-left.mov",
    "keep_ball": true
+  },
+  "shot-front-left": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/E-shoot-front-left.mp4"
   }
  },
  "anims": {
@@ -485,6 +488,47 @@
    ],
    "fps": 24,
    "face": "front"
+  },
+  "gather-fl": {
+   "clip": "shot-front-left",
+   "frames": [
+    12,
+    15,
+    18,
+    21,
+    24,
+    27,
+    30
+   ],
+   "face": "front"
+  },
+  "jump-fl": {
+   "clip": "shot-front-left",
+   "frames": [
+    33,
+    36,
+    39,
+    42,
+    45,
+    48,
+    51
+   ],
+   "face": "front",
+   "anchor": "gather-fl"
+  },
+  "release-fl": {
+   "clip": "shot-front-left",
+   "frames": [
+    53,
+    57,
+    61,
+    65,
+    70,
+    75,
+    80
+   ],
+   "face": "front",
+   "anchor": "gather-fl"
   }
  },
  "spin": {
@@ -2231,6 +2275,219 @@
     ]
    ],
    "fps": 24
+  },
+  "gather-fl": {
+   "from": [
+    [
+     "gather-fl",
+     0
+    ],
+    [
+     "gather-fl",
+     1
+    ],
+    [
+     "gather-fl",
+     2
+    ],
+    [
+     "gather-fl",
+     3
+    ],
+    [
+     "gather-fl",
+     4
+    ],
+    [
+     "gather-fl",
+     5
+    ],
+    [
+     "gather-fl",
+     6
+    ]
+   ]
+  },
+  "gather-fr": {
+   "from": [
+    [
+     "gather-fl",
+     0,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     1,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     2,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     3,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     4,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     5,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "jump-fl": {
+   "from": [
+    [
+     "jump-fl",
+     0
+    ],
+    [
+     "jump-fl",
+     1
+    ],
+    [
+     "jump-fl",
+     2
+    ],
+    [
+     "jump-fl",
+     3
+    ],
+    [
+     "jump-fl",
+     4
+    ],
+    [
+     "jump-fl",
+     5
+    ],
+    [
+     "jump-fl",
+     6
+    ]
+   ]
+  },
+  "jump-fr": {
+   "from": [
+    [
+     "jump-fl",
+     0,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     1,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     2,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     3,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     4,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     5,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "release-fl": {
+   "from": [
+    [
+     "release-fl",
+     0
+    ],
+    [
+     "release-fl",
+     1
+    ],
+    [
+     "release-fl",
+     2
+    ],
+    [
+     "release-fl",
+     3
+    ],
+    [
+     "release-fl",
+     4
+    ],
+    [
+     "release-fl",
+     5
+    ],
+    [
+     "release-fl",
+     6
+    ]
+   ]
+  },
+  "release-fr": {
+   "from": [
+    [
+     "release-fl",
+     0,
+     "flip"
+    ],
+    [
+     "release-fl",
+     1,
+     "flip"
+    ],
+    [
+     "release-fl",
+     2,
+     "flip"
+    ],
+    [
+     "release-fl",
+     3,
+     "flip"
+    ],
+    [
+     "release-fl",
+     4,
+     "flip"
+    ],
+    [
+     "release-fl",
+     5,
+     "flip"
+    ],
+    [
+     "release-fl",
+     6,
+     "flip"
+    ]
+   ]
   }
  },
  "release": {
@@ -2253,6 +2510,15 @@
   ],
   "r": [
    "jump-l",
+   6,
+   "flip"
+  ],
+  "fl": [
+   "jump-fl",
+   6
+  ],
+  "fr": [
+   "jump-fl",
    6,
    "flip"
   ]
