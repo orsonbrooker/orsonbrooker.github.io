@@ -47,26 +47,28 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="feedback/widget.css" />
   </head>
-  <body>
-    <nav class="site-nav" data-site-nav></nav>
-    <main class="game-page">
+  <body class="game-body">
+    <main class="game-page" id="game-page">
       <h1 class="sr-only">Shootaround</h1>
+
+      <!-- The top corners, above (or beside) the court: the menu and shortcuts on the left, how to play and
+           sound on the right. The bottom corners stay free for thumbs. -->
+      <div class="corner corner-left">
+        <button id="menu-button" type="button" aria-label="Menu"><span data-icon="menu"></span></button>
+        <button id="board-button" type="button" aria-label="Leaderboard"><span data-icon="trophy"></span></button>
+        <button id="shop-button" type="button" aria-label="Shop"><span data-icon="shop"></span></button>
+      </div>
+      <div class="corner corner-right">
+        <button id="help-button" type="button" aria-label="How to play"><span data-icon="help"></span></button>
+        <button id="music" type="button" aria-label="Turn music off" aria-pressed="true"><span data-icon="music"></span></button>
+        <button id="mute" type="button" aria-label="Mute sound"><span data-icon="sound"></span></button>
+      </div>
+
       <div class="stage" id="stage" tabindex="0" aria-label="Basketball game. Press Space or tap to turn to the hoop, hold to jump, let go to shoot.">
         <img class="court" src="assets/court.webp" alt="" width="2048" height="2048" />
         <canvas id="game"></canvas>
 
         <p class="sr-only">Score <span id="score">0</span>, <span id="time">60 seconds left</span></p>
-
-        <!-- Bottom corners: leaderboard, shop and how to play on the left, music and sound on the right. -->
-        <div class="sound-buttons info-buttons">
-          <button id="board-button" type="button" aria-label="Leaderboard"><span data-icon="trophy"></span></button>
-          <button id="shop-button" type="button" aria-label="Shop"><span data-icon="shop"></span></button>
-          <button id="help-button" type="button" aria-label="How to play"><span data-icon="help"></span></button>
-        </div>
-        <div class="sound-buttons">
-          <button id="music" type="button" aria-label="Turn music off" aria-pressed="true"><span data-icon="music"></span></button>
-          <button id="mute" type="button" aria-label="Mute sound"><span data-icon="sound"></span></button>
-        </div>
 
         <!-- Title: tap anywhere (or press Space) to start, then choose a game, then a player. -->
         <div class="screen title-screen" id="title-screen">
@@ -76,180 +78,214 @@
           </div>
         </div>
 
-        <!-- Player select. -->
-        <div class="screen panel-screen" id="select-screen" hidden>
-          <div class="panel select-panel">
-            <div class="select-head">
-              <button class="screen-back" id="select-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
-              <h2 id="select-title">Choose your player</h2>
-            </div>
-            <p class="team-note" id="team-note" hidden></p>
-            <div class="char-pick" id="char-pick" role="group" aria-label="Players"></div>
-            <div class="team-go" id="team-go-row" hidden>
-              <button class="primary" id="team-go" type="button"><span data-icon="play"></span>Start</button>
-            </div>
+      </div>
+
+      <!-- The screens: each fills the whole screen, with back or close at the top left. -->
+
+      <!-- Player select. -->
+      <div class="screen panel-screen" id="select-screen" hidden>
+        <div class="panel select-panel">
+          <div class="select-head">
+            <button class="screen-back" id="select-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+            <h2 id="select-title">Choose your player</h2>
+          </div>
+          <p class="team-note" id="team-note" hidden></p>
+          <div class="char-pick" id="char-pick" role="group" aria-label="Players"></div>
+          <div class="team-go" id="team-go-row" hidden>
+            <button class="primary" id="team-go" type="button"><span data-icon="play"></span>Start</button>
           </div>
         </div>
+      </div>
 
-        <!-- Game select. -->
-        <div class="screen panel-screen" id="mode-screen" hidden>
-          <div class="panel select-panel">
-            <div class="select-head">
-              <button class="screen-back" id="mode-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
-              <h2>Choose a game</h2>
-            </div>
-            <p class="mode-daily" id="mode-daily"></p>
-            <div class="mode-cards" role="group" aria-label="Games">
-              <button type="button" class="mode-card" data-mode="timed">
-                <strong>Time attack</strong>
-                <span>Score as many points as you can in 60 seconds.</span>
-                <em data-best></em>
-              </button>
-              <button type="button" class="mode-card" data-mode="survival">
-                <strong>Sudden death</strong>
-                <span>No clock. Keep shooting until you miss. It gets harder the longer you go, and the green starts to move!</span>
-                <em data-best></em>
-              </button>
-              <button type="button" class="mode-card" data-mode="around">
-                <strong>Around the world</strong>
-                <span>Score from all 7 spots around the key, in order, as fast as you can. Watch the green: it moves!</span>
-                <em data-best></em>
-              </button>
-              <button type="button" class="mode-card" data-mode="threes">
-                <strong>3-point contest</strong>
-                <span>5 racks, 5 balls each, all threes, 60 seconds. The last ball in each rack is a money ball!</span>
-                <em data-best></em>
-              </button>
-              <button type="button" class="mode-card" data-mode="horse">
-                <strong>HORSE</strong>
-                <span>Pass and play with 2 to 4 friends. Match each other's shots or get a letter!</span>
-                <em data-best></em>
-              </button>
-            </div>
+      <!-- Game select. -->
+      <div class="screen panel-screen" id="mode-screen" hidden>
+        <div class="panel select-panel">
+          <div class="select-head">
+            <button class="screen-back" id="mode-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+            <h2>Choose a game</h2>
+          </div>
+          <p class="mode-daily" id="mode-daily"></p>
+          <div class="mode-cards" role="group" aria-label="Games">
+            <button type="button" class="mode-card" data-mode="timed">
+              <strong>Time attack</strong>
+              <span>Score as many points as you can in 60 seconds.</span>
+              <em data-best></em>
+            </button>
+            <button type="button" class="mode-card" data-mode="survival">
+              <strong>Sudden death</strong>
+              <span>No clock. Keep shooting until you miss. It gets harder the longer you go, and the green starts to move!</span>
+              <em data-best></em>
+            </button>
+            <button type="button" class="mode-card" data-mode="around">
+              <strong>Around the world</strong>
+              <span>Score from all 7 spots around the key, in order, as fast as you can. Watch the green: it moves!</span>
+              <em data-best></em>
+            </button>
+            <button type="button" class="mode-card" data-mode="threes">
+              <strong>3-point contest</strong>
+              <span>5 racks, 5 balls each, all threes, 60 seconds. The last ball in each rack is a money ball!</span>
+              <em data-best></em>
+            </button>
+            <button type="button" class="mode-card" data-mode="horse">
+              <strong>HORSE</strong>
+              <span>Pass and play with 2 to 4 friends. Match each other's shots or get a letter!</span>
+              <em data-best></em>
+            </button>
           </div>
         </div>
+      </div>
 
-        <!-- Between turns in a pass and play game (HORSE): pass the device on. -->
-        <div class="screen panel-screen" id="turn-screen" hidden>
-          <div class="panel turn-panel">
-            <div class="select-head">
-              <button class="screen-back" id="turn-quit" type="button" aria-label="Stop this game"><span data-icon="close"></span></button>
-              <h2 id="turn-title">Pass it on!</h2>
-            </div>
-            <p class="turn-news" id="turn-news" aria-live="polite"></p>
-            <div class="turn-who">
-              <img id="turn-face" alt="" width="64" height="64" />
-              <p id="turn-note"></p>
-            </div>
-            <div class="spot-map" id="spot-map" role="group" aria-label="Spots to shoot from"></div>
-            <p class="turn-spot" id="turn-spot"></p>
-            <ul class="horse-letters" id="turn-letters" aria-label="Letters so far"></ul>
-            <button class="primary turn-go" id="turn-go" type="button"><span data-icon="play"></span>I'm ready!</button>
+      <!-- Between turns in a pass and play game (HORSE): pass the device on. -->
+      <div class="screen panel-screen" id="turn-screen" hidden>
+        <div class="panel turn-panel">
+          <div class="select-head">
+            <button class="screen-back" id="turn-quit" type="button" aria-label="Stop this game"><span data-icon="close"></span></button>
+            <h2 id="turn-title">Pass it on!</h2>
           </div>
+          <p class="turn-news" id="turn-news" aria-live="polite"></p>
+          <div class="turn-who">
+            <img id="turn-face" alt="" width="64" height="64" />
+            <p id="turn-note"></p>
+          </div>
+          <div class="spot-map" id="spot-map" role="group" aria-label="Spots to shoot from"></div>
+          <p class="turn-spot" id="turn-spot"></p>
+          <ul class="horse-letters" id="turn-letters" aria-label="Letters so far"></ul>
+          <button class="primary turn-go" id="turn-go" type="button"><span data-icon="play"></span>I'm ready!</button>
         </div>
+      </div>
 
-        <!-- Game over. -->
-        <div class="screen panel-screen" id="over-screen" hidden>
-          <div class="panel over-panel">
+      <!-- Game over. -->
+      <div class="screen panel-screen" id="over-screen" hidden>
+        <div class="panel over-panel">
+          <div class="select-head">
+            <button class="screen-back" id="over-close" type="button" aria-label="Close"><span data-icon="close"></span></button>
             <h2 id="over-title">Time's up!</h2>
-            <p class="final-score"><span id="final-score">0</span> <span id="final-unit">points</span></p>
-            <p id="over-detail"></p>
-            <p class="over-coins" id="over-coins" aria-live="polite" hidden></p>
-            <p class="over-daily" id="over-daily"></p>
-            <div class="over-board" id="over-board" hidden></div>
-            <div class="over-actions">
-              <button class="primary" id="again" type="button"><span data-icon="again"></span>Play again</button>
-              <button id="replay" type="button" hidden><span data-icon="play"></span>Replay</button>
-              <button id="change-mode" type="button"><span data-icon="trophy"></span>Change game</button>
-              <button id="change-player" type="button"><span data-icon="players"></span>Change player</button>
-              <button id="got-idea" type="button"><span data-icon="idea"></span>Got an idea?</button>
-            </div>
+          </div>
+          <p class="final-score"><span id="final-score">0</span> <span id="final-unit">points</span></p>
+          <p id="over-detail"></p>
+          <p class="over-coins" id="over-coins" aria-live="polite" hidden></p>
+          <p class="over-daily" id="over-daily"></p>
+          <div class="over-board" id="over-board" hidden></div>
+          <div class="over-actions">
+            <button class="primary" id="again" type="button"><span data-icon="again"></span>Play again</button>
+            <button id="replay" type="button" hidden><span data-icon="play"></span>Replay</button>
+            <button id="change-mode" type="button"><span data-icon="trophy"></span>Change game</button>
+            <button id="change-player" type="button"><span data-icon="players"></span>Change player</button>
+            <button id="got-idea" type="button"><span data-icon="idea"></span>Got an idea?</button>
           </div>
         </div>
+      </div>
 
-        <!-- Leaderboard. -->
-        <div class="screen panel-screen" id="board-screen" hidden>
-          <div class="panel board-panel">
-            <div class="select-head">
-              <button class="screen-back" id="board-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
-              <h2>Leaderboard</h2>
-            </div>
-            <div class="board-tabs board-modes" role="tablist" aria-label="Game mode">
-              <button type="button" role="tab" data-board-mode="timed" aria-selected="true">Time attack</button>
-              <button type="button" role="tab" data-board-mode="survival" aria-selected="false">Sudden death</button>
-              <button type="button" role="tab" data-board-mode="around" aria-selected="false">Around the world</button>
-              <button type="button" role="tab" data-board-mode="threes" aria-selected="false">3-point contest</button>
-            </div>
-            <div class="board-tabs" role="tablist" aria-label="When">
-              <button type="button" role="tab" data-range="week" aria-selected="true">This week</button>
-              <button type="button" role="tab" data-range="all" aria-selected="false">All time</button>
-            </div>
-            <ol class="board-list" id="board-list"></ol>
-            <p class="board-note" id="board-note"></p>
+      <!-- Leaderboard. -->
+      <div class="screen panel-screen" id="board-screen" hidden>
+        <div class="panel board-panel">
+          <div class="select-head">
+            <button class="screen-back" id="board-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+            <h2>Leaderboard</h2>
           </div>
+          <div class="board-tabs board-modes" role="tablist" aria-label="Game mode">
+            <button type="button" role="tab" data-board-mode="timed" aria-selected="true">Time attack</button>
+            <button type="button" role="tab" data-board-mode="survival" aria-selected="false">Sudden death</button>
+            <button type="button" role="tab" data-board-mode="around" aria-selected="false">Around the world</button>
+            <button type="button" role="tab" data-board-mode="threes" aria-selected="false">3-point contest</button>
+          </div>
+          <div class="board-tabs" role="tablist" aria-label="When">
+            <button type="button" role="tab" data-range="week" aria-selected="true">This week</button>
+            <button type="button" role="tab" data-range="all" aria-selected="false">All time</button>
+          </div>
+          <ol class="board-list" id="board-list"></ol>
+          <p class="board-note" id="board-note"></p>
         </div>
+      </div>
 
-        <!-- Shop: ball styles bought with coins, and bringing them to another device. -->
-        <div class="screen panel-screen" id="shop-screen" hidden>
-          <div class="panel select-panel shop-panel">
-            <div class="select-head">
-              <button class="screen-back" id="shop-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
-              <h2>Shop</h2>
-              <p class="coin-count" id="shop-coins"></p>
-            </div>
-            <p class="shop-note" id="shop-note">Earn coins by playing: 1 for a basket, 2 when you're on fire, 5 for a money or rainbow ball.</p>
-            <div class="ball-styles" id="ball-styles" role="group" aria-label="Balls"></div>
-            <p class="shop-say" id="shop-say" aria-live="polite"></p>
-            <!-- Folded away until they tap the title, so it doesn't pull attention from the shop. -->
-            <details class="pair-box" id="pair-box">
-              <summary><span data-icon="next"></span>Playing on another device?</summary>
-              <p class="pair-lead">Bring your coins, balls, players and best scores with you.</p>
-              <div class="pair-steps">
-                <div class="pair-card">
-                  <strong class="pair-step">1. On this device</strong>
-                  <p id="pair-send-text"></p>
-                  <button type="button" id="pair-show"><span data-icon="device"></span>Show my code</button>
-                  <p class="pair-code" id="pair-code" hidden></p>
-                  <p class="pair-note" id="pair-send-say" aria-live="polite"></p>
-                </div>
-                <form class="pair-card" id="pair-form">
-                  <strong class="pair-step">2. On the other device</strong>
-                  <label for="pair-input">Type the code from step 1 here.</label>
-                  <div class="pair-join">
-                    <input id="pair-input" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="ABCD-EFGH" />
-                    <button type="submit"><span data-icon="check"></span>Join</button>
-                  </div>
-                  <p class="pair-note" id="pair-join-say" aria-live="polite"></p>
-                </form>
+      <!-- Shop: ball styles bought with coins, and bringing them to another device. -->
+      <div class="screen panel-screen" id="shop-screen" hidden>
+        <div class="panel select-panel shop-panel">
+          <div class="select-head">
+            <button class="screen-back" id="shop-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+            <h2>Shop</h2>
+            <p class="coin-count" id="shop-coins"></p>
+          </div>
+          <p class="shop-note" id="shop-note">Earn coins by playing: 1 for a basket, 2 when you're on fire, 5 for a money or rainbow ball.</p>
+          <div class="ball-styles" id="ball-styles" role="group" aria-label="Balls"></div>
+          <p class="shop-say" id="shop-say" aria-live="polite"></p>
+          <!-- Folded away until they tap the title, so it doesn't pull attention from the shop. -->
+          <details class="pair-box" id="pair-box">
+            <summary><span data-icon="next"></span>Playing on another device?</summary>
+            <p class="pair-lead">Bring your coins, balls, players and best scores with you.</p>
+            <div class="pair-steps">
+              <div class="pair-card">
+                <strong class="pair-step">1. On this device</strong>
+                <p id="pair-send-text"></p>
+                <button type="button" id="pair-show"><span data-icon="device"></span>Show my code</button>
+                <p class="pair-code" id="pair-code" hidden></p>
+                <p class="pair-note" id="pair-send-say" aria-live="polite"></p>
               </div>
-            </details>
-          </div>
+              <form class="pair-card" id="pair-form">
+                <strong class="pair-step">2. On the other device</strong>
+                <label for="pair-input">Type the code from step 1 here.</label>
+                <div class="pair-join">
+                  <input id="pair-input" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="ABCD-EFGH" />
+                  <button type="submit"><span data-icon="check"></span>Join</button>
+                </div>
+                <p class="pair-note" id="pair-join-say" aria-live="polite"></p>
+              </form>
+            </div>
+          </details>
         </div>
+      </div>
 
-        <!-- How to play. -->
-        <div class="screen panel-screen" id="help-screen" hidden>
-          <div class="panel help-panel">
+      <!-- How to play. -->
+      <div class="screen panel-screen" id="help-screen" hidden>
+        <div class="panel help-panel">
+          <div class="select-head">
+            <button class="screen-back" id="help-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
             <h2>How to play</h2>
-            <ol>
-              <li><strong>Tap</strong> (or press Space) to face the hoop. You keep facing it after that.</li>
-              <li><strong>Hold</strong> to jump.</li>
-              <li><strong>Let go</strong> at the top of the jump to shoot. Watch the bar: let go in the green.</li>
-            </ol>
-            <p><strong>Time attack:</strong> score as many points as you can in 60 seconds. Shots from behind the arc are worth 3. Make 3 in a row and you're on fire!</p>
-            <p><strong>Sudden death:</strong> no clock. Keep shooting until you miss. One miss and it's over! Make 5 in a row and the green starts moving, so watch the bar.</p>
-            <p><strong>Around the world:</strong> score from all 7 spots around the key, in order, as fast as you can. Miss and you shoot from the same spot again. The green moves a little each shot.</p>
-            <p><strong>HORSE:</strong> 2 to 4 players on one device. The leader picks a spot and shoots. Make it, and everyone else has to make the same shot or get a letter. Miss, and the lead passes on. Spell HORSE and you're out. Last one left wins! The green moves for every new spot, and matching means the same spot and the same green.</p>
-            <p data-help-mode="threes"><strong>3-point contest:</strong> shoot every ball from 5 racks around the 3-point line in 60 seconds. Every shot is a three, and the last ball in each rack is a gold money ball worth double. The green moves every shot!</p>
-            <p>Keep scoring for blue supernova fire at 10 in a row. Watch for a gold money ball (double points) and the rare rainbow ball (5 points)!</p>
-            <p><strong>Instant replay:</strong> after a game, tap Replay to watch your best shot again in slow motion.</p>
-            <button class="primary" id="help-close" type="button">Got it</button>
           </div>
+          <ol>
+            <li><strong>Tap</strong> (or press Space) to face the hoop. You keep facing it after that.</li>
+            <li><strong>Hold</strong> to jump.</li>
+            <li><strong>Let go</strong> at the top of the jump to shoot. Watch the bar: let go in the green.</li>
+          </ol>
+          <p><strong>Time attack:</strong> score as many points as you can in 60 seconds. Shots from behind the arc are worth 3. Make 3 in a row and you're on fire!</p>
+          <p><strong>Sudden death:</strong> no clock. Keep shooting until you miss. One miss and it's over! Make 5 in a row and the green starts moving, so watch the bar.</p>
+          <p><strong>Around the world:</strong> score from all 7 spots around the key, in order, as fast as you can. Miss and you shoot from the same spot again. The green moves a little each shot.</p>
+          <p><strong>HORSE:</strong> 2 to 4 players on one device. The leader picks a spot and shoots. Make it, and everyone else has to make the same shot or get a letter. Miss, and the lead passes on. Spell HORSE and you're out. Last one left wins! The green moves for every new spot, and matching means the same spot and the same green.</p>
+          <p data-help-mode="threes"><strong>3-point contest:</strong> shoot every ball from 5 racks around the 3-point line in 60 seconds. Every shot is a three, and the last ball in each rack is a gold money ball worth double. The green moves every shot!</p>
+          <p>Keep scoring for blue supernova fire at 10 in a row. Watch for a gold money ball (double points) and the rare rainbow ball (5 points)!</p>
+          <p><strong>Instant replay:</strong> after a game, tap Replay to watch your best shot again in slow motion.</p>
+          <button class="primary" id="help-close" type="button">Got it</button>
+        </div>
+      </div>
+
+      <!-- The menu: the game first, then (not in the iOS app) the rest of the website. -->
+      <div class="screen panel-screen" id="menu-screen" hidden>
+        <div class="panel menu-panel">
+          <div class="select-head">
+            <button class="screen-back" id="menu-close" type="button" aria-label="Close the menu"><span data-icon="close"></span></button>
+            <h2>Menu</h2>
+          </div>
+          <nav class="menu-list" aria-label="Game">
+            <button class="primary" type="button" data-menu="play"><span data-icon="play"></span>Play</button>
+            <button type="button" data-menu="board"><span data-icon="trophy"></span>Leaderboard</button>
+            <button type="button" data-menu="shop"><span data-icon="shop"></span>Shop</button>
+            <button type="button" data-menu="help"><span data-icon="help"></span>How to play</button>
+            <div class="menu-pair">
+              <button type="button" data-menu="music" aria-pressed="true"><span data-icon="music"></span><span>Music</span></button>
+              <button type="button" data-menu="sound" aria-pressed="true"><span data-icon="sound"></span><span>Sound</span></button>
+            </div>
+          </nav>
+          <nav class="menu-list menu-site" aria-label="Orson's website" data-site-links>
+            <p class="menu-label">More from Orson</p>
+            <a href="/players/"><span data-icon="players"></span>Make your player<span class="menu-go" data-icon="next"></span></a>
+            <a href="/ideas/"><span data-icon="ideas"></span>Ideas board<span class="menu-go" data-icon="next"></span></a>
+            <a href="/"><span data-icon="home"></span>orsonbrooker.com<span class="menu-go" data-icon="next"></span></a>
+          </nav>
         </div>
       </div>
     </main>
 
     <script type="module" src="game.js"></script>
     <script type="module" src="feedback/widget.js"></script>
-    <script type="module" src="ui/nav.js"></script>
-  </body>
+      </body>
 </html>

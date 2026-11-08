@@ -21,10 +21,11 @@ import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js
 import { checkDecided, shoot, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
 import { DEBUG, mode, player, setAnim, setSeed, state } from "./play/state.js";
-import { $, charPick, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
+import { $, charPick, page, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
 import { openModes, openSelect, refreshPicker, selectBack, selectCharacter, setMode, showTitle, startTeam } from "./screens/menus.js";
 import { setGameVersion } from "./screens/over.js";
 import { closeBoard, closeHelp, openBoard, toggleBoard, toggleHelp, wireBoardTabs } from "./screens/panels.js";
+import { closeMenu, wireMenu } from "./screens/menu.js";
 import { closeShop, wireShop } from "./screens/shop.js";
 import { ballLook, onProgress, onSave, refreshProgress } from "./progress.js";
 import { confirmDialog } from "./ui/confirm.js";
@@ -42,7 +43,7 @@ function press() {
   state.pressed = true;
   sound.unlock();
 
-  if (!screens.help.hidden || !screens.shop.hidden) return;
+  if (!screens.help.hidden || !screens.shop.hidden || !screens.menu.hidden) return;
   // A tap during a replay skips it.
   if (state.phase === "replay") return endReplay();
   // Tapping to start: choose a game, then a player, then play.
@@ -92,31 +93,37 @@ $("turn-quit").addEventListener("click", async () => {
 $("got-idea").addEventListener("click", () => window.dispatchEvent(new CustomEvent("feedback:open", { detail: { app: "basketball" } })));
 $("help-button").addEventListener("click", toggleHelp);
 $("help-close").addEventListener("click", closeHelp);
+$("help-back").addEventListener("click", closeHelp);
+$("over-close").addEventListener("click", showTitle);
 $("board-button").addEventListener("click", toggleBoard);
 $("board-back").addEventListener("click", closeBoard);
 wireBoardTabs();
 wireShop();
+wireMenu();
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && state.phase === "playing") state.hiddenTab = true;
 });
-fillIcons(stage);
+fillIcons(page);
 
-// The whole game area takes presses, not just the court: on a phone there's room below the
-// court for a thumb to hold down without covering the player.
+// The whole screen takes presses, not just the court: on a phone there's room around the court
+// for a thumb to hold down without covering the player.
 listenForInput({
-  pad: document.querySelector(".game-page") ?? stage,
+  pad: page,
   stage,
   press,
   release,
   setInput: (how) => {
     state.input = how;
   },
+  // Escape does what the button at the top left of the screen does: back, or close.
   escape() {
     if (!screens.help.hidden) closeHelp();
+    else if (!screens.menu.hidden) closeMenu();
     else if (!screens.shop.hidden) closeShop();
     else if (!screens.board.hidden) closeBoard();
     else if (state.phase === "replay") endReplay();
-    else if (state.phase === "select" || state.phase === "modes") showTitle();
+    else if (state.phase === "select") selectBack();
+    else if (state.phase === "modes" || (state.phase === "over" && performance.now() - state.overAt > 900)) showTitle();
   },
   // Choosing a game or a player: the arrow keys move between the cards.
   cards: () =>

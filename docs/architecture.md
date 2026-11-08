@@ -70,7 +70,7 @@ flowchart LR
 | Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness; `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update; `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces, a higher jump; `court.js` switching courts (measurements, physics, art); `replay.js` instant replays (recording each release, picking the best shot, playing it again). |
 | Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, `horse.js`, `threes.js`, shared `points.js`) | Time attack, Sudden death, Around the World, 3-point contest, HORSE (pass and play, no leaderboard), one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. The 3-point contest is hidden (except in `?debug`) until its rack art is in: `THREE_POINT_CONTEST_READY` in `modes/index.js`, brief in `art/three-point-contest.md`. |
 | Moving green zone | `play/zone.js`, `zoneCenter()` in `play/react.js` | A mechanic a mode switches on with `zoneShift()`: the green part of the timing bar moves to a new place each shot (from the seeded "zone" stream), and a release is timed from the green's middle. On in Sudden death (from 5 in a row, further as the run grows), Around the World (gently) and the 3-point contest. |
-| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player (or several, for pass and play); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `shop.js` the shop (ball styles, pairing another device); `over.js` game over (the Replay button, the coins a game earned). |
+| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menu.js` the one menu (the game, then the website's pages, left out in the iOS app); `menus.js` title, choose a game, choose a player (or several, for pass and play); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `shop.js` the shop (ball styles, pairing another device); `over.js` game over (the Replay button, the coins a game earned). |
 | Game content | `content/` | Tables: the courts (`courts.js`), what each player is good at (`attributes.js`), how each fire level and ball looks, the wall scoreboard art, the Around the World spots, the 3-point contest's racks (`threes.js`, with where its art goes), the HORSE spots and spot map, Sudden death run calls and end-of-game calls. |
 | Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log, coins for a game (`coinsFor`). Used by the game and the Worker. |
 | Shop and saved progress | `shared/shop.js`, `shared/save.js`, `progress.js` | The ball styles coins buy (colours drawn in code, prices the Worker checks); what else travels with progress and how two devices' copies merge (shared with the Worker); the game's side of saved progress: this device's key, the last known coins and ball, the progress API. |
@@ -80,7 +80,7 @@ flowchart LR
 | Sound | `audio.js`, `phrases.js`, `assets/voice/` | Music that builds, effects, announcer clips (device voice as fallback); lines about the player in he and she versions. |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
 | Players | `assets/characters/`, `players/recolor.js`, `players/builder.js` | Built-in sprites; builder bodies recoloured from region maps. |
-| Shared UI | `ui/` | Nav, icons, styled dialogs, form helpers. |
+| Shared UI | `ui/` | Nav (the site bar on every page but the game), icons, styled dialogs, form helpers. |
 | Ideas widget | `feedback/` | The "Got an idea?" button on each page. |
 | Server address | `api.js` | Where the API is: this site's `/api`, the local Worker on localhost, or the live site from the iOS app. |
 | iOS app | `ios/`, `capacitor.config.json`, `tools/app/prepare.mjs` | The same pages bundled into an app with Capacitor, opening on the game. |
@@ -372,11 +372,27 @@ stateDiagram-v2
   Replay --> GameOver: done, or tap to skip
   GameOver --> ChooseGame: Change game
   GameOver --> ChoosePlayer: Change player
+  GameOver --> Title: Close
   ChooseGame --> Title: Back
   ChoosePlayer --> ChooseGame: Back
+  Title --> Menu: menu button
+  Menu --> ChooseGame: Play
 ```
 
-Help and the leaderboard open over any of these and return to where they were.
+The menu, help, the leaderboard and the shop open over any of these and return to where they were.
+
+**The page is laid out like an app**, the same on the web and in the iOS app (`games/shootaround/index.html`,
+the game page section of `styles.css`). There's no site bar: the website's pages are links at the bottom of
+the menu, which the iOS app leaves out (`IN_APP`). The page fills the screen inside the safe areas and never
+scrolls. The court (`#stage`, a square) is as big as fits in the middle: on a tall screen, less a row of
+buttons above and the same space below; on a wide screen, less a column each side. Never less than 85% of
+the most that fits, so on a nearly square screen the buttons sit over the court's empty top corners. The
+buttons are in the top corners (menu, leaderboard and shop on the left; how to play, music and sound on the
+right); mid-game only music and sound stay. The bottom corners are kept free for thumbs and, later, a
+joystick and buttons. The score and clock stay on the wall scoreboard in the court art. Every other screen
+is a sheet that fills the whole screen, with its heading stuck to the top and back (or close) at the top
+left; Escape does the same as that button. The whole page takes presses, so a thumb can hold anywhere
+outside the buttons and sheets.
 
 **HORSE (pass and play)** is a mode (`modes/horse.js`) with a few optional hooks no other mode uses
 (documented in `modes/index.js`): `passAndPlay` makes choosing a player pick 2 to 4 players in turn order

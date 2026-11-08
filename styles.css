@@ -6,6 +6,7 @@
   --bg: #a6798e;
   --ink: #2b1622;
   --panel: rgba(43, 22, 34, 0.86);
+  --sheet: #3a1f2e; /* a full-screen sheet: the panel colour, solid */
   --accent: #f08a3c;
   --pixel: "Press Start 2P", ui-monospace, monospace;
 }
@@ -150,48 +151,32 @@ header p {
   white-space: nowrap;
 }
 
-.sound-buttons {
-  position: absolute;
-  right: 3%;
-  bottom: 3%;
-  z-index: 2;
-  display: flex;
-  gap: 8px;
-}
-
-.sound-buttons.info-buttons {
-  right: auto;
-  left: 3%;
-}
-
-.sound-buttons button {
+/* The buttons in the top corners of the game page (see the game page section below for where they go). */
+.corner button {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: var(--btn, 48px);
+  height: var(--btn, 48px);
+  padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: var(--panel);
   color: #fff;
   cursor: pointer;
 }
 
-.sound-buttons .icon {
-  width: 26px;
-  height: 26px;
+.corner .icon {
+  width: 28px;
+  height: 28px;
 }
 
-.sound-buttons button.off {
+.corner button.off {
   opacity: 0.45;
 }
 
-/* No how-to button mid-game: it would cover the court. */
-.stage[data-phase="playing"] #help-button,
-.stage[data-phase="ending"] #help-button,
-.stage[data-phase="playing"] #board-button,
-.stage[data-phase="ending"] #board-button,
-.stage[data-phase="replay"] #help-button,
-.stage[data-phase="replay"] #board-button {
+/* Mid-game only the sound buttons stay: the others would open a screen over the game. */
+.game-page:is([data-phase="playing"], [data-phase="ending"], [data-phase="replay"]) .corner-left,
+.game-page:is([data-phase="playing"], [data-phase="ending"], [data-phase="replay"]) #help-button {
   display: none;
 }
 
@@ -222,7 +207,8 @@ header p {
 
 .logo {
   margin: 0;
-  font-size: clamp(22px, 6.4vw, 60px);
+  font-size: clamp(18px, 6.4vw, 60px);
+  font-size: clamp(18px, 7cqw, 60px); /* the court's width (.stage) */
   color: var(--accent);
   text-shadow:
     4px 4px 0 var(--ink),
@@ -237,7 +223,7 @@ header p {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  margin-bottom: 52px; /* clear of the sound buttons */
+  margin-bottom: 2%;
 }
 
 .tap-to-play {
@@ -246,6 +232,7 @@ header p {
   border-radius: 6px;
   background: var(--panel);
   font-size: clamp(11px, 2.4vw, 20px);
+  font-size: clamp(11px, 3cqw, 20px);
   color: #ffe066;
   animation: blink 1.2s steps(1) infinite;
 }
@@ -335,23 +322,28 @@ header p {
   color: #3ddc84;
 }
 
-/* Select, game over and help: a panel over a dimmed court. */
+/* Menus, choosing, game over, help, the leaderboard and the shop: each one is a sheet that fills the
+   whole screen (clear of the notch and home bar), its content in a column down the middle, and back or
+   close at the top left. The sheet scrolls; its heading stays at the top. */
 .panel-screen {
-  display: grid;
-  place-items: center;
-  padding: 4%;
-  background: rgba(43, 22, 34, 0.45);
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--sheet);
+  cursor: auto;
+  touch-action: pan-y;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .panel {
   width: 100%;
-  max-width: 560px;
-  max-height: 100%;
-  overflow-y: auto;
-  padding: 18px 20px;
-  border-radius: 8px;
-  background: var(--panel);
-  box-shadow: 4px 4px 0 var(--ink);
+  max-width: 760px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 0 max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   line-height: 1.7;
 }
 
@@ -377,25 +369,31 @@ header p {
 }
 
 .select-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
+  padding: max(12px, env(safe-area-inset-top)) 0 12px;
+  background: var(--sheet);
 }
 
 .select-head h2 {
   flex: 1;
-  margin: 0 44px 0 0;
+  margin: 0 58px 0 0; /* centred: the same width as the back button */
 }
 
 .screen-back {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  flex: none;
+  width: 48px;
+  height: 48px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.12);
   color: #fff;
 }
@@ -821,30 +819,12 @@ header p {
 
   .title-bottom {
     gap: 6px;
-    margin-bottom: 44px;
-  }
-
-  /* The court is small on phones: panels get the whole screen. */
-  .panel-screen {
-    position: fixed;
-    z-index: 20;
-    padding: 16px;
-    background: rgba(43, 22, 34, 0.7);
-  }
-
-  .panel {
-    padding: 12px;
-    line-height: 1.6;
+    margin-bottom: 2%;
   }
 
   .char-pick {
     grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
     gap: 8px;
-  }
-
-  .sound-buttons button {
-    width: 38px;
-    height: 38px;
   }
 }
 
@@ -1049,15 +1029,40 @@ header p {
 
 /* ---------- Game page ---------- */
 
-/* No page header here, so the court can be bigger. */
-.game-page .stage {
-  width: min(100%, calc(100svh - 72px), 960px);
+/* The game fills the screen like an app, on the web and in the iOS app: no site bar, no scrolling. The
+   court is a square, as big as fits, in the middle. The menu and buttons sit in the top corners: above the
+   court on a tall screen, beside it on a wide one, and over the court's empty top corners when there's no
+   room for either. The bottom corners are left free for thumbs (and, later, a joystick and buttons). */
+.game-body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
-/* The space around the court takes presses too (game.js), so it fills the screen and doesn't
-   scroll, select text or pop up iOS menus while a thumb holds it. */
 .game-page {
-  min-height: calc(100svh - 92px);
+  --gap: 12px;
+  --btn: 48px;
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  /* The space inside the notch and home bar. */
+  --w: calc(100vw - var(--sal) - var(--sar));
+  --h: calc(100svh - var(--sat) - var(--sab));
+  --h: calc(100dvh - var(--sat) - var(--sab));
+  /* Room for a row of buttons above the court (and the same below, to keep it in the middle), or a
+     column of three beside it. */
+  --bar: calc(var(--btn) + 2 * var(--gap));
+  --rail: calc(3 * var(--btn) + 2 * 8px + 2 * var(--gap));
+  /* Tall: the court is as wide as the screen, less the rows above and below if there's room. Never
+     smaller than 85% of the most that fits: on a nearly square screen the buttons go over the court. */
+  --court: max(min(var(--w), var(--h) - 2 * var(--bar)), 0.85 * min(var(--w), var(--h)));
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -1066,18 +1071,135 @@ header p {
   cursor: pointer;
 }
 
-/* A tall phone: the square court sits in the middle of the screen rather than at the top, with
-   room below it for a thumb. */
-@media (max-width: 520px) and (min-height: 620px) {
+/* Wide: the court is as tall as the screen, less the columns beside it if there's room. */
+@media (orientation: landscape) {
   .game-page {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    --court: max(min(var(--h), var(--w) - 2 * var(--rail)), 0.85 * min(var(--w), var(--h)));
+  }
+}
+
+/* Small phones: slightly smaller buttons (still big enough to tap). */
+@media (max-width: 359px), (max-height: 359px) {
+  .game-page {
+    --btn: 44px;
+    --gap: 8px;
+  }
+}
+
+.game-page .stage {
+  container-type: inline-size; /* the title's words size to the court */
+  position: absolute;
+  left: calc(var(--sal) + (var(--w) - var(--court)) / 2);
+  top: calc(var(--sat) + (var(--h) - var(--court)) / 2);
+  width: var(--court);
+  min-width: 0;
+  margin: 0;
+}
+
+.corner {
+  position: absolute;
+  top: calc(var(--sat) + var(--gap));
+  z-index: 4;
+  display: flex;
+  gap: 8px;
+}
+
+.corner-left {
+  left: calc(var(--sal) + var(--gap));
+}
+
+.corner-right {
+  right: calc(var(--sar) + var(--gap));
+}
+
+/* The menu. */
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 auto 8px;
+  max-width: 480px;
+}
+
+.menu-list button,
+.menu-list a {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 56px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-family: var(--pixel);
+  font-size: clamp(11px, 3vw, 14px);
+  text-align: left;
+  text-decoration: none;
+}
+
+.menu-list button:hover,
+.menu-list a:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.menu-list .primary {
+  background: var(--accent);
+  color: var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.menu-list .primary:hover {
+  background: #f59d58;
+}
+
+.menu-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.menu-pair button {
+  justify-content: center;
+}
+
+.menu-pair button[aria-pressed="false"] {
+  opacity: 0.6;
+}
+
+/* A short, wide screen (a phone on its side): the game on the left, the website on the right. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .menu-panel:has(.menu-site) {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr;
+    column-gap: 16px;
+    align-items: start;
   }
 
-  .tap-to-play {
-    font-size: 14px;
+  .menu-panel .select-head {
+    grid-column: 1 / -1;
   }
+
+  .menu-panel .menu-list {
+    width: 100%;
+  }
+
+  .menu-site .menu-label {
+    margin-top: 0;
+  }
+}
+
+.menu-label {
+  margin: 16px 0 0;
+  color: #d9b8c8;
+  font-size: 10px !important;
+  text-align: left;
+}
+
+.menu-go {
+  margin-left: auto;
+  opacity: 0.6;
 }
 
 /* ---------- Yes/no questions (ui/confirm.js) ---------- */
@@ -1685,12 +1807,6 @@ header p {
   width: 1.5em;
   height: 1.5em;
   flex: none;
-}
-
-.stage[data-phase="playing"] #shop-button,
-.stage[data-phase="ending"] #shop-button,
-.stage[data-phase="replay"] #shop-button {
-  display: none;
 }
 
 .shop-panel .select-head h2 {
