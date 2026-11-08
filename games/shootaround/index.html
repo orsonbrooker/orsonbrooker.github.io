@@ -200,8 +200,9 @@
             <p class="shop-note" id="shop-note">Earn coins by playing: 1 for a basket, 2 when you're on fire, 5 for a money or rainbow ball.</p>
             <div class="ball-styles" id="ball-styles" role="group" aria-label="Balls"></div>
             <p class="shop-say" id="shop-say" aria-live="polite"></p>
-            <section class="pair-box" aria-labelledby="pair-title">
-              <h3 id="pair-title">Playing on another device?</h3>
+            <!-- Folded away until they tap the title, so it doesn't pull attention from the shop. -->
+            <details class="pair-box" id="pair-box">
+              <summary><span data-icon="next"></span>Playing on another device?</summary>
               <p class="pair-lead">Bring your coins and balls with you.</p>
               <div class="pair-steps">
                 <div class="pair-card">
@@ -221,7 +222,7 @@
                   <p class="pair-note" id="pair-join-say" aria-live="polite"></p>
                 </form>
               </div>
-            </section>
+            </details>
           </div>
         </div>
 

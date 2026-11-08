@@ -1776,19 +1776,46 @@ header p {
 /* Another device: two numbered steps, each a card like the ball cards, with its own messages. */
 .pair-box {
   margin-top: 18px;
-  padding-top: 14px;
+  padding-top: 6px;
   border-top: 2px solid rgba(255, 255, 255, 0.15);
   text-align: left;
 }
 
-.pair-box h3 {
-  margin: 0 0 4px;
+/* The title is the button that opens it: a big tap target, with an arrow that turns when open. */
+.pair-box summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
   font-size: clamp(10px, 1.8vw, 13px);
   color: var(--accent);
+  cursor: pointer;
+  list-style: none;
+}
+
+.pair-box summary::-webkit-details-marker {
+  display: none;
+}
+
+.pair-box summary .icon {
+  width: 1.6em;
+  height: 1.6em;
+  flex: none;
+  transition: transform 0.15s;
+}
+
+.pair-box[open] summary .icon {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pair-box summary .icon {
+    transition: none;
+  }
 }
 
 .pair-box .pair-lead {
-  margin: 0 0 12px;
+  margin: 4px 0 12px;
 }
 
 .pair-steps {
@@ -1839,11 +1866,12 @@ header p {
 
 .pair-join {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .pair-join input {
-  flex: 1 1 auto;
+  flex: 1 1 11em; /* room for all 9 characters (ABCD-EFGH) in the pixel font */
   min-width: 0;
   padding: 8px 10px;
   border: 2px solid #ffe066;

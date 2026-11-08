@@ -149,6 +149,7 @@ export function openShop() {
   sendSay("");
   joinSay("");
   resetCode();
+  $("pair-box").open = false;
   render();
   showScreen("shop");
   startSpin();
@@ -167,6 +168,10 @@ export function wireShop() {
   $("shop-back").addEventListener("click", closeShop);
   $("pair-show").addEventListener("click", showCode);
   $("pair-form").addEventListener("submit", join);
+  // Opened at the bottom of a scrolling shop: bring the steps into view.
+  $("pair-box").addEventListener("toggle", () => {
+    if ($("pair-box").open) $("pair-box").scrollIntoView({ block: "nearest", behavior: REDUCED_MOTION.matches ? "auto" : "smooth" });
+  });
   onProgress(() => {
     if (!screens.shop.hidden) render();
   });
