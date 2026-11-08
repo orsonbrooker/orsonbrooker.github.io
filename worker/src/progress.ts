@@ -121,11 +121,13 @@ export async function buy(request: Request, env: Env): Promise<Response> {
 	const style = ballStyle(body.item);
 	if (!style || style.price < 1) throw new HttpError(400, "That's not in the shop.");
 	const poor = () => new HttpError(400, "You need more coins for that one. Keep shooting!");
+	const owned = () => new HttpError(400, "You've already got that one.");
+	if (await env.DB.prepare("SELECT 1 FROM progress_items WHERE progress_id = ? AND item = ?").bind(p.id, style.id).first()) throw owned();
 	if (p.coins < style.price) throw poor();
 	// The item first: its key means a double tap can't add (or pay for) it twice. Then the coins, only
 	// if they still have enough (another buy might have just spent them); if not, the item goes again.
 	const added = await env.DB.prepare("INSERT OR IGNORE INTO progress_items (progress_id, item) VALUES (?, ?) RETURNING item").bind(p.id, style.id).first();
-	if (!added) throw new HttpError(400, "You've already got that one.");
+	if (!added) throw owned();
 	const paid = await env.DB.prepare("UPDATE progress SET coins = coins - ?1, ball = ?3 WHERE id = ?2 AND coins >= ?1 RETURNING id").bind(style.price, p.id, style.id).first();
 	if (!paid) {
 		await env.DB.prepare("DELETE FROM progress_items WHERE progress_id = ? AND item = ?").bind(p.id, style.id).run();
