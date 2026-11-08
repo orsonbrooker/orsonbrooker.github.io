@@ -48,6 +48,7 @@ export function scorePoints(b, celebrateRun = () => false) {
 
 // The parts of a mode that are the same for every mode that scores points.
 export const pointsMode = {
+  ranked: true,
   bonusBalls: true,
   startSpot: () => DEFAULT_SPOT,
   // Anywhere around the hoop, about a third behind the 3-point line (from the seeded "spots" stream).

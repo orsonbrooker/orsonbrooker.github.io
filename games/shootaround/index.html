@@ -65,6 +65,10 @@
           <button id="board-button" type="button" aria-label="Leaderboard"><span data-icon="trophy"></span></button>
           <button id="help-button" type="button" aria-label="How to play"><span data-icon="help"></span></button>
         </div>
+        <!-- Free play never ends: this leaves it (so does Escape). -->
+        <div class="sound-buttons leave-buttons">
+          <button id="leave-button" type="button" aria-label="Stop free play"><span data-icon="back"></span></button>
+        </div>
         <div class="sound-buttons">
           <button id="music" type="button" aria-label="Turn music off" aria-pressed="true"><span data-icon="music"></span></button>
           <button id="mute" type="button" aria-label="Mute sound"><span data-icon="sound"></span></button>
@@ -112,6 +116,11 @@
                 <strong>Around the world</strong>
                 <span>Score from all 7 spots around the key, in order, as fast as you can.</span>
                 <em data-best></em>
+              </button>
+              <button type="button" class="mode-card" data-mode="free">
+                <strong>Free play</strong>
+                <span>No clock, no score. Move around the court and shoot from anywhere, as long as you like.</span>
+                <em>Just for fun</em>
               </button>
             </div>
           </div>
@@ -167,6 +176,7 @@
             <p><strong>Time attack:</strong> score as many points as you can in 60 seconds. Shots from behind the arc are worth 3. Make 3 in a row and you're on fire!</p>
             <p><strong>Sudden death:</strong> no clock. Keep shooting until you miss. One miss and it's over!</p>
             <p><strong>Around the world:</strong> score from all 7 spots around the key, in order, as fast as you can. Miss and you shoot from the same spot again.</p>
+            <p><strong>Free play:</strong> no clock and no score. Move around with the arrow keys or WASD (on a phone or tablet, the joystick) and shoot from anywhere. Tap the back button (or press Escape) to stop.</p>
             <p>Keep scoring for blue supernova fire at 10 in a row. Watch for a gold money ball (double points) and the rare rainbow ball (5 points)!</p>
             <button class="primary" id="help-close" type="button">Got it</button>
           </div>

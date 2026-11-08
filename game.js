@@ -1,4 +1,5 @@
-// Orson's shootaround: an isometric basketball game (time attack, sudden death, around the world).
+// Orson's shootaround: an isometric basketball game (time attack, sudden death, around the world,
+// free play).
 // This file starts it up and wires the pieces together:
 //   engine/   the court and its projection, ball physics, the frame loop, input, drawing helpers
 //   play/     the game in progress: the shared state, players, shooting and the update, reactions, drawing the court
@@ -14,11 +15,12 @@ import { listenForInput } from "./engine/input.js";
 import { startLoop } from "./engine/loop.js";
 import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
-import { characters, loadImage, loadRoster } from "./play/players.js";
+import { setUpTouchControls } from "./play/controls.js";
+import { characters, faceHoop, loadImage, loadRoster } from "./play/players.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow } from "./play/react.js";
 import { checkDecided, shoot, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
-import { DEBUG, JUMP_APEX, mode, player, setAnim, setSeed, state } from "./play/state.js";
+import { DEBUG, JUMP_APEX, mode, player, setAnim, setSeed, state, steer } from "./play/state.js";
 import { $, charPick, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
 import { openModes, openSelect, selectBack, selectCharacter, setMode, showTitle } from "./screens/menus.js";
 import { setGameVersion } from "./screens/over.js";
@@ -49,7 +51,12 @@ function press() {
   if (player.anim === "idle") {
     setAnim("turn");
     sound.squeak();
-  } else if (player.anim === "dribble") setAnim("gather");
+  } else if (player.anim === "dribble" || player.anim === "run") {
+    // Free play: if he's on the move, he stops where he is and squares up to the hoop to shoot.
+    player.steered = false;
+    faceHoop();
+    setAnim("gather");
+  }
 }
 
 function release() {
@@ -58,6 +65,34 @@ function release() {
   if (player.anim === "gather") shoot(-2.5);
   else if (player.anim === "jump") shoot((player.t - JUMP_APEX) / timingWindow());
 }
+
+// ---------- Free play ----------
+
+// Touch screens get a joystick and a shoot button in free play.
+const resetTouchControls = setUpTouchControls({
+  stage,
+  press,
+  release,
+  setInput: (how) => {
+    state.input = how;
+  },
+});
+
+// Free play only ends when they leave (Escape, or the back button): back to choosing a game.
+function leaveFreePlay() {
+  if (state.phase !== "playing" || !mode().freeMove) return;
+  resetTouchControls();
+  state.pressed = false; // let go without shooting
+  for (const b of state.balls) b.trail?.stop();
+  state.balls = [];
+  player.steered = false;
+  faceHoop();
+  setAnim("idle");
+  sound.setIntensity({ stage: 0, fire: 0, final: false });
+  openModes();
+}
+$("leave-button").addEventListener("pointerdown", (e) => e.stopPropagation());
+$("leave-button").addEventListener("click", leaveFreePlay);
 
 // ---------- Buttons on the screens ----------
 
@@ -101,6 +136,12 @@ listenForInput({
     if (!screens.help.hidden) closeHelp();
     else if (!screens.board.hidden) closeBoard();
     else if (state.phase === "select" || state.phase === "modes") showTitle();
+    else leaveFreePlay();
+  },
+  // Free play: the arrow keys and WASD steer him.
+  steer(x, y) {
+    steer.keys = { x, y };
+    return state.phase === "playing" && !!mode().freeMove;
   },
   // Choosing a game or a player: the arrow keys move between the cards.
   cards: () =>

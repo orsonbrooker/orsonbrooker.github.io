@@ -114,7 +114,7 @@ export function recordMiss() {
 // Done the daily challenge in this game? Celebrate (once a day).
 export function checkDaily() {
   const challenge = todaysChallenge();
-  if (state.dailyDone || doneToday() || !state.stats || !countsIn(challenge, state.mode)) return;
+  if (!mode().ranked || state.dailyDone || doneToday() || !state.stats || !countsIn(challenge, state.mode)) return;
   state.stats.score = state.score;
   state.stats.buzzerBeater = state.buzzerBeater;
   if (progress(challenge, state.stats) < challenge.goal) return;

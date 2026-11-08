@@ -9,15 +9,15 @@ import { mode, modes, state } from "../play/state.js";
 import { removeMyPlayer } from "../players/recolor.js";
 import { charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js";
 import { showDaily } from "../screens/over.js";
-import { MODES } from "../shared/rules.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
 
 // Picks the mode for the next game (remembered for next time) and shows its best.
 export function setMode(id) {
-  state.mode = MODES.includes(id) ? id : "timed";
-  state.best = load(mode().bestKey, 0);
+  state.mode = modes[id] ? id : "timed";
+  state.best = mode().bestKey ? load(mode().bestKey, 0) : 0;
   save("orson-hoops-mode", state.mode);
+  stage.dataset.gameMode = state.mode; // free play shows its own buttons (styles.css)
   updateHud();
 }
 
@@ -34,8 +34,9 @@ export function openModes() {
   showDaily();
   for (const card of screens.modes.querySelectorAll("[data-mode]")) {
     const m = modes[card.dataset.mode] ?? modes.timed;
-    const best = load(m.bestKey, 0);
     card.setAttribute("aria-pressed", String(card.dataset.mode === state.mode));
+    if (!m.bestKey) continue; // free play has no best
+    const best = load(m.bestKey, 0);
     card.querySelector("[data-best]").textContent = best ? `Your best: ${m.formatBest(best)}` : "No best yet";
   }
   showScreen("modes");

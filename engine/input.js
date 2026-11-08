@@ -1,10 +1,19 @@
 // Input: one button. Space, a tap or a mouse press anywhere on the game area presses it, letting go
-// releases it. Escape backs out of a screen, and the arrow keys move between cards.
+// releases it. Escape backs out of a screen, and the arrow keys move between cards. In free play the
+// arrow keys and WASD steer the player instead. (The on-screen joystick and shoot button for touch
+// screens are in play/controls.js.)
 
 // Typing in a form (like the ideas box) shouldn't make Orson shoot.
 const typing = (e) => e.target instanceof Element && e.target.closest("input, textarea, select, button, dialog");
 // Things on the page that are tapped for their own sake, not to shoot.
 const OWN_TAPS = "a, button, input, select, textarea, dialog, .panel-screen";
+// Free play: the keys that steer the player, as a direction on screen.
+const STEER_KEYS = {
+  ArrowUp: [0, -1], KeyW: [0, -1],
+  ArrowDown: [0, 1], KeyS: [0, 1],
+  ArrowLeft: [-1, 0], KeyA: [-1, 0],
+  ArrowRight: [1, 0], KeyD: [1, 0],
+};
 
 // Arrow keys move between the cards in `area` (choosing a game or a player): to the nearest card
 // that way, so it works however the cards wrap. Enter or Space picks the one in focus.
@@ -46,7 +55,21 @@ function arrowMove(key, area) {
 //   setInput(how)  how they're playing: "keyboard", "mouse" or "touch"
 //   escape()       Escape pressed with no dialog open
 //   cards()        the element whose cards the arrow keys move between right now, or null
-export function listenForInput({ pad, stage, press, release, setInput, escape, cards }) {
+//   steer(x, y)    the steering keys held now, as a direction on screen (x right, y down, length 0
+//                  or 1); returns whether steering is on (free play), so the arrow keys don't scroll
+export function listenForInput({ pad, stage, press, release, setInput, escape, cards, steer }) {
+  const held = new Set();
+  function steerKeys() {
+    let x = 0;
+    let y = 0;
+    for (const code of held) {
+      x += STEER_KEYS[code][0];
+      y += STEER_KEYS[code][1];
+    }
+    const len = Math.hypot(x, y) || 1;
+    return steer(x / len, y / len);
+  }
+
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !document.querySelector("dialog[open]")) {
       escape();
@@ -56,6 +79,14 @@ export function listenForInput({ pad, stage, press, release, setInput, escape, c
       e.preventDefault();
       return;
     }
+    if (STEER_KEYS[e.code] && !typing(e) && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      held.add(e.code);
+      if (steerKeys()) {
+        e.preventDefault();
+        setInput("keyboard");
+      }
+      return;
+    }
     if (e.code !== "Space" && e.key !== " ") return;
     if (typing(e)) return;
     e.preventDefault();
@@ -63,6 +94,10 @@ export function listenForInput({ pad, stage, press, release, setInput, escape, c
     if (!e.repeat) press();
   });
   window.addEventListener("keyup", (e) => {
+    if (held.delete(e.code)) {
+      steerKeys();
+      return;
+    }
     if (e.code !== "Space" && e.key !== " ") return;
     if (typing(e)) return;
     e.preventDefault();
@@ -106,5 +141,7 @@ export function listenForInput({ pad, stage, press, release, setInput, escape, c
   window.addEventListener("blur", () => {
     activePointer = null;
     release();
+    held.clear();
+    steerKeys();
   });
 }

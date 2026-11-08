@@ -4,14 +4,14 @@
 
 import { sound } from "../audio.js";
 import { BALL_BADGES } from "../content/looks.js";
-import { COURT_PX, EU, EV, PX_PER_M, RIM, isThreePointSpot, project } from "../engine/court.js";
+import { COURT_PX, EU, EV, PX_PER_M, RIM, ROOM_U, ROOM_V, isThreePointSpot, project } from "../engine/court.js";
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "../engine/physics.js";
 import { save } from "../engine/storage.js";
 import { startToken } from "../leaderboard.js";
 import { canJog, faceHoop, faceToward, frameCount, loopFps, releaseOffset, sheet, shoePoints } from "../play/players.js";
 import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss } from "../play/react.js";
 import { updateHud } from "../play/scene.js";
-import { ANIM_FPS, JOG_MAX_TIME, JOG_SPEED, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state } from "../play/state.js";
+import { ANIM_FPS, JOG_MAX_TIME, JOG_SPEED, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state, steering } from "../play/state.js";
 import { showScreen } from "../screens/base.js";
 import { endGame } from "../screens/over.js";
 import { GAME_SECONDS } from "../shared/rules.js";
@@ -39,9 +39,11 @@ export function startGame() {
   state.rngSeed = null;
   resetRandom();
   const game = ++gamesStarted;
-  startToken().then((token) => {
-    if (game === gamesStarted) state.gameToken = token;
-  });
+  // Only a ranked game can go on the leaderboard, so only it asks the server for a start token.
+  if (mode().ranked)
+    startToken().then((token) => {
+      if (game === gamesStarted) state.gameToken = token;
+    });
   state.buzzerBeater = false;
   state.streak = 0;
   state.coldStreak = 0;
@@ -57,6 +59,7 @@ export function startGame() {
   player.activeBall = null;
   player.moving = false;
   player.path = null;
+  player.steered = false;
   setAnim("idle");
   showScreen(null);
   updateHud();
@@ -203,6 +206,68 @@ export function checkDecided(b) {
 
 // ---------- Update ----------
 
+// While he jogs: footsteps twice a stride, the ball's bounce once.
+function jogSounds() {
+  const n = frameCount("run");
+  const frame = Math.floor(player.t * loopFps("run")) % n;
+  if (frame !== player.lastRunFrame && (frame === 0 || frame === Math.floor(n / 2))) {
+    sound.step(0.6);
+    if (frame === 0) sound.dribble();
+  }
+  player.lastRunFrame = frame;
+}
+
+// Free play: where he can go. On the floor, in front of the backboard, and not right under the hoop.
+const FREE_AREA = { u0: 1.2, u1: ROOM_U - 0.7, v0: RIM.v + 0.4, v1: ROOM_V - 0.7, rim: 1.1 };
+// Moves he can be steered out of (not mid-shot).
+const STEERABLE = ["idle", "turn", "dribble", "run"];
+const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+
+// Free play: they steer him (steering() in play/state.js, a direction on screen). He jogs that way,
+// facing where he's going (players without jogging moves slide along dribbling), up to JOG_SPEED.
+// When they let go he turns to the hoop and dribbles.
+function steerPlayer(dt) {
+  const s = steering();
+  const amount = Math.hypot(s.x, s.y);
+  const steerable = STEERABLE.includes(player.anim);
+  if (amount < 0.1 || !steerable) {
+    if (player.steered) {
+      player.steered = false;
+      faceHoop();
+      if (steerable) setAnim("dribble");
+    }
+    return;
+  }
+  // The court is isometric: the screen direction is du * EU + dv * EV for a direction (du, dv) on
+  // the court. Solve for it, then go that way at a speed in metres.
+  const det = EU.x * EV.y - EV.x * EU.y;
+  const du = (s.x * EV.y - EV.x * s.y) / det;
+  const dv = (EU.x * s.y - s.x * EU.y) / det;
+  const len = Math.hypot(du, dv);
+  const step = JOG_SPEED * amount * dt;
+  const wasThree = isThreePointSpot(player.u, player.v);
+  let u = clamp(player.u + (du / len) * step, FREE_AREA.u0, FREE_AREA.u1);
+  let v = clamp(player.v + (dv / len) * step, FREE_AREA.v0, FREE_AREA.v1);
+  const fromRim = Math.hypot(u - RIM.u, v - RIM.v);
+  if (fromRim < FREE_AREA.rim) {
+    // Slide round the hoop rather than under it.
+    u = RIM.u + ((u - RIM.u) / fromRim) * FREE_AREA.rim;
+    v = Math.max(FREE_AREA.v0, RIM.v + ((v - RIM.v) / fromRim) * FREE_AREA.rim);
+  }
+  player.u = u;
+  player.v = v;
+  faceToward(player.u + du / len, player.v + dv / len);
+  const anim = canJog() ? "run" : "dribble";
+  if (player.anim !== anim) setAnim(anim);
+  player.steered = true;
+  if (anim === "run") jogSounds();
+  // Stepping back behind the line: say so.
+  if (!wasThree && isThreePointSpot(u, v)) {
+    const p = project(u, v);
+    addPopup("3PT", "#ffffff", p.x, p.y - 500);
+  }
+}
+
 function updatePlayer(dt) {
   player.t += dt;
 
@@ -224,16 +289,7 @@ function updatePlayer(dt) {
       const k = path.dur ? Math.min(1, path.t / path.dur) : 1;
       player.u = path.from.u + (path.to.u - path.from.u) * k;
       player.v = path.from.v + (path.to.v - path.from.v) * k;
-      if (player.anim === "run") {
-        // footsteps twice a stride, the ball's bounce once
-        const n = frameCount("run");
-        const frame = Math.floor(player.t * loopFps("run")) % n;
-        if (frame !== player.lastRunFrame && (frame === 0 || frame === Math.floor(n / 2))) {
-          sound.step(0.6);
-          if (frame === 0) sound.dribble();
-        }
-        player.lastRunFrame = frame;
-      }
+      if (player.anim === "run") jogSounds();
       if (k < 1) return;
       player.fade = 1;
     } else {
@@ -264,6 +320,7 @@ function updatePlayer(dt) {
     return;
   }
   if (player.fade < 1) player.fade = Math.min(1, player.fade + dt * 6);
+  if (mode().freeMove && state.phase === "playing") steerPlayer(dt);
 
   switch (player.anim) {
     case "turn":
@@ -293,7 +350,11 @@ function updatePlayer(dt) {
       const ball = player.activeBall;
       if (done && (!ball || ball.decided) && state.phase === "playing") {
         player.activeBall = null;
-        player.moving = true;
+        if (mode().freeMove) {
+          // Free play: the ball's back in his hands where he stands, ready to move or shoot again.
+          faceHoop();
+          setAnim(state.pressed ? "gather" : "dribble");
+        } else player.moving = true;
       }
       break;
     }

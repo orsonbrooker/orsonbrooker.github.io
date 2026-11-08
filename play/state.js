@@ -21,7 +21,7 @@ export const TIMING_WINDOW = 0.13;
 export const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16 };
 
 export const state = {
-  phase: "loading", // loading | title | modes | select | playing | ending | over
+  phase: "loading", // loading | title | modes | select | playing | ending | over (free play never ends)
   score: 0,
   mode: "timed",
   best: 0,
@@ -64,7 +64,19 @@ export const player = {
   moving: false,
   path: null, // jogging to the next spot: { from, to, t, dur }
   dir: "bl", // which way he faces the hoop from his spot (b, bl, l...), for sheets drawn that way
+  steered: false, // free play: moving because they're steering him
 };
+
+// Free play: which way they're steering him on screen (x right, y down), from the arrow keys and
+// WASD (engine/input.js) and the on-screen joystick (play/controls.js). steering() is the two
+// together, no longer than 1 (full jog speed).
+export const steer = { keys: { x: 0, y: 0 }, stick: { x: 0, y: 0 } };
+export function steering() {
+  const x = steer.keys.x + steer.stick.x;
+  const y = steer.keys.y + steer.stick.y;
+  const len = Math.hypot(x, y);
+  return len > 1 ? { x: x / len, y: y / len } : { x, y };
+}
 
 export function setAnim(name) {
   player.anim = name;

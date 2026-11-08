@@ -92,6 +92,7 @@ const time = (best) => `${best.toFixed(1)}s`;
 export default {
   id: "around",
   bestKey: "orson-hoops-best-around",
+  ranked: true,
   bonusBalls: false,
 
   startSpot: () => spots()[0],
