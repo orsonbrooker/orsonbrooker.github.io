@@ -26,6 +26,7 @@ export const sound = {
       buildGraph(this.ctx);
       this.setMuted(this.muted);
       preloadClips();
+      preloadSfx();
       // The first tap or key press starts the menu music (browsers block sound before one).
       if (this.musicOn && !music.timer) startMusic("menu");
     }
@@ -121,6 +122,8 @@ export const sound = {
   bounce(speed) {
     if (!this.ctx) return;
     const v = Math.min(1, speed / 7);
+    // Softer bounces sound a touch higher and shorter, like a ball settling.
+    if (playSfx("bounce", 0.75 * v, 1 + (1 - v) * 0.15)) return;
     const t = now();
     // Hardwood: a low thump with a short body resonance and a slap on top.
     tone("sine", 95, t, 0.18, { to: 55, peak: 0.55 * v });
@@ -130,9 +133,16 @@ export const sound = {
 
   dribble() {
     if (!this.ctx) return;
+    // A recorded bounce on the hardwood (the synthesised one until the recordings have loaded).
+    if (playSfx("bounce", 0.4, 0.97 + Math.random() * 0.06)) return;
     const t = now();
     tone("sine", 110, t, 0.14, { to: 60, peak: 0.22 });
     noise(t, 0.025, { type: "highpass", freq: 2000, peak: 0.04 });
+  },
+
+  // A sneaker footstep, for planting the feet (and running, once players run).
+  step(level = 1) {
+    if (this.ctx) playSfx("step", 0.35 * level, 0.95 + Math.random() * 0.1);
   },
 
   rim(speed) {
@@ -169,6 +179,7 @@ export const sound = {
 
   squeak() {
     if (!this.ctx) return;
+    if (playSfx("squeak", 0.3, 0.92 + Math.random() * 0.16)) return;
     const t = now();
     const f = 1700 + Math.random() * 600;
     tone("triangle", f, t, 0.13, { to: f * 1.35, peak: 0.07, vibrato: 45, attack: 0.01 });
@@ -637,6 +648,52 @@ function outro() {
   crash(t);
 }
 
+// ---------- Recorded sound effects ----------
+
+// Bounces, a sneaker squeak and footsteps, recorded with the pixel-art videos and packed into one
+// small file by tools/build_sfx.py. Each sound has a few takes, played in turn.
+const sfx = { file: null, clips: {}, buffer: null, loading: null, shift: 0, next: {} };
+
+export async function loadSoundClips() {
+  try {
+    const res = await fetch("assets/sfx/sfx.json");
+    if (res.ok) Object.assign(sfx, await res.json());
+  } catch {
+    // No recordings: the synthesised sounds play instead.
+  }
+  if (sound.ctx) preloadSfx();
+}
+
+function preloadSfx() {
+  if (!sfx.file || sfx.loading) return sfx.loading;
+  sfx.loading = fetch(`assets/sfx/${sfx.file}`)
+    .then((r) => r.arrayBuffer())
+    .then((data) => sound.ctx.decodeAudioData(data))
+    .then((buffer) => {
+      sfx.shift = encoderDelay(buffer, Object.values(sfx.clips).flat());
+      return (sfx.buffer = buffer);
+    })
+    .catch(() => null);
+  return sfx.loading;
+}
+
+// Plays the next take of a recorded sound; false if the recordings aren't ready yet.
+function playSfx(name, gain = 1, rate = 1) {
+  const takes = sfx.clips[name];
+  if (!sfx.buffer || !takes?.length) return false;
+  const i = (sfx.next[name] ?? Math.floor(Math.random() * takes.length)) % takes.length;
+  sfx.next[name] = i + 1;
+  const [start, duration] = takes[i];
+  const src = sound.ctx.createBufferSource();
+  src.buffer = sfx.buffer;
+  src.playbackRate.value = rate;
+  const g = sound.ctx.createGain();
+  g.gain.value = gain;
+  src.connect(g).connect(bus.sfx);
+  src.start(now(), Math.max(0, start + sfx.shift - 0.005), duration + 0.01);
+  return true;
+}
+
 // ---------- Recorded announcer ----------
 
 // All the clips live in one small file; voice.json says where each phrase starts and how long
@@ -660,7 +717,7 @@ function preloadClips() {
     .then((r) => r.arrayBuffer())
     .then((data) => sound.ctx.decodeAudioData(data))
     .then((buffer) => {
-      voice.shift = encoderDelay(buffer);
+      voice.shift = encoderDelay(buffer, Object.values(voice.clips));
       return (voice.buffer = buffer);
     })
     .catch(() => null);
@@ -668,10 +725,10 @@ function preloadClips() {
 }
 
 // Some decoders keep the encoder's few ms of lead-in silence and some drop it, so find where the
-// first line really starts and shift every clip by the same amount.
-function encoderDelay(buffer) {
+// first clip really starts and shift every clip by the same amount.
+function encoderDelay(buffer, clips) {
   const data = buffer.getChannelData(0);
-  const first = Math.min(...Object.values(voice.clips).map(([start]) => start));
+  const first = Math.min(...clips.map(([start]) => start));
   for (let i = 0; i < data.length; i++) {
     if (Math.abs(data[i]) > 0.02) return Math.max(-0.1, Math.min(0.4, i / buffer.sampleRate - first));
   }

@@ -1,0 +1,32 @@
+{
+  "out": "assets/characters/lab/video",
+  "period": 5.35,
+  "clusters": 48,
+  "fixed": 14,
+  "mirror": false,
+  "clips": {
+    "bounce": "/Users/lukebrooker/Downloads/orson-basketball/old-grey-background/grey-bounce-and-shoot.mp4"
+  },
+  "anims": {
+    "idle": {"clip": "bounce", "frames": [0, 2, 4, 6, 8, 10, 12, 14, 12, 10, 8, 6, 4, 2], "fps": 8},
+    "turn": {"clip": "bounce", "frames": [18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51], "fps": 34},
+    "dribble": {"clip": "bounce", "frames": [72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89], "fps": 24},
+    "gather": {"clip": "bounce", "frames": [105, 107, 109, 111, 113, 115, 117], "fps": 24},
+    "jump": {"clip": "bounce", "frames": [117, 119, 121, 123, 125, 127, 129, 131, 133, 135, 137, 139, 141, 143], "fps": 23.53},
+    "release": {"clip": "bounce", "frames": [147, 149, 151, 153, 155, 157, 159, 161, 163, 165, 167, 169, 171], "fps": 29.7}
+  },
+  "spin": {"clip": "bounce", "frames": [0, 24, 30, 39, 51]},
+  "parts": {
+    "skin": [9, 18, 27, 30, 33, 34, 37, 39, 40, 41],
+    "hair": [14, 19, 22, 26, 28, 32, 36],
+    "jersey": [31, 38, 42, 43, 44, 45, 46, 47],
+    "team": [5, 8, 11, 12, 15, 16, 20, 21, 24],
+    "shoes": [4, 6, 10, 17]
+  },
+  "ball": [13, 25],
+  "either": {
+    "3": ["hair", "fixed"], "7": ["hair", "fixed"],
+    "9": ["skin", "hair"], "14": ["hair", "skin", "fixed"], "18": ["skin", "hair"], "19": ["hair", "skin", "fixed"],
+    "22": ["hair", "skin", "fixed"], "26": ["hair", "fixed"], "28": ["hair", "fixed"], "32": ["hair", "fixed"], "27": ["skin", "hair"], "30": ["skin", "hair"], "33": ["skin", "hair"], "24": ["team", "jersey"], "31": ["jersey", "team"]
+  }
+}

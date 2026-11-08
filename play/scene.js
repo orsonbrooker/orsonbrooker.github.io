@@ -2,6 +2,7 @@
 // keeps the score shown under the court and on the wall scoreboard up to date.
 
 import { BOARD_ART } from "../content/looks.js";
+import { drawArtLab } from "../play/artlab.js";
 import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, project } from "../engine/court.js";
 import { BALL_FRAMES, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow } from "../engine/draw.js";
 import { currentFrame, frameCount, sheet } from "../play/players.js";
@@ -53,8 +54,29 @@ function drawPlayer() {
   const scale = 1 / sheet.sprites.res;
   const p = project(player.u, player.v);
   ctx.globalAlpha = Math.max(0, player.fade);
-  ctx.drawImage(sheet.atlas, sx, sy, w, h, p.x + ox * scale, p.y + oy * scale, w * scale, h * scale);
+  if (sheet.sprites.pixel) {
+    // True pixel art: a whole number of screen pixels per art pixel, on whole screen pixels, so
+    // every pixel stays square and sharp at any canvas size.
+    const m = ctx.getTransform();
+    const n = Math.max(1, Math.round(scale * m.a));
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    const fx = Math.round(m.a * p.x + m.e);
+    const fy = Math.round(m.d * p.y + m.f);
+    ctx.drawImage(sheet.atlas, sx, sy, w, h, fx + ox * n, fy + oy * n, w * n, h * n);
+    // His number and team name, drawn finer than the art (like the builder's players).
+    const print = sheet.prints?.get(`${sx},${sy}`);
+    if (print) ctx.drawImage(print, 0, 0, print.width, print.height, fx + ox * n, fy + oy * n, w * n, h * n);
+    ctx.restore();
+  } else {
+    ctx.drawImage(sheet.atlas, sx, sy, w, h, p.x + ox * scale, p.y + oy * scale, w * scale, h * scale);
+    // a full-detail sheet from video: its number and team name over the frame
+    const print = sheet.prints?.get(`${sx},${sy}`);
+    if (print) ctx.drawImage(print, 0, 0, print.width, print.height, p.x + ox * scale, p.y + oy * scale, w * scale, h * scale);
+  }
   ctx.globalAlpha = 1;
+  drawArtLab(ctx, p);
 }
 
 function drawBall(b) {

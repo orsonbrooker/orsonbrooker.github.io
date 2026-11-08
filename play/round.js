@@ -8,7 +8,7 @@ import { COURT_PX, EU, EV, PX_PER_M, RIM, isThreePointSpot, project } from "../e
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "../engine/physics.js";
 import { save } from "../engine/storage.js";
 import { startToken } from "../leaderboard.js";
-import { frameCount, sheet, shoePoints } from "../play/players.js";
+import { faceHoop, frameCount, loopFps, releaseOffset, sheet, shoePoints } from "../play/players.js";
 import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss } from "../play/react.js";
 import { updateHud } from "../play/scene.js";
 import { ANIM_FPS, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state } from "../play/state.js";
@@ -52,6 +52,7 @@ export function startGame() {
   const start = mode().startSpot();
   player.u = start.u;
   player.v = start.v;
+  faceHoop();
   player.fade = 1;
   player.activeBall = null;
   player.moving = false;
@@ -75,7 +76,7 @@ export function shoot(timing) {
     save("orson-hoops-learned", true);
   }
   const ground = project(player.u, player.v);
-  const [offX, offY] = sheet.sprites.releaseOffset;
+  const [offX, offY] = releaseOffset();
   const dirU = RIM.u - player.u;
   const dirV = RIM.v - player.v;
   const dist = Math.hypot(dirU, dirV);
@@ -210,6 +211,7 @@ function updatePlayer(dt) {
       const spot = mode().pickSpot();
       player.u = spot.u;
       player.v = spot.v;
+      faceHoop();
       player.moving = false;
       player.fade = 0;
       // Already facing the hoop after the first shot: straight to dribbling (or jumping, if held).
@@ -231,7 +233,10 @@ function updatePlayer(dt) {
 
   switch (player.anim) {
     case "turn":
-      if (player.t >= frameCount("turn") / ANIM_FPS.turn) setAnim(state.pressed ? "gather" : "dribble");
+      if (player.t >= frameCount("turn") / ANIM_FPS.turn) {
+        sound.step(); // his feet set as he finishes turning to the hoop
+        setAnim(state.pressed ? "gather" : "dribble");
+      }
       break;
     case "gather":
       if (player.t >= frameCount("gather") / ANIM_FPS.gather) {
@@ -241,7 +246,7 @@ function updatePlayer(dt) {
       break;
     case "dribble": {
       // Bounce sound when the ball hits the floor (the first frame of the loop).
-      const frame = Math.floor(player.t * ANIM_FPS.dribble) % frameCount("dribble");
+      const frame = Math.floor(player.t * loopFps("dribble")) % frameCount("dribble");
       if (frame === 0 && player.lastDribbleFrame !== 0) sound.dribble();
       player.lastDribbleFrame = frame;
       break;

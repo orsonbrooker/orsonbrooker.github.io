@@ -7,7 +7,7 @@
 //   screens/  the title, choosing a game and a player, help, the leaderboard, game over
 // Scoring rules shared with the server are in shared/rules.js.
 
-import { loadVoiceClips, sound } from "./audio.js";
+import { loadSoundClips, loadVoiceClips, sound } from "./audio.js";
 import { isThreePointSpot, project, RIM } from "./engine/court.js";
 import { makeBallSprites } from "./engine/draw.js";
 import { listenForInput } from "./engine/input.js";
@@ -112,6 +112,7 @@ listenForInput({
 
 async function boot() {
   loadVoiceClips();
+  loadSoundClips();
   try {
     await loadRoster();
     const [hoopImg] = await Promise.all([

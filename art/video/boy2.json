@@ -1,0 +1,45 @@
+{
+  "out": "assets/characters/lab/video2",
+  "period": 5.35,
+  "clusters": 48,
+  "fixed": 12,
+  "background": "green",
+  "clips": {
+    "dribble-front": {"video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-front.mp4", "keep_ball": true},
+    "dribble-front-right": {"video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-front-right.mp4", "keep_ball": true},
+    "dribble-right": {"video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-right.mp4", "keep_ball": true},
+    "dribble-back-right": {"video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-back-right.mp4", "keep_ball": true},
+    "dribble-back": {"video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-back.mp4", "keep_ball": true}
+  },
+  "anims": {
+    "idle": {"clip": "dribble-front", "frames": [0, 1, 2, 1], "fps": 4, "face": "front"},
+    "dribble": {"clip": "dribble-front", "frames": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46], "fps": 24, "face": "front"},
+    "dribblerun": {"clip": "dribble-front", "frames": [119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133], "fps": 24, "face": "front"},
+    "idle-fr": {"clip": "dribble-front-right", "frames": [0, 1, 2, 1], "fps": 4, "face": "front"},
+    "dribble-fr": {"clip": "dribble-front-right", "frames": [38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52], "fps": 24, "face": "front"},
+    "dribblerun-fr": {"clip": "dribble-front-right", "frames": [79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90], "fps": 24, "face": "front"},
+    "idle-r": {"clip": "dribble-right", "frames": [0, 1, 2, 1], "fps": 4, "face": "side"},
+    "dribble-r": {"clip": "dribble-right", "frames": [16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28], "fps": 24, "face": "side"},
+    "dribblerun-r": {"clip": "dribble-right", "frames": [121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136], "fps": 24, "face": "side"},
+    "idle-br": {"clip": "dribble-back-right", "frames": [0, 1, 2, 1], "fps": 4, "face": "back"},
+    "dribble-br": {"clip": "dribble-back-right", "frames": [28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41], "fps": 24, "face": "back"},
+    "dribblerun-br": {"clip": "dribble-back-right", "frames": [94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105], "fps": 24, "face": "back"},
+    "idle-b": {"clip": "dribble-back", "frames": [0, 1, 2, 1], "fps": 4, "face": "back"},
+    "dribble-b": {"clip": "dribble-back", "frames": [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29], "fps": 24, "face": "back"},
+    "dribblerun-b": {"clip": "dribble-back", "frames": [109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123], "fps": 24, "face": "back"}
+  },
+  "spin": {"clip": "dribble-front", "frames": [0]},  "parts": {
+    "skin": [24, 29, 32, 34, 36, 37, 39, 40, 41, 42, 44],
+    "hair": [14, 18, 25, 27, 33, 35],
+    "jersey": [43, 45, 46, 47],
+    "team": [12, 16, 22, 28],
+    "shoes": [19, 30]
+  },
+  "ball": [9, 13, 17, 21, 23, 26],
+  "either": {
+    "4": ["hair", "skin", "fixed"], "6": ["hair", "skin", "fixed"], "10": ["hair", "skin", "fixed"], "18": ["hair", "skin", "fixed"], "7": ["hair", "fixed"], "11": ["hair", "skin"], "15": ["skin", "hair"],
+    "20": ["hair", "skin", "fixed"], "24": ["skin", "hair"], "29": ["skin", "hair"], "32": ["skin", "hair"], "25": ["hair", "fixed"], "27": ["hair", "fixed"], "33": ["hair", "fixed"],
+    "14": ["hair", "fixed"], "5": ["team", "shoes"], "8": ["shoes", "team"],
+    "31": ["team", "jersey"], "38": ["jersey", "team"]
+  }
+}

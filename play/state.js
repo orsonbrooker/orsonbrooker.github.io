@@ -58,6 +58,7 @@ export const player = {
   fade: 1,
   activeBall: null,
   moving: false,
+  dir: "bl", // which way he faces the hoop from his spot (b, bl, l...), for sheets drawn that way
 };
 
 export function setAnim(name) {

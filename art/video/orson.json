@@ -1,0 +1,1186 @@
+{
+ "out": "assets/characters/orson-pixel",
+ "period": 5.35,
+ "clusters": 48,
+ "fixed": 12,
+ "background": "green",
+ "clips": {
+  "turn": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/T-turn-front-to-back-left.mp4"
+  },
+  "dribble-back": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-back.mp4",
+   "keep_ball": true
+  },
+  "shot-back-left": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/E-shoot-back-left.mp4"
+  },
+  "shot-back": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/E-shoot-back.mp4"
+  },
+  "dribble-back-left": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-back-left.mp4",
+   "keep_ball": true
+  },
+  "dribble-left": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-left.mov",
+   "keep_ball": true
+  },
+  "shot-left": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/E-shoot-left.mp4"
+  }
+ },
+ "anims": {
+  "idle-t": {
+   "clip": "turn",
+   "frames": [
+    0,
+    8,
+    16,
+    24,
+    30
+   ],
+   "face": "front"
+  },
+  "turn-t": {
+   "clip": "turn",
+   "frames": [
+    36,
+    41,
+    45,
+    49,
+    53,
+    58,
+    63
+   ],
+   "face": [
+    "front",
+    "front",
+    "side",
+    "side",
+    "side",
+    "back",
+    "back"
+   ]
+  },
+  "dribble-b": {
+   "clip": "dribble-back",
+   "frames": [
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29
+   ],
+   "fps": 24,
+   "face": "back"
+  },
+  "gather-bl": {
+   "clip": "shot-back-left",
+   "frames": [
+    8,
+    10,
+    12,
+    14,
+    16,
+    18,
+    21
+   ],
+   "face": "back"
+  },
+  "jump-bl": {
+   "clip": "shot-back-left",
+   "frames": [
+    22,
+    24,
+    26,
+    28,
+    30,
+    32,
+    34
+   ],
+   "face": "back",
+   "anchor": "gather-bl"
+  },
+  "release-bl": {
+   "clip": "shot-back-left",
+   "frames": [
+    36,
+    40,
+    44,
+    48,
+    52,
+    56,
+    60
+   ],
+   "face": "back",
+   "anchor": "gather-bl"
+  },
+  "gather-b": {
+   "clip": "shot-back",
+   "frames": [
+    2,
+    4,
+    6,
+    8,
+    10,
+    12,
+    13
+   ],
+   "face": "back"
+  },
+  "jump-b": {
+   "clip": "shot-back",
+   "frames": [
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20
+   ],
+   "face": "back",
+   "anchor": "gather-b"
+  },
+  "release-b": {
+   "clip": "shot-back",
+   "frames": [
+    22,
+    25,
+    28,
+    32,
+    36,
+    40,
+    44
+   ],
+   "face": "back",
+   "anchor": "gather-b"
+  },
+  "dribble-bl": {
+   "clip": "dribble-back-left",
+   "frames": [
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47
+   ],
+   "fps": 24,
+   "face": "back"
+  },
+  "dribble-l": {
+   "clip": "dribble-left",
+   "frames": [
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41
+   ],
+   "fps": 24,
+   "face": "side"
+  },
+  "gather-l": {
+   "clip": "shot-left",
+   "frames": [
+    9,
+    12,
+    15,
+    18,
+    21,
+    24,
+    27
+   ],
+   "face": "side"
+  },
+  "jump-l": {
+   "clip": "shot-left",
+   "frames": [
+    30,
+    33,
+    36,
+    39,
+    42,
+    45,
+    48
+   ],
+   "face": "front",
+   "anchor": "gather-l"
+  },
+  "release-l": {
+   "clip": "shot-left",
+   "frames": [
+    51,
+    54,
+    57,
+    61,
+    65,
+    69,
+    74
+   ],
+   "face": "front",
+   "anchor": "gather-l"
+  }
+ },
+ "spin": {
+  "clip": "turn",
+  "frames": [
+   0
+  ]
+ },
+ "parts": {
+  "skin": [
+   24,
+   29,
+   32,
+   34,
+   36,
+   37,
+   39,
+   40,
+   41,
+   42,
+   44
+  ],
+  "hair": [
+   14,
+   18,
+   25,
+   27,
+   33,
+   35
+  ],
+  "jersey": [
+   43,
+   45,
+   46,
+   47
+  ],
+  "team": [
+   12,
+   16,
+   22,
+   28
+  ],
+  "shoes": [
+   19,
+   30
+  ]
+ },
+ "ball": [
+  9,
+  13,
+  17,
+  21,
+  23,
+  26
+ ],
+ "either": {
+  "4": [
+   "hair",
+   "skin",
+   "fixed"
+  ],
+  "6": [
+   "hair",
+   "skin",
+   "fixed"
+  ],
+  "10": [
+   "hair",
+   "skin",
+   "fixed"
+  ],
+  "18": [
+   "hair",
+   "skin",
+   "fixed"
+  ],
+  "7": [
+   "hair",
+   "fixed"
+  ],
+  "11": [
+   "hair",
+   "skin"
+  ],
+  "15": [
+   "skin",
+   "hair"
+  ],
+  "20": [
+   "hair",
+   "skin",
+   "fixed"
+  ],
+  "24": [
+   "skin",
+   "hair"
+  ],
+  "29": [
+   "skin",
+   "hair"
+  ],
+  "32": [
+   "skin",
+   "hair"
+  ],
+  "25": [
+   "hair",
+   "fixed"
+  ],
+  "27": [
+   "hair",
+   "fixed"
+  ],
+  "33": [
+   "hair",
+   "fixed"
+  ],
+  "14": [
+   "hair",
+   "fixed"
+  ],
+  "5": [
+   "team",
+   "shoes"
+  ],
+  "8": [
+   "shoes",
+   "team"
+  ],
+  "31": [
+   "team",
+   "jersey"
+  ],
+  "38": [
+   "jersey",
+   "team"
+  ]
+ },
+ "res": 0.2,
+ "derived": {
+  "idle": {
+   "from": [
+    [
+     "idle-t",
+     0
+    ],
+    [
+     "idle-t",
+     1
+    ],
+    [
+     "idle-t",
+     2
+    ],
+    [
+     "idle-t",
+     3
+    ],
+    [
+     "idle-t",
+     4
+    ],
+    [
+     "idle-t",
+     3
+    ],
+    [
+     "idle-t",
+     2
+    ],
+    [
+     "idle-t",
+     1
+    ]
+   ],
+   "fps": 4
+  },
+  "turn-bl": {
+   "from": [
+    [
+     "turn-t",
+     0
+    ],
+    [
+     "turn-t",
+     1
+    ],
+    [
+     "turn-t",
+     2
+    ],
+    [
+     "turn-t",
+     3
+    ],
+    [
+     "turn-t",
+     4
+    ],
+    [
+     "turn-t",
+     5
+    ],
+    [
+     "turn-t",
+     6
+    ]
+   ]
+  },
+  "turn-b": {
+   "from": [
+    [
+     "turn-t",
+     0
+    ],
+    [
+     "turn-t",
+     1
+    ],
+    [
+     "turn-t",
+     2
+    ],
+    [
+     "turn-t",
+     3
+    ],
+    [
+     "turn-t",
+     4
+    ],
+    [
+     "turn-t",
+     5
+    ],
+    [
+     "turn-t",
+     6
+    ]
+   ]
+  },
+  "turn-l": {
+   "from": [
+    [
+     "turn-t",
+     0
+    ],
+    [
+     "turn-t",
+     1
+    ],
+    [
+     "turn-t",
+     2
+    ],
+    [
+     "turn-t",
+     3
+    ],
+    [
+     "turn-t",
+     4
+    ]
+   ]
+  },
+  "dribble-bl": {
+   "from": [
+    [
+     "dribble-bl",
+     3
+    ],
+    [
+     "dribble-bl",
+     4
+    ],
+    [
+     "dribble-bl",
+     5
+    ],
+    [
+     "dribble-bl",
+     6
+    ],
+    [
+     "dribble-bl",
+     7
+    ],
+    [
+     "dribble-bl",
+     8
+    ],
+    [
+     "dribble-bl",
+     9
+    ],
+    [
+     "dribble-bl",
+     10
+    ],
+    [
+     "dribble-bl",
+     11
+    ],
+    [
+     "dribble-bl",
+     12
+    ],
+    [
+     "dribble-bl",
+     0
+    ],
+    [
+     "dribble-bl",
+     1
+    ],
+    [
+     "dribble-bl",
+     2
+    ]
+   ],
+   "fps": 24
+  },
+  "dribble-b": {
+   "from": [
+    [
+     "dribble-b",
+     5
+    ],
+    [
+     "dribble-b",
+     6
+    ],
+    [
+     "dribble-b",
+     7
+    ],
+    [
+     "dribble-b",
+     8
+    ],
+    [
+     "dribble-b",
+     9
+    ],
+    [
+     "dribble-b",
+     10
+    ],
+    [
+     "dribble-b",
+     11
+    ],
+    [
+     "dribble-b",
+     12
+    ],
+    [
+     "dribble-b",
+     13
+    ],
+    [
+     "dribble-b",
+     14
+    ],
+    [
+     "dribble-b",
+     0
+    ],
+    [
+     "dribble-b",
+     1
+    ],
+    [
+     "dribble-b",
+     2
+    ],
+    [
+     "dribble-b",
+     3
+    ],
+    [
+     "dribble-b",
+     4
+    ]
+   ],
+   "fps": 24
+  },
+  "dribble-l": {
+   "from": [
+    [
+     "dribble-l",
+     6
+    ],
+    [
+     "dribble-l",
+     7
+    ],
+    [
+     "dribble-l",
+     8
+    ],
+    [
+     "dribble-l",
+     9
+    ],
+    [
+     "dribble-l",
+     10
+    ],
+    [
+     "dribble-l",
+     11
+    ],
+    [
+     "dribble-l",
+     0
+    ],
+    [
+     "dribble-l",
+     1
+    ],
+    [
+     "dribble-l",
+     2
+    ],
+    [
+     "dribble-l",
+     3
+    ],
+    [
+     "dribble-l",
+     4
+    ],
+    [
+     "dribble-l",
+     5
+    ]
+   ],
+   "fps": 24
+  },
+  "gather-bl": {
+   "from": [
+    [
+     "gather-bl",
+     0
+    ],
+    [
+     "gather-bl",
+     1
+    ],
+    [
+     "gather-bl",
+     2
+    ],
+    [
+     "gather-bl",
+     3
+    ],
+    [
+     "gather-bl",
+     4
+    ],
+    [
+     "gather-bl",
+     5
+    ],
+    [
+     "gather-bl",
+     6
+    ]
+   ]
+  },
+  "gather-b": {
+   "from": [
+    [
+     "gather-b",
+     0
+    ],
+    [
+     "gather-b",
+     1
+    ],
+    [
+     "gather-b",
+     2
+    ],
+    [
+     "gather-b",
+     3
+    ],
+    [
+     "gather-b",
+     4
+    ],
+    [
+     "gather-b",
+     5
+    ],
+    [
+     "gather-b",
+     6
+    ]
+   ]
+  },
+  "gather-l": {
+   "from": [
+    [
+     "gather-l",
+     0
+    ],
+    [
+     "gather-l",
+     1
+    ],
+    [
+     "gather-l",
+     2
+    ],
+    [
+     "gather-l",
+     3
+    ],
+    [
+     "gather-l",
+     4
+    ],
+    [
+     "gather-l",
+     5
+    ],
+    [
+     "gather-l",
+     6
+    ]
+   ]
+  },
+  "jump-bl": {
+   "from": [
+    [
+     "jump-bl",
+     0
+    ],
+    [
+     "jump-bl",
+     1
+    ],
+    [
+     "jump-bl",
+     2
+    ],
+    [
+     "jump-bl",
+     3
+    ],
+    [
+     "jump-bl",
+     4
+    ],
+    [
+     "jump-bl",
+     5
+    ],
+    [
+     "jump-bl",
+     6
+    ]
+   ]
+  },
+  "jump-b": {
+   "from": [
+    [
+     "jump-b",
+     0
+    ],
+    [
+     "jump-b",
+     1
+    ],
+    [
+     "jump-b",
+     2
+    ],
+    [
+     "jump-b",
+     3
+    ],
+    [
+     "jump-b",
+     4
+    ],
+    [
+     "jump-b",
+     5
+    ],
+    [
+     "jump-b",
+     6
+    ]
+   ]
+  },
+  "jump-l": {
+   "from": [
+    [
+     "jump-l",
+     0
+    ],
+    [
+     "jump-l",
+     1
+    ],
+    [
+     "jump-l",
+     2
+    ],
+    [
+     "jump-l",
+     3
+    ],
+    [
+     "jump-l",
+     4
+    ],
+    [
+     "jump-l",
+     5
+    ],
+    [
+     "jump-l",
+     6
+    ]
+   ]
+  },
+  "release-bl": {
+   "from": [
+    [
+     "release-bl",
+     0
+    ],
+    [
+     "release-bl",
+     1
+    ],
+    [
+     "release-bl",
+     2
+    ],
+    [
+     "release-bl",
+     3
+    ],
+    [
+     "release-bl",
+     4
+    ],
+    [
+     "release-bl",
+     5
+    ],
+    [
+     "release-bl",
+     6
+    ]
+   ]
+  },
+  "release-b": {
+   "from": [
+    [
+     "release-b",
+     0
+    ],
+    [
+     "release-b",
+     1
+    ],
+    [
+     "release-b",
+     2
+    ],
+    [
+     "release-b",
+     3
+    ],
+    [
+     "release-b",
+     4
+    ],
+    [
+     "release-b",
+     5
+    ],
+    [
+     "release-b",
+     6
+    ]
+   ]
+  },
+  "release-l": {
+   "from": [
+    [
+     "release-l",
+     0
+    ],
+    [
+     "release-l",
+     1
+    ],
+    [
+     "release-l",
+     2
+    ],
+    [
+     "release-l",
+     3
+    ],
+    [
+     "release-l",
+     4
+    ],
+    [
+     "release-l",
+     5
+    ],
+    [
+     "release-l",
+     6
+    ]
+   ]
+  },
+  "turn": {
+   "from": [
+    [
+     "turn-t",
+     0
+    ],
+    [
+     "turn-t",
+     1
+    ],
+    [
+     "turn-t",
+     2
+    ],
+    [
+     "turn-t",
+     3
+    ],
+    [
+     "turn-t",
+     4
+    ],
+    [
+     "turn-t",
+     5
+    ],
+    [
+     "turn-t",
+     6
+    ]
+   ]
+  },
+  "dribble": {
+   "from": [
+    [
+     "dribble-bl",
+     3
+    ],
+    [
+     "dribble-bl",
+     4
+    ],
+    [
+     "dribble-bl",
+     5
+    ],
+    [
+     "dribble-bl",
+     6
+    ],
+    [
+     "dribble-bl",
+     7
+    ],
+    [
+     "dribble-bl",
+     8
+    ],
+    [
+     "dribble-bl",
+     9
+    ],
+    [
+     "dribble-bl",
+     10
+    ],
+    [
+     "dribble-bl",
+     11
+    ],
+    [
+     "dribble-bl",
+     12
+    ],
+    [
+     "dribble-bl",
+     0
+    ],
+    [
+     "dribble-bl",
+     1
+    ],
+    [
+     "dribble-bl",
+     2
+    ]
+   ],
+   "fps": 24
+  },
+  "gather": {
+   "from": [
+    [
+     "gather-bl",
+     0
+    ],
+    [
+     "gather-bl",
+     1
+    ],
+    [
+     "gather-bl",
+     2
+    ],
+    [
+     "gather-bl",
+     3
+    ],
+    [
+     "gather-bl",
+     4
+    ],
+    [
+     "gather-bl",
+     5
+    ],
+    [
+     "gather-bl",
+     6
+    ]
+   ]
+  },
+  "jump": {
+   "from": [
+    [
+     "jump-bl",
+     0
+    ],
+    [
+     "jump-bl",
+     1
+    ],
+    [
+     "jump-bl",
+     2
+    ],
+    [
+     "jump-bl",
+     3
+    ],
+    [
+     "jump-bl",
+     4
+    ],
+    [
+     "jump-bl",
+     5
+    ],
+    [
+     "jump-bl",
+     6
+    ]
+   ]
+  },
+  "release": {
+   "from": [
+    [
+     "release-bl",
+     0
+    ],
+    [
+     "release-bl",
+     1
+    ],
+    [
+     "release-bl",
+     2
+    ],
+    [
+     "release-bl",
+     3
+    ],
+    [
+     "release-bl",
+     4
+    ],
+    [
+     "release-bl",
+     5
+    ],
+    [
+     "release-bl",
+     6
+    ]
+   ]
+  }
+ },
+ "release": {
+  "bl": [
+   "jump-bl",
+   5
+  ],
+  "b": [
+   "jump-b",
+   6
+  ],
+  "l": [
+   "jump-l",
+   6
+  ]
+ },
+ "release_from": [
+  "jump-bl",
+  5
+ ],
+ "detail": {
+  "out": "assets/characters/orson-detail",
+  "scale": 3,
+  "quality": 80
+ }
+}

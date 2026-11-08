@@ -71,9 +71,9 @@ flowchart LR
 | Scoring extras | `daily.js`, `content/looks.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
 | Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots and aim wobble. |
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
-| Sound | `audio.js`, `phrases.js`, `assets/voice/` | Music that builds, effects, announcer clips (device voice as fallback). |
+| Sound | `audio.js`, `phrases.js`, `assets/voice/`, `assets/sfx/` | Music that builds, synthesised effects, recorded bounces, a sneaker squeak and footsteps (`tools/build_sfx.py` packs `art/sfx/`), announcer clips (device voice as fallback). |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
-| Players | `assets/characters/`, `players/recolor.js`, `players/builder.js` | Built-in sprites; builder bodies recoloured from region maps. |
+| Players | `assets/characters/`, `players/recolor.js`, `players/builder.js`, `players/pixelkit.js` | Built-in sprites; builder bodies recoloured from region maps; sheets made from video (Orson): which way he faces the hoop from each spot (`faceHoop()` in `play/players.js`), his number and team name warped onto a face on his jersey (`pixelkit.js`). |
 | Shared UI | `ui/` | Nav, icons, styled dialogs, form helpers. |
 | Ideas widget | `feedback/` | The "Got an idea?" button on each page. |
 | Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `admin.ts`, `access.ts`, `cache.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
@@ -242,6 +242,26 @@ flowchart LR
   A & M --> RC["players/recolor.js<br/>in the browser"]
   RC --> P["a builder player in their colours"]
 ```
+
+Orson is made from generated videos instead (green screen, one move and direction each, listed in
+`art/video/orson.json`):
+
+```mermaid
+flowchart LR
+  V["videos: dribble, turn, shots<br/>per direction"] --> B["tools/pixelart/video_body.py"]
+  B --> PX["orson-pixel/: one colour per art pixel,<br/>parts, jersey faces"]
+  B --> FD["orson-detail/: full detail sheet<br/>+ regions.png"]
+  PX & FD --> G["play/players.js<br/>faces the hoop, recolours,<br/>prints number and name"]
+```
+
+- **Moves per direction:** the game's moves are named by facing (`dribble-bl`, `jump-b`, ...); `faceHoop()`
+  picks back, back-left or left from where he stands, falling back to back-left, then the plain name.
+- **Number and team name:** each frame has a four-cornered face laid on his jersey, smoothed across the
+  move; the text is set flat in the pixel font and warped onto it, only where jersey shows
+  (`players/pixelkit.js`). The full-detail sheet borrows the faces from its pixel-art twin.
+  `tools/dev/check_prints.mjs` checks every frame keeps the print on the jersey.
+- **Recolouring:** the full-detail sheet has a `regions.png` like the builder bodies; `?jersey=...&number=`
+  on the game URL tries a kit on Orson.
 
 ## Going live
 
