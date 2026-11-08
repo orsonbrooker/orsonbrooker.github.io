@@ -2,6 +2,7 @@
 // player. The first time someone plays, choosing a player comes first and then the game starts.
 
 import { attributesFor, skillWords } from "../content/attributes.js";
+import { IN_APP } from "../api.js";
 import { load, save } from "../engine/storage.js";
 import { modeShown } from "../modes/index.js";
 import { characters, setFace, useCharacter } from "../play/players.js";
@@ -135,7 +136,8 @@ function renderPicker() {
       card.append(button, remove);
       return card;
     }),
-    Object.assign(document.createElement("a"), { href: "/players/", className: "card make-player", innerHTML: `${icon("plus")}<span>Make your player</span>` }),
+    // The builder is a page of the website, not in the iOS app (which is just the game).
+    ...(IN_APP ? [] : [Object.assign(document.createElement("a"), { href: "/players/", className: "card make-player", innerHTML: `${icon("plus")}<span>Make your player</span>` })]),
   );
   if (team) showTeam();
 }

@@ -6,6 +6,7 @@
 // Pages that go with the game also get a "Back to the game" link at the top of their content:
 //   <a class="back-link" data-back-link href="/games/shootaround/"></a>
 
+import { IN_APP } from "../api.js";
 import { fillIcons, icon } from "../ui/icons.js";
 
 const LINKS = [
@@ -15,6 +16,9 @@ const LINKS = [
 ];
 
 const here = location.pathname.replace(/index\.html$/, "");
+
+// The iOS app is just the game: no bar to the website's other pages.
+if (IN_APP) for (const nav of document.querySelectorAll("[data-site-nav]")) nav.remove();
 
 for (const nav of document.querySelectorAll("[data-site-nav]")) {
   nav.setAttribute("aria-label", "Site");
