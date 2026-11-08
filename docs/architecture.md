@@ -256,7 +256,9 @@ flowchart LR
 ```
 
 - **Moves per direction:** the game's moves are named by facing (`dribble-bl`, `jump-b`, ...); `faceHoop()`
-  picks back, back-left or left from where he stands, falling back to back-left, then the plain name.
+  picks one of eight ways from where he stands, and a move not drawn that way uses the nearest way it is
+  drawn, then the plain name. Orson dribbles back-right and right from their videos; his shots that way
+  are his back-left and left shots mirrored until there are videos of them.
 - **Number and team name:** each frame has a four-cornered face laid on his jersey, smoothed across the
   move; the text is set flat in the pixel font and warped onto it, only where jersey shows
   (`players/pixelkit.js`). The full-detail sheet borrows the faces from its pixel-art twin.

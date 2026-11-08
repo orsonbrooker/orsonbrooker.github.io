@@ -227,10 +227,17 @@ export function canJog() {
   return !!f && DIRS.every((d) => f[`run-${d}`]);
 }
 
-// The name of a move as drawn for the way he's facing (falling back to back-left, then plain).
+// The name of a move as drawn for the way he's facing, or the nearest way it's drawn (one step
+// round, then two...), or plain.
 function named(anim) {
   const f = sheet.sprites.frames;
-  return f[`${anim}-${player.dir}`] ? `${anim}-${player.dir}` : f[`${anim}-bl`] ? `${anim}-bl` : anim;
+  const at = DIRS.indexOf(player.dir);
+  if (at < 0) return f[`${anim}-bl`] ? `${anim}-bl` : anim;
+  for (const step of [0, 1, -1, 2, -2, 3, -3, 4]) {
+    const name = `${anim}-${DIRS[(at + step + 8) % 8]}`;
+    if (f[name]) return name;
+  }
+  return anim;
 }
 
 export function frameCount(anim) {
@@ -239,7 +246,9 @@ export function frameCount(anim) {
 
 // Where the ball leaves his hands, from his feet, for the way he's facing.
 export function releaseOffset() {
-  return sheet.sprites.releaseOffsets?.[player.dir] ?? sheet.sprites.releaseOffset;
+  // The shot as drawn for his facing (the nearest drawn way, see named()).
+  const drawn = named("jump").split("-")[1];
+  return sheet.sprites.releaseOffsets?.[drawn] ?? sheet.sprites.releaseOffset;
 }
 
 // Frames per second of a looping move (idle, dribble): a sheet made from video can have more
