@@ -10,11 +10,14 @@ import { icon } from "../ui/icons.js";
 
 const list = $("ball-styles");
 const say = (text) => ($("shop-say").textContent = text);
-// Pairing messages sit at the bottom of the shop, which scrolls on a phone: bring them into view.
-const pairSay = (text) => {
-  $("pair-say").textContent = text;
-  if (text) $("pair-say").scrollIntoView({ block: "nearest", behavior: REDUCED_MOTION.matches ? "auto" : "smooth" });
+// Pairing messages sit in their own step, at the bottom of the shop, which scrolls on a phone: each
+// one is brought into view.
+const note = (id, text) => {
+  $(id).textContent = text;
+  if (text) $(id).scrollIntoView({ block: "nearest", behavior: REDUCED_MOTION.matches ? "auto" : "smooth" });
 };
+const sendSay = (text) => note("pair-send-say", text);
+const joinSay = (text) => note("pair-join-say", text);
 const REDUCED_MOTION = matchMedia("(prefers-reduced-motion: reduce)");
 
 // Each style's spinning frames, made once.
@@ -26,10 +29,8 @@ const coinText = (n) => `${n} ${n === 1 ? "coin" : "coins"}`;
 function render() {
   // Before their first coins there's nothing to bring, so no code to show (they can still type one in).
   const saved = hasProgress();
-  $("pair-show").hidden = !saved;
-  $("pair-intro").textContent = saved
-    ? "Bring your coins and balls with you. Show your code here, then type it on the other device."
-    : "Earn some coins first, then you can bring them to another device. Got a code from another device? Type it in here.";
+  $("pair-show").hidden = !saved || !$("pair-code").hidden;
+  $("pair-send-text").textContent = saved ? "Get a code that works once, for 10 minutes." : "Play a game to earn some coins first. Then come back here for a code.";
   $("shop-coins").innerHTML = icon("coins");
   $("shop-coins").append(String(progress.coins));
   $("shop-coins").setAttribute("aria-label", coinText(progress.coins));
@@ -100,45 +101,42 @@ function startSpin() {
 // ---------- Another device ----------
 
 let codeTimer = null;
-async function showCode() {
-  pairSay("");
-  $("pair-form").hidden = true;
-  if (!hasProgress()) return pairSay("Play a game and earn some coins first. Then you can bring them to another device.");
-  try {
-    const { code, minutes } = await pairCode();
-    const box = $("pair-code");
-    box.textContent = code;
-    box.hidden = false;
-    pairSay(`Type this code on your other device in the next ${minutes} minutes.`);
-    clearTimeout(codeTimer);
-    codeTimer = setTimeout(() => {
-      box.hidden = true;
-      pairSay("That code has run out. Get a new one when you're ready.");
-    }, minutes * 60_000);
-  } catch (err) {
-    pairSay(err.message);
-  }
+// Back to step 1's button (a code ran out, or the shop opened again).
+function resetCode() {
+  clearTimeout(codeTimer);
+  $("pair-code").hidden = true;
+  $("pair-show").hidden = !hasProgress();
 }
 
-function enterCode() {
-  pairSay("");
-  $("pair-code").hidden = true;
-  $("pair-form").hidden = false;
-  $("pair-input").focus();
+async function showCode() {
+  sendSay("");
+  try {
+    const { code, minutes } = await pairCode();
+    $("pair-code").textContent = code;
+    $("pair-code").hidden = false;
+    $("pair-show").hidden = true;
+    sendSay("Now type it in step 2 on your other device.");
+    clearTimeout(codeTimer);
+    codeTimer = setTimeout(() => {
+      resetCode();
+      sendSay("That code has run out. Get a new one when you're ready.");
+    }, minutes * 60_000);
+  } catch (err) {
+    sendSay(err.message);
+  }
 }
 
 async function join(e) {
   e.preventDefault();
   const code = $("pair-input").value;
-  if (code.replace(/[^0-9a-z]/gi, "").length !== 8) return pairSay("A code is 8 letters and numbers, like ABCD-EFGH.");
+  if (code.replace(/[^0-9a-z]/gi, "").length !== 8) return joinSay("A code is 8 letters and numbers, like ABCD-EFGH.");
   const before = progress.coins;
   try {
     await joinWithCode(code);
-    $("pair-form").hidden = true;
     $("pair-input").value = "";
-    pairSay(before ? `Joined! Your coins are all together now: ${coinText(progress.coins)}.` : `Joined! You've got ${coinText(progress.coins)}.`);
+    joinSay(before ? `Joined! Your coins are all together now: ${coinText(progress.coins)}.` : `Joined! You've got ${coinText(progress.coins)}.`);
   } catch (err) {
-    pairSay(err.message);
+    joinSay(err.message);
   }
 }
 
@@ -148,8 +146,9 @@ let shopReturn = null;
 export function openShop() {
   shopReturn = openScreen();
   say("");
-  pairSay("");
-  $("pair-code").hidden = $("pair-form").hidden = true;
+  sendSay("");
+  joinSay("");
+  resetCode();
   render();
   showScreen("shop");
   startSpin();
@@ -167,7 +166,6 @@ export function wireShop() {
   $("shop-button").addEventListener("click", toggleShop);
   $("shop-back").addEventListener("click", closeShop);
   $("pair-show").addEventListener("click", showCode);
-  $("pair-enter").addEventListener("click", enterCode);
   $("pair-form").addEventListener("submit", join);
   onProgress(() => {
     if (!screens.shop.hidden) render();

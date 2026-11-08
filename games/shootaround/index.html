@@ -200,20 +200,28 @@
             <p class="shop-note" id="shop-note">Earn coins by playing: 1 for a basket, 2 when you're on fire, 5 for a money or rainbow ball.</p>
             <div class="ball-styles" id="ball-styles" role="group" aria-label="Balls"></div>
             <p class="shop-say" id="shop-say" aria-live="polite"></p>
-            <div class="pair-box">
-              <h3>Playing on another device?</h3>
-              <p id="pair-intro"></p>
-              <div class="pair-actions">
-                <button type="button" id="pair-show"><span data-icon="device"></span>Show my code</button>
-                <button type="button" id="pair-enter"><span data-icon="plus"></span>I have a code</button>
+            <section class="pair-box" aria-labelledby="pair-title">
+              <h3 id="pair-title">Playing on another device?</h3>
+              <p class="pair-lead">Bring your coins and balls with you.</p>
+              <div class="pair-steps">
+                <div class="pair-card">
+                  <strong class="pair-step">1. On this device</strong>
+                  <p id="pair-send-text"></p>
+                  <button type="button" id="pair-show"><span data-icon="device"></span>Show my code</button>
+                  <p class="pair-code" id="pair-code" hidden></p>
+                  <p class="pair-note" id="pair-send-say" aria-live="polite"></p>
+                </div>
+                <form class="pair-card" id="pair-form">
+                  <strong class="pair-step">2. On the other device</strong>
+                  <label for="pair-input">Type the code from step 1 here.</label>
+                  <div class="pair-join">
+                    <input id="pair-input" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="ABCD-EFGH" />
+                    <button type="submit"><span data-icon="check"></span>Join</button>
+                  </div>
+                  <p class="pair-note" id="pair-join-say" aria-live="polite"></p>
+                </form>
               </div>
-              <p class="pair-code" id="pair-code" hidden></p>
-              <form class="pair-form" id="pair-form" hidden>
-                <input id="pair-input" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="ABCD-EFGH" aria-label="Code from your other device" />
-                <button class="primary" type="submit"><span data-icon="check"></span>Join</button>
-              </form>
-              <p class="pair-say" id="pair-say" aria-live="polite"></p>
-            </div>
+            </section>
           </div>
         </div>
 

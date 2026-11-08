@@ -1704,6 +1704,7 @@ header p {
 
 .shop-note,
 .pair-box p,
+.pair-box label,
 .shop-say {
   font-family: system-ui, sans-serif;
   font-size: 15px !important;
@@ -1711,7 +1712,7 @@ header p {
 }
 
 .shop-say:empty,
-.pair-say:empty {
+.pair-note:empty {
   display: none;
 }
 
@@ -1772,54 +1773,77 @@ header p {
   border-color: var(--accent);
 }
 
+/* Another device: two numbered steps, each a card like the ball cards, with its own messages. */
 .pair-box {
   margin-top: 18px;
   padding-top: 14px;
   border-top: 2px solid rgba(255, 255, 255, 0.15);
+  text-align: left;
 }
 
 .pair-box h3 {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font-size: clamp(10px, 1.8vw, 13px);
   color: var(--accent);
 }
 
-.pair-actions,
-.pair-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 10px;
+.pair-box .pair-lead {
+  margin: 0 0 12px;
 }
 
-.pair-actions button,
-.pair-form button {
+.pair-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.pair-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pair-step {
+  font-size: 10px;
+  font-weight: normal;
+  color: #ffe066;
+}
+
+.pair-card p {
+  margin: 0;
+}
+
+.pair-card button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   min-height: 44px;
   padding: 10px 14px;
   border: 0;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
+  background: var(--accent);
+  color: var(--ink);
   font-size: clamp(9px, 1.5vw, 12px);
   box-shadow: 3px 3px 0 var(--ink);
 }
 
-.pair-form .primary {
-  background: var(--accent);
-  color: var(--ink);
-}
-
-.pair-actions .icon,
-.pair-form .icon {
+.pair-card .icon {
   width: 1.6em;
   height: 1.6em;
 }
 
-.pair-form input {
-  flex: 1 1 10em;
+.pair-join {
+  display: flex;
+  gap: 8px;
+}
+
+.pair-join input {
+  flex: 1 1 auto;
   min-width: 0;
   padding: 8px 10px;
   border: 2px solid #ffe066;
@@ -1830,20 +1854,19 @@ header p {
   text-transform: uppercase;
 }
 
+/* The code itself: big, in the pixel font, in a box of its own so it reads at a glance. */
 .pair-code {
-  margin: 12px 0 0;
-  font-size: clamp(22px, 5vw, 32px) !important;
+  padding: 12px 8px;
+  border: 2px dashed #ffe066;
+  border-radius: 6px;
+  background: var(--ink);
+  font-size: clamp(18px, 4.5vw, 26px) !important;
+  font-family: inherit !important;
   letter-spacing: 0.08em;
   text-align: center;
   color: #ffe066;
-  text-shadow: 3px 3px 0 var(--ink);
 }
 
-.pair-form[hidden],
-.pair-code[hidden] {
-  display: none;
-}
-
-.pair-actions [hidden] {
+.pair-card [hidden] {
   display: none;
 }
