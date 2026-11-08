@@ -51,7 +51,7 @@ const open = (db: DatabaseSync) => (db.prepare(REPORTED).all() as { score_id: nu
 test("a report needs a whole-number id of a score that's on the board", async () => {
 	const { env, db } = fakeEnv();
 	const shown = addScore(db, "dev-a");
-	const hidden = addScore(db, "dev-a", "jethro", "hidden");
+	const hidden = addScore(db, "dev-a", "p1", "hidden");
 	for (const scoreId of ["1", 1.5, -1, 0, null, undefined, {}, [shown], Number.MAX_SAFE_INTEGER + 1])
 		await assert.rejects(report(env, { scoreId }), (err: Failed) => err.status === 400, `scoreId ${JSON.stringify(scoreId)}`);
 	await assert.rejects(report(env, { scoreId: hidden }), (err: Failed) => err.status === 404);
@@ -99,7 +99,7 @@ test("clearing a name's reports clears that device and player's games only, and 
 	const { env, db } = fakeEnv();
 	const a1 = addScore(db, "dev-a");
 	const a2 = addScore(db, "dev-a");
-	const other = addScore(db, "dev-a", "jethro");
+	const other = addScore(db, "dev-a", "p1");
 	for (const id of [a1, a2, other]) await report(env, { scoreId: id });
 	await clearReports(env, a1);
 	assert.deepEqual(open(db), [other]);

@@ -71,10 +71,10 @@ The build gives every script and stylesheet a name made from its contents (in `d
 
 ## Players
 
-Orson and Jethro are hand-made players: a 14-pose sheet drawn from `art/character-template.png` (16:9), turned into sprites with:
+Orson is the built-in player. A built-in player is a 14-pose sheet drawn from `art/character-template.png` (16:9), turned into sprites with:
 
 ```
-python3 tools/build_character.py art/characters/jethro.jpg jethro "Jethro"
+python3 tools/build_character.py art/characters/<id>.jpg <id> "<Name>"
 ```
 
 Everyone else is made at [/players/](https://orsonbrooker.com/players/): pick a body, skin, hair, jersey and team colours, and a nickname. New players wait in the Players tab at `/admin` until approved, then show up in the game's player picker.

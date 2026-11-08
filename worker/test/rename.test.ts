@@ -44,7 +44,7 @@ test("renaming a score renames that device and player's games, in every mode, an
 	const { env, db } = fakeEnv();
 	const a1 = addScore(db, "Rudey", "dev-a", "orson", "timed");
 	const a2 = addScore(db, "Rudey2", "dev-a", "orson", "survival");
-	const other = addScore(db, "Moni", "dev-a", "jethro", "timed"); // same device, another player
+	const other = addScore(db, "Moni", "dev-a", "p1", "timed"); // same device, another player
 	const b1 = addScore(db, "Rudey", "dev-b", "orson", "timed"); // same name, another device
 
 	const { modes, ids } = await renameScores(env, a1, "  Big   Shot ");

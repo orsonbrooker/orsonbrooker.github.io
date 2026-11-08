@@ -138,7 +138,7 @@ erDiagram
     int id PK
     text mode "timed, survival, around, threes (3-point contest)"
     int score "points, or tenths of a second for around"
-    text player "orson, jethro, a builder id, or me123 (own player)"
+    text player "orson, a builder id, or me123 (own player)"
     text device "hashed device id"
     text nickname
     text log "shot log JSON"
@@ -157,7 +157,7 @@ erDiagram
 
 Terms used across the code:
 
-- **Player:** who you play as. *Built-in* (Orson, Jethro: `assets/characters/index.json`), *approved builder
+- **Player:** who you play as. *Built-in* (Orson: `assets/characters/index.json`), *approved builder
   players* (`players` table, status `approved`, shown to everyone) and *own players* (made in the builder, kept
   in that browser only, ids like `me1793858104451`; their look travels with their scores as `base` + `colours`).
 - **Pronoun:** whether a player is a "he" or a "she", for the announcer's lines. Built-in players have it in
