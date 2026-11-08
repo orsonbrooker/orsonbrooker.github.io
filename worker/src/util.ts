@@ -16,10 +16,29 @@ export interface Env {
 	DEV_ADMIN?: string; // local development only: skips the Access check
 }
 
-// Rude-word check for everything people type. It sees through tricks like "a$$" and spacing,
-// without blocking innocent words that happen to contain rude ones.
+// Rude-word check for everything people type. It sees through tricks like "a$$" and letters spaced
+// or dotted out ("f u c k", "f.u.c.k"), without blocking innocent words that happen to contain rude ones.
 const rudeWords = new RegExpMatcher({ ...englishDataset.build(), ...englishRecommendedTransformers });
-export const isRude = (...texts: (string | null | undefined)[]) => texts.some((t) => !!t && rudeWords.hasMatch(t));
+// A run of two or more single characters (letters, digits and the look-alikes $ @ !) with a few
+// spaces or dots between each. Only single characters, so ordinary words with spaces between them
+// ("a shot it", "Jo Ann") are never joined together.
+const CH = "[\\p{L}\\p{N}$@!]";
+const SPACED_OUT = new RegExp(`(?<!${CH})${CH}(?:[^\\p{L}\\p{N}$@!]{1,3}${CH}(?!${CH}))+`, "gu");
+/** Text with any spaced-out letters joined up: "f u c k" and "f.u.c.k" read as "fuck". */
+export const joinSpacedLetters = (text: string) => text.replace(SPACED_OUT, (run) => run.replace(/[^\p{L}\p{N}$@!]/gu, ""));
+// Words the library misses, checked on the text squashed to lower-case letters with look-alike digits
+// and symbols swapped back (so "N3gg3r cheese" is caught). Add to this when one gets through; keep each
+// pattern tight enough not to catch innocent words (e.g. "snigger" is allowed).
+const LOOKALIKES: Record<string, string> = { "4": "a", "@": "a", "3": "e", "1": "i", "!": "i", "0": "o", "5": "s", $: "s", "7": "t" };
+const squash = (text: string) =>
+	text
+		.toLowerCase()
+		.replace(/[4@3105$!7]/g, (c) => LOOKALIKES[c])
+		.replace(/[^a-z]/g, "");
+const EXTRA_RUDE = [/(?<!s)n[ie]+gg+[aeuh]/];
+const extraRude = (text: string) => EXTRA_RUDE.some((pattern) => pattern.test(squash(text)));
+export const isRude = (...texts: (string | null | undefined)[]) =>
+	texts.some((t) => !!t && (rudeWords.hasMatch(t) || rudeWords.hasMatch(joinSpacedLetters(t)) || extraRude(t)));
 export const RUDE = "Let's keep it friendly. Try different words.";
 
 export function json(data: unknown, status = 200, maxAge = 0): Response {
@@ -29,13 +48,14 @@ export function json(data: unknown, status = 200, maxAge = 0): Response {
 	});
 }
 
-// The live site calls the API from the same domain. Allow local previews to call it too.
+// The live site calls the API from the same domain. Allow local previews and the iOS app (whose
+// pages come from inside the app, at capacitor://localhost) to call it too.
 export function cors(request: Request, response: Response): Response {
 	const origin = request.headers.get("Origin");
-	if (origin && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+	if (origin && (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) || origin === "capacitor://localhost")) {
 		response.headers.set("Access-Control-Allow-Origin", origin);
 		response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-		response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+		response.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Device");
 	}
 	return response;
 }

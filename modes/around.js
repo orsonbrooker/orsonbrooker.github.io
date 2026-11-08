@@ -1,6 +1,6 @@
 // Around the world: score from each of the 7 spots around the key in order, as fast as you can. A miss
 // means another go from the same spot. It's against the clock (counting up), so the best is the
-// lowest time, and there are no bonus balls.
+// lowest time, and there are no bonus balls. The green part of the jump bar moves a little each shot.
 
 import { sound } from "../audio.js";
 import { AROUND_LAYOUT } from "../content/around.js";
@@ -9,7 +9,11 @@ import { COURT_PX, LINE_CLEARANCE, RIM, ROOM_U, ROOM_V, project, threePointRadiu
 import { addPopup, announce, confettiBurst, fireLevel, fireStage, pixelFx, recordMake } from "../play/react.js";
 import { updateHud } from "../play/scene.js";
 import { state } from "../play/state.js";
+import { movingGreen } from "../play/zone.js";
 import { AROUND_SPOTS } from "../shared/rules.js";
+
+// How far the green moves (its reach in play/zone.js, 0 to 1): gently, from the first shot.
+const AROUND_GREEN = 0.4;
 
 // The spots in AROUND_LAYOUT (content/around.js), kept off the 3-point line, in court metres.
 let aroundSpots = null;
@@ -110,6 +114,8 @@ export default {
   onMake,
   onMiss() {},
   squeeze: () => 0,
+  // The green moves a little from shot to shot (a gentle setting: it's a race, not a test of nerve).
+  zoneShift: () => (state.phase === "playing" ? movingGreen(AROUND_GREEN) : 0),
   rumble: () => 0,
   drawFloor,
 

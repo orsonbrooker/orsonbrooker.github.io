@@ -5,16 +5,18 @@
 // made with the builder (/players/) come from the API once approved, drawn from a base body in
 // their chosen colours.
 
+import { API } from "../api.js";
+import { attributesFor } from "../content/attributes.js";
 import { EU, EV, RIM, project } from "../engine/court.js";
 import { shoesIn } from "../engine/draw.js";
 import { load, save } from "../engine/storage.js";
-import { ANIM_FPS, JUMP_FRAME_TIME, player } from "../play/state.js";
+import { ANIM_FPS, JUMP_APEX, JUMP_FRAME_TIME, player } from "../play/state.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, thumbnail } from "../players/recolor.js";
 
-const PLAYERS_API = ["localhost", "127.0.0.1"].includes(location.hostname) ? "http://localhost:8787/api/players" : "/api/players";
+const PLAYERS_API = `${API}/players`;
 export const characters = {
-  list: [{ id: "orson", name: "Orson", atlas: "assets/sprites.webp", meta: "assets/sprites.json", thumb: "" }],
+  list: [{ id: "orson", name: "Orson", pronoun: "he", atlas: "assets/sprites.webp", meta: "assets/sprites.json", thumb: "" }],
   loaded: new Map(),
   selected: load("orson-hoops-character", "orson"),
 };
@@ -91,16 +93,22 @@ async function loadCharacter(id) {
   return characters.loaded.get(id);
 }
 
-// Plays as this player from now on (and remembers it).
-export async function useCharacter(id) {
+// Plays as this player from now on (and remembers it, unless it's only for now: a turn in a pass and
+// play game, or a replay).
+export async function useCharacter(id, { remember = true } = {}) {
   const { meta, img, loaded } = await loadCharacter(id);
   sheet.sprites = meta;
   sheet.atlas = img;
   sheet.prints = img.prints ?? null; // a video sheet's number and team name, drawn over each frame
   sheet.shoeRegions = loaded?.regionsData ?? null; // builder players: which pixels are shoes
   characters.selected = id;
-  save("orson-hoops-character", id);
+  player.attrs = attributesFor(id);
+  player.pronoun = (characters.list.find((c) => c.id === id) ?? characters.list[0]).pronoun ?? "";
+  if (remember) save("orson-hoops-character", id);
 }
+
+// Starts loading a player's sprite sheet, so switching to them later is quick.
+export const preloadCharacter = (id) => loadCharacter(id).catch(() => {});
 
 // The hand-made players, then ones made on this device, then approved builder players. Falls back to
 // the first player if the remembered one is gone.
@@ -130,7 +138,7 @@ async function loadBuiltPlayers() {
   const bases = await loadBases().catch(() => []);
   for (const p of myPlayers()) {
     const base = bases.find((b) => b.id === p.base);
-    if (base) characters.list.push({ ...p, mine: true, thumb: "/" + base.thumb, colours: { teamName: DEFAULT_TEAM, ...p.colours } });
+    if (base) characters.list.push({ ...p, pronoun: p.pronoun || base.pronoun || "", mine: true, thumb: "/" + base.thumb, colours: { teamName: DEFAULT_TEAM, ...p.colours } });
   }
   try {
     const res = await fetch(PLAYERS_API);
@@ -142,6 +150,7 @@ async function loadBuiltPlayers() {
       characters.list.push({
         id: `p${p.id}`,
         name: p.name,
+        pronoun: p.pronoun ?? base.pronoun ?? "", // set by the admin, else the body's
         base: p.base,
         thumb: "/" + base.thumb,
         colours: { skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name ?? DEFAULT_TEAM },
@@ -215,8 +224,9 @@ export function faceHoop() {
 
 // Which way each facing points on screen (angle, down is positive). Straight right, down, left and up,
 // and the diagonals along the court's own lines, as the isometric art draws them (flatter than 45°).
+// (Worked out when used: the court can change.)
 const axis = (d) => Math.atan2(d.y, d.x);
-const DIR_ANGLES = {
+const dirAngles = () => ({
   r: 0,
   fr: axis(EV),
   f: Math.PI / 2,
@@ -225,7 +235,7 @@ const DIR_ANGLES = {
   bl: axis({ x: -EV.x, y: -EV.y }),
   b: -Math.PI / 2,
   br: axis({ x: -EU.x, y: -EU.y }),
-};
+});
 
 // Faces him toward a point on the court (where he's jogging to, or the hoop): the facing nearest
 // that direction on screen.
@@ -233,6 +243,7 @@ export function faceToward(u, v) {
   const p = project(player.u, player.v);
   const h = project(u, v);
   const a = Math.atan2(h.y - p.y, h.x - p.x);
+  const DIR_ANGLES = dirAngles();
   const off = (d) => Math.abs(Math.atan2(Math.sin(a - DIR_ANGLES[d]), Math.cos(a - DIR_ANGLES[d])));
   player.dir = DIRS.reduce((best, d) => (off(d) < off(best) ? d : best));
 }
@@ -283,12 +294,28 @@ export function currentFrame() {
   return frames[Math.min(i, frames.length - 1)];
 }
 
+// How far a higher jump (the player's `jump` attribute) lifts him right now, in metres: most at the
+// top of the jump, none on the floor. 0 for a neutral player.
+export function jumpLift() {
+  const extra = player.attrs.jump;
+  if (!extra) return 0;
+  const air = 2 * JUMP_APEX; // takeoff to landing
+  const t = player.anim === "jump" ? player.t : player.anim === "release" ? player.airT + player.t : 0;
+  if (!(t > 0 && t < air)) return 0;
+  const f = t / air;
+  return extra * 4 * f * (1 - f);
+}
+
+// How far off the floor he's drawn right now, in metres: a dunk's own leap (play/round.js) while
+// dunking, else a higher jumper's extra height.
+export const liftNow = () => (player.dunk ? player.lift : jumpLift());
+
 // The player's shoes right now, in court pixels.
 export function shoePoints() {
   const { sprites, atlas, shoeRegions } = sheet;
   const [, , , , ox, oy] = currentFrame();
   const scale = 1 / sprites.res;
-  const p = project(player.u, player.v, player.lift);
+  const p = project(player.u, player.v, liftNow());
   const frames = sprites.frames[named(player.anim)];
   const i = frames.indexOf(currentFrame());
   const feet = shoesIn(atlas, sprites, shoeRegions)[named(player.anim)][i];

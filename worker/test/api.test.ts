@@ -3,11 +3,12 @@
 // Run: npm --prefix worker test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { MAX_CREDIT, mergeCredit } from "../src/ideas.ts";
+import { cacheKey } from "../src/cache.ts";
+import { deviceOf, MAX_CREDIT, mergeCredit } from "../src/ideas.ts";
 import { notifyMessage } from "../src/notify.ts";
 import { isNickname } from "../src/players.ts";
 import { scoreNickname } from "../src/scores.ts";
-import { clean, isLocalHost, isRude, requireSameOriginJson, RUDE } from "../src/util.ts";
+import { clean, cors, isLocalHost, isRude, joinSpacedLetters, requireSameOriginJson, RUDE } from "../src/util.ts";
 import type { Env } from "../src/util.ts";
 
 test("clean tidies spaces, trims, cuts to length and drops anything but text", () => {
@@ -23,9 +24,33 @@ test("clean tidies spaces, trims, cuts to length and drops anything but text", (
 test("the rude-word filter catches disguised words but not innocent ones", () => {
 	for (const t of ["a$$hole", "sh1t", "b1tch", "fuuuck"]) assert.equal(isRude(t), true, t);
 	for (const t of ["assassin", "class", "Scunthorpe", "Dickens", "Cockatoo", "shitake", "basketball"]) assert.equal(isRude(t), false, t);
+	// Racial slurs the library missed (one reached the leaderboard), including look-alike spellings.
+	for (const t of ["Neggercheese", "N3gg3r", "n i g g a", "NIGGAH", "n1gg4"]) assert.equal(isRude(t), true, t);
+	for (const t of ["snigger", "Nigel", "Niger", "Nigeria", "vinegar", "eggnog", "Megan", "Negative"]) assert.equal(isRude(t), false, t);
 	// Any one of several texts; empty ones are fine.
 	assert.equal(isRude("Moni", null, undefined, ""), false);
 	assert.equal(isRude("Moni", "a$$hole"), true);
+});
+
+test("the rude-word filter sees through letters spaced or dotted out", () => {
+	for (const t of ["f u c k", "f.u.c.k", "f-u-c-k", "F. U. C. K.", "s h i t", "b i t c h", "a $ $", "you are a d i c k"]) assert.equal(isRude(t), true, t);
+	// Only runs of single characters are joined, so ordinary words with spaces between them stay apart.
+	assert.equal(joinSpacedLetters("a shot it"), "a shot it");
+	assert.equal(joinSpacedLetters("f u c k"), "fuck");
+	for (const t of [
+		"a shot it",
+		"sh it",
+		"Jo Ann",
+		"T J and A J",
+		"As I said, a big shot",
+		"Make it go 1 2 3 4",
+		"c l a s s",
+		"a s s a s s i n",
+		"Mary-Kate",
+		"O'Neil",
+		...["assassin", "class", "Scunthorpe", "Dickens", "Cockatoo", "shitake", "basketball"],
+	])
+		assert.equal(isRude(t), false, t);
 });
 
 test("nicknames start with a letter or number, then letters, numbers, spaces, ' and -", () => {
@@ -70,6 +95,8 @@ test("the weekly notification lists what's waiting, or nothing", () => {
 		notifyMessage({ ideas: 3, players: 1, oddScores: 1, votes: 40 }),
 		"3 new ideas and 1 new player and 1 odd-looking score waiting, and 40 votes this week.",
 	);
+	assert.equal(notifyMessage({ ideas: 0, players: 0, oddScores: 0, reported: 1, votes: 3 }), "1 reported name waiting, and 3 votes this week.");
+	assert.equal(notifyMessage({ ideas: 0, players: 0, oddScores: 2, reported: 2, votes: 0 }), "2 odd-looking scores and 2 reported names waiting, and 0 votes this week.");
 });
 
 test("admin changes need JSON from the admin page's own site", () => {
@@ -101,4 +128,28 @@ test("the local admin shortcut is only for this machine's own address", () => {
 	for (const url of ["http://192.168.4.23:8787/admin", "http://macbook.local:8787/admin", "https://orsonbrooker.com/admin", "http://localhost.evil.com/admin"])
 		assert.equal(at(url), false, url);
 	assert.equal(at("http://localhost:8787/admin", "192.168.4.40"), false);
+});
+
+test("the ideas list is edge-cached only without a device, and the device stays out of URLs", () => {
+	const key = (url: string, headers: Record<string, string> = {}) => cacheKey(new Request(url, { headers }), new URL(url));
+	const base = "https://orsonbrooker.com/api/ideas";
+	assert.deepEqual(key(base), { key: base, ttl: 30 });
+	assert.deepEqual(key(`${base}?app=basketball&junk=1`), { key: `${base}?app=basketball`, ttl: 30 });
+	// The device in a header (now) or the query (pages cached before the change): personal, never cached.
+	assert.equal(key(base, { "X-Device": "abcdef0123456789abcdef" }), null);
+	assert.equal(key(`${base}?app=basketball`, { "X-Device": "abcdef0123456789abcdef" }), null);
+	assert.equal(key(`${base}?device=abcdef0123456789abcdef`), null);
+	const device = (url: string, headers: Record<string, string> = {}) => deviceOf(new Request(url, { headers }), new URL(url));
+	assert.equal(device(base, { "X-Device": "abc" }), "abc");
+	assert.equal(device(`${base}?device=old`), "old");
+	assert.equal(device(`${base}?device=old`, { "X-Device": "new" }), "new");
+	assert.equal(device(base), "");
+	// Local pages on another port can send the header.
+	const res = cors(new Request(base, { headers: { Origin: "http://localhost:5175" } }), new Response(null));
+	assert.match(res.headers.get("Access-Control-Allow-Headers") ?? "", /\bX-Device\b/);
+	// The iOS app, and nobody else's site.
+	const from = (origin: string) => cors(new Request(base, { headers: { Origin: origin } }), new Response(null)).headers.get("Access-Control-Allow-Origin");
+	assert.equal(from("capacitor://localhost"), "capacitor://localhost");
+	assert.equal(from("capacitor://evil.example"), null);
+	assert.equal(from("https://evil.example"), null);
 });

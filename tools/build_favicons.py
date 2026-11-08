@@ -104,3 +104,10 @@ def shoot_big(size, safe):
 out = os.path.join(ROOT, 'icons/shootaround')
 save_set(out, shoot_small, shoot_big, GAME_BG)
 print('Shootaround background', '#%02x%02x%02x' % GAME_BG[:3])
+
+# The iOS app's icon (ios/, Capacitor): 1024 square, the same hoop on its background, no transparency.
+app_icon = Image.new('RGB', (1024, 1024), GAME_BG[:3])
+art = shoot_big(1024, 0.8)
+app_icon.paste(art, ((1024 - art.width) // 2, (1024 - art.height) // 2), art)
+app_icon.save(os.path.join(ROOT, 'ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png'))
+print('iOS app icon written')

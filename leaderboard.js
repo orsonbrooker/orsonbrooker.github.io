@@ -7,10 +7,10 @@
 
 import { say } from "./ui/form.js";
 import { icon } from "./ui/icons.js";
+import { confirmDialog } from "./ui/confirm.js";
+import { API } from "./api.js";
 import { lowWins } from "./shared/rules.js";
 
-const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
-const API = LOCAL ? "http://localhost:8787/api" : "/api";
 const NICKNAME = "orson-hoops-nickname";
 const MY_SCORES = "orson-hoops-my-scores";
 
@@ -205,7 +205,14 @@ export function showRoundResult(box, round) {
       if (!out || out.kept) return;
       where.textContent = out.rank === 1 ? "Top of the board this week!" : `You'd be #${out.rank} this week!`;
       rankEl.textContent = out.rank;
-      list.replaceChildren(...out.board.map((row) => (row.you ? you : boardRow(row, row.rank, faceFor, mode))));
+      list.replaceChildren(
+        ...out.board.map((row) => {
+          if (row.you) return you;
+          const li = boardRow(row, row.rank, faceFor, mode);
+          if (row.id) li.append(reportButton(row));
+          return li;
+        }),
+      );
     };
     let timer;
     const rename = () => {
@@ -277,6 +284,33 @@ function boardRow(row, rank, faceFor, mode) {
   return li;
 }
 
+// A small flag on someone else's row, to tell Orson's team if their name isn't friendly.
+function reportButton(row) {
+  const button = el("button", { type: "button", className: "lb-report" });
+  button.setAttribute("aria-label", "Report this name");
+  button.innerHTML = icon("flag");
+  button.addEventListener("click", async () => {
+    const yes = await confirmDialog("Report this name?", { yes: "Report", yesIcon: "flag", detail: "Tell Orson's team if a name isn't friendly." });
+    if (!yes) return;
+    let sent = false;
+    let problem = "";
+    try {
+      const res = await fetch(`${API}/reports`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Device": deviceId() },
+        body: JSON.stringify({ scoreId: row.id }),
+      });
+      sent = res.ok;
+      if (!sent) problem = (await res.json().catch(() => ({}))).error ?? "";
+    } catch {
+      // Offline: said below.
+    }
+    if (sent) button.disabled = true;
+    await confirmDialog(sent ? "Thanks! We'll take a look." : problem || "That didn't send. Please try again.", { yes: "Okay", no: null, yesIcon: "" });
+  });
+  return button;
+}
+
 // Fills the leaderboard list. faceFor(row, img) puts the player's face in an <img>, and
 // bodyFor(row) resolves with a canvas of their whole player, for the card a row opens.
 // A board seen before shows straight away, then updates if the server has something newer, so
@@ -318,6 +352,7 @@ function drawBoard(list, note, range, mode, scores, faceFor, bodyFor) {
       button.append(...rowParts(row, i + 1, faceFor, mode));
       button.addEventListener("click", () => showScoreCard(row, i + 1, range, mode, bodyFor));
       li.append(button);
+      if (!mine.has(row.id)) li.append(reportButton(row)); // not on their own rows
       return li;
     }),
   );
@@ -366,6 +401,20 @@ function cardStats(mode, d, score) {
     ...(d.rainbow?.seen ? [["Rainbow balls made", `${d.rainbow.made} of ${d.rainbow.seen}`]] : []),
     ...(d.bonusPoints ? [["Bonus points", `${d.bonusPoints} of ${score}`]] : []),
   ];
+  const moving = d.movingGreen ? [["Green zone", "Moving"]] : [];
+  if (mode === "threes") {
+    const racks = d.racks ?? [];
+    const best = Math.max(0, ...racks);
+    return [
+      ["Shots made", `${d.made} of ${d.shots}`],
+      ...(d.money?.seen ? [["Money balls made", `${d.money.made} of ${d.money.seen}`]] : []),
+      ...(racks.length ? [["Best rack", `Rack ${racks.indexOf(best) + 1} (${best} of 5)`]] : []),
+      ["Best streak", `${d.bestStreak} in a row`],
+      ...moving,
+      green,
+      sent,
+    ];
+  }
   if (mode === "around") {
     const tries = d.tries ?? [];
     const most = Math.max(0, ...tries);
@@ -374,6 +423,7 @@ function cardStats(mode, d, score) {
       ["Shots taken", d.shots],
       ["First try", `${tries.filter((t) => t === 1).length} of ${AROUND_SPOT_NAMES.length} spots`],
       ...(most > 1 ? [["Toughest spot", `${AROUND_SPOT_NAMES[spot]} (${most} tries)`]] : []),
+      ...moving,
       green,
       sent,
     ];
@@ -388,6 +438,7 @@ function cardStats(mode, d, score) {
       ["Hottest fire", FIRE_NAMES[d.hottestFire ?? 0]],
       ...balls,
       ...(miss ? [["The miss", miss]] : []),
+      ...moving,
       green,
       sent,
     ];
@@ -435,7 +486,7 @@ function showScoreCard(row, rank, range, mode, bodyFor) {
         <button type="submit" class="fb-button fb-primary">Close</button>
       </div>
     </form>`;
-  const where = { survival: " in sudden death", around: " around the world" }[mode] ?? "";
+  const where = { survival: " in sudden death", around: " around the world", threes: " in the 3-point contest" }[mode] ?? "";
   dialog.querySelector(".lb-card-rank").textContent = `#${rank} ${range === "week" ? "this week" : "all time"}${where}`;
   dialog.querySelector("h2").textContent = row.nickname; // typed by visitors: text only
   dialog.querySelector(".lb-score span").textContent = lowWins(mode) ? (row.score / 10).toFixed(1) : row.score;

@@ -6,9 +6,6 @@
 		<meta name="robots" content="noindex" />
 		<title>Admin | Orson Brooker</title>
 		<link rel="icon" href="/favicon.ico" />
-		<link rel="preconnect" href="https://fonts.googleapis.com" />
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-		<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
 		<style>
 			:root {
 				--bg: #a6798e;
@@ -127,19 +124,20 @@
 
 			/* Scores: one line each, with the shot by shot behind "Details". */
 			.score {
-				display: grid; grid-template-columns: 64px 150px 210px 80px 90px minmax(0, 1fr) 190px; gap: 8px; align-items: center;
+				display: grid; grid-template-columns: 64px 150px 210px 80px 90px minmax(0, 1fr) minmax(190px, auto); gap: 8px; align-items: center;
 				background: var(--panel); border-radius: 6px; padding: 6px 8px; margin-bottom: 4px;
 			}
 			.score .points { font-family: var(--pixel); font-size: 12px; color: var(--yellow); }
 			.score .flags { display: flex; gap: 4px; flex-wrap: wrap; }
 			.flag { background: var(--bad); color: var(--ink); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
-			.score .buttons { display: flex; gap: 4px; justify-content: end; }
+			.score .buttons { display: flex; gap: 4px; justify-content: end; white-space: nowrap; }
 			.score > details, .score .more { grid-column: 1 / -1; }
 			.score > details summary { cursor: pointer; font-size: 12px; opacity: 0.75; }
 			.score .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 			.flag.seen { background: rgba(255, 255, 255, 0.15); color: #fff; }
 			.score.hidden-score { opacity: 0.6; }
 			.stats { display: flex; gap: 4px 14px; flex-wrap: wrap; font-size: 13px; margin: 4px 0; }
+			.rename { display: flex; gap: 6px; align-items: center; max-width: 380px; margin: 4px 0; }
 			.shots { display: flex; flex-wrap: wrap; gap: 2px; margin: 4px 0; }
 			.shots span { width: 12px; height: 12px; border-radius: 2px; background: rgba(255, 255, 255, 0.2); }
 			.shots .in { background: var(--good); }
@@ -193,6 +191,24 @@
 			let data = { submissions: [], ideas: [], apps: [], players: [], scores: [] };
 			// Pictures and the builder live on the main site (a different port when testing locally).
 			const SITE = location.hostname === "localhost" ? "http://localhost:5173" : "";
+			// The pixel font comes from the main site too (the build copies it to /fonts/), never a font
+			// service: the same files, subsets and font-display: swap as the site's pages.
+			for (const [subset, unicodeRange] of [
+				["cyrillic-ext", "U+0460-052F,U+1C80-1C8A,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F"],
+				["cyrillic", "U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116"],
+				["greek", "U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF"],
+				[
+					"latin-ext",
+					"U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF",
+				],
+				[
+					"latin",
+					"U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD",
+				],
+			]) {
+				const src = `url(${SITE}/fonts/press-start-2p/press-start-2p-${subset}-400-normal.woff2) format("woff2")`;
+				document.fonts.add(new FontFace("Press Start 2P", src, { unicodeRange, display: "swap" }));
+			}
 			// What's open stays open when the page redraws after a change.
 			const openGroups = new Set();
 
@@ -251,11 +267,13 @@
 				scrollTo(0, y);
 			}
 
-			const modeName = (s) => (s.mode === "survival" ? "Sudden death" : s.mode === "around" ? "Around the world" : "Time attack");
+			const modeName = (s) => ({ survival: "Sudden death", around: "Around the world", threes: "3-point contest" })[s.mode] ?? "Time attack";
 			// Around the world scores are times in tenths of a second.
 			const scoreText = (s) => (s.mode === "around" ? `${(s.score / 10).toFixed(1)}s` : String(s.score));
 			// Odd-looking scores Orson hasn't looked at yet. They're on the board until he hides them.
 			const suspicious = (s) => s.status === "shown" && !s.checked && JSON.parse(s.flags).length > 0;
+			// Someone tapped "report" on its row on the leaderboard: the name may not be friendly.
+			const reported = (s) => s.reports > 0;
 
 			// ---------- Inbox: everything that needs a decision ----------
 
@@ -264,12 +282,13 @@
 				const requests = data.players.filter((p) => p.status === "new");
 				// One line per player on a device and game mode, like their row on the leaderboard.
 				const byPlayer = new Map();
-				for (const s of data.scores.filter(suspicious)) {
+				const names = data.scores.filter(reported);
+				for (const s of data.scores.filter((s) => suspicious(s) && !reported(s))) {
 					const key = `${s.device} ${s.player} ${s.mode}`;
 					byPlayer.set(key, [...(byPlayer.get(key) ?? []), s]);
 				}
 				const odd = [...byPlayer.values()];
-				const total = data.submissions.length + requests.length + odd.length;
+				const total = data.submissions.length + requests.length + odd.length + names.length;
 				document.getElementById("inbox-count").textContent = total ? `(${total})` : "";
 				box.replaceChildren();
 				if (!total) return box.append(el("div", { className: "empty", innerHTML: "All caught up!<br>Nothing needs a look." }));
@@ -280,8 +299,10 @@
 						data.submissions.length ? el("span", { textContent: `${data.submissions.length} new ideas` }) : null,
 						requests.length ? el("span", { textContent: `${requests.length} player requests` }) : null,
 						odd.length ? el("span", { textContent: `${odd.length} odd scores` }) : null,
+						names.length ? el("span", { textContent: `${names.length} reported names` }) : null,
 					),
 				);
+				if (names.length) box.append(el("h2", { textContent: `Reported names (${names.length})` }), ...names.map(scoreRow));
 				if (requests.length) box.append(el("h2", { textContent: `Player requests (${requests.length})` }), el("div", { className: "tiles" }, ...requests.map(playerTile)));
 				if (data.submissions.length) {
 					box.append(el("h2", { textContent: `New ideas (${data.submissions.length})` }));
@@ -516,7 +537,7 @@
 						"div",
 						{},
 						el("div", { className: "name", textContent: p.name }),
-						el("div", { className: "meta", textContent: `${p.base} · ${p.team_name} ${p.number ? `#${p.number}` : "(no number)"} · ${p.created_at.slice(0, 10)}` }),
+						el("div", { className: "meta", textContent: `${p.base} · ${p.team_name} ${p.number ? `#${p.number}` : "(no number)"} · ${p.pronoun ?? "he/she by body"} · ${p.created_at.slice(0, 10)}` }),
 						el("div", { className: "swatches" }, ...PARTS.map((part) => el("span", { title: part, style: `background:${p[part]}` }))),
 					),
 					warn ? el("div", { className: "warn", textContent: warn }) : null,
@@ -539,6 +560,12 @@
 				const colours = Object.fromEntries(PARTS.map((part) => [part, el("input", { type: "color", value: p[part], title: part })]));
 				const number = el("input", { type: "text", value: p.number ?? "", maxLength: 2, placeholder: "None", inputMode: "numeric" });
 				const team = el("input", { type: "text", value: p.team_name, maxLength: 12 });
+				// For the announcer's lines ("She's heating up!"). Not set: the body's (ponytail and buns are she).
+				const pronoun = el(
+					"select",
+					{},
+					...[["", "By body"], ["he", "He"], ["she", "She"]].map(([v, t]) => el("option", { value: v, textContent: t, selected: v === (p.pronoun ?? "") })),
+				);
 				const status = el(
 					"select",
 					{},
@@ -552,6 +579,7 @@
 					const q = new URLSearchParams({ base: c.base, name: name.value });
 					for (const part of PARTS) q.set(part, c[part].slice(1));
 					if (c.number) q.set("number", c.number);
+					if (pronoun.value) q.set("pronoun", pronoun.value);
 					q.set("teamName", c.team_name);
 					return `${SITE}/players/?${q}`;
 				};
@@ -564,7 +592,8 @@
 					el("div", { className: "colours" }, ...PARTS.map((part) => field(part, colours[part]))),
 					field("Number", number),
 					field("Team name", team),
-					field("Where", status, "wide"),
+					field("He or she", pronoun),
+					field("Where", status),
 					el(
 						"div",
 						{ className: "buttons wide", style: "display:flex;gap:5px;flex-wrap:wrap;align-items:center" },
@@ -581,6 +610,7 @@
 										colours: Object.fromEntries(PARTS.map((part) => [part, colours[part].value])),
 										number: number.value.trim(),
 										teamName: team.value,
+										pronoun: pronoun.value,
 									}),
 								"Saved",
 							),
@@ -599,7 +629,7 @@
 
 			// ---------- Scores ----------
 
-			// Odd ones not yet looked at first, then the last two weeks.
+			// Reported and odd ones not yet looked at first, then the last two weeks.
 			function renderScores() {
 				const box = document.getElementById("scores");
 				box.replaceChildren();
@@ -647,9 +677,16 @@
 				const act = (action, done) => run(() => api(`scores/${s.id}`, { action }), done);
 				// Who they played as: a built-in player's name, or "Own player" for one made on their device.
 				const who = /^me\d+$/.test(s.player) ? "own player" : s.player;
+				// A new nickname for this player on this device: every one of their games takes it.
+				const nickname = el("input", { type: "text", value: s.nickname, maxLength: 12, ariaLabel: "New nickname" });
+				const rename = run(
+					() => api(`scores/${s.id}`, { action: "rename", nickname: nickname.value }),
+					() => `Renamed to ${nickname.value.trim()}`,
+				);
+				nickname.addEventListener("keydown", (e) => e.key === "Enter" && rename());
 				const more = el(
 					"div",
-					{ className: "more", hidden: true },
+					{ className: "more", hidden: !reported(s) }, // a reported name: rename is right there
 					el(
 						"div",
 						{ className: "stats" },
@@ -659,6 +696,7 @@
 						el("span", { textContent: `Played with: ${s.input ?? "?"}` }),
 						s.hidden_tab ? el("span", { textContent: "Tab hidden mid-game" }) : null,
 					),
+					el("div", { className: "rename" }, nickname, el("button", { type: "button", textContent: "Rename", onclick: rename })),
 					el(
 						"div",
 						{ className: "shots", title: "Each shot in order: green went in, yellow edge was a three" },
@@ -678,6 +716,7 @@
 						"div",
 						{ className: "flags" },
 						s.status === "hidden" ? el("span", { className: "meta", textContent: "Hidden" }) : null,
+						reported(s) ? el("span", { className: "flag", textContent: `Name reported ${s.reports === 1 ? "once" : `${s.reports} times`}` }) : null,
 						...flags.map((f) => el("span", { className: odd ? "flag" : "flag seen", textContent: f })),
 					),
 					el(
@@ -685,6 +724,7 @@
 						{ className: "buttons" },
 						el("button", { type: "button", textContent: "More", onclick: () => (more.hidden = !more.hidden) }),
 						odd ? el("button", { type: "button", className: "primary", textContent: "Fine", onclick: act("show", "Kept on the board") }) : null,
+						reported(s) ? el("button", { type: "button", className: "primary", textContent: "Looks fine", onclick: act("name-ok", "Name kept") }) : null,
 						s.status === "hidden"
 							? el("button", { type: "button", className: "primary", textContent: "Show", onclick: act("show", "On the board") })
 							: el("button", { type: "button", className: "danger", textContent: "Hide", onclick: act("hide", "Hidden") }),

@@ -24,7 +24,8 @@ plan for growing the game and the iOS app; read it when working on structure.
   import them normally. The build stamps the commit into the game as the version it sends with scores.
 - **Game:** `game.js` (the entry point that wires it up), `engine/` (court and projection, physics, loop,
   input, drawing helpers), `play/` (the shared state, shooting and the update, reactions, drawing the court,
-  players), `modes/` (one file per mode, same shape), `content/` (looks, spots, calls), `screens/` (menus,
+  players, switching courts), `modes/` (one file per mode, same shape), `content/` (courts, player
+  attributes, looks, spots, calls), `screens/` (menus,
   help, leaderboard, game over), `leaderboard.js`, `audio.js`,
   `phrases.js` (announcer lines), `fx.js` + `effects/` + `vendor/pixelfx/` (pixel effects), `shared/rules.js`
   (scoring rules, shared with the Worker), `daily.js` (daily challenge), `players/recolor.js` (builder players' colours).
@@ -65,6 +66,9 @@ plan for growing the game and the iOS app; read it when working on structure.
   recounting a shot log. The game imports it in the browser and the Worker imports it to check scores, so
   never copy a rule into either side. The server's checks on a sent game are in `worker/src/scoring.ts`.
   Run `npm --prefix worker test` after changing either (Node's test runner, no extra installs).
+- **Courts and player attributes are data:** a court (art, geometry, 3-point line, gravity, wind) is an
+  entry in `content/courts.js`; what a player is good at is `content/attributes.js`. Every player is neutral
+  until Luke and Orson set values there, since the leaderboard compares everyone.
 - **Be lenient on cheating:** reject only the impossible; flag the odd ones for the admin and keep them
   on the board.
 
@@ -109,8 +113,15 @@ python3 tools/dev/copy_live_db.py                     # optional: real ideas, pl
   localhost. Other sessions may already hold these ports: check with `lsof -i :PORT` and pick a free one.
 - **Phone or iPad:** `npm run build`, then `python3 tools/dev/lan_server.py 5174 dist` and open
   `http://<Mac IP>:5174/games/shootaround/` (`ipconfig getifaddr en0`).
+- **iOS app** (Capacitor, `ios/`, `capacitor.config.json`): `npm run build:app` (the site plus
+  `tools/app/prepare.mjs`, making `dist-app/`, which opens on the game), then `npx cap sync ios`, then build
+  in Xcode (`npx cap open ios`) or `xcodebuild` for a simulator. In the app, pages come from
+  `capacitor://localhost` and talk to the live API (`api.js`); the Worker allows that origin. Haptics are
+  `haptics.js`. The robot check (Turnstile) inside the app is untested: sending a score or a player from
+  the app may need App Attest instead.
 - **Test mode:** add `?debug` to the game URL: shows the rim and lines, exposes `window.game`, and scores
-  can't be sent.
+  can't be sent. `await window.game.setCourt("gym-low-gravity")` (or `"gym-windy"`) tries a test court
+  from `content/courts.js`.
 - **Automated play:** `node tools/dev/play.mjs` plays every mode in a headless Chrome and sends the scores to
   the local Worker (instructions at its top). Use your own headless Chrome as it describes: the app's browser
   pane pauses the game when hidden, and the shared puppeteer browser gets navigated by other sessions. It
@@ -162,13 +173,24 @@ main checkout.
 
 ## Product notes
 
-- Shootaround modes: Time attack (60s), Sudden death (first miss ends it; gets harder), Around the World
-  (7 spots, fastest time). Each has its own leaderboard (This week / All time, one row per player per
+- Shootaround modes: Time attack (60s), Sudden death (first miss ends it; gets harder: the green shrinks
+  and, from 5 in a row, moves), Around the World (7 spots, fastest time; the green moves a little), the
+  3-point contest (5 racks of 5 threes in 60s, the last ball of each a money ball; the green moves), which
+  stays hidden outside `?debug` until Luke's rack art is in (`art/three-point-contest.md`), and HORSE (2-4
+  players pass one device; match the leader's shot, from the same spot with the same moving green, or get
+  a letter; no leaderboard, nothing sent). The
+  scored ones each have their own leaderboard (This week / All time, one row per player per
   device). Fire at 3 in a row (+1), purple at 6 (+2), blue supernova at 10 (+3); money and rainbow balls;
-  a daily challenge kept on the device.
+  a daily challenge kept on the device. After any game, Replay plays its best shot again in slow motion
+  (re-flown from what was recorded at the release, not recorded frames; see `play/replay.js`).
+- Leaderboard rows (except your own) have a small flag to report an unfriendly name (Apple asks for this
+  where kids type names). Reports wait in the admin inbox until the name is renamed, hidden or marked
+  "Looks fine".
 - The flow: tap or Space to play, choose a game, choose a player.
 - Players: Orson, Jethro, and kids' own players from the builder (10 bodies, recoloured from region maps);
-  requests wait in the admin inbox. Only add real kids as players if Orson knows them and their family is OK
+  requests wait in the admin inbox. A player is a he or a she (from the body: ponytail and buns are she, for now; the admin can override);
+  the announcer says "She's heating up!" for a she, and skips lines about he or she when it isn't set. A new
+  announcer line that says he, his or him needs its she version in `SHE` in `phrases.js` (the tests check). Only add real kids as players if Orson knows them and their family is OK
   with it.
 - The ideas board is how Orson's friends steer the game; votes matter. Top requests: Moni as a player,
   1v1/2v2/3v3 online, a city to explore, gear and unlocks, new courts.

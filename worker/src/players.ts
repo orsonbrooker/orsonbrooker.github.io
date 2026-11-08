@@ -1,5 +1,5 @@
-// Players made with the builder: a base body, five colours and a nickname. They wait for approval
-// in the admin inbox before they're in the game.
+// Players made with the builder: a base body, five colours, a nickname and maybe a pronoun (for the
+// announcer's lines). They wait for approval in the admin inbox before they're in the game.
 
 import { HttpError } from "./http.ts";
 import { checkTurnstile, clean, hash, ipKey, isRude, json, readJson, RUDE } from "./util.ts";
@@ -13,9 +13,12 @@ const PLAYERS_PER_HOUR = 3;
 /** A nickname starts with a letter or number, then letters, numbers, spaces, ' and -. */
 export const isNickname = (name: string) => /^[\p{L}\p{N}][\p{L}\p{N} '-]*$/u.test(name);
 
+/** A player's pronoun: "he" or "she", or null for anything else (not answered). */
+export const parsePronoun = (value: unknown): "he" | "she" | null => (value === "he" || value === "she" ? value : null);
+
 export async function listPlayers(env: Env): Promise<Response> {
 	const players = await env.DB.prepare(
-		"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name FROM players WHERE status = 'approved' ORDER BY name COLLATE NOCASE",
+		"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, pronoun FROM players WHERE status = 'approved' ORDER BY name COLLATE NOCASE",
 	).all();
 	return json({ players: players.results }, 200, 60);
 }
@@ -34,6 +37,7 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	if (number !== null && !/^\d{1,2}$/.test(number)) throw new HttpError(400, "Numbers go from 0 to 99.");
 	const teamName = clean(body.teamName, MAX_TEAM_NAME).toUpperCase();
 	if (teamName && !/^[A-Z0-9 ]+$/.test(teamName)) throw new HttpError(400, "Team names use letters and numbers.");
+	const pronoun = parsePronoun(body.pronoun);
 	if (isRude(name, teamName)) throw new HttpError(400, RUDE);
 	await checkTurnstile(request, env, body.turnstileToken);
 
@@ -44,9 +48,9 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	if ((recent?.n ?? 0) >= PLAYERS_PER_HOUR) throw new HttpError(429, "That's a lot of players! Try again in a bit.");
 
 	await env.DB.prepare(
-		"INSERT INTO players (name, base, skin, hair, jersey, team, shoes, number, team_name, ip_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO players (name, base, skin, hair, jersey, team, shoes, number, team_name, pronoun, ip_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 	)
-		.bind(name, base, ...PLAYER_PARTS.map((p) => (colours[p] as string).toLowerCase()), number, teamName || "KINGS", ipHash)
+		.bind(name, base, ...PLAYER_PARTS.map((p) => (colours[p] as string).toLowerCase()), number, teamName || "KINGS", pronoun, ipHash)
 		.run();
 
 	// If they've played as this player on their device, its leaderboard scores get this look.

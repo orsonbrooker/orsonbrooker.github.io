@@ -3,7 +3,7 @@
 // copied across unchanged (STATIC below). GitHub Actions builds and publishes it on every push to main
 // (.github/workflows/pages.yml). A new page goes in PAGES; a new file fetched by URL goes in STATIC.
 import { execSync } from "node:child_process";
-import { cpSync, existsSync } from "node:fs";
+import { cpSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
@@ -100,16 +100,47 @@ function copyStatic() {
   };
 }
 
+// The pixel font's woff2 files at a fixed address, /fonts/press-start-2p/, for the admin page (served
+// by the Worker, so not part of this build; it loads them from the site). Copied into dist/, and
+// served by the dev server too, which is the site the local admin page uses. The site's own pages get
+// the font through styles.css, with hashed names.
+function adminFont() {
+  const from = resolve(ROOT, "node_modules/@fontsource/press-start-2p/files");
+  const url = "/fonts/press-start-2p/";
+  const files = () => readdirSync(from).filter((f) => f.endsWith(".woff2"));
+  let outDir;
+  return {
+    name: "orson-admin-font",
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    configureServer(server) {
+      server.middlewares.use(url, (req, res, next) => {
+        const file = files().find((f) => req.url === `/${f}`);
+        if (!file) return next();
+        res.setHeader("Content-Type", "font/woff2");
+        res.setHeader("Access-Control-Allow-Origin", "*"); // the local admin page is on the Worker's port
+        res.end(readFileSync(resolve(from, file)));
+      });
+    },
+    writeBundle() {
+      for (const file of files()) cpSync(resolve(from, file), resolve(outDir, url.slice(1), file));
+    },
+  };
+}
+
 export default defineConfig({
   publicDir: false,
   build: {
     outDir: "dist",
     emptyOutDir: true,
     assetsDir: "build",
+    // Font files stay files (never inlined into every stylesheet); the browser fetches only what it uses.
+    assetsInlineLimit: (file) => (/\.woff2?$/.test(file) ? false : undefined),
     modulePreload: { polyfill: false }, // every browser the game runs in has modulepreload
     rollupOptions: {
       input: Object.fromEntries(Object.entries(PAGES).map(([name, page]) => [name, resolve(ROOT, page)])),
     },
   },
-  plugins: [pages(), gameVersion(), copyStatic()],
+  plugins: [pages(), gameVersion(), copyStatic(), adminFont()],
 });

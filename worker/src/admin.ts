@@ -8,8 +8,8 @@ import { verifyAccessToken } from "./access.ts";
 import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
-import { MAX_PLAYER_NAME, MAX_TEAM_NAME, PLAYER_PARTS } from "./players.ts";
-import { ODD_UNCHECKED } from "./scores.ts";
+import { MAX_PLAYER_NAME, MAX_TEAM_NAME, parsePronoun, PLAYER_PARTS } from "./players.ts";
+import { clearReports, ODD_UNCHECKED, REPORTED, renameScores } from "./scores.ts";
 import { clean, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
 import type { Env } from "./util.ts";
 
@@ -21,9 +21,8 @@ const blocks = (tag: string) =>
 	[...adminPage.matchAll(new RegExp(`<${tag}(\\s[^>]*)?>([\\s\\S]*?)</${tag}>`, "g"))].filter((m) => !/\ssrc=/.test(m[1] ?? "")).map((m) => m[2]);
 
 /**
- * What the admin page may load: its own inline script and styles, the pixel font from Google Fonts,
- * player pictures and the recolouring code from the main site (another port when testing locally),
- * and the admin API. Images include data: and blob: (faces are drawn on a canvas).
+ * What the admin page may load: its own inline script and styles, the pixel font, player pictures and
+ * the recolouring code from the main site (another port when testing locally), and the admin API. Images include data: and blob: (faces are drawn on a canvas).
  */
 export async function adminCsp(site: string): Promise<string> {
 	inlineHashes ??= Promise.all([Promise.all(blocks("script").map(sha256)), Promise.all(blocks("style").map(sha256))]).then(([scripts, styles]) => ({
@@ -35,8 +34,8 @@ export async function adminCsp(site: string): Promise<string> {
 	return [
 		"default-src 'none'",
 		`script-src ${own} ${scripts.join(" ")}`,
-		`style-src ${styles.join(" ")} https://fonts.googleapis.com`,
-		"font-src https://fonts.gstatic.com",
+		`style-src ${styles.join(" ")}`,
+		`font-src ${own}`,
 		`img-src ${own} data: blob:`,
 		`connect-src ${own}`,
 		"base-uri 'none'",
@@ -73,11 +72,14 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 			env.DB.prepare("SELECT id, app, title, description, credit, status, votes FROM ideas ORDER BY app, votes DESC"),
 			env.DB.prepare("SELECT slug, name FROM apps ORDER BY name"),
 			env.DB.prepare(
-				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
+				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, pronoun, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
 			),
 			env.DB.prepare(
-				`SELECT id, nickname, score, player, shots, made, threes, real_seconds, input, hidden_tab, log, flags, status, checked, device, mode, created_at
-				 FROM scores WHERE (${ODD_UNCHECKED}) OR created_at > datetime('now', '-14 days') ORDER BY (${ODD_UNCHECKED}) DESC, id DESC LIMIT 200`,
+				// Reported ones (with how many open reports) and odd ones not yet looked at first, then the last two weeks.
+				`SELECT id, nickname, score, player, shots, made, threes, real_seconds, input, hidden_tab, log, flags, status, checked, device, mode, created_at,
+				   (SELECT COUNT(*) FROM reports r WHERE r.score_id = scores.id AND r.cleared = 0 AND scores.status = 'shown') AS reports
+				 FROM scores WHERE id IN (${REPORTED}) OR (${ODD_UNCHECKED}) OR created_at > datetime('now', '-14 days')
+				 ORDER BY id IN (${REPORTED}) DESC, (${ODD_UNCHECKED}) DESC, id DESC LIMIT 200`,
 			),
 		]);
 		return json(
@@ -100,8 +102,18 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 		res = await editPlayer(env, id, await readJson(request));
 		await forget(url.origin, { players: true });
 	} else if (parts[2] === "scores") {
-		const mode = await editScore(env, id, await readJson(request));
-		await forget(url.origin, { boards: [mode], score: id });
+		const body = await readJson(request);
+		if (body.action === "rename") {
+			const { modes, ids } = await renameScores(env, id, body.nickname);
+			await clearReports(env, id); // a new name: reports about the old one are dealt with
+			await forget(url.origin, { boards: modes, scores: ids });
+		} else if (body.action === "name-ok") {
+			// A reported name that looks fine: its reports leave the inbox. Nothing public changes.
+			await clearReports(env, id);
+		} else {
+			const mode = await editScore(env, id, body);
+			await forget(url.origin, { boards: [mode], score: id });
+		}
 		res = json({ ok: true }, 200, 0);
 	} else throw new HttpError(404, "Not found.");
 	return res;
@@ -190,12 +202,15 @@ async function editPlayer(env: Env, id: number, body: Record<string, unknown>): 
 	if (setNumber && number !== null && !/^\d{1,2}$/.test(number)) throw new HttpError(400, "Numbers go from 0 to 99.");
 	const teamName = body.teamName === undefined ? null : clean(body.teamName, MAX_TEAM_NAME).toUpperCase() || "KINGS";
 	if (teamName !== null && !/^[A-Z0-9 ]+$/.test(teamName)) throw new HttpError(400, "Team names use letters and numbers.");
+	// "he", "she", or anything else (like "") for not set.
+	const setPronoun = body.pronoun !== undefined;
 	const result = await env.DB.prepare(
 		`UPDATE players SET name = ?, status = COALESCE(?, status), base = COALESCE(?, base),
 		   skin = COALESCE(?, skin), hair = COALESCE(?, hair), jersey = COALESCE(?, jersey), team = COALESCE(?, team), shoes = COALESCE(?, shoes),
-		   number = CASE WHEN ? THEN ? ELSE number END, team_name = COALESCE(?, team_name), updated_at = datetime('now') WHERE id = ?`,
+		   number = CASE WHEN ? THEN ? ELSE number END, team_name = COALESCE(?, team_name),
+		   pronoun = CASE WHEN ? THEN ? ELSE pronoun END, updated_at = datetime('now') WHERE id = ?`,
 	)
-		.bind(name, status, base, ...colours, setNumber ? 1 : 0, number, teamName, id)
+		.bind(name, status, base, ...colours, setNumber ? 1 : 0, number, teamName, setPronoun ? 1 : 0, parsePronoun(body.pronoun), id)
 		.run();
 	if (!result.meta.changes) throw new HttpError(404, "No such player.");
 	return json({ ok: true }, 200, 0);
@@ -207,6 +222,8 @@ async function editScore(env: Env, id: number, body: Record<string, unknown>): P
 	if (!status) throw new HttpError(400, "Unknown action.");
 	const row = await env.DB.prepare("UPDATE scores SET status = ?, checked = 1 WHERE id = ? RETURNING mode").bind(status, id).first<{ mode: string }>();
 	if (!row) throw new HttpError(404, "No such score.");
+	// Hidden: reports on this game are dealt with (if their next best game is reported too, it shows up on its own).
+	if (status === "hidden") await env.DB.prepare("UPDATE reports SET cleared = 1 WHERE score_id = ?").bind(id).run();
 	return modeOf(row.mode);
 }
 

@@ -6,15 +6,29 @@
 //   on.board(speed)                    hit the backboard
 //   on.floor(speed)                    bounced on the floor
 
+import { COURTS, DEFAULT_COURT } from "../content/courts.js";
 import { BALL_R, BOARD, RIM, RIM_R, RIM_TUBE, ROOM_U, ROOM_V } from "../engine/court.js";
 
-export const GRAVITY = 9.81;
 export const PHYSICS_STEP = 1 / 240;
+
+// The court's physics settings (content/courts.js): gravity, and wind if it has any. Live, like the
+// court's measurements: play/court.js changes them with the court.
+export let GRAVITY;
+let wind = null;
+export function setPhysics(physics) {
+  GRAVITY = physics.gravity;
+  wind = physics.wind?.u || physics.wind?.v ? physics.wind : null;
+}
+setPhysics(COURTS[DEFAULT_COURT].physics);
 
 export function stepBall(b, dt, on) {
   b.age += dt;
   b.prevZ = b.z;
   b.vz -= GRAVITY * dt;
+  if (wind && b.z > BALL_R) {
+    b.vu += wind.u * dt;
+    b.vv += wind.v * dt;
+  }
   const drag = 1 - 0.04 * dt;
   b.vu *= drag;
   b.vv *= drag;

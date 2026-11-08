@@ -8,8 +8,9 @@ import { COURT_PX, EU, EV, PX_PER_M, RIM, ROOM_U, ROOM_V, isThreePointSpot, proj
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "../engine/physics.js";
 import { save } from "../engine/storage.js";
 import { startToken } from "../leaderboard.js";
-import { canJog, faceHoop, faceToward, frameCount, loopFps, releaseOffset, sheet, shoePoints } from "../play/players.js";
-import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss } from "../play/react.js";
+import { canJog, faceHoop, faceToward, frameCount, jumpLift, loopFps, releaseOffset, sheet, shoePoints } from "../play/players.js";
+import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss, timingWindow, zoneCenter } from "../play/react.js";
+import { recordMade, recordShot, updateReplay } from "../play/replay.js";
 import { updateHud } from "../play/scene.js";
 import { ANIM_FPS, JOG_MAX_TIME, JOG_SPEED, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state, steering } from "../play/state.js";
 import { showScreen } from "../screens/base.js";
@@ -34,13 +35,14 @@ export function startGame() {
   state.timeScale = 1;
   state.endAt = 0;
   state.shotLog = [];
+  state.replayShots = [];
   state.hiddenTab = false;
   state.gameToken = null;
   state.rngSeed = null;
   resetRandom();
   const game = ++gamesStarted;
-  // Only a ranked game can go on the leaderboard, so only it asks the server for a start token.
-  if (mode().ranked)
+  // A start token for the leaderboard. Pass and play games (HORSE) and Free play have none: nothing is sent.
+  if (!mode().passAndPlay && mode().ranked !== false)
     startToken().then((token) => {
       if (game === gamesStarted) state.gameToken = token;
     });
@@ -67,6 +69,7 @@ export function startGame() {
   updateHud();
   sound.gameStart();
   announce("start", "#ffffff");
+  mode().begin?.();
 }
 
 // ---------- Shooting ----------
@@ -77,6 +80,10 @@ function gaussian() {
 
 // `timing` is 0 for a perfect release, negative for early and positive for late.
 export function shoot(timing) {
+  const releaseAnim = player.anim;
+  const releaseT = player.t;
+  // The green as they saw it, for the replay (before this shot is logged, which moves it on).
+  const green = { center: zoneCenter(), window: timingWindow() };
   if (!hints.learned) {
     hints.learned = true;
     save("orson-hoops-learned", true);
@@ -92,10 +99,15 @@ export function shoot(timing) {
   // Start the ball where his hands are in the release frame (never right at the rim: close in, the
   // hands' place along the court can come out past it).
   const screenPerM = du * EU.x + dv * EV.x;
-  const ahead = Math.max(0, Math.min(1, dist - 0.6, screenPerM ? offX / screenPerM : 0.5));
+  // Shooting nearly straight up or down the screen, the hands' sideways place says next to nothing
+  // about how far in front of him they are: then take a forearm's length.
+  const reach = Math.abs(screenPerM) < 40 ? 0.3 : offX / screenPerM;
+  const ahead = Math.max(0, Math.min(1, dist - 0.6, reach));
   const u = player.u + du * ahead;
   const v = player.v + dv * ahead;
-  const z = (project(u, v).y - (ground.y + offY)) / PX_PER_M;
+  let z = (project(u, v).y - (ground.y + offY)) / PX_PER_M;
+  const lift = jumpLift(); // a player who jumps higher lets go higher (content/attributes.js)
+  if (lift) z += lift;
 
   // Releasing late (on the way down) flattens the shot.
   const clamped = Math.max(-2.5, Math.min(2.5, timing));
@@ -109,16 +121,22 @@ export function shoot(timing) {
   const cos = Math.cos(angle);
   const ideal = Math.sqrt((GRAVITY * d * d) / (2 * cos * cos * (d * Math.tan(angle) - dz)));
 
-  const speed = ideal * (1 + 0.11 * clamped + 0.012 * gaussian());
-  const sideways = 0.012 * gaussian() + 0.012 * clamped * Math.sign(gaussian());
+  // A good 3-point shooter (content/attributes.js) is less off on a 3: his timing mistakes and the
+  // wobble shrink. (Times 1 for everyone else, which leaves the numbers exactly as they were.)
+  const three = isThreePointSpot(player.u, player.v);
+  const steady = three ? 1 / player.attrs.three : 1;
+  const speed = ideal * (1 + 0.11 * clamped * steady + 0.012 * gaussian() * steady);
+  const sideways = 0.012 * gaussian() * steady + 0.012 * clamped * Math.sign(gaussian()) * steady;
   const hu = du * cos - dv * sideways;
   const hv = dv * cos + du * sideways;
-  launchBall({ u, v, z, vu: hu * speed, vv: hv * speed, vz: Math.sin(angle) * speed }, clamped);
+  launchBall({ u, v, z, vu: hu * speed, vv: hv * speed, vz: Math.sin(angle) * speed }, clamped, { three, releaseAnim, releaseT, green });
 }
 
 // A ball leaving his hands (a shot or a dunk): it joins the balls in play, goes in the shot log, and
-// he plays his release while it flies.
-function launchBall(at, timing) {
+// he plays his release while it flies. `shot`: whether it's a 3, and his move, its time and the green
+// when he let go (for the instant replay).
+function launchBall(at, timing, shot) {
+  const { three, releaseAnim, releaseT, green } = shot;
   const { u, v, z } = at;
   const ball = {
     ...at,
@@ -129,7 +147,7 @@ function launchBall(at, timing) {
     touchedBoard: false,
     decided: false,
     bounces: 0,
-    three: isThreePointSpot(player.u, player.v),
+    three,
     fire: fireLevel(),
     kind: nextBallKind(),
     prevZ: z,
@@ -143,8 +161,10 @@ function launchBall(at, timing) {
   if (state.phase === "playing") {
     ball.log = [Math.round(mode().gameSeconds() * 100) / 100, ball.three ? 1 : 0, 0, Math.round(timing * 1000) / 1000, ball.kind];
     state.shotLog.push(ball.log);
+    ball.replay = recordShot(ball, releaseAnim, releaseT, green); // for the instant replay (play/replay.js)
   }
   player.activeBall = ball;
+  player.airT = player.anim === "jump" ? player.t : Infinity; // let go from a gather: not in the air
   setAnim("release");
 }
 
@@ -197,7 +217,8 @@ function dunkRise() {
   const p = project(RIM.u, RIM.v, RIM.z);
   addPopup("SLAM DUNK", "#ffffff", p.x, p.y - 140);
   pixelFx.spark(p.x, p.y, { floorDrop: project(RIM.u, RIM.v, 0).y - p.y });
-  launchBall({ u: RIM.u, v: RIM.v + 0.05, z: RIM.z + 0.3, vu: 0, vv: 0, vz: -6 }, 0);
+  const shot = { three: false, releaseAnim: player.anim, releaseT: player.t, green: { center: zoneCenter(), window: timingWindow() } };
+  launchBall({ u: RIM.u, v: RIM.v + 0.05, z: RIM.z + 0.3, vu: 0, vv: 0, vz: -6 }, 0, shot);
 }
 
 // Back down to the floor in front of the hoop.
@@ -244,6 +265,7 @@ function scoreBasket(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
   if (!mode().countsShot()) return;
   mode().onMake(b);
+  recordMade(b);
 }
 
 function missedShot(b) {
@@ -286,7 +308,8 @@ function jogSounds() {
 }
 
 // Free play: where he can go. On the floor, in front of the backboard, and not right under the hoop.
-const FREE_AREA = { u0: 1.2, u1: ROOM_U - 0.7, v0: RIM.v + 0.4, v1: ROOM_V - 0.7, rim: 1.1 };
+// (Worked out when used: the court can change.)
+const freeArea = () => ({ u0: 1.2, u1: ROOM_U - 0.7, v0: RIM.v + 0.4, v1: ROOM_V - 0.7, rim: 1.1 });
 // Moves he can be steered out of (not mid-shot).
 const STEERABLE = ["idle", "turn", "dribble", "run"];
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
@@ -314,6 +337,7 @@ function steerPlayer(dt) {
   const len = Math.hypot(du, dv);
   const step = JOG_SPEED * amount * dt;
   const wasThree = isThreePointSpot(player.u, player.v);
+  const FREE_AREA = freeArea();
   let u = clamp(player.u + (du / len) * step, FREE_AREA.u0, FREE_AREA.u1);
   let v = clamp(player.v + (dv / len) * step, FREE_AREA.v0, FREE_AREA.v1);
   const fromRim = Math.hypot(u - RIM.u, v - RIM.v);
@@ -338,6 +362,10 @@ function steerPlayer(dt) {
 
 function updatePlayer(dt) {
   player.t += dt;
+  if (state.phase === "replay") {
+    updateReplay();
+    return;
+  }
 
   if (player.moving) {
     // A sheet with jogging moves: he jogs to the next spot, dribbling. Otherwise he fades out and
@@ -435,6 +463,7 @@ function updatePlayer(dt) {
 
 function update(dt) {
   if (state.phase === "playing") mode().clock(dt);
+  else if (state.phase === "turn") mode().betweenTurns?.(dt);
   else if (state.phase === "ending") {
     // Let the last shot's reaction play out before the game-over screen.
     if (state.balls.every((b) => b.decided)) {
@@ -474,7 +503,7 @@ function update(dt) {
   }
 
   // Flames round the player's shoes while they're on fire (hidden while they fade to a new spot).
-  const fire = state.phase === "playing" || state.phase === "ending" ? fireLevel() : null;
+  const fire = state.phase === "playing" || state.phase === "ending" || state.phase === "replay" ? fireLevel() : null;
   if (state.shoeFire && state.shoeFire.level !== fire) {
     state.shoeFire.stop();
     state.shoeFire = null;
@@ -496,6 +525,7 @@ function updateSlowMo(dt) {
   const dropping = state.phase === "ending" && state.balls.some(
     (b) => b.atBuzzer && !b.decided && b.vz < 0 && b.z < RIM.z + 1.8 && Math.hypot(b.u - RIM.u, b.v - RIM.v) < 1.6,
   );
+  if (state.phase === "replay") return; // a replay sets its own speed (play/replay.js)
   if (dropping && state.timeScale === 1) sound.ooh();
   const target = dropping ? SLOW_MO : 1;
   state.timeScale += (target - state.timeScale) * Math.min(1, dt * 8);

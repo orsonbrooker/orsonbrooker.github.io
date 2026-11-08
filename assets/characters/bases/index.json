@@ -12,7 +12,8 @@
    "jersey": "#cad6da",
    "team": "#33557b",
    "shoes": "#413f4f"
-  }
+  },
+  "pronoun": "he"
  },
  {
   "id": "curly",
@@ -27,7 +28,8 @@
    "jersey": "#cdd6da",
    "team": "#35577c",
    "shoes": "#403e4c"
-  }
+  },
+  "pronoun": "he"
  },
  {
   "id": "buzz",
@@ -42,7 +44,8 @@
    "jersey": "#cdd7dc",
    "team": "#335579",
    "shoes": "#3e3b4a"
-  }
+  },
+  "pronoun": "he"
  },
  {
   "id": "ponytail",
@@ -57,7 +60,8 @@
    "jersey": "#ccd6da",
    "team": "#34567b",
    "shoes": "#3f3d4a"
-  }
+  },
+  "pronoun": "she"
  },
  {
   "id": "buns",
@@ -72,7 +76,8 @@
    "jersey": "#cbd5da",
    "team": "#35567a",
    "shoes": "#3f3d4b"
-  }
+  },
+  "pronoun": "she"
  },
  {
   "id": "headband",
@@ -87,7 +92,8 @@
    "jersey": "#ccd6d9",
    "team": "#35557a",
    "shoes": "#403d4b"
-  }
+  },
+  "pronoun": "he"
  },
  {
   "id": "glasses",
@@ -102,7 +108,8 @@
    "jersey": "#d3dcdf",
    "team": "#374f84",
    "shoes": "#3d3b49"
-  }
+  },
+  "pronoun": "he"
  },
  {
   "id": "cap",
@@ -117,7 +124,8 @@
    "jersey": "#ccd7db",
    "team": "#33567a",
    "shoes": "#403e4c"
-  }
+  },
+  "pronoun": "he"
  },
  {
   "id": "mullet",
@@ -132,7 +140,8 @@
    "jersey": "#cdd7dc",
    "team": "#33567a",
    "shoes": "#403e4d"
-  }
+  },
+  "pronoun": "he"
  },
  {
   "id": "braids",
@@ -147,6 +156,7 @@
    "jersey": "#ccd7db",
    "team": "#34557a",
    "shoes": "#3f3d4a"
-  }
+  },
+  "pronoun": "he"
  }
 ]

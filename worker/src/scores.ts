@@ -7,7 +7,7 @@
 // old enough for the game it claims), test mode, the robot check and the daily limit.
 // (Nicknames don't matter: a device's row is per player, whatever name it's sent with.)
 
-import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, lowWins, modeOf } from "../../shared/rules.js";
+import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, THREE_POINT_CONTEST, lowWins, modeOf } from "../../shared/rules.js";
 import type { Mode, Shot } from "../../shared/rules.js";
 import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
@@ -32,6 +32,12 @@ export const ODD_UNCHECKED = "status = 'shown' AND flags != '[]' AND checked = 0
 const FEATURE_FROM = {
 	supernova: "2026-11-05 20:47:00",
 	bonusBalls: "2026-11-05 20:47:00",
+	// The green part of the jump bar moves from shot to shot in Sudden death (from a run of 5), Around
+	// the World and the 3-point contest. Sudden death squeezes it more slowly to make up for it. Older
+	// games on those boards were played with it still.
+	movingGreen: "2026-11-07 00:53:00",
+	// The 3-point contest (racks of five, a money ball last in each).
+	threePointContest: "2026-11-07 00:53:00",
 };
 export const hadFeature = (createdAt: unknown, feature: keyof typeof FEATURE_FROM) => String(createdAt) >= FEATURE_FROM[feature];
 
@@ -147,6 +153,65 @@ export function scoreNickname(body: Record<string, unknown>): string {
 	if (!isNickname(nickname)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
 	if (isRude(nickname)) throw new HttpError(400, RUDE);
 	return nickname;
+}
+
+const REPORTS_PER_DAY = 30;
+// Shown scores someone has reported that the admin hasn't acted on yet: they're in the admin inbox.
+export const REPORTED = "SELECT r.score_id FROM reports r JOIN scores s ON s.id = r.score_id WHERE r.cleared = 0 AND s.status = 'shown'";
+
+/**
+ * Someone reports a leaderboard row's name as unfriendly. One report per score per IP (and day: the
+ * IP hash includes it), so repeats change nothing. A device reporting its own row is quietly ignored.
+ */
+export async function reportScore(request: Request, env: Env, header: string): Promise<Response> {
+	const body = await readJson(request);
+	const device = header || clean(body.device, 64); // the X-Device header, like the ideas board, or in the body
+	await rateLimit(request, env, "report", REPORTS_PER_DAY, "Thanks! That's plenty of reports for today.");
+	const scoreId = body.scoreId;
+	if (typeof scoreId !== "number" || !Number.isSafeInteger(scoreId) || scoreId < 1) throw new HttpError(400, "Bad request.");
+	const score = await env.DB.prepare("SELECT device FROM scores WHERE id = ? AND status = 'shown'").bind(scoreId).first<{ device: string }>();
+	if (!score) throw new HttpError(404, "That score isn't on the leaderboard.");
+	if (device.length >= 16 && score.device === (await hash(env, `device:${device}`))) return json({ ok: true });
+	await env.DB.prepare("INSERT OR IGNORE INTO reports (score_id, ip_hash) VALUES (?, ?)")
+		.bind(scoreId, await ipKey(request, env))
+		.run();
+	return json({ ok: true });
+}
+
+/**
+ * The admin has dealt with a reported name (renamed it, or it looks fine): every open report on that
+ * device and player's games is cleared, since the board shows one row (and one name) for them.
+ */
+export async function clearReports(env: Env, id: number): Promise<void> {
+	await env.DB.prepare(
+		`UPDATE reports SET cleared = 1
+		 WHERE cleared = 0 AND score_id IN (SELECT o.id FROM scores o, scores s WHERE s.id = ? AND o.device = s.device AND o.player = s.player)`,
+	)
+		.bind(id)
+		.run();
+}
+
+// Card caches cleared after a rename: the newest games' (older cards are rarely open, and only
+// cached for a minute), so a long history doesn't mean hundreds of cache calls.
+const RENAME_FORGETS = 40;
+
+/**
+ * The admin renames a leaderboard nickname: every game by the same device and player as score `id`
+ * (the board shows one row for them, with their latest nickname), checked like a player's own.
+ * Returns the modes whose boards changed and the games whose cards should be cleared.
+ */
+export async function renameScores(env: Env, id: number, nickname: unknown): Promise<{ modes: Mode[]; ids: number[] }> {
+	const name = scoreNickname({ nickname });
+	const rows = await env.DB.prepare(
+		`UPDATE scores SET nickname = ?1
+		 WHERE id = ?2 OR (device, player) = (SELECT device, player FROM scores WHERE id = ?2)
+		 RETURNING id, mode`,
+	)
+		.bind(name, id)
+		.all<{ id: number; mode: string }>();
+	if (!rows.results.length) throw new HttpError(404, "No such score.");
+	const ids = rows.results.map((r) => r.id).sort((a, b) => b - a);
+	return { modes: [...new Set(rows.results.map((r) => modeOf(r.mode)))], ids: ids.slice(0, RENAME_FORGETS) };
 }
 
 // One mode's board: each player on a device appears once, with its best game and its latest
@@ -309,9 +374,19 @@ export function cardStats(log: Shot[], mode: Mode, score: number, createdAt: unk
 			if (made) spot++;
 		}
 	}
+	// 3-point contest: baskets made from each rack, in order.
+	const racks: number[] = [];
+	if (mode === "threes" && hadFeature(createdAt, "threePointContest"))
+		log.forEach(([, , made], i) => {
+			const rack = Math.floor(i / THREE_POINT_CONTEST.balls);
+			racks[rack] = (racks[rack] ?? 0) + (made ? 1 : 0);
+		});
 	return {
 		bestStreak,
 		onFire,
+		racks,
+		// Whether the green part of the jump bar was moving (it does in some modes, for newer games).
+		movingGreen: mode !== "timed" && hadFeature(createdAt, "movingGreen"),
 		// Left out for games from before these existed.
 		supernova: hadFeature(createdAt, "supernova") ? supernova : null,
 		money: hadFeature(createdAt, "bonusBalls") ? money : null,

@@ -4,6 +4,8 @@
 // reverb send, a crowd bed that swells with the action, and music that builds
 // with the game and ducks under the announcer.
 
+import { buzz } from "./haptics.js";
+
 const MUSIC_LEVEL = 0.2;
 const CROWD_LEVEL = 0.07;
 
@@ -171,6 +173,7 @@ export const sound = {
   },
 
   swish() {
+    if (!this.muted) buzz("make");
     if (!this.ctx) return;
     const t = now();
     noise(t, 0.32, { type: "bandpass", freq: 6500, to: 2200, q: 1.2, peak: 0.5, attack: 0.02 });
@@ -199,6 +202,7 @@ export const sound = {
 
   // level 0 is the first (orange) fire; higher levels add a magic shimmer and a bigger roar.
   fireIgnite(level = 0) {
+    if (!this.muted) buzz("fire");
     if (!this.ctx) return;
     const t = now();
     noise(t, 0.6, { type: "lowpass", freq: 300, to: 5000 + level * 3000, peak: 0.45, attack: 0.15 });

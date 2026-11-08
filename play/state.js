@@ -2,6 +2,7 @@
 // is being played, and the seeded randomness for where he shoots from and how each shot wobbles.
 // Everything else in play/, modes/ and screens/ reads and changes these.
 
+import { NEUTRAL } from "../content/attributes.js";
 import { DEFAULT_SPOT } from "../engine/court.js";
 import { load } from "../engine/storage.js";
 import { randomSeed, seededStreams } from "../rng.js";
@@ -21,7 +22,7 @@ export const TIMING_WINDOW = 0.13;
 export const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16 };
 
 export const state = {
-  phase: "loading", // loading | title | modes | select | playing | ending | over (free play never ends)
+  phase: "loading", // loading | title | modes | select | playing | turn (HORSE, between shots) | ending | over | replay (free play never ends)
   score: 0,
   mode: "timed",
   best: 0,
@@ -48,6 +49,7 @@ export const state = {
   // For the leaderboard: each shot as [seconds in, 3-pointer, made, release timing], the game's
   // start token from the server, how it was played, and whether the tab was hidden mid-game.
   shotLog: [],
+  replayShots: [], // each shot's release, to fly it again in an instant replay (play/replay.js); never sent
   gameToken: null,
   rngSeed: null, // what this game's random spots and aim came from (its start token, if it had one by then)
   input: "touch",
@@ -67,6 +69,9 @@ export const player = {
   steered: false, // free play: moving because they're steering him
   dunk: null, // free play: dunking, { from, peak, land, lift } (play/round.js)
   lift: 0, // metres off the floor, while dunking
+  attrs: NEUTRAL, // what this player is good at (content/attributes.js), set when they're chosen
+  pronoun: "he", // "he", "she" or "" (not set): which of the announcer's lines suit them (phrases.js)
+  airT: 0, // how long he'd been in the air when he let go (for drawing a higher jump)
 };
 
 // Free play: which way they're steering him on screen (x right, y down), from the arrow keys and
@@ -98,12 +103,12 @@ export const modes = {};
 export const mode = () => modes[state.mode] ?? modes.timed;
 
 // ---------- Gameplay randomness ----------
-// Where he shoots from and how each shot wobbles come from streams seeded by the start token, so the
-// same token and the same inputs give the same game. The token is fetched as the game starts, so the
+// Where he shoots from, how each shot wobbles and where a moving green zone goes come from streams
+// seeded by the start token, so the same token and the same inputs give the same game. The token is fetched as the game starts, so the
 // streams are made at the game's first draw (the first shot's release): from the token if it's here
 // by then (it nearly always is), otherwise from a random seed for the whole game. Effects, sounds and
 // which announcer line plays stay on Math.random.
-const RNG_STREAMS = ["spots", "aim"];
+const RNG_STREAMS = ["spots", "aim", "zone"]; // zone: where a moving green zone goes (play/zone.js)
 let rng = null; // this game's streams, made at its first draw
 let debugSeed = null; // ?debug: a seed to use instead of the token (window.game.setSeed)
 export function random(stream) {

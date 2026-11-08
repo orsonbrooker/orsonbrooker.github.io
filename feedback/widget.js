@@ -10,11 +10,10 @@
 // The value of data-feedback is the game or app the idea is about. New games need a row in
 // the apps table first (see worker/migrations).
 
+import { API } from "../api.js";
 import { markField, say } from "../ui/form.js";
 import { icon } from "../ui/icons.js";
 
-const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
-const API = LOCAL ? "http://localhost:8787/api" : "/api";
 const STATUSES = [
 	["idea", "Ideas"],
 	["planned", "Planned"],
@@ -198,7 +197,7 @@ async function mountBoard(node) {
 	node.replaceChildren(el("p", { className: "fb-loading", textContent: "Loading ideas…" }));
 	let apps, ideas, voted;
 	try {
-		const [cfg, list] = await Promise.all([getConfig(), fetch(`${API}/ideas?device=${deviceId()}`).then((r) => r.json())]);
+		const [cfg, list] = await Promise.all([getConfig(), fetch(`${API}/ideas`, { headers: { "X-Device": deviceId() } }).then((r) => r.json())]);
 		apps = cfg.apps;
 		ideas = list.ideas;
 		voted = new Set(list.voted);

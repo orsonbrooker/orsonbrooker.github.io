@@ -1,5 +1,7 @@
 // Orson on the home page: his idle animation from the game's sprite sheet, drawn on a canvas.
 
+import { API } from "../api.js";
+
 const canvas = document.getElementById("orson");
 const ctx = canvas.getContext("2d");
 
@@ -34,8 +36,7 @@ draw();
 if (!still) setInterval(draw, 260);
 
 // The leaderboard tile shows who's on top this week.
-const LOCAL = ["localhost", "127.0.0.1"].includes(location.hostname);
-fetch(`${LOCAL ? "http://localhost:8787" : ""}/api/scores?range=week`)
+fetch(`${API}/scores?range=week`)
   .then((r) => (r.ok ? r.json() : Promise.reject(new Error())))
   .then(({ scores }) => {
     const top = scores[0];

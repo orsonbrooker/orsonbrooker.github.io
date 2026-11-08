@@ -16,9 +16,17 @@ export async function config(env: Env): Promise<Response> {
 	return json({ turnstileSiteKey: env.TURNSTILE_SITE_KEY, apps: apps.results }, 200, 300);
 }
 
-export async function listIdeas(env: Env, url: URL): Promise<Response> {
+/**
+ * The device asking for the ideas list, so its own votes can be marked: sent in the X-Device header
+ * (kept out of URLs and logs), or the old ?device= that pages cached before the change still send.
+ */
+export function deviceOf(request: Request, url: URL): string {
+	return (request.headers.get("X-Device") || url.searchParams.get("device") || "").slice(0, 64);
+}
+
+export async function listIdeas(request: Request, env: Env, url: URL): Promise<Response> {
 	const app = url.searchParams.get("app");
-	const device = url.searchParams.get("device");
+	const device = deviceOf(request, url);
 	const query = app
 		? env.DB.prepare(
 				"SELECT id, app, title, description, credit, status, votes, done_at FROM ideas WHERE status != 'hidden' AND app = ? ORDER BY votes DESC, id DESC",

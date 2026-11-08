@@ -1,43 +1,58 @@
 // The way into a game: the title screen, then choose a game (each card shows its best), then choose a
 // player. The first time someone plays, choosing a player comes first and then the game starts.
 
+import { attributesFor, skillWords } from "../content/attributes.js";
 import { load, save } from "../engine/storage.js";
+import { modeShown } from "../modes/index.js";
 import { characters, setFace, useCharacter } from "../play/players.js";
 import { startGame } from "../play/round.js";
 import { updateHud } from "../play/scene.js";
 import { mode, modes, state } from "../play/state.js";
 import { removeMyPlayer } from "../players/recolor.js";
-import { charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js";
+import { $, charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js";
 import { showDaily } from "../screens/over.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
 
+// Modes that aren't out yet (modeShown, modes/index.js): their card, leaderboard tab and help go.
+for (const el of document.querySelectorAll("[data-mode], [data-board-mode], [data-help-mode]"))
+  if (!modeShown(el.dataset.mode ?? el.dataset.boardMode ?? el.dataset.helpMode)) el.remove();
+
 // Picks the mode for the next game (remembered for next time) and shows its best.
 export function setMode(id) {
-  state.mode = modes[id] ? id : "timed";
+  state.mode = modes[id] && modeShown(id) ? id : "timed";
   state.best = mode().bestKey ? load(mode().bestKey, 0) : 0;
   save("orson-hoops-mode", state.mode);
   stage.dataset.gameMode = state.mode; // free play shows its own buttons (styles.css)
   updateHud();
 }
 
+// After a pass and play game (or a replay of one), back to the player this device chose.
+function restoreChosenPlayer() {
+  const chosen = load("orson-hoops-character", null);
+  if (chosen && chosen !== characters.selected && characters.list.some((c) => c.id === chosen)) selectCharacter(chosen);
+}
+
 export function showTitle() {
   state.phase = "title";
   tapToPlay.textContent = howTo("Tap to play", "Press Space to play", "Tap or press Space to play");
   setMode(state.mode);
+  restoreChosenPlayer();
   showScreen("title");
 }
 
 // Step two, after tapping to start: pick a game (each card shows its best), then a player.
 export function openModes() {
   state.phase = "modes";
+  restoreChosenPlayer();
   showDaily();
   for (const card of screens.modes.querySelectorAll("[data-mode]")) {
     const m = modes[card.dataset.mode] ?? modes.timed;
     card.setAttribute("aria-pressed", String(card.dataset.mode === state.mode));
-    if (!m.bestKey) continue; // free play has no best
-    const best = load(m.bestKey, 0);
-    card.querySelector("[data-best]").textContent = best ? `Your best: ${m.formatBest(best)}` : "No best yet";
+    const label = card.querySelector("[data-best]");
+    if (!label) continue; // free play: just for fun, no best
+    const best = m.bestKey ? load(m.bestKey, 0) : 0;
+    label.textContent = m.passAndPlay ? `${m.passAndPlay.min} to ${m.passAndPlay.max} players` : best ? `Your best: ${m.formatBest(best)}` : "No best yet";
   }
   showScreen("modes");
   // Focus their last game, but only once Space is let go, or letting go would pick it.
@@ -47,10 +62,17 @@ export function openModes() {
 }
 
 // Pick a player. `thenPlay`: start the game once they've picked (otherwise back to the title).
+// A pass and play game (HORSE) picks several instead, in turn order, and starts with the Start button.
 let selectThenPlay = false;
+let team = null; // pass and play: { min, max, chosen: [ids in turn order] }
 export function openSelect(thenPlay = false) {
   selectThenPlay = thenPlay;
   state.phase = "select";
+  const pass = mode().passAndPlay;
+  team = pass ? { ...pass, chosen: load("orson-hoops-team", []).filter((id) => characters.list.some((c) => c.id === id)).slice(0, pass.max) } : null;
+  $("select-title").textContent = team ? "Who's playing?" : "Choose your player";
+  $("team-note").hidden = $("team-go-row").hidden = !team;
+  charPick.classList.toggle("team", !!team);
   renderPicker();
   showScreen("select");
   (charPick.querySelector('[aria-pressed="true"]') ?? charPick.querySelector("button"))?.focus({ preventScroll: true });
@@ -72,14 +94,24 @@ function renderPicker() {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "card";
-      button.setAttribute("aria-pressed", String(c.id === characters.selected));
+      button.setAttribute("aria-pressed", String(team ? team.chosen.includes(c.id) : c.id === characters.selected));
       const img = document.createElement("img");
       img.alt = "";
       setFace(img, c);
       const name = document.createElement("span");
       name.textContent = c.name;
       button.append(img, name);
+      // What they're good at, only for players given attributes (content/attributes.js).
+      const skills = skillWords(attributesFor(c.id));
+      for (const words of skills) button.append(Object.assign(document.createElement("small"), { className: "skill", textContent: words }));
+      if (team?.chosen.includes(c.id)) {
+        // Their place in the turn order.
+        const order = Object.assign(document.createElement("b"), { className: "order", textContent: String(team.chosen.indexOf(c.id) + 1) });
+        order.setAttribute("aria-label", `Player ${team.chosen.indexOf(c.id) + 1}`);
+        button.append(order);
+      }
       button.addEventListener("click", async () => {
+        if (team) return toggleTeam(c.id);
         await selectCharacter(c.id);
         save("orson-hoops-chosen", true);
         stage.focus({ preventScroll: true }); // so Space plays rather than pressing this card again
@@ -95,6 +127,7 @@ function renderPicker() {
         if (!(await confirmDialog(`Remove ${c.name}?`, { yes: "Remove", detail: "They'll be gone from this device. You can make them again any time." })))
           return;
         removeMyPlayer(c.id);
+        if (team) team.chosen = team.chosen.filter((id) => id !== c.id);
         characters.list = characters.list.filter((p) => p.id !== c.id);
         characters.loaded.delete(c.id);
         if (characters.selected === c.id) selectCharacter(characters.list[0].id);
@@ -106,4 +139,36 @@ function renderPicker() {
     }),
     Object.assign(document.createElement("a"), { href: "/players/", className: "card make-player", innerHTML: `${icon("plus")}<span>Make your player</span>` }),
   );
+  if (team) showTeam();
+}
+
+// ---------- Pass and play: picking who's playing ----------
+
+// Tapping a player adds them to the end of the turn order, or takes them out.
+function toggleTeam(id) {
+  const at = team.chosen.indexOf(id);
+  if (at >= 0) team.chosen.splice(at, 1);
+  else if (team.chosen.length < team.max) team.chosen.push(id);
+  const focused = document.activeElement;
+  const index = [...charPick.querySelectorAll(".card")].indexOf(focused);
+  renderPicker();
+  charPick.querySelectorAll(".card")[index]?.focus({ preventScroll: true });
+}
+
+function showTeam() {
+  const n = team.chosen.length;
+  $("team-note").textContent =
+    n >= team.max ? `${n} players. Pass the device around!`
+    : n >= team.min ? `${n} players. Add up to ${team.max}, or start!`
+    : `Tap ${team.min} to ${team.max} players, in the order they'll shoot.`;
+  $("team-go").disabled = n < team.min;
+}
+
+// Start: these players, in this order.
+export function startTeam() {
+  if (!team || team.chosen.length < team.min) return;
+  save("orson-hoops-team", team.chosen);
+  mode().setPlayers(team.chosen.map((id) => characters.list.find((c) => c.id === id)));
+  stage.focus({ preventScroll: true });
+  startGame();
 }

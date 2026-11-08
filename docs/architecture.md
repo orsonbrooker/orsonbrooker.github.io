@@ -39,7 +39,8 @@ flowchart LR
   (`.github/workflows/pages.yml`) runs `npm run build` (`vite.config.js`) and publishes `dist/` to GitHub
   Pages, cached by Cloudflare. Each page keeps its URL; scripts and stylesheets get hashed names in
   `dist/build/`, so new code always gets past the cache, and everything fetched by URL at runtime
-  (`assets/`, `icons/`, manifests, `robots.txt`, `sitemap.xml`, `CNAME`) is copied unhashed. The build puts
+  (`assets/`, `icons/`, manifests, `robots.txt`, `sitemap.xml`, `CNAME`) is copied unhashed. The pixel font is self-hosted (`@fontsource/press-start-2p`,
+  bundled through `styles.css`; a fixed-name copy in `fonts/` for the admin page): no font service sees visitors. The build puts
   the commit into the game as the version it sends with scores. The iOS app (Capacitor) can wrap the same
   `dist/`.
 
@@ -62,20 +63,23 @@ flowchart LR
 | Area | Files | What it does |
 |---|---|---|
 | Game entry | `game.js` | Starts the game and wires the pieces below together: the one button (press, release), the screens' buttons, boot, `window.game` in `?debug`. |
-| Engine | `engine/` | `court.js` the court in metres and `project()` onto the isometric art, 3-point line, random spots; `physics.js` fixed-step ball physics (`PHYSICS_STEP`), rim and backboard collisions, reported through callbacks; `loop.js` the frame loop; `input.js` tap/Space/hold, Escape, arrow keys in pickers, arrow keys and WASD steering the player in Free play; `draw.js` canvas helpers (ball sprites, banner, popups, wall scoreboard digits, shoe finder); `storage.js`. |
-| Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness, which way Free play is being steered (`steering()`); `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update (jogging between spots, and in Free play `steerPlayer()`: the screen direction turned into a court direction, kept on the floor in front of the backboard); `controls.js` Free play's touch joystick and shoot button (pixel circles, only on `pointer: coarse` screens, keeping their touches from the tap-anywhere button); `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces. |
-| Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, `free.js`, shared `points.js`) | Time attack, Sudden death, Around the World, Free play, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. The first three are `ranked` (in `MODES`, with a best, a leaderboard, a start token and the daily challenge). Free play isn't: no clock, no score sent, no game over; the player moves himself (`freeMove`) and shoots from wherever he stands (within 2 m of the hoop a shot is a dunk: `startDunk()` in `round.js` leaps him up to the rim, slams the ball through and drops him in front of it), and it ends only when they leave (Escape or the back button, to choosing a game). |
-| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player; `panels.js` help and leaderboard; `over.js` game over. |
-| Game content | `content/` | Tables: how each fire level and ball looks, the wall scoreboard art, the Around the World spots, Sudden death run calls and end-of-game calls. |
+| Engine | `engine/` | `court.js` the court being played (from `content/courts.js`) in metres and `project()` onto the isometric art, 3-point line, random spots; `physics.js` fixed-step ball physics (`PHYSICS_STEP`) with the court's gravity and wind, rim and backboard collisions, reported through callbacks; `loop.js` the frame loop; `input.js` tap/Space/hold, Escape, arrow keys in pickers, arrow keys and WASD steering the player in Free play; `draw.js` canvas helpers (ball sprites, banner, popups, wall scoreboard digits, shoe finder); `storage.js`. |
+| Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness, which way Free play is being steered (`steering()`); `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update (jogging between spots, and in Free play `steerPlayer()`: the screen direction turned into a court direction, kept on the floor in front of the backboard); `controls.js` Free play's touch joystick and shoot button (pixel circles, only on `pointer: coarse` screens, keeping their touches from the tap-anywhere button); `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces, a higher jump; `court.js` switching courts (measurements, physics, art); `replay.js` instant replays (recording each release, picking the best shot, playing it again). |
+| Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, `horse.js`, `threes.js`, `free.js`, shared `points.js`) | Time attack, Sudden death, Around the World, 3-point contest, HORSE (pass and play, no leaderboard), Free play, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. The 3-point contest is hidden (except in `?debug`) until its rack art is in: `THREE_POINT_CONTEST_READY` in `modes/index.js`, brief in `art/three-point-contest.md`. Free play (`ranked: false`) has no clock, no score sent, no daily challenge and no game over; the player moves himself (`freeMove`) and shoots from wherever he stands (within 2 m of the hoop a shot is a dunk: `startDunk()` in `round.js` leaps him up to the rim, slams the ball through and drops him in front of it), and it ends only when they leave (Escape or the back button, to choosing a game). |
+| Moving green zone | `play/zone.js`, `zoneCenter()` in `play/react.js` | A mechanic a mode switches on with `zoneShift()`: the green part of the timing bar moves to a new place each shot (from the seeded "zone" stream), and a release is timed from the green's middle. On in Sudden death (from 5 in a row, further as the run grows), Around the World (gently) and the 3-point contest. |
+| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player (or several, for pass and play); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `over.js` game over (and the Replay button). |
+| Game content | `content/` | Tables: the courts (`courts.js`), what each player is good at (`attributes.js`), how each fire level and ball looks, the wall scoreboard art, the Around the World spots, the 3-point contest's racks (`threes.js`, with where its art goes), the HORSE spots and spot map, Sudden death run calls and end-of-game calls. |
 | Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log. Used by the game and the Worker. |
 | Scoring extras | `daily.js`, `content/looks.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
-| Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots and aim wobble. |
+| Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots, aim wobble and where a moving green zone goes. |
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
-| Sound | `audio.js`, `phrases.js`, `assets/voice/`, `assets/sfx/` | Music that builds, synthesised effects, recorded bounces, a sneaker squeak and footsteps (`tools/build_sfx.py` packs `art/sfx/`), announcer clips (device voice as fallback). |
+| Sound | `audio.js`, `phrases.js`, `assets/voice/`, `assets/sfx/` | Music that builds, synthesised effects, recorded bounces, a sneaker squeak and footsteps (`tools/build_sfx.py` packs `art/sfx/`), announcer clips (device voice as fallback); lines about the player in he and she versions. |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
 | Players | `assets/characters/`, `players/recolor.js`, `players/builder.js`, `players/pixelkit.js` | Built-in sprites; builder bodies recoloured from region maps; sheets made from video (Orson): which way he faces the hoop from each spot (`faceHoop()` in `play/players.js`), his number and team name warped onto a face on his jersey (`pixelkit.js`). |
 | Shared UI | `ui/` | Nav, icons, styled dialogs, form helpers. |
 | Ideas widget | `feedback/` | The "Got an idea?" button on each page. |
+| Server address | `api.js` | Where the API is: this site's `/api`, the local Worker on localhost, or the live site from the iOS app. |
+| iOS app | `ios/`, `capacitor.config.json`, `tools/app/prepare.mjs`, `haptics.js` | The same pages bundled into an app with Capacitor, opening on the game; a buzz on baskets and fire. |
 | Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `admin.ts`, `access.ts`, `cache.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
 | Art and voice tools | `tools/` | Character sheets, region maps, announcer clips, icons, share images. |
 
@@ -88,6 +92,7 @@ erDiagram
   ideas ||--o{ votes : "gets"
   ideas ||--o{ submissions : "approved or merged into"
   players ||..o{ scores : "played as (by id)"
+  scores ||--o{ reports : "name reported"
 
   apps {
     text slug PK "basketball, new-game, website"
@@ -126,11 +131,12 @@ erDiagram
     text skin_hair_jersey_team_shoes "five #rrggbb colours"
     text number "0-99 or none"
     text team_name "KINGS by default"
+    text pronoun "he, she, or null (the body's)"
     text status "new, approved, hidden"
   }
   scores {
     int id PK
-    text mode "timed, survival, around"
+    text mode "timed, survival, around, threes (3-point contest)"
     int score "points, or tenths of a second for around"
     text player "orson, jethro, a builder id, or me123 (own player)"
     text device "hashed device id"
@@ -142,6 +148,11 @@ erDiagram
     text token "start token, used once"
     text version "game.js version"
   }
+  reports {
+    int score_id PK "the board row reported"
+    text ip_hash PK "hashed IP and day: one report each"
+    int cleared "admin has acted on it"
+  }
 ```
 
 Terms used across the code:
@@ -149,23 +160,70 @@ Terms used across the code:
 - **Player:** who you play as. *Built-in* (Orson, Jethro: `assets/characters/index.json`), *approved builder
   players* (`players` table, status `approved`, shown to everyone) and *own players* (made in the builder, kept
   in that browser only, ids like `me1793858104451`; their look travels with their scores as `base` + `colours`).
+- **Pronoun:** whether a player is a "he" or a "she", for the announcer's lines. Built-in players have it in
+  `index.json` ("he"); builder players get their body's (`pronoun` in `assets/characters/bases/index.json`:
+  ponytail and buns are "she", the rest "he"), unless the admin sets one of their own (the `players` table's
+  `pronoun`, null meaning "the body's"). `phrases.js` writes lines about the player for a he,
+  with a hand-written she version of each in `SHE`; `pickPhrase(category, pronoun)` uses the she version for a
+  she, and skips those lines altogether for a player with neither. The pronoun is the player shooting now
+  (`player.pronoun`, set by `useCharacter`), so in HORSE it follows each turn.
 - **Device:** a random id kept in the browser, stored server-side only as a keyed hash. The leaderboard shows one
   row per device + player per mode, with the latest nickname.
-- **Rate limits:** the `rate_limits` table counts calls to cheap routes (votes, the score preview) per hashed IP
+- **Report:** anyone can tap the flag on someone else's leaderboard row (the board panel and the game-over
+  board, never their own rows) to say the name isn't friendly: `POST /api/reports` with `{ scoreId }` and the
+  X-Device header. One `reports` row per score per hashed IP (and day), so repeats are no-ops; a device
+  reporting its own row is ignored; 30 a day per IP. Reported scores still on the board go to the top of the
+  admin inbox ("Reported names", with the count) and the weekly ntfy count, until the admin renames the player,
+  hides that game or presses "Looks fine" (`name-ok`), which mark the reports `cleared`. Rename and Looks fine
+  clear every report on that device and player's games (one row, one name); Hide clears that game's only, so
+  if their next best game shows with the same name it can be reported again.
+- **Rate limits:** the `rate_limits` table counts calls to cheap routes (votes, the score preview, reports) per hashed IP
   per day, one upsert a call, so even toggling a vote uses up the day's allowance. The weekly cron clears old days.
 - **Shot log:** one entry per shot, `[seconds in, three (1/0), made (1/0), release timing, ball kind]`. Release
-  timing is measured in green-zone widths from the top of the jump; `|t| <= 0.5` is "let go in the green". Ball
-  kind is 0 normal, 1 money, 2 rainbow.
+  timing is measured in green-zone widths from the middle of the green (the top of the jump, unless the mode
+  moves it); `|t| <= 0.5` is "let go in the green". Ball kind is 0 normal, 1 money, 2 rainbow. In a 3-point
+  contest every shot is a three and the money balls are each rack's last ball (`contestBall`), not the token's.
 - **Start token:** signed by the Worker when a game starts (`<ms>.<nonce>.<hmac>`), used once. Bonus balls are
   decided from it, so the server can check them.
 - **Fire levels:** 3 in a row +1 a basket, 6 (purple) +2, 10 (blue supernova) +3: `FIRE_RULES` in
   `shared/rules.js`. `content/looks.js` adds how each looks and how much it widens the timing window.
 - **Seed:** the start token also seeds the game's gameplay randomness (`rng.js`): one stream for where he shoots
-  from, one for each shot's aim wobble, so the same token and the same inputs give the same game. The streams
+  from, one for each shot's aim wobble, one for where a moving green zone goes (each stream is seeded by its
+  name, so adding one doesn't change what the others give), so the same token and the same inputs give the same game. The streams
   are made at the game's first draw (the first release); if the token hasn't come back by then (or never does,
   offline) the game uses a random seed throughout. It's kept in `state.rngSeed`; `?debug` can set it with
   `window.game.setSeed()`. Effects, sounds and which announcer line plays stay on `Math.random`.
+- **Instant replay:** after any game, the game-over screen's Replay button plays the game's best shot again
+  in slow motion (a buzzer beater, else the most points, else a swish; the later one on a tie), then goes
+  back. Nothing is recorded frame by frame: at each release `play/replay.js` keeps who shot from where, how
+  far into the jump they let go, the ball's start (position and speed in court metres), its fire level and
+  kind (`state.replayShots`, never sent). The physics has a fixed step and balls don't touch each other, so
+  stepping the same start again gives the same flight exactly; `window.game.checkReplays()` in `?debug`
+  re-flies every shot and checks each goes in or out as it did. A replay changes nothing about the score,
+  the shot log or what's sent.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
+
+## Courts
+
+A court is an entry in `content/courts.js`: its art (the court image and the hoop front drawn over the ball),
+how the art maps to metres (origin, one metre along each floor direction, pixels per metre of height), the room's
+size, the rim and backboard, the painted 3-point line (distance every 10 degrees, since it isn't a circle), the
+default spot, and physics settings (gravity, optional wind). `engine/court.js` and `engine/physics.js` export
+the active court's numbers as live bindings (`RIM`, `BOARD`, `GRAVITY`, ...), so the rest of the code reads
+them as before; `play/court.js` `useCourt(id)` switches all of it (and the art) at once. Players only get the
+gym for now. The test courts (`test: true`, the gym with low gravity or wind) are only reachable from `?debug`:
+`await window.game.setCourt("gym-low-gravity")` before starting a game. A new court needs its own art, and a
+look at the Around the World spots (`content/around.js`), which are placed round the hoop by angle and distance.
+
+## Player attributes
+
+What each player is good at, in `content/attributes.js` (`PLAYER_ATTRIBUTES`, by player id): `timing` (the green
+zone's width, times this), `jump` (metres higher at the top of the jump: drawn higher, and the ball leaves from
+there) and `three` (on a 3-pointer, timing mistakes and wobble are divided by this). Everyone is neutral
+(`timing: 1, jump: 0, three: 1`, exactly how the game always played) until values are set there; players made on
+a device are always neutral. The picker shows a player's skills only when they have some. The server needs no
+change: it checks scores from the shot log, and the release timing in the log is measured in that player's own
+green-zone widths.
 
 ## How a score gets on the board
 
@@ -191,6 +249,10 @@ sequenceDiagram
 The game and the Worker use the same scoring rules from `shared/rules.js` (`recountScore`, `ballKind`,
 `ballPoints`, `FIRE_RULES`, modes), so the server recounts a game exactly as the game scored it. The checks in
 the middle are `checkGame` and `oddFlags` in `worker/src/scoring.ts`.
+
+In the admin's Scores tab a score can be hidden, kept, or renamed: a new nickname (checked like a player's
+own) goes on every game by that device and player, since the board shows them as one row. Names someone
+reported (see **Report** above) show in the inbox with the rename box open and a "Looks fine" button.
 
 ## How an idea becomes a feature
 
@@ -220,9 +282,15 @@ stateDiagram-v2
   Title --> ChooseGame: tap or Space
   ChooseGame --> ChoosePlayer
   ChoosePlayer --> Playing
-  Playing --> GameOver: time up / first miss / last spot
+  ChoosePlayer --> Turn: HORSE, 2 to 4 players, Start
+  Turn --> Playing: I'm ready (the leader picks a spot)
+  Playing --> Turn: HORSE, after each shot ("Pass to Jethro!")
+  Turn --> Title: Stop this game
+  Playing --> GameOver: time up / first miss / last spot / one left without HORSE
   Playing --> ChooseGame: Free play - Escape or back
   GameOver --> Playing: Play again
+  GameOver --> Replay: Replay (best shot, slow motion)
+  Replay --> GameOver: done, or tap to skip
   GameOver --> ChooseGame: Change game
   GameOver --> ChoosePlayer: Change player
   ChooseGame --> Title: Back
@@ -230,6 +298,17 @@ stateDiagram-v2
 ```
 
 Help and the leaderboard open over any of these and return to where they were.
+
+**HORSE (pass and play)** is a mode (`modes/horse.js`) with a few optional hooks no other mode uses
+(documented in `modes/index.js`): `passAndPlay` makes choosing a player pick 2 to 4 players in turn order
+(the same picker, remembered as `orson-hoops-team`), `setPlayers` and `begin` start it, and between shots
+the phase is `turn`, where the game calls the mode's `betweenTurns(dt)` and the turn screen
+(`screens/horse.js`) shows who's up, everyone's letters and the spot on a little map of the court. The leader
+picks a spot (one is picked at random to start from, from the seeded "spots" stream); if they make it, each
+other player still in has to make the same shot or get a letter; a missed lead shot passes the lead on.
+Each turn plays as that player without changing the device's chosen player (`useCharacter(id, { remember:
+false })`; the title and choose-a-game screens switch back). There's no fire (every shot is the same for
+everyone), no bonus balls, no best, no daily challenge, no start token and no leaderboard: nothing is sent.
 
 ## Players' art
 

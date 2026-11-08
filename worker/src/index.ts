@@ -1,7 +1,7 @@
 // The API for orsonbrooker.com: this file is the entry point and router; each area has its own file.
 //
 // Public:  GET  /api/config         Turnstile site key and the list of games/apps          ideas.ts
-//          GET  /api/ideas          approved ideas (?app= to filter, &device= to mark own votes)
+//          GET  /api/ideas          approved ideas (?app= to filter; an X-Device header marks own votes)
 //          POST /api/submit         a visitor's idea; goes to the admin inbox, never straight to the board
 //          POST /api/vote           upvote or un-upvote an idea
 //          GET  /api/check?text=    is this text OK? (live checks while typing)              util.ts
@@ -12,21 +12,22 @@
 //          GET  /api/scores/:id     one game's card
 //          POST /api/scores         a finished game's score, with its shot log (checked, see postScore)
 //          POST /api/scores/preview where a game would land, as it ends (nothing saved)
+//          POST /api/reports        report a leaderboard row's name as unfriendly (to the admin inbox)
 // Admin:   GET  /admin              triage page (behind Cloudflare Access)                 admin.ts
 //          GET  /api/admin/inbox    new submissions, all ideas and apps
 //          POST /api/admin/submissions/:id   approve as a new idea, merge into an idea, or reject
 //          POST /api/admin/ideas/:id         edit an idea or change its status
 //          POST /api/admin/players/:id       approve, hide, rename or delete a player
-//          POST /api/admin/scores/:id        show or hide a leaderboard score
+//          POST /api/admin/scores/:id        show or hide a leaderboard score, rename its player, or clear its reports
 // Cron:    weekly phone notification of things to check                                  notify.ts
 
 import { admin, adminHtml } from "./admin.ts";
 import { cacheKey, cached } from "./cache.ts";
 import { HttpError } from "./http.ts";
-import { config, listIdeas, submit, vote } from "./ideas.ts";
+import { config, deviceOf, listIdeas, submit, vote } from "./ideas.ts";
 import { notify } from "./notify.ts";
 import { createPlayer, listPlayers } from "./players.ts";
-import { gameToken, leaderboard, postScore, previewScore, scoreDetail } from "./scores.ts";
+import { gameToken, leaderboard, postScore, previewScore, reportScore, scoreDetail } from "./scores.ts";
 import { cors, isRude, json } from "./util.ts";
 import type { Env } from "./util.ts";
 
@@ -38,7 +39,7 @@ export default {
 			if (url.pathname.startsWith("/api/admin/")) return await admin(request, env, url);
 			if (request.method === "OPTIONS") return cors(request, new Response(null, { status: 204 }));
 			// The same for everyone: kept in the edge cache for a short while (cache.ts).
-			const shared = request.method === "GET" ? cacheKey(url) : null;
+			const shared = request.method === "GET" ? cacheKey(request, url) : null;
 			if (shared) return cors(request, await cached(shared, ctx, () => publicApi(request, env, url)));
 			return cors(request, await publicApi(request, env, url));
 		} catch (err) {
@@ -63,7 +64,7 @@ async function publicApi(request: Request, env: Env, url: URL): Promise<Response
 		case "GET /api/config":
 			return config(env);
 		case "GET /api/ideas":
-			return listIdeas(env, url);
+			return listIdeas(request, env, url);
 		case "POST /api/submit":
 			return submit(request, env);
 		case "POST /api/vote":
@@ -84,6 +85,8 @@ async function publicApi(request: Request, env: Env, url: URL): Promise<Response
 			return postScore(request, env);
 		case "POST /api/scores/preview":
 			return previewScore(request, env);
+		case "POST /api/reports":
+			return reportScore(request, env, deviceOf(request, url));
 	}
 	throw new HttpError(404, "Not found.");
 }

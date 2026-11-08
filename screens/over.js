@@ -6,6 +6,7 @@ import { save } from "../engine/storage.js";
 import { showRoundResult } from "../leaderboard.js";
 import { boardFace, characters } from "../play/players.js";
 import { announce, checkDaily } from "../play/react.js";
+import { bestShot } from "../play/replay.js";
 import { DEBUG, mode, state } from "../play/state.js";
 import { $, showScreen } from "../screens/base.js";
 
@@ -33,9 +34,14 @@ export function endGame() {
   $("final-score").textContent = text.final;
   $("final-unit").textContent = text.unit;
   $("over-detail").textContent = text.detail;
+  $("replay").hidden = !bestShot(); // nothing to replay if nothing went in
   showDaily();
   showScreen("over");
-  showRound();
+  // Pass and play (HORSE) has no leaderboard: nothing is sent.
+  if (m.passAndPlay) {
+    $("over-board").hidden = true;
+    $("over-daily").textContent = "";
+  } else showRound();
 }
 
 // The daily challenge line on the game select and game-over screens.

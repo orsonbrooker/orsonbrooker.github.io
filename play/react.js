@@ -9,7 +9,8 @@ import { COURT_PX, RIM, project } from "../engine/court.js";
 import { createFxLayer } from "../fx.js";
 import { pickPhrase } from "../phrases.js";
 import { MONEY, NORMAL, RAINBOW, ballKind } from "../shared/rules.js";
-import { TIMING_WINDOW, mode, state } from "../play/state.js";
+import { frameCount } from "../play/players.js";
+import { JUMP_APEX, JUMP_FRAME_TIME, TIMING_WINDOW, mode, player, state } from "../play/state.js";
 
 export const pixelFx = createFxLayer();
 
@@ -32,14 +33,28 @@ export function fireStage() {
 }
 
 // How long around the top of the jump a release still counts as perfect: wider on fire, narrower
-// as the mode squeezes it (sudden death, the longer the run goes).
+// as the mode squeezes it (sudden death, the longer the run goes), and wider or narrower for a
+// player whose `timing` attribute says so (content/attributes.js).
 export function timingWindow() {
-  return TIMING_WINDOW * (fireLevel()?.window ?? 1) * (1 - mode().squeeze());
+  return TIMING_WINDOW * (fireLevel()?.window ?? 1) * (1 - mode().squeeze()) * player.attrs.timing;
 }
 
-// The next ball's kind: money or rainbow now and then, but only in games that score points.
+// Where the middle of the green sits, in seconds into the jump: the top of the jump, unless the mode
+// moves it (its zoneShift(), play/zone.js). Kept wholly on the bar, clear of its ends.
+export function zoneCenter() {
+  const shift = mode().zoneShift?.() ?? 0;
+  if (!shift) return JUMP_APEX;
+  const half = timingWindow() / 2;
+  const end = frameCount("jump") * JUMP_FRAME_TIME;
+  return Math.max(half + 0.06, Math.min(end - half - 0.04, JUMP_APEX + shift));
+}
+
+// The next ball's kind: the mode's own (a 3-point contest's racks), or money or rainbow now and then
+// from the start token, but only in games that score points.
 export function nextBallKind() {
-  if (state.phase !== "playing" || !mode().bonusBalls) return NORMAL;
+  if (state.phase !== "playing") return NORMAL;
+  if (mode().ballKind) return mode().ballKind(state.shotLog.length) ?? NORMAL;
+  if (!mode().bonusBalls) return NORMAL;
   return ballKind(state.gameToken, state.shotLog.length);
 }
 export const nextBallBadge = () => BALL_BADGES[nextBallKind()];
@@ -51,7 +66,7 @@ export function addPopup(text, color, x, y) {
 }
 
 export function announce(category, color, { big = false } = {}) {
-  const text = pickPhrase(category);
+  const text = pickPhrase(category, player.pronoun);
   state.banner = { text: text.toUpperCase(), color, age: 0, big, duration: big ? BUZZER_CELEBRATION : BANNER_SECONDS };
   sound.say(text);
 }
@@ -114,7 +129,9 @@ export function recordMiss() {
 // Done the daily challenge in this game? Celebrate (once a day).
 export function checkDaily() {
   const challenge = todaysChallenge();
-  if (!mode().ranked || state.dailyDone || doneToday() || !state.stats || !countsIn(challenge, state.mode)) return;
+  if (state.dailyDone || doneToday() || !state.stats || !countsIn(challenge, state.mode)) return;
+  if (mode().passAndPlay) return; // a game between friends on one device isn't anyone's own
+  if (mode().ranked === false) return; // Free play: just for fun
   state.stats.score = state.score;
   state.stats.buzzerBeater = state.buzzerBeater;
   if (progress(challenge, state.stats) < challenge.goal) return;

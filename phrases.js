@@ -1,5 +1,9 @@
 // Things the announcer shouts. Add your own! Each list is shuffled so phrases
 // don't repeat until the whole list has been used.
+//
+// Lines about the player are written for a "he". Each one has its "she" version in SHE below, and a
+// player with no pronoun set just doesn't get those lines. A new he-line needs its she-line too
+// (npm --prefix worker test checks).
 
 export const PHRASES = {
   start: ["Tip off!", "Let's go!", "It's game time!", "Lock in!"],
@@ -80,8 +84,23 @@ export const PHRASES = {
   aroundLast: ["Last spot!", "One more!", "Bring it home!"],
   aroundDone: ["Around the world!", "World tour complete!", "Passport stamped!"],
 
+  // HORSE (pass and play): the leader made it, someone matched it, a letter, out, and the winner.
+  horseSet: ["Match that!", "Can you copy that?", "Your move!"],
+  horseMatch: ["Matched it!", "Copycat!", "Right back at you!"],
+  horseLetter: ["That's a letter!", "Letter!", "Uh oh, a letter!"],
+  horseOut: ["That spells HORSE!", "You're out!", "H-O-R-S-E!"],
+  horseWin: ["We have a winner!", "Last one standing!", "Champion of HORSE!"],
+  // 3-point contest: on to the next rack, the last rack, a whole rack made, every rack shot.
+  rackNext: ["Next rack!", "New rack!", "Keep it moving!"],
+  rackLast: ["Last rack!", "Final rack!", "One rack left!"],
+  rackPerfect: ["Perfect rack!", "Five for five!", "Cleaned out the rack!"],
+  contestDone: ["That's the contest!", "Racks are empty!", "Out of balls!"],
+
   // The daily challenge, done.
   challenge: ["Challenge complete!", "Daily challenge done!"],
+
+  // An instant replay of the game's best shot, after the game.
+  replay: ["Let's see that again!", "Instant replay!", "Run it back!", "One more time, in slow motion!"],
 
   // Scored after the buzzer went.
   buzzer: ["At the buzzer!", "Just under the wire!", "Buzzer beater!"],
@@ -115,6 +134,33 @@ export const PHRASES = {
   newBest: ["New personal best!", "Record breaker!"],
 };
 
+// The she version of every line that says he, his or him, written to read naturally.
+export const SHE = {
+  "He's got it!": "She's got it!",
+  "Let him cook!": "Let her cook!",
+  "He's cooking!": "She's cooking!",
+  "Ice in his veins!": "Ice in her veins!",
+  "He's dialing long distance!": "She's dialing long distance!",
+  "He's heating up!": "She's heating up!",
+  "He's getting cooking!": "She's getting cooking!",
+  "He's on fire!": "She's on fire!",
+  "He's still on fire!": "She's still on fire!",
+  "Somebody stop him!": "Somebody stop her!",
+  "He's on PURPLE fire!": "She's on PURPLE fire!",
+  "Nobody can cool him down!": "Nobody can cool her down!",
+  "He's gone supernova!": "She's gone supernova!",
+  "He's cooled off.": "She's cooled off.",
+  "He's in the zone!": "She's in the zone!",
+  "He just won't miss!": "She just won't miss!",
+  "He's not human!": "She's not human!",
+  "He's still going!": "She's still going!",
+  "Bro thought he did something.": "Sis thought she did something.",
+  "Who let him cook?": "Who let her cook?",
+  "He can't buy a bucket!": "She can't buy a bucket!",
+  "He's cooked.": "She's cooked.",
+  "He's cooking now!": "She's cooking now!",
+};
+
 // Specific moments only sometimes use their own list; otherwise they borrow from the
 // general one, so every phrase gets a turn. 0.3 = own list 30% of the time.
 const MIX = {
@@ -143,11 +189,22 @@ function draw(category) {
   return bag.pop();
 }
 
-export function pickPhrase(category) {
+// A line from the category that suits the player: any line for a "he" or "she", only the lines that
+// don't say he or him for a player with no pronoun.
+function drawFor(category, pronoun) {
+  const fits = (phrase) => pronoun === "he" || pronoun === "she" || !SHE[phrase];
+  if (!PHRASES[category].some(fits)) category = "make"; // never happens today; just in case
+  let phrase = draw(category);
+  while (!fits(phrase)) phrase = draw(category);
+  return phrase;
+}
+
+// A call for this moment, for the player shooting: pronoun is "he", "she", or empty when not set.
+export function pickPhrase(category, pronoun) {
   const mix = MIX[category];
   if (mix && Math.random() > mix[1]) category = mix[0];
-  let phrase = draw(category);
-  if (phrase === last && PHRASES[category].length > 1) phrase = draw(category); // never twice in a row
+  let phrase = drawFor(category, pronoun);
+  if (phrase === last && PHRASES[category].length > 1) phrase = drawFor(category, pronoun); // never twice in a row
   last = phrase;
-  return phrase;
+  return pronoun === "she" ? (SHE[phrase] ?? phrase) : phrase;
 }

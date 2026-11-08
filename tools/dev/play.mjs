@@ -3,10 +3,12 @@
 //   ~/.cache/puppeteer/chrome-headless-shell/*/chrome-headless-shell-mac-arm64/chrome-headless-shell \
 //     --remote-debugging-port=9333 --user-data-dir=/tmp/shootaround-chrome about:blank
 // then, with the site and the local Worker (port 8787) running:
-//   node tools/dev/play.mjs 9333 "http://localhost:5175/games/shootaround/?debug" timed,survival,around
-// It presses Space like a player, lets go at the top of the jump (every few shots a little late, to
+//   node tools/dev/play.mjs 9333 "http://localhost:5175/games/shootaround/?debug" timed,survival,around,threes
+// (the modes are the "Choose a game" cards' data-mode; the 3-point contest's only shows in ?debug for now).
+// It presses Space like a player, lets go in the middle of the green (every few shots a little late, to
 // miss), and prints each game: score, shots, bonus balls, whether it was seeded from its start token, and
-// the server's answer. Uses only Node's built-in WebSocket (Node 22+).
+// the server's answers: first to a made-up copy of the game (must be turned down), then the real one.
+// Uses only Node's built-in WebSocket (Node 22+).
 const [port, url, modes] = process.argv.slice(2);
 const target = await (await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`, { method: "PUT" })).json();
 const ws = new WebSocket(target.webSocketDebuggerUrl);
@@ -45,19 +47,33 @@ window.__play = async (mode, missEvery) => {
     const g = window.game, s = g.state, p = g.player;
     if (s.phase !== "playing") { if (s.pressed) key("keyup"); clearInterval(window.__auto); return; }
     if (!s.pressed) {
-      if (!p.moving && !p.activeBall && s.balls.length === 0 && ["idle", "dribble", "ready"].includes(p.anim)) { key("keydown"); down = performance.now(); }
+      if (!p.moving && !p.activeBall && s.balls.every((b) => b.decided) && ["idle", "dribble", "ready"].includes(p.anim)) { key("keydown"); down = performance.now(); }
     } else {
       const late = missEvery && n % missEvery === missEvery - 1 ? 0.3 : 0;
-      if ((p.anim === "jump" && p.t >= 0.29 + late) || performance.now() - down > 3000) { if (p.anim === "jump") n++; key("keyup"); }
+      // The middle of the green: the top of the jump, unless the mode moves it.
+      const green = g.zoneCenter ? g.zoneCenter() : 0.29;
+      if ((p.anim === "jump" && p.t >= green + late) || performance.now() - down > 3000) { if (p.anim === "jump") n++; key("keyup"); }
     }
   }, 8);
+};
+// A made-up version of this game the server must turn down: a basket added to the score, a basket
+// after sudden death's miss, a time before the last spot, or a 3-point contest money ball that isn't
+// the last of its rack. Sent first, as a turned-down game doesn't use up the start token.
+window.__forge = (body) => {
+  const shots = body.shots.map((x) => [...x]);
+  if (body.mode === "threes") { shots[0][4] = 1; return { ...body, shots, score: body.score + (shots[0][2] ? 3 : 0) }; }
+  if (body.mode === "survival") return { ...body, shots: [...shots, [shots.at(-1)[0] + 2, 0, 1, 0, 0]], score: body.score + 2 };
+  if (body.mode === "around") return { ...body, score: Math.round(shots.at(-1)[0] * 10) - 10 };
+  return { ...body, score: body.score + 2 };
 };
 window.__send = async () => {
   const s = window.game.state;
   const score = s.mode === "around" ? Math.round(s.aroundTime * 10) : s.score;
   const body = { token: s.gameToken, mode: s.mode, score, shots: s.shotLog, player: "orson", nickname: "Tester", device: "test-device-shared-rules-01", turnstileToken: "XXXX.DUMMY.TOKEN.XXXX", input: "keyboard" };
+  const forged = await fetch("http://localhost:8787/api/scores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(__forge(body)) });
+  const forgedText = "made-up copy -> " + forged.status + " " + (await forged.text()) + "\\n  ";
   const r = await fetch("http://localhost:8787/api/scores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  return s.mode + ": score " + score + ", " + s.shotLog.length + " shots, " + s.shotLog.filter(x => x[2]).length + " made, " + s.shotLog.filter(x => x[4]).length + " bonus balls, best streak " + s.shotLog.reduce((a, x) => (x[2] ? [a[0] + 1, Math.max(a[1], a[0] + 1)] : [0, a[1]]), [0, 0])[1] + ", seeded from token " + (s.rngSeed === s.gameToken) + " -> " + r.status + " " + (await r.text());
+  return forgedText + s.mode + ": score " + score + ", " + s.shotLog.length + " shots, " + s.shotLog.filter(x => x[2]).length + " made, " + s.shotLog.filter(x => x[4]).length + " bonus balls, best streak " + s.shotLog.reduce((a, x) => (x[2] ? [a[0] + 1, Math.max(a[1], a[0] + 1)] : [0, a[1]]), [0, 0])[1] + ", seeded from token " + (s.rngSeed === s.gameToken) + " -> " + r.status + " " + (await r.text());
 };
 return typeof window.game;`;
 
@@ -65,7 +81,7 @@ for (const mode of modes.split(",")) {
   await send("Page.reload", { ignoreCache: true });
   await wait(3000);
   console.log("game loaded:", await run(helpers));
-  await run(`window.__play("${mode}", ${mode === "survival" ? 9 : 5}); return 1;`);
+  await run(`window.__play("${mode}", ${mode === "survival" ? 9 : mode === "threes" ? 7 : 5}); return 1;`);
   for (let i = 0; i < 120; i++) {
     await wait(1000);
     if ((await run(`return window.game.state.phase`)) === "over") break;

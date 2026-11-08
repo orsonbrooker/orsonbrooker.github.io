@@ -69,7 +69,8 @@ FILTERS = ",".join([
 
 
 def phrases():
-    js = "import('./phrases.js').then(m => console.log(JSON.stringify(m.PHRASES)))"
+    # Every line, plus the she version of each line about the player (SHE).
+    js = "import('./phrases.js').then(m => console.log(JSON.stringify({ ...m.PHRASES, she: Object.values(m.SHE) })))"
     data = json.loads(subprocess.run(['node', '-e', js], cwd=ROOT, check=True, capture_output=True, text=True).stdout)
     seen = []
     for group in data.values():

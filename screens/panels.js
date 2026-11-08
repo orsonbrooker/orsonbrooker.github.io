@@ -4,7 +4,7 @@ import { renderBoard } from "../leaderboard.js";
 import { boardBody, boardFace } from "../play/players.js";
 import { state } from "../play/state.js";
 import { $, openScreen, screens, showScreen, stage } from "../screens/base.js";
-import { modeOf } from "../shared/rules.js";
+import { MODES } from "../shared/rules.js";
 
 // ---------- Leaderboard ----------
 
@@ -14,7 +14,8 @@ let boardMode = null;
 export function openBoard(range = "week", mode = boardMode ?? state.mode) {
   if (screens.board.hidden) {
     boardReturn = openScreen();
-    mode = boardMode = modeOf(state.mode); // free play has no board: Time attack's
+    // Games without a leaderboard (HORSE) open it on Time attack.
+    mode = boardMode = MODES.includes(state.mode) ? state.mode : "timed";
   }
   boardMode = mode;
   for (const tab of screens.board.querySelectorAll("[data-range]")) tab.setAttribute("aria-selected", String(tab.dataset.range === range));

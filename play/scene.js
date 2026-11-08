@@ -5,8 +5,9 @@ import { BOARD_ART } from "../content/looks.js";
 import { drawArtLab } from "../play/artlab.js";
 import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, project } from "../engine/court.js";
 import { BALL_FRAMES, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow } from "../engine/draw.js";
-import { currentFrame, frameCount, sheet } from "../play/players.js";
-import { fireLevel, nextBallBadge, pixelFx, timingWindow } from "../play/react.js";
+import { currentFrame, frameCount, liftNow, sheet } from "../play/players.js";
+import { fireLevel, nextBallBadge, pixelFx, timingWindow, zoneCenter } from "../play/react.js";
+import { drawReplay, replayGreen } from "../play/replay.js";
 import { DEBUG, JUMP_APEX, JUMP_FRAME_TIME, hints, mode, player, state } from "../play/state.js";
 import { howTo, stage } from "../screens/base.js";
 import { NORMAL } from "../shared/rules.js";
@@ -52,7 +53,7 @@ function renderScoreboard() {
 function drawPlayer() {
   const [sx, sy, w, h, ox, oy] = currentFrame();
   const scale = 1 / sheet.sprites.res;
-  const p = project(player.u, player.v, player.lift);
+  const p = project(player.u, player.v, liftNow());
   ctx.globalAlpha = Math.max(0, player.fade);
   if (sheet.sprites.pixel) {
     // True pixel art: a whole number of screen pixels per art pixel, on whole screen pixels, so
@@ -108,8 +109,10 @@ function drawMeter() {
 
   ctx.fillStyle = "rgba(43, 22, 34, 0.85)";
   ctx.fillRect(x - 6, top - 6, 36, height + 12);
-  const zoneTop = top + height * (1 - (JUMP_APEX + timingWindow() * 0.5) / total);
-  const zoneH = (height * timingWindow()) / total;
+  // The top of the jump, unless the mode moves it; in a replay, where it was for that shot.
+  const green = (state.phase === "replay" && replayGreen()) || { center: zoneCenter(), window: timingWindow() };
+  const zoneTop = top + height * (1 - (green.center + green.window * 0.5) / total);
+  const zoneH = (height * green.window) / total;
   ctx.fillStyle = fireLevel()?.color ?? "#3ddc84";
   ctx.fillRect(x, zoneTop, 24, zoneH);
   ctx.fillStyle = "#fff";
@@ -177,6 +180,7 @@ export function render() {
   drawMeter();
   drawBallBadge();
   drawHint();
+  mode().drawOver?.(ctx);
   drawPopups(ctx, state.popups);
   drawConfetti(ctx, state.confetti);
   pixelFx.draw(ctx, "over");
@@ -185,5 +189,6 @@ export function render() {
     ctx.fillStyle = `rgba(255, 255, 255, ${state.flash * 0.6})`;
     ctx.fillRect(0, 0, COURT_PX, COURT_PX);
   }
+  if (state.phase === "replay") drawReplay(ctx);
   if (DEBUG) drawCourtLines(ctx);
 }
