@@ -660,6 +660,27 @@
 			function renderScores() {
 				const box = document.getElementById("scores");
 				box.replaceChildren();
+				if (data.blocked?.length) {
+					// Reported names that were hidden: nobody can use them (or anything with them in it) again.
+					box.append(
+						el("details", {},
+							el("summary", { textContent: `Blocked names (${data.blocked.length})` }),
+							...data.blocked.map((b) =>
+								el(
+									"div",
+									{ className: "score" },
+									el("b", { textContent: b.name }),
+									el("span", { className: "when meta", textContent: b.created_at.slice(0, 10) }),
+									el(
+										"div",
+										{ className: "buttons" },
+										el("button", { type: "button", textContent: "Allow again", onclick: run(() => api("blocked/remove", { action: "remove", squashed: b.squashed }), `${b.name} allowed again`) }),
+									),
+								),
+							),
+						),
+					);
+				}
 				if (!data.scores.length) return box.append(el("div", { className: "empty", textContent: "No scores yet." }));
 				for (const s of data.scores) box.append(scoreRow(s));
 			}
@@ -754,7 +775,9 @@
 						reported(s) ? el("button", { type: "button", className: "primary", textContent: "Looks fine", onclick: act("name-ok", "Name kept") }) : null,
 						s.status === "hidden"
 							? el("button", { type: "button", className: "primary", textContent: "Show", onclick: act("show", "On the board") })
-							: el("button", { type: "button", className: "danger", textContent: "Hide", onclick: act("hide", "Hidden") }),
+							: reported(s)
+								? el("button", { type: "button", className: "danger", textContent: "Hide and block name", onclick: act("hide", `Hidden, and ${s.nickname} is blocked`) })
+								: el("button", { type: "button", className: "danger", textContent: "Hide", onclick: act("hide", "Hidden") }),
 					),
 					more,
 				);

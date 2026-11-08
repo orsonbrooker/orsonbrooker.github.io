@@ -13,7 +13,7 @@ import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_PLAYER_NAME, PLAYER_PARTS, isNickname } from "./players.ts";
 import { checkGame, oddFlags } from "./scoring.ts";
-import { checkTurnstile, clean, hash, ipKey, isRude, json, rateLimit, readJson, RUDE } from "./util.ts";
+import { checkTurnstile, clean, forgetBlockedNames, hash, ipKey, isUnfriendly, json, MIN_BLOCKED, rateLimit, readJson, RUDE, squash } from "./util.ts";
 import type { Env } from "./util.ts";
 
 const SCORES_PER_DAY = 40;
@@ -63,7 +63,7 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
 	if (body.debug) throw new HttpError(400, "Scores from test mode don't count.");
 	const mode = modeOf(body.mode);
-	const nickname = scoreNickname(body);
+	const nickname = await scoreNickname(env, body);
 	const device = clean(body.device, 64);
 	if (device.length < 16) throw new HttpError(400, "Bad request.");
 	const player = clean(body.player, 40) || "orson";
@@ -148,10 +148,10 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 }
 
 // A leaderboard nickname: checked the same way for the preview and the real thing.
-export function scoreNickname(body: Record<string, unknown>): string {
+export async function scoreNickname(env: Env, body: Record<string, unknown>): Promise<string> {
 	const nickname = clean(body.nickname, MAX_PLAYER_NAME);
 	if (!isNickname(nickname)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
-	if (isRude(nickname)) throw new HttpError(400, RUDE);
+	if (await isUnfriendly(env, nickname)) throw new HttpError(400, RUDE);
 	return nickname;
 }
 
@@ -191,6 +191,25 @@ export async function clearReports(env: Env, id: number): Promise<void> {
 		.run();
 }
 
+/**
+ * A reported name Luke hides is one nobody should use again: it joins blocked_names, so the name check
+ * (util.ts isUnfriendly) turns it away from then on, wherever it's typed. Only while the game has open
+ * reports (a name he said "Looks fine" to, or a game hidden for an odd score, isn't blocked). Call it
+ * before the reports are cleared. Returns the name if it was blocked.
+ */
+export async function blockReportedName(env: Env, id: number): Promise<string | null> {
+	const row = await env.DB.prepare(
+		"SELECT nickname FROM scores WHERE id = ? AND EXISTS (SELECT 1 FROM reports WHERE score_id = scores.id AND cleared = 0)",
+	)
+		.bind(id)
+		.first<{ nickname: string }>();
+	const squashed = row ? squash(row.nickname) : "";
+	if (squashed.length < MIN_BLOCKED) return null;
+	await env.DB.prepare("INSERT OR IGNORE INTO blocked_names (squashed, name, score_id) VALUES (?, ?, ?)").bind(squashed, row!.nickname, id).run();
+	forgetBlockedNames();
+	return row!.nickname;
+}
+
 // Card caches cleared after a rename: the newest games' (older cards are rarely open, and only
 // cached for a minute), so a long history doesn't mean hundreds of cache calls.
 const RENAME_FORGETS = 40;
@@ -201,7 +220,7 @@ const RENAME_FORGETS = 40;
  * Returns the modes whose boards changed and the games whose cards should be cleared.
  */
 export async function renameScores(env: Env, id: number, nickname: unknown): Promise<{ modes: Mode[]; ids: number[] }> {
-	const name = scoreNickname({ nickname });
+	const name = await scoreNickname(env, { nickname });
 	const rows = await env.DB.prepare(
 		`UPDATE scores SET nickname = ?1
 		 WHERE id = ?2 OR (device, player) = (SELECT device, player FROM scores WHERE id = ?2)
@@ -243,7 +262,7 @@ export async function previewScore(request: Request, env: Env): Promise<Response
 	const body = await readJson(request);
 	// It reads the whole week's board, so it's limited too (generously: it's asked once or twice a game).
 	await rateLimit(request, env, "preview", PREVIEWS_PER_DAY, "That's a lot of games for one day! Try again tomorrow.");
-	const nickname = scoreNickname(body);
+	const nickname = await scoreNickname(env, body);
 	const device = clean(body.device, 64);
 	if (device.length < 16) throw new HttpError(400, "Bad request.");
 	const score = Number(body.score);

@@ -58,15 +58,17 @@ test("nicknames start with a letter or number, then letters, numbers, spaces, ' 
 	for (const n of ["", " Moni", "-Moni", "'Moni", "Moni!", "a$$", "Jac(potato)", "🏀"]) assert.equal(isNickname(n), false, n);
 });
 
-test("a leaderboard nickname is tidied, cut to 12 and checked", () => {
-	assert.equal(scoreNickname({ nickname: "  Big   Shot  " }), "Big Shot");
-	assert.equal(scoreNickname({ nickname: "Abcdefghijklmnop" }), "Abcdefghijkl");
+test("a leaderboard nickname is tidied, cut to 12 and checked", async () => {
+	// No blocked names: just the rude-word filter.
+	const env = { DB: { prepare: () => ({ all: async () => ({ results: [] }) }) } } as unknown as Env;
+	assert.equal(await scoreNickname(env, { nickname: "  Big   Shot  " }), "Big Shot");
+	assert.equal(await scoreNickname(env, { nickname: "Abcdefghijklmnop" }), "Abcdefghijkl");
 	const rejects = (nickname: unknown, message: string) =>
-		assert.throws(() => scoreNickname({ nickname }), (err: Error & { status?: number }) => err.status === 400 && err.message === message);
-	rejects("", "Pick a nickname with letters and numbers.");
-	rejects(undefined, "Pick a nickname with letters and numbers.");
-	rejects("!!", "Pick a nickname with letters and numbers.");
-	rejects("b1tch", RUDE);
+		assert.rejects(scoreNickname(env, { nickname }), (err: Error & { status?: number }) => err.status === 400 && err.message === message);
+	await rejects("", "Pick a nickname with letters and numbers.");
+	await rejects(undefined, "Pick a nickname with letters and numbers.");
+	await rejects("!!", "Pick a nickname with letters and numbers.");
+	await rejects("b1tch", RUDE);
 });
 
 test("a merge adds the sender to the idea's credit once, if it fits", () => {

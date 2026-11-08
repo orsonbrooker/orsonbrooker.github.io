@@ -156,6 +156,11 @@ erDiagram
     text ip_hash PK "hashed IP and day: one report each"
     int cleared "admin has acted on it"
   }
+  blocked_names {
+    text squashed PK "the name as the filter compares it"
+    text name "as typed"
+    int score_id "the hidden game it came from"
+  }
 ```
 
 Terms used across the code:
@@ -180,6 +185,11 @@ Terms used across the code:
   hides that game or presses "Looks fine" (`name-ok`), which mark the reports `cleared`. Rename and Looks fine
   clear every report on that device and player's games (one row, one name); Hide clears that game's only, so
   if their next best game shows with the same name it can be reported again.
+- **Blocked name:** hiding a game while its name has open reports ("Hide and block name") adds the name to
+  `blocked_names`, squashed like the rude-word filter (lower-case letters, look-alikes swapped back; names under
+  3 letters aren't added). From then on `isUnfriendly` (`util.ts`) turns away any typed text containing it
+  (nicknames, players, team names, ideas, `/api/check`), on top of the rude-word filter; each Worker instance
+  keeps the list for a minute. The admin's Scores page lists them, with "Allow again".
 - **Rate limits:** the `rate_limits` table counts calls to cheap routes (votes, the score preview, reports) per hashed IP
   per day, one upsert a call, so even toggling a vote uses up the day's allowance. The weekly cron clears old days.
 - **Shot log:** one entry per shot, `[seconds in, three (1/0), made (1/0), release timing, ball kind]`. Release

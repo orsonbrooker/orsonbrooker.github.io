@@ -30,7 +30,7 @@ export const joinSpacedLetters = (text: string) => text.replace(SPACED_OUT, (run
 // and symbols swapped back (so "N3gg3r cheese" is caught). Add to this when one gets through; keep each
 // pattern tight enough not to catch innocent words (e.g. "snigger" is allowed).
 const LOOKALIKES: Record<string, string> = { "4": "a", "@": "a", "3": "e", "1": "i", "!": "i", "0": "o", "5": "s", $: "s", "7": "t" };
-const squash = (text: string) =>
+export const squash = (text: string) =>
 	text
 		.toLowerCase()
 		.replace(/[4@3105$!7]/g, (c) => LOOKALIKES[c])
@@ -40,6 +40,28 @@ const extraRude = (text: string) => EXTRA_RUDE.some((pattern) => pattern.test(sq
 export const isRude = (...texts: (string | null | undefined)[]) =>
 	texts.some((t) => !!t && (rudeWords.hasMatch(t) || rudeWords.hasMatch(joinSpacedLetters(t)) || extraRude(t)));
 export const RUDE = "Let's keep it friendly. Try different words.";
+
+// Names Luke hid after they were reported (blocked_names), squashed the same way. Shorter than this
+// they'd catch too many innocent words, so they're not added.
+export const MIN_BLOCKED = 3;
+/** Whether any of the texts contains one of the blocked names, squashed ("Mr Poo-Head 2" has "poohead"). */
+export const hasBlockedName = (blocked: string[], ...texts: (string | null | undefined)[]) =>
+	texts.some((t) => {
+		const s = t ? squash(t) : "";
+		return !!s && blocked.some((b) => s.includes(b));
+	});
+// Kept for a minute in each Worker instance, so the public check endpoint doesn't read D1 every call.
+let blockedCache: { at: number; names: string[] } | null = null;
+export const forgetBlockedNames = () => (blockedCache = null);
+async function blockedNames(env: Env): Promise<string[]> {
+	if (blockedCache && Date.now() - blockedCache.at < 60_000) return blockedCache.names;
+	const rows = (await env.DB.prepare("SELECT squashed FROM blocked_names").all<{ squashed: string }>()).results;
+	blockedCache = { at: Date.now(), names: rows.map((r) => r.squashed) };
+	return blockedCache.names;
+}
+/** The rude-word filter plus the names Luke has blocked: use this for anything people type. */
+export const isUnfriendly = async (env: Env, ...texts: (string | null | undefined)[]) =>
+	isRude(...texts) || hasBlockedName(await blockedNames(env), ...texts);
 
 export function json(data: unknown, status = 200, maxAge = 0): Response {
 	return new Response(JSON.stringify(data), {

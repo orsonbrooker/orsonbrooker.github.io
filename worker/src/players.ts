@@ -2,7 +2,7 @@
 // announcer's lines). They wait for approval in the admin inbox before they're in the game.
 
 import { HttpError } from "./http.ts";
-import { checkTurnstile, clean, hash, ipKey, isRude, json, readJson, RUDE } from "./util.ts";
+import { checkTurnstile, clean, hash, ipKey, isUnfriendly, json, readJson, RUDE } from "./util.ts";
 import type { Env } from "./util.ts";
 
 export const MAX_PLAYER_NAME = 12;
@@ -38,7 +38,7 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	const teamName = clean(body.teamName, MAX_TEAM_NAME).toUpperCase();
 	if (teamName && !/^[A-Z0-9 ]+$/.test(teamName)) throw new HttpError(400, "Team names use letters and numbers.");
 	const pronoun = parsePronoun(body.pronoun);
-	if (isRude(name, teamName)) throw new HttpError(400, RUDE);
+	if (await isUnfriendly(env, name, teamName)) throw new HttpError(400, RUDE);
 	await checkTurnstile(request, env, body.turnstileToken);
 
 	const ipHash = await ipKey(request, env);

@@ -20,6 +20,8 @@
 //          POST /api/admin/ideas/:id         edit an idea or change its status
 //          POST /api/admin/players/:id       approve, hide, rename or delete a player
 //          POST /api/admin/scores/:id        show or hide a leaderboard score, rename its player, or clear its reports
+//                                            (hiding a reported one blocks its name)
+//          POST /api/admin/blocked/remove    let a blocked name be used again
 // Cron:    weekly phone notification of things to check                                  notify.ts
 
 import { admin, adminHtml } from "./admin.ts";
@@ -29,7 +31,7 @@ import { config, deviceOf, listIdeas, submit, vote } from "./ideas.ts";
 import { notify } from "./notify.ts";
 import { createPlayer, listPlayers } from "./players.ts";
 import { gameToken, leaderboard, postScore, previewScore, reportScore, scoreDetail } from "./scores.ts";
-import { cors, isAdminPage, isRude, json } from "./util.ts";
+import { cors, isAdminPage, isUnfriendly, json } from "./util.ts";
 import type { Env } from "./util.ts";
 
 export default {
@@ -72,7 +74,7 @@ async function publicApi(request: Request, env: Env, url: URL): Promise<Response
 			return vote(request, env);
 		case "GET /api/check": {
 			const text = (url.searchParams.get("text") ?? "").slice(0, 600);
-			return json({ ok: !isRude(text) });
+			return json({ ok: !(await isUnfriendly(env, text)) });
 		}
 		case "GET /api/players":
 			return listPlayers(env);

@@ -1,7 +1,7 @@
 // The ideas board: the list of ideas, votes, and ideas people send in (which wait in the admin inbox).
 
 import { HttpError } from "./http.ts";
-import { checkTurnstile, clean, hash, ipKey, isRude, json, rateLimit, readJson, RUDE } from "./util.ts";
+import { checkTurnstile, clean, hash, ipKey, isUnfriendly, json, rateLimit, readJson, RUDE } from "./util.ts";
 import type { Env } from "./util.ts";
 
 export const STATUSES = ["idea", "planned", "building", "done", "hidden"];
@@ -54,7 +54,7 @@ export async function submit(request: Request, env: Env): Promise<Response> {
 	if (/https?:|www\.|\.(com|net|org|io)\b/i.test(`${text} ${nickname ?? ""}`)) {
 		throw new HttpError(400, "Please leave out web links.");
 	}
-	if (isRude(text, nickname)) throw new HttpError(400, RUDE);
+	if (await isUnfriendly(env, text, nickname)) throw new HttpError(400, RUDE);
 	const known = await env.DB.prepare("SELECT 1 FROM apps WHERE slug = ?").bind(app).first();
 	if (!known) throw new HttpError(400, "Unknown game.");
 	await checkTurnstile(request, env, body.turnstileToken);
