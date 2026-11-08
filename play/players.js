@@ -5,7 +5,7 @@
 // made with the builder (/players/) come from the API once approved, drawn from a base body in
 // their chosen colours.
 
-import { RIM, project } from "../engine/court.js";
+import { EU, EV, RIM, project } from "../engine/court.js";
 import { shoesIn } from "../engine/draw.js";
 import { load, save } from "../engine/storage.js";
 import { ANIM_FPS, JUMP_FRAME_TIME, player } from "../play/state.js";
@@ -213,12 +213,28 @@ export function faceHoop() {
   faceToward(RIM.u, RIM.v);
 }
 
-// Faces him toward a point on the court (where he's jogging to, or the hoop).
+// Which way each facing points on screen (angle, down is positive). Straight right, down, left and up,
+// and the diagonals along the court's own lines, as the isometric art draws them (flatter than 45°).
+const axis = (d) => Math.atan2(d.y, d.x);
+const DIR_ANGLES = {
+  r: 0,
+  fr: axis(EV),
+  f: Math.PI / 2,
+  fl: axis(EU),
+  l: Math.PI,
+  bl: axis({ x: -EV.x, y: -EV.y }),
+  b: -Math.PI / 2,
+  br: axis({ x: -EU.x, y: -EU.y }),
+};
+
+// Faces him toward a point on the court (where he's jogging to, or the hoop): the facing nearest
+// that direction on screen.
 export function faceToward(u, v) {
   const p = project(player.u, player.v);
   const h = project(u, v);
-  const a = Math.atan2(h.y - p.y, h.x - p.x); // screen angle, down is positive
-  player.dir = DIRS[(Math.round(a / (Math.PI / 4)) + 8) % 8];
+  const a = Math.atan2(h.y - p.y, h.x - p.x);
+  const off = (d) => Math.abs(Math.atan2(Math.sin(a - DIR_ANGLES[d]), Math.cos(a - DIR_ANGLES[d])));
+  player.dir = DIRS.reduce((best, d) => (off(d) < off(best) ? d : best));
 }
 
 // Whether this player's sheet has him jogging (in every direction), so he can run between spots.

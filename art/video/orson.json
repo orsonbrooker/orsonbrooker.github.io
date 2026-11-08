@@ -441,6 +441,50 @@
    ],
    "fps": 24,
    "face": "side"
+  },
+  "dribble-fl": {
+   "clip": "dribble-front-left",
+   "frames": [
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52
+   ],
+   "fps": 24,
+   "face": "front"
+  },
+  "dribble-fr": {
+   "clip": "dribble-front-right",
+   "frames": [
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52
+   ],
+   "fps": 24,
+   "face": "front"
   }
  },
  "spin": {
@@ -2057,6 +2101,136 @@
      "flip"
     ]
    ]
+  },
+  "dribble-fl": {
+   "from": [
+    [
+     "dribble-fl",
+     0
+    ],
+    [
+     "dribble-fl",
+     1
+    ],
+    [
+     "dribble-fl",
+     2
+    ],
+    [
+     "dribble-fl",
+     3
+    ],
+    [
+     "dribble-fl",
+     4
+    ],
+    [
+     "dribble-fl",
+     5
+    ],
+    [
+     "dribble-fl",
+     6
+    ],
+    [
+     "dribble-fl",
+     7
+    ],
+    [
+     "dribble-fl",
+     8
+    ],
+    [
+     "dribble-fl",
+     9
+    ],
+    [
+     "dribble-fl",
+     10
+    ],
+    [
+     "dribble-fl",
+     11
+    ],
+    [
+     "dribble-fl",
+     12
+    ],
+    [
+     "dribble-fl",
+     13
+    ],
+    [
+     "dribble-fl",
+     14
+    ]
+   ],
+   "fps": 24
+  },
+  "dribble-fr": {
+   "from": [
+    [
+     "dribble-fr",
+     0
+    ],
+    [
+     "dribble-fr",
+     1
+    ],
+    [
+     "dribble-fr",
+     2
+    ],
+    [
+     "dribble-fr",
+     3
+    ],
+    [
+     "dribble-fr",
+     4
+    ],
+    [
+     "dribble-fr",
+     5
+    ],
+    [
+     "dribble-fr",
+     6
+    ],
+    [
+     "dribble-fr",
+     7
+    ],
+    [
+     "dribble-fr",
+     8
+    ],
+    [
+     "dribble-fr",
+     9
+    ],
+    [
+     "dribble-fr",
+     10
+    ],
+    [
+     "dribble-fr",
+     11
+    ],
+    [
+     "dribble-fr",
+     12
+    ],
+    [
+     "dribble-fr",
+     13
+    ],
+    [
+     "dribble-fr",
+     14
+    ]
+   ],
+   "fps": 24
   }
  },
  "release": {
