@@ -18,7 +18,7 @@ import { SUDDEN_DEATH } from "./modes/index.js";
 import { setUpTouchControls } from "./play/controls.js";
 import { characters, faceHoop, loadImage, loadRoster } from "./play/players.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow } from "./play/react.js";
-import { checkDecided, shoot, startGame, step, stepBall } from "./play/round.js";
+import { canDunk, checkDecided, shoot, startDunk, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
 import { DEBUG, JUMP_APEX, mode, player, setAnim, setSeed, state, steer } from "./play/state.js";
 import { $, charPick, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
@@ -56,12 +56,15 @@ function press() {
     player.steered = false;
     faceHoop();
     setAnim("gather");
+    // Free play, close to the hoop: a dunk instead of a shot.
+    if (canDunk()) startDunk();
   }
 }
 
 function release() {
   if (!state.pressed) return;
   state.pressed = false;
+  if (player.dunk) return; // a dunk goes up on its own
   if (player.anim === "gather") shoot(-2.5);
   else if (player.anim === "jump") shoot((player.t - JUMP_APEX) / timingWindow());
 }
@@ -86,6 +89,8 @@ function leaveFreePlay() {
   for (const b of state.balls) b.trail?.stop();
   state.balls = [];
   player.steered = false;
+  player.dunk = null;
+  player.lift = 0;
   faceHoop();
   setAnim("idle");
   sound.setIntensity({ stage: 0, fire: 0, final: false });

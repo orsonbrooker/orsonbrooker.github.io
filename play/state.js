@@ -65,6 +65,8 @@ export const player = {
   path: null, // jogging to the next spot: { from, to, t, dur }
   dir: "bl", // which way he faces the hoop from his spot (b, bl, l...), for sheets drawn that way
   steered: false, // free play: moving because they're steering him
+  dunk: null, // free play: dunking, { from, peak, land, lift } (play/round.js)
+  lift: 0, // metres off the floor, while dunking
 };
 
 // Free play: which way they're steering him on screen (x right, y down), from the arrow keys and

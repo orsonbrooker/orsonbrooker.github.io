@@ -52,7 +52,7 @@ function renderScoreboard() {
 function drawPlayer() {
   const [sx, sy, w, h, ox, oy] = currentFrame();
   const scale = 1 / sheet.sprites.res;
-  const p = project(player.u, player.v);
+  const p = project(player.u, player.v, player.lift);
   ctx.globalAlpha = Math.max(0, player.fade);
   if (sheet.sprites.pixel) {
     // True pixel art: a whole number of screen pixels per art pixel, on whole screen pixels, so
@@ -97,7 +97,7 @@ function drawBall(b) {
 
 // The timing bar beside him while he jumps: let go while the marker is in the green.
 function drawMeter() {
-  if (player.anim !== "gather" && player.anim !== "jump") return;
+  if ((player.anim !== "gather" && player.anim !== "jump") || player.dunk) return; // (a dunk needs no timing)
   const p = project(player.u, player.v);
   const x = p.x + 110;
   const top = p.y - 400;

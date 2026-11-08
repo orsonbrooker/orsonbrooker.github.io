@@ -272,7 +272,7 @@ export function shoePoints() {
   const { sprites, atlas, shoeRegions } = sheet;
   const [, , , , ox, oy] = currentFrame();
   const scale = 1 / sprites.res;
-  const p = project(player.u, player.v);
+  const p = project(player.u, player.v, player.lift);
   const frames = sprites.frames[named(player.anim)];
   const i = frames.indexOf(currentFrame());
   const feet = shoesIn(atlas, sprites, shoeRegions)[named(player.anim)][i];

@@ -60,6 +60,8 @@ export function startGame() {
   player.moving = false;
   player.path = null;
   player.steered = false;
+  player.dunk = null;
+  player.lift = 0;
   setAnim("idle");
   showScreen(null);
   updateHud();
@@ -87,20 +89,23 @@ export function shoot(timing) {
   const du = dirU / dist;
   const dv = dirV / dist;
 
-  // Start the ball where his hands are in the release frame.
+  // Start the ball where his hands are in the release frame (never right at the rim: close in, the
+  // hands' place along the court can come out past it).
   const screenPerM = du * EU.x + dv * EV.x;
-  const ahead = Math.max(0, Math.min(1, screenPerM ? offX / screenPerM : 0.5));
+  const ahead = Math.max(0, Math.min(1, dist - 0.6, screenPerM ? offX / screenPerM : 0.5));
   const u = player.u + du * ahead;
   const v = player.v + dv * ahead;
   const z = (project(u, v).y - (ground.y + offY)) / PX_PER_M;
 
   // Releasing late (on the way down) flattens the shot.
   const clamped = Math.max(-2.5, Math.min(2.5, timing));
-  const angle = LAUNCH_ANGLE - Math.max(0, clamped) * 0.1;
+  let angle = LAUNCH_ANGLE - Math.max(0, clamped) * 0.1;
 
-  // Ideal speed to drop through the rim at that angle, aiming a touch past the centre.
+  // Ideal speed to drop through the rim at that angle, aiming a touch past the centre. Close in,
+  // the rim can be above that angle's line, which no speed reaches: then he shoots steeper.
   const d = Math.hypot(RIM.u - u, RIM.v - v) + 0.05;
   const dz = RIM.z - z;
+  angle = Math.max(angle, Math.atan(dz / d + 0.3));
   const cos = Math.cos(angle);
   const ideal = Math.sqrt((GRAVITY * d * d) / (2 * cos * cos * (d * Math.tan(angle) - dz)));
 
@@ -108,12 +113,15 @@ export function shoot(timing) {
   const sideways = 0.012 * gaussian() + 0.012 * clamped * Math.sign(gaussian());
   const hu = du * cos - dv * sideways;
   const hv = dv * cos + du * sideways;
+  launchBall({ u, v, z, vu: hu * speed, vv: hv * speed, vz: Math.sin(angle) * speed }, clamped);
+}
 
+// A ball leaving his hands (a shot or a dunk): it joins the balls in play, goes in the shot log, and
+// he plays his release while it flies.
+function launchBall(at, timing) {
+  const { u, v, z } = at;
   const ball = {
-    u, v, z,
-    vu: hu * speed,
-    vv: hv * speed,
-    vz: Math.sin(angle) * speed,
+    ...at,
     spin: 0,
     age: 0,
     scored: false,
@@ -133,11 +141,71 @@ export function shoot(timing) {
     ball.trail = pixelFx.fireTrail(p.x, p.y, ball.fire.fx);
   }
   if (state.phase === "playing") {
-    ball.log = [Math.round(mode().gameSeconds() * 100) / 100, ball.three ? 1 : 0, 0, Math.round(clamped * 1000) / 1000, ball.kind];
+    ball.log = [Math.round(mode().gameSeconds() * 100) / 100, ball.three ? 1 : 0, 0, Math.round(timing * 1000) / 1000, ball.kind];
     state.shotLog.push(ball.log);
   }
   player.activeBall = ball;
   setAnim("release");
+}
+
+// ---------- Dunking ----------
+
+// Free play: close to the hoop, a shot is a dunk. He gathers, leaps in toward the rim and up till his
+// hands are over it, slams the ball down through, and drops back to land in front of the hoop.
+const DUNK_RANGE = 2.0; // metres from the hoop
+const DUNK_RISE = 0.4; // seconds from leaving the floor to the slam
+const DUNK_FALL = 0.35; // seconds back down
+const DUNK_REACH = 0.55; // how far in front of the hoop his body is at the slam
+const DUNK_LAND = 1.15; // and where he lands
+
+export function canDunk() {
+  return !!mode().freeMove && Math.hypot(RIM.u - player.u, RIM.v - player.v) <= DUNK_RANGE;
+}
+
+export function startDunk() {
+  const du = player.u - RIM.u;
+  const dv = player.v - RIM.v;
+  const d = Math.hypot(du, dv) || 1;
+  const toward = (r) => ({ u: RIM.u + (du / d) * r, v: RIM.v + (dv / d) * r });
+  // How high he has to leap for his hands (where the ball leaves them in his shot) to be over the rim.
+  const hands = (-releaseOffset()[1] / sheet.sprites.res) / PX_PER_M;
+  player.dunk = { from: { u: player.u, v: player.v }, peak: toward(DUNK_REACH), land: toward(DUNK_LAND), lift: Math.max(0.4, RIM.z + 0.25 - hands) };
+}
+
+function endDunk() {
+  player.dunk = null;
+  player.lift = 0;
+}
+
+const ease = (k) => 1 - (1 - k) * (1 - k);
+function moveAlong(a, b, k) {
+  player.u = a.u + (b.u - a.u) * k;
+  player.v = a.v + (b.v - a.v) * k;
+}
+
+// Up toward the rim; at the top, the slam.
+function dunkRise() {
+  const { from, peak, lift } = player.dunk;
+  const k = Math.min(1, player.t / DUNK_RISE);
+  moveAlong(from, peak, ease(k));
+  player.lift = lift * Math.sin((k * Math.PI) / 2);
+  if (k < 1) return;
+  // The ball, just over the rim, slammed straight down through it.
+  state.shake = 1;
+  state.flash = Math.max(state.flash, 0.25);
+  sound.rim(5);
+  const p = project(RIM.u, RIM.v, RIM.z);
+  addPopup("SLAM DUNK", "#ffffff", p.x, p.y - 140);
+  pixelFx.spark(p.x, p.y, { floorDrop: project(RIM.u, RIM.v, 0).y - p.y });
+  launchBall({ u: RIM.u, v: RIM.v + 0.05, z: RIM.z + 0.3, vu: 0, vv: 0, vz: -6 }, 0);
+}
+
+// Back down to the floor in front of the hoop.
+function dunkFall() {
+  const { peak, land, lift } = player.dunk;
+  const k = Math.min(1, player.t / DUNK_FALL);
+  moveAlong(peak, land, k);
+  player.lift = lift * (1 - k * k);
 }
 
 // ---------- The ball ----------
@@ -343,12 +411,16 @@ function updatePlayer(dt) {
       break;
     }
     case "jump":
-      if (player.t >= frameCount("jump") * JUMP_FRAME_TIME) shoot(2.5);
+      if (player.dunk) dunkRise();
+      else if (player.t >= frameCount("jump") * JUMP_FRAME_TIME) shoot(2.5);
       break;
     case "release": {
-      const done = player.t >= frameCount("release") / ANIM_FPS.release;
+      if (player.dunk) dunkFall();
+      const done = player.t >= Math.max(frameCount("release") / ANIM_FPS.release, player.dunk ? DUNK_FALL : 0);
       const ball = player.activeBall;
-      if (done && (!ball || ball.decided) && state.phase === "playing") {
+      // (A ball that's gone from play without being decided can't hold him up.)
+      if (done && (!ball || ball.decided || !state.balls.includes(ball)) && state.phase === "playing") {
+        endDunk();
         player.activeBall = null;
         if (mode().freeMove) {
           // Free play: the ball's back in his hands where he stands, ready to move or shoot again.
