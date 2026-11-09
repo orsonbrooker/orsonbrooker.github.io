@@ -4,7 +4,7 @@
 
 import { sound } from "../audio.js";
 import { BALL_BADGES } from "../content/looks.js";
-import { COURT_PX, EU, EV, PX_PER_M, RIM, isThreePointSpot, project } from "../engine/court.js";
+import { COURT_PX, EU, EV, PX_PER_M, RIM, RIM_R, isThreePointSpot, project } from "../engine/court.js";
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "../engine/physics.js";
 import { save } from "../engine/storage.js";
 import { startToken } from "../leaderboard.js";
@@ -187,7 +187,7 @@ function stepPhysics(dt) {
 
 function scoreBasket(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
-  if (b.decided) return; // already called a miss (it sat on the rim too long): it stays one, like in the shot log's order
+  if (b.decided) return; // already called a miss: it stays one (checkDecided waits while it's on the rim)
   if (!mode().countsShot()) return;
   mode().onMake(b);
   recordMade(b);
@@ -211,9 +211,13 @@ function missedShot(b) {
 
 // A ball's call: in the air, then made or missed, once (b.decided). A miss can't become a make later,
 // so the score, the streak and the shot log always agree with the server's recount (recountScore).
+// A ball still sitting on the rim isn't called yet: if it drops in, it counts. It's only given up on
+// just before it's cleared away (BALL_LIFE), so nothing can drop in after the call.
+const BALL_LIFE = 5; // seconds a ball stays in play
+const onRim = (b) => b.z > RIM.z - 0.3 && Math.hypot(b.u - RIM.u, b.v - RIM.v) < RIM_R + 0.3;
 export function checkDecided(b) {
   if (b.decided) return;
-  const missed = b.bounces > 0 || (b.vz < 0 && b.z < RIM.z - 0.6) || b.age > 3;
+  const missed = b.bounces > 0 || (b.vz < 0 && b.z < RIM.z - 0.6) || (b.age > 3 && !onRim(b)) || b.age > BALL_LIFE - 0.2;
   if (b.scored || missed) {
     b.decided = true;
     if (!b.scored) missedShot(b);
@@ -303,7 +307,7 @@ function update(dt) {
 
   for (const b of state.balls) checkDecided(b);
   state.balls = state.balls.filter((b) => {
-    const keep = b.age < 5 && b.z > -4;
+    const keep = b.age < BALL_LIFE && b.z > -4;
     if (!keep) b.trail?.stop();
     return keep;
   });

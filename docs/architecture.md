@@ -417,7 +417,8 @@ always allowed); change it only with `setPhase()`, which warns about a move the 
 error in `?debug`). Between Playing and GameOver there's a short `ending` phase: time's up (or the game is
 decided), balls already in the air still count, and no new shot can start. A shot can only be taken while
 `canShoot()` (playing, not paused), so every ball that can score is in the shot log, and a ball is called
-made or missed once: one called a miss (it sat on the rim for 3 seconds) can't count later. Both keep the
+made or missed once: a ball still sitting on the rim isn't called until it drops in (it counts) or
+falls off, or just before it's cleared away (5 seconds), and a ball called a miss can't count later. Both keep the
 score the game shows equal to the server's recount of its shot log.
 
 **The page is laid out like an app**, the same on the web and in the iOS app (`games/shootaround/index.html`,
