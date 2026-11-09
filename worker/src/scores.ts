@@ -6,6 +6,7 @@
 // What's rejected and what's flagged is in scoring.ts. Here: the start token (signed, used once, and
 // old enough for the game it claims), test mode, the robot check and the daily limit.
 // (Nicknames don't matter: a device's row is per player, whatever name it's sent with.)
+// Devices joined by a pairing code (saved progress, progress.ts) share their rows: see boardOf.
 
 import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, THREE_POINT_CONTEST, lowWins, modeOf } from "../../shared/rules.js";
 import type { Mode, Shot } from "../../shared/rules.js";
@@ -13,7 +14,7 @@ import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_PLAYER_NAME, PLAYER_PARTS, isNickname } from "./players.ts";
 import { checkGame, oddFlags } from "./scoring.ts";
-import { checkTurnstile, clean, hash, ipKey, isRude, json, rateLimit, readJson, RUDE } from "./util.ts";
+import { checkTurnstile, clean, forgetBlockedNames, hash, ipKey, isUnfriendly, json, MIN_BLOCKED, rateLimit, readJson, RUDE, squash } from "./util.ts";
 import type { Env } from "./util.ts";
 
 const SCORES_PER_DAY = 40;
@@ -23,6 +24,21 @@ const PREVIEWS_PER_DAY = 1000; // one per game, plus one per pause while typing 
 // in the builder), at its best, whatever nicknames it was sent with. The row shows its latest one.
 const WEEK = "created_at > datetime('now', '-7 days')";
 const order = (mode: Mode) => (lowWins(mode) ? "ASC" : "DESC");
+
+/**
+ * Whose rows a device's games go on (the scores table's `device`): its own hashed id, or, once it's
+ * joined other devices with a pairing code, the one they share (`progress.board`). Joining moves its
+ * earlier rows across (joinCode in progress.ts), so each player shows once for all their devices.
+ */
+export async function boardOf(env: Env, device: string): Promise<string> {
+	const own = await hash(env, `device:${device}`);
+	const shared = await env.DB.prepare(
+		"SELECT p.board FROM progress_devices d JOIN progress p ON p.id = d.progress_id WHERE d.device_hash = ? AND p.board IS NOT NULL LIMIT 1",
+	)
+		.bind(own)
+		.first<{ board: string }>();
+	return shared?.board ?? own;
+}
 // Odd-looking scores Orson hasn't looked at yet: they're in the admin inbox.
 export const ODD_UNCHECKED = "status = 'shown' AND flags != '[]' AND checked = 0";
 // When each scoring feature arrived in the game (UTC, like created_at). A leaderboard card only
@@ -50,7 +66,7 @@ export async function gameToken(env: Env): Promise<string> {
 	return `${started}.${nonce}.${await hash(env, `game:${started}.${nonce}`)}`;
 }
 
-async function checkGameToken(env: Env, token: unknown, minSeconds: number): Promise<number> {
+export async function checkGameToken(env: Env, token: unknown, minSeconds: number): Promise<number> {
 	const parts = typeof token === "string" ? token.split(".") : [];
 	if (parts.length !== 3 || parts[2] !== (await hash(env, `game:${parts[0]}.${parts[1]}`))) throw new HttpError(400, "That game can't be checked.");
 	const seconds = (Date.now() - Number(parts[0])) / 1000;
@@ -63,7 +79,7 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
 	if (body.debug) throw new HttpError(400, "Scores from test mode don't count.");
 	const mode = modeOf(body.mode);
-	const nickname = scoreNickname(body);
+	const nickname = await scoreNickname(env, body);
 	const device = clean(body.device, 64);
 	if (device.length < 16) throw new HttpError(400, "Bad request.");
 	const player = clean(body.player, 40) || "orson";
@@ -83,7 +99,7 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 	await checkTurnstile(request, env, body.turnstileToken);
 
 	const ipHash = await ipKey(request, env);
-	const deviceHash = await hash(env, `device:${device}`);
+	const deviceHash = await boardOf(env, device);
 	const [today, history, standing] = await env.DB.batch([
 		env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?").bind(ipHash),
 		env.DB.prepare(`SELECT ${lowWins(mode) ? "MIN" : "MAX"}(score) AS best FROM scores WHERE device = ? AND mode = ?`).bind(deviceHash, mode),
@@ -148,10 +164,10 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 }
 
 // A leaderboard nickname: checked the same way for the preview and the real thing.
-export function scoreNickname(body: Record<string, unknown>): string {
+export async function scoreNickname(env: Env, body: Record<string, unknown>): Promise<string> {
 	const nickname = clean(body.nickname, MAX_PLAYER_NAME);
 	if (!isNickname(nickname)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
-	if (isRude(nickname)) throw new HttpError(400, RUDE);
+	if (await isUnfriendly(env, nickname)) throw new HttpError(400, RUDE);
 	return nickname;
 }
 
@@ -171,7 +187,7 @@ export async function reportScore(request: Request, env: Env, header: string): P
 	if (typeof scoreId !== "number" || !Number.isSafeInteger(scoreId) || scoreId < 1) throw new HttpError(400, "Bad request.");
 	const score = await env.DB.prepare("SELECT device FROM scores WHERE id = ? AND status = 'shown'").bind(scoreId).first<{ device: string }>();
 	if (!score) throw new HttpError(404, "That score isn't on the leaderboard.");
-	if (device.length >= 16 && score.device === (await hash(env, `device:${device}`))) return json({ ok: true });
+	if (device.length >= 16 && score.device === (await boardOf(env, device))) return json({ ok: true });
 	await env.DB.prepare("INSERT OR IGNORE INTO reports (score_id, ip_hash) VALUES (?, ?)")
 		.bind(scoreId, await ipKey(request, env))
 		.run();
@@ -191,6 +207,25 @@ export async function clearReports(env: Env, id: number): Promise<void> {
 		.run();
 }
 
+/**
+ * A reported name Luke hides is one nobody should use again: it joins blocked_names, so the name check
+ * (util.ts isUnfriendly) turns it away from then on, wherever it's typed. Only while the game has open
+ * reports (a name he said "Looks fine" to, or a game hidden for an odd score, isn't blocked). Call it
+ * before the reports are cleared. Returns the name if it was blocked.
+ */
+export async function blockReportedName(env: Env, id: number): Promise<string | null> {
+	const row = await env.DB.prepare(
+		"SELECT nickname FROM scores WHERE id = ? AND EXISTS (SELECT 1 FROM reports WHERE score_id = scores.id AND cleared = 0)",
+	)
+		.bind(id)
+		.first<{ nickname: string }>();
+	const squashed = row ? squash(row.nickname) : "";
+	if (squashed.length < MIN_BLOCKED) return null;
+	await env.DB.prepare("INSERT OR IGNORE INTO blocked_names (squashed, name, score_id) VALUES (?, ?, ?)").bind(squashed, row!.nickname, id).run();
+	forgetBlockedNames();
+	return row!.nickname;
+}
+
 // Card caches cleared after a rename: the newest games' (older cards are rarely open, and only
 // cached for a minute), so a long history doesn't mean hundreds of cache calls.
 const RENAME_FORGETS = 40;
@@ -201,7 +236,7 @@ const RENAME_FORGETS = 40;
  * Returns the modes whose boards changed and the games whose cards should be cleared.
  */
 export async function renameScores(env: Env, id: number, nickname: unknown): Promise<{ modes: Mode[]; ids: number[] }> {
-	const name = scoreNickname({ nickname });
+	const name = await scoreNickname(env, { nickname });
 	const rows = await env.DB.prepare(
 		`UPDATE scores SET nickname = ?1
 		 WHERE id = ?2 OR (device, player) = (SELECT device, player FROM scores WHERE id = ?2)
@@ -243,14 +278,14 @@ export async function previewScore(request: Request, env: Env): Promise<Response
 	const body = await readJson(request);
 	// It reads the whole week's board, so it's limited too (generously: it's asked once or twice a game).
 	await rateLimit(request, env, "preview", PREVIEWS_PER_DAY, "That's a lot of games for one day! Try again tomorrow.");
-	const nickname = scoreNickname(body);
+	const nickname = await scoreNickname(env, body);
 	const device = clean(body.device, 64);
 	if (device.length < 16) throw new HttpError(400, "Bad request.");
 	const score = Number(body.score);
 	const mode = modeOf(body.mode);
 	if (!Number.isInteger(score) || score < 0 || score > (mode === "around" ? 6 * 36000 : 1000)) throw new HttpError(400, "Bad request.");
 	const player = clean(body.player, 40) || "orson";
-	const deviceHash = await hash(env, `device:${device}`);
+	const deviceHash = await boardOf(env, device);
 	const [rows, sent] = await Promise.all([
 		boardRows(env, mode, true, 500, { device: deviceHash, player }),
 		// Their scores already on the board this week, for their own list (the device's id stays private).

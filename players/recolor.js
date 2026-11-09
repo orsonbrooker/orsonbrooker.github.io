@@ -159,11 +159,39 @@ function printNumber(loadedBase, colours, [x, y, w, h], d, shade, regionPx, atla
 }
 
 // ---------- Players saved on this device ----------
-// Anyone can play as their own player straight away; it's kept in this browser only (nothing
-// is sent). Sending it to Orson is separate, and puts it in the game for everyone once approved.
+// Anyone can play as their own player straight away; it's kept in this browser, and comes along to
+// their other devices with their saved progress (progress.js, shared/save.js), never shown to anyone
+// else. Sending it to Orson is separate, and puts it in the game for everyone once approved.
 
 const MY_PLAYERS = "orson-hoops-my-players";
+const GONE_PLAYERS = "orson-hoops-gone-players"; // ids removed, so another device's copy doesn't bring them back
 const MAX_MY_PLAYERS = 6;
+
+/** Replaces the list (with saved progress merged in). */
+export function setMyPlayers(list) {
+  try {
+    localStorage.setItem(MY_PLAYERS, JSON.stringify(list.slice(0, MAX_MY_PLAYERS)));
+  } catch {
+    // Storage blocked.
+  }
+}
+
+export function gonePlayers() {
+  try {
+    const list = JSON.parse(localStorage.getItem(GONE_PLAYERS) ?? "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setGonePlayers(list) {
+  try {
+    localStorage.setItem(GONE_PLAYERS, JSON.stringify(list.slice(0, 50)));
+  } catch {
+    // Storage blocked.
+  }
+}
 
 export function myPlayers() {
   try {
@@ -195,6 +223,7 @@ export function removeMyPlayer(id) {
   } catch {
     // Nothing to remove from.
   }
+  setGonePlayers([id, ...gonePlayers().filter((g) => g !== id)]);
 }
 
 // Head-and-shoulders picture of a player, for pickers.

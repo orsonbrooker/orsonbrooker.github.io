@@ -9,8 +9,9 @@ import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
 import { MAX_PLAYER_NAME, MAX_TEAM_NAME, parsePronoun, PLAYER_PARTS } from "./players.ts";
-import { clearReports, ODD_UNCHECKED, REPORTED, renameScores } from "./scores.ts";
-import { clean, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
+import { stats } from "./stats.ts";
+import { blockReportedName, clearReports, ODD_UNCHECKED, REPORTED, renameScores } from "./scores.ts";
+import { clean, forgetBlockedNames, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
 import type { Env } from "./util.ts";
 
 // The page's own inline <script> and <style> blocks, by hash, so nothing else inline can run.
@@ -66,8 +67,9 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 	// Changes only come from the admin page itself, never a form or script on another site.
 	if (request.method !== "GET") requireSameOriginJson(request, env);
 	const parts = url.pathname.split("/").filter(Boolean); // api, admin, ...
+	if (request.method === "GET" && parts[2] === "stats") return json(await stats(env), 200, 0);
 	if (request.method === "GET" && parts[2] === "inbox") {
-		const [submissions, ideas, apps, players, scores] = await env.DB.batch([
+		const [submissions, ideas, apps, players, scores, blocked] = await env.DB.batch([
 			env.DB.prepare("SELECT id, app, text, nickname, created_at, title, description, note, merge_into FROM submissions WHERE status = 'new' ORDER BY id"),
 			env.DB.prepare("SELECT id, app, title, description, credit, status, votes FROM ideas ORDER BY app, votes DESC"),
 			env.DB.prepare("SELECT slug, name FROM apps ORDER BY name"),
@@ -81,9 +83,10 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 				 FROM scores WHERE id IN (${REPORTED}) OR (${ODD_UNCHECKED}) OR created_at > datetime('now', '-14 days')
 				 ORDER BY id IN (${REPORTED}) DESC, (${ODD_UNCHECKED}) DESC, id DESC LIMIT 200`,
 			),
+			env.DB.prepare("SELECT squashed, name, created_at FROM blocked_names ORDER BY created_at DESC"),
 		]);
 		return json(
-			{ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results, scores: scores.results },
+			{ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results, scores: scores.results, blocked: blocked.results },
 			200,
 			0,
 		);
@@ -114,6 +117,13 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 			const mode = await editScore(env, id, body);
 			await forget(url.origin, { boards: [mode], score: id });
 		}
+		res = json({ ok: true }, 200, 0);
+	} else if (parts[2] === "blocked") {
+		// Takes a name off the blocked list (one hidden by mistake): people can use it again.
+		const body = await readJson(request);
+		if (body.action !== "remove" || typeof body.squashed !== "string") throw new HttpError(400, "Unknown action.");
+		await env.DB.prepare("DELETE FROM blocked_names WHERE squashed = ?").bind(body.squashed).run();
+		forgetBlockedNames();
 		res = json({ ok: true }, 200, 0);
 	} else throw new HttpError(404, "Not found.");
 	return res;
@@ -222,7 +232,9 @@ async function editScore(env: Env, id: number, body: Record<string, unknown>): P
 	if (!status) throw new HttpError(400, "Unknown action.");
 	const row = await env.DB.prepare("UPDATE scores SET status = ?, checked = 1 WHERE id = ? RETURNING mode").bind(status, id).first<{ mode: string }>();
 	if (!row) throw new HttpError(404, "No such score.");
-	// Hidden: reports on this game are dealt with (if their next best game is reported too, it shows up on its own).
+	// Hidden: a reported name is blocked from then on, and reports on this game are dealt with (if their
+	// next best game is reported too, it shows up on its own).
+	if (status === "hidden") await blockReportedName(env, id);
 	if (status === "hidden") await env.DB.prepare("UPDATE reports SET cleared = 1 WHERE score_id = ?").bind(id).run();
 	return modeOf(row.mode);
 }

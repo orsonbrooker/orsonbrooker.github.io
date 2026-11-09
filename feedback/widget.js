@@ -10,7 +10,7 @@
 // The value of data-feedback is the game or app the idea is about. New games need a row in
 // the apps table first (see worker/migrations).
 
-import { API } from "../api.js";
+import { API, IN_APP } from "../api.js";
 import { markField, say } from "../ui/form.js";
 import { icon } from "../ui/icons.js";
 
@@ -187,7 +187,8 @@ function mountFeedback(node) {
 	node.replaceChildren(
 		el("button", { type: "button", className: "fb-button fb-primary", innerHTML: `${icon("idea")}<span>Got an idea?</span>`, onclick: () => openForm(app, node.dataset.defaultApp) }),
 	);
-	if (!onBoard) node.append(el("a", { className: "fb-button", href: "/ideas/", innerHTML: `<span>Ideas board</span>${icon("next")}` }));
+	// The ideas board is a website page, not in the iOS app.
+	if (!onBoard && !IN_APP) node.append(el("a", { className: "fb-button", href: "/ideas/", innerHTML: `<span>Ideas board</span>${icon("next")}` }));
 }
 
 // ---------- Ideas board ----------

@@ -14,7 +14,15 @@ const FONT = '"Press Start 2P", monospace';
 // (rotating one picture smears its pixels). The seam pattern repeats every half turn.
 export const BALL_FRAMES = 12;
 
-// look: the ball's colours (BALL_LOOKS in content/looks.js).
+// A colour a little darker, for the shaded side of a striped ball.
+function darker(hex, by = 0.78) {
+  const n = parseInt(hex.slice(1), 16);
+  const ch = (shift) => Math.round(((n >> shift) & 255) * by);
+  return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
+}
+
+// look: the ball's colours (BALL_LOOKS in content/looks.js, or a ball style from shared/shop.js).
+// With `panels`, three stripes that turn with the seams.
 function makeBallSprite(turn, look = BALL_LOOKS[NORMAL]) {
   const size = 16;
   const c = document.createElement("canvas");
@@ -29,9 +37,12 @@ function makeBallSprite(turn, look = BALL_LOOKS[NORMAL]) {
       // the seams, in the ball's own turned frame
       const rx = mid + (x - mid) * cos + (y - mid) * sin;
       const ry = mid - (x - mid) * sin + (y - mid) * cos;
+      const shaded = x + y > 19;
+      const panel = look.panels?.[ry < 5 ? 0 : ry < 10 ? 1 : 2];
       let color = look.rainbow
-        ? `hsl(${Math.round(((rx + ry) * 22) % 360)}, 90%, ${x + y > 19 ? 48 : 60}%)`
-        : x + y > 19 ? look.shade : look.main;
+        ? `hsl(${Math.round(((rx + ry) * 22) % 360)}, 90%, ${shaded ? 48 : 60}%)`
+        : panel ? (shaded ? darker(panel) : panel)
+        : shaded ? look.shade : look.main;
       if (Math.hypot(x - 5, y - 4.5) < 2) color = look.shine;
       const seam =
         Math.abs(rx - mid) < 0.6 ||
@@ -47,10 +58,13 @@ function makeBallSprite(turn, look = BALL_LOOKS[NORMAL]) {
   return c;
 }
 
-// One spinning set of frames for each kind of ball.
-export function makeBallSprites() {
-  const frames = (look) => Array.from({ length: BALL_FRAMES }, (_, i) => makeBallSprite((i / BALL_FRAMES) * Math.PI, look));
-  return { [NORMAL]: frames(BALL_LOOKS[NORMAL]), [MONEY]: frames(BALL_LOOKS[MONEY]), [RAINBOW]: frames(BALL_LOOKS[RAINBOW]) };
+// One spinning set of frames for a look.
+export const makeBallFrames = (look) => Array.from({ length: BALL_FRAMES }, (_, i) => makeBallSprite((i / BALL_FRAMES) * Math.PI, look));
+
+// One spinning set of frames for each kind of ball. `normal`: the look of an everyday ball (their ball
+// style from the shop); money and rainbow balls always look the same, so they stand out.
+export function makeBallSprites(normal = BALL_LOOKS[NORMAL]) {
+  return { [NORMAL]: makeBallFrames(normal), [MONEY]: makeBallFrames(BALL_LOOKS[MONEY]), [RAINBOW]: makeBallFrames(BALL_LOOKS[RAINBOW]) };
 }
 
 // ---------- On the court ----------

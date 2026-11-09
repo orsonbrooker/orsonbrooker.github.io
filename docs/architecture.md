@@ -33,6 +33,7 @@ flowchart LR
   Worker --> Turnstile
   Admin --> Access --> Worker
   Worker -. cron .-> Ntfy
+  Worker -. "cron: page views" .-> CFAnalytics["Cloudflare analytics<br/>GraphQL API"]
 ```
 
 - **Static site:** plain JS modules built with Vite. On every push to `main`, the Pages workflow
@@ -51,7 +52,10 @@ flowchart LR
   Dist --> Pages2["GitHub Pages"] --> CF2["Cloudflare cache"]
 ```
 - **Worker** (`worker/src/index.ts`, admin UI in `worker/src/admin.html`): the only server. It answers the API
-  and the admin page on the same domain as the site, so there's no cross-site setup in production.
+  and the admin page on the same domain as the site, so there's no cross-site setup in production. The admin
+  page has one address per section (`/admin` is the inbox, then `/admin/ideas`, `/admin/players`,
+  `/admin/scores`, `/admin/stats`), all the same page behind the same sign-in check. It draws players front and back with
+  the site's own `players/recolor.js`, which the build copies to a fixed address for it.
 - **Edge cache** (`worker/src/cache.ts`): public answers that are the same for everyone (the boards, score
   cards, approved players, config, the ideas list without a device) are kept in Cloudflare's cache for 30-60 s,
   keyed by the URL with only the parameters the handler reads. A new score or an admin change clears what it
@@ -67,20 +71,22 @@ flowchart LR
 | Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness, which way Free play is being steered (`steering()`); `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update (jogging between spots, and in Free play `steerPlayer()`: the screen direction turned into a court direction, kept on the floor in front of the backboard); `controls.js` Free play's touch joystick and shoot button (pixel circles, only on `pointer: coarse` screens, keeping their touches from the tap-anywhere button); `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces, a higher jump; `court.js` switching courts (measurements, physics, art); `replay.js` instant replays (recording each release, picking the best shot, playing it again). |
 | Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, `horse.js`, `threes.js`, `free.js`, shared `points.js`) | Time attack, Sudden death, Around the World, 3-point contest, HORSE (pass and play, no leaderboard), Free play, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. The 3-point contest is hidden (except in `?debug`) until its rack art is in: `THREE_POINT_CONTEST_READY` in `modes/index.js`, brief in `art/three-point-contest.md`. Free play (`ranked: false`) has no clock, no score sent, no daily challenge and no game over; the player moves himself (`freeMove`) and shoots from wherever he stands (within 2 m of the hoop a shot is a dunk: `startDunk()` in `round.js` leaps him up to the rim, slams the ball through and drops him in front of it), and it ends only when they leave (Escape or the back button, to choosing a game). |
 | Moving green zone | `play/zone.js`, `zoneCenter()` in `play/react.js` | A mechanic a mode switches on with `zoneShift()`: the green part of the timing bar moves to a new place each shot (from the seeded "zone" stream), and a release is timed from the green's middle. On in Sudden death (from 5 in a row, further as the run grows), Around the World (gently) and the 3-point contest. |
-| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menus.js` title, choose a game, choose a player (or several, for pass and play); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `over.js` game over (and the Replay button). |
+| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menu.js` the one menu (the game, then the website's pages, left out in the iOS app); `pause.js` pausing a game (keep playing, start again, quit); `menus.js` title, choose a game, choose a player (or several, for pass and play); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `shop.js` the shop (ball styles, pairing another device); `over.js` game over (the Replay button, the coins a game earned). |
 | Game content | `content/` | Tables: the courts (`courts.js`), what each player is good at (`attributes.js`), how each fire level and ball looks, the wall scoreboard art, the Around the World spots, the 3-point contest's racks (`threes.js`, with where its art goes), the HORSE spots and spot map, Sudden death run calls and end-of-game calls. |
-| Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log. Used by the game and the Worker. |
+| Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log, coins for a game (`coinsFor`). Used by the game and the Worker. |
+| Shop and saved progress | `shared/shop.js`, `shared/save.js`, `progress.js` | The ball styles coins buy (colours drawn in code, prices the Worker checks); what else travels with progress and how two devices' copies merge (shared with the Worker); the game's side of saved progress: this device's key, the last known coins and ball, the progress API. |
 | Scoring extras | `daily.js`, `content/looks.js` (`FIRE_LEVELS` adds each level's looks) | Daily challenge, how fire looks and widens the timing window. |
 | Gameplay randomness | `rng.js`, `play/state.js` (`random()`) | Seeded streams (sfc32) for shot spots, aim wobble and where a moving green zone goes. |
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
 | Sound | `audio.js`, `phrases.js`, `assets/voice/`, `assets/sfx/` | Music that builds, synthesised effects, recorded bounces, a sneaker squeak and footsteps (`tools/build_sfx.py` packs `art/sfx/`), announcer clips (device voice as fallback); lines about the player in he and she versions. |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
 | Players | `assets/characters/`, `players/recolor.js`, `players/builder.js`, `players/pixelkit.js` | Built-in sprites; builder bodies recoloured from region maps; sheets made from video (Orson): which way he faces the hoop from each spot (`faceHoop()` in `play/players.js`), his number and team name warped onto a face on his jersey (`pixelkit.js`). |
-| Shared UI | `ui/` | Nav, icons, styled dialogs, form helpers. |
+| Shared UI | `ui/` | Nav (the site bar on every page but the game), icons, styled dialogs, form helpers. |
 | Ideas widget | `feedback/` | The "Got an idea?" button on each page. |
 | Server address | `api.js` | Where the API is: this site's `/api`, the local Worker on localhost, or the live site from the iOS app. |
-| iOS app | `ios/`, `capacitor.config.json`, `tools/app/prepare.mjs`, `haptics.js` | The same pages bundled into an app with Capacitor, opening on the game; a buzz on baskets and fire. |
-| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `admin.ts`, `access.ts`, `cache.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
+| iOS app | `ios/`, `capacitor.config.json`, `tools/app/prepare.mjs` | The same pages bundled into an app with Capacitor, opening on the game. |
+| Haptics | `haptics.js` | A buzz on baskets and fire: Capacitor's Haptics in the app, the Vibration API on Android, and on iPhone Safari (no Vibration API) a hidden `<input switch>` flipped by clicking its label, which plays the system tick (iOS 18+). |
+| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `progress.ts`, `admin.ts`, `access.ts`, `cache.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); coins, buying and pairing (`progress.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
 | Art and voice tools | `tools/` | Character sheets, region maps, announcer clips, icons, share images. |
 
 ## Domain model
@@ -93,6 +99,10 @@ erDiagram
   ideas ||--o{ submissions : "approved or merged into"
   players ||..o{ scores : "played as (by id)"
   scores ||--o{ reports : "name reported"
+  progress ||--|{ progress_devices : "kept on"
+  progress ||--o{ progress_games : "earned coins in"
+  progress ||--o{ progress_items : "owns"
+  progress ||--o{ pair_codes : "joined with"
 
   apps {
     text slug PK "basketball, new-game, website"
@@ -153,6 +163,38 @@ erDiagram
     text ip_hash PK "hashed IP and day: one report each"
     int cleared "admin has acted on it"
   }
+  blocked_names {
+    text squashed PK "the name as the filter compares it"
+    text name "as typed"
+    int score_id "the hidden game it came from"
+  }
+  progress {
+    int id PK
+    int coins "to spend"
+    int earned "all ever earned"
+    text ball "ball style in use"
+    text save "bests, streak, builder players, nickname (JSON)"
+    text board "leaderboard id its devices share (scores.device)"
+  }
+  progress_devices {
+    text key_hash PK "hashed random key in the browser"
+    int progress_id FK
+    text device_hash "this device's leaderboard id, hashed"
+  }
+  progress_games {
+    text token PK "start token: one claim per game"
+    int progress_id FK
+    int coins
+  }
+  progress_items {
+    int progress_id PK
+    text item PK "shop item id"
+  }
+  pair_codes {
+    text code_hash PK "hashed 8-letter code"
+    int progress_id FK
+    text expires_at "10 minutes"
+  }
 ```
 
 Terms used across the code:
@@ -168,7 +210,7 @@ Terms used across the code:
   she, and skips those lines altogether for a player with neither. The pronoun is the player shooting now
   (`player.pronoun`, set by `useCharacter`), so in HORSE it follows each turn.
 - **Device:** a random id kept in the browser, stored server-side only as a keyed hash. The leaderboard shows one
-  row per device + player per mode, with the latest nickname.
+  row per device + player per mode, with the latest nickname (devices joined by a pairing code count as one).
 - **Report:** anyone can tap the flag on someone else's leaderboard row (the board panel and the game-over
   board, never their own rows) to say the name isn't friendly: `POST /api/reports` with `{ scoreId }` and the
   X-Device header. One `reports` row per score per hashed IP (and day), so repeats are no-ops; a device
@@ -177,6 +219,11 @@ Terms used across the code:
   hides that game or presses "Looks fine" (`name-ok`), which mark the reports `cleared`. Rename and Looks fine
   clear every report on that device and player's games (one row, one name); Hide clears that game's only, so
   if their next best game shows with the same name it can be reported again.
+- **Blocked name:** hiding a game while its name has open reports ("Hide and block name") adds the name to
+  `blocked_names`, squashed like the rude-word filter (lower-case letters, look-alikes swapped back; names under
+  3 letters aren't added). From then on `isUnfriendly` (`util.ts`) turns away any typed text containing it
+  (nicknames, players, team names, ideas, `/api/check`), on top of the rude-word filter; each Worker instance
+  keeps the list for a minute. The admin's Scores page lists them, with "Allow again".
 - **Rate limits:** the `rate_limits` table counts calls to cheap routes (votes, the score preview, reports) per hashed IP
   per day, one upsert a call, so even toggling a vote uses up the day's allowance. The weekly cron clears old days.
 - **Shot log:** one entry per shot, `[seconds in, three (1/0), made (1/0), release timing, ball kind]`. Release
@@ -201,6 +248,42 @@ Terms used across the code:
   stepping the same start again gives the same flight exactly; `window.game.checkReplays()` in `?debug`
   re-flies every shot and checks each goes in or out as it did. A replay changes nothing about the score,
   the shot log or what's sent.
+- **Saved progress and coins:** coins are earned only by playing, never bought: 1 a basket, 2 while on fire,
+  5 for a money or rainbow ball that goes in (`coinsFor` in `shared/rules.js`). As a game ends (not in
+  `?debug`) the game sends it to `POST /api/progress/games` with its start token and shot log; the Worker
+  checks it exactly like a leaderboard score (`checkGame`, the token's age) and adds the coins once per token,
+  whether or not the score ever goes on the board. A finished HORSE match has no score, so it earns a flat
+  amount instead (`HORSE_MATCH` in `shared/rules.js`), checked only by the token's age (at least 30 seconds),
+  for the device it was played on; a match quit from the pause earns nothing.
+  The first coins make a `progress` and give the device a random key (`orson-progress-key` in the browser; the server keeps only a keyed hash). No names,
+  emails or passwords. Coins buy ball styles (`shared/shop.js`; the everyday ball's look, while money and
+  rainbow balls keep theirs so they stand out). To carry progress to another device, one device asks for a
+  pairing code (`/pair`: 8 letters and numbers, works once, for 10 minutes) and the other types it in
+  (`/join`, 15 tries a day per IP); anything the joining device already had is added in, so nothing's lost.
+  A lost device's coins can't be got back. All progress routes are POSTs with the key in the body (never in
+  a URL) and are rate limited per IP.
+- **What else travels with progress:** personal bests, the daily challenge streak, players made in the
+  builder and the leaderboard nickname (`shared/save.js`). Each kept where it always was in the browser;
+  `progress.js` gathers them into a save and sends it with the progress calls that read or earn (`/progress`
+  at boot and when the shop opens, `/games`, `/join`). The Worker tidies it (known shapes and sizes only,
+  rude names dropped), merges it into the stored copy (`progress.save`) and sends the result back, which the
+  game merges in again and writes back to each place. Merging never loses anything: the better best (the
+  fastest for Around the World), the streak from the device that did a challenge last, both devices' players
+  (newest first, up to 6, one per name; removed ones are remembered so they stay gone), the nickname typed
+  most recently. Players arriving from another device join the picker straight away. The save is only ever
+  sent back to devices holding the key.
+- **Leaderboard rows follow progress too:** the progress calls send the device's leaderboard id, and the
+  Worker notes its hash against the key (`progress_devices.device_hash`). A progress has one shared id
+  (`progress.board`, its first device's); `boardOf` in `scores.ts` sends every joined device's games there,
+  and its own-row checks (the preview, not reporting yourself) use it too. Joining moves the joining device's
+  earlier rows (and those of any devices it was already joined with) onto the shared id, so each player
+  shows once, at their best across all their devices, with the latest nickname. A device with no progress
+  keeps its own rows, as before. Each progress call also moves any rows still on the device's own id
+  across (a score sent while it was joining), and a device's id is linked to one key only (its newest).
+- **Two joins at once:** a join merges one progress into another in one batch whose every step only runs
+  while both still exist. If another join merged either away a moment before (two devices typing each
+  other's codes at once), nothing moves and the device is asked to get a new code (409), so no coins or
+  devices end up in a progress that's gone.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
 
 ## Courts
@@ -224,6 +307,29 @@ there) and `three` (on a 3-pointer, timing mistakes and wobble are divided by th
 a device are always neutral. The picker shows a player's skills only when they have some. The server needs no
 change: it checks scores from the shot log, and the release timing in the log is measured in that player's own
 green-zone widths.
+
+## Admin stats
+
+The admin's Stats tab (`/admin/stats`, `worker/src/stats.ts`) shows the last 30 days of use and feature
+adoption, worked out from what's already saved, so nothing new is collected from players and nothing goes to
+another service:
+
+- **Games** are the coin claims in `progress_games` (every finished game played online, HORSE included).
+- **Saves** stand in for players: one `progress` is a device, or devices joined with a code. Active saves
+  today, this week and this month; saves that came back on another day; saves made 1 to 5 weeks ago that
+  played again a week after their first game.
+- **Features** are counted over the saves that played: on a leaderboard (`scores.device = progress.board`),
+  daily challenge (the save's `daily.done`), bought or using a ball, made a player (the save's `players`),
+  joined with a code (more than one `progress_devices` row), played HORSE. Leaderboard sends add how people
+  play (input), who they play as and which game versions are about.
+- **Page views** come from Cloudflare's own analytics (sampled, no cookies). Cloudflare keeps them about a
+  month, so the daily cron (00:30 UTC) copies each page's views and visits into `page_views` with a token
+  that can only read this zone's analytics (`CF_ANALYTICS_TOKEN`). Working out the stats copies them too
+  (from the last day copied to today), so a new day shows straight away; if Cloudflare fails, the page says
+  why and shows the rest.
+
+Only totals are shown, never one save's history. It's admin-only (Access plus the token check), indexed by
+day (`0016_stats.sql`), and the answer is reused for 5 minutes, so the cost doesn't grow with players.
 
 ## How a score gets on the board
 
@@ -293,11 +399,30 @@ stateDiagram-v2
   Replay --> GameOver: done, or tap to skip
   GameOver --> ChooseGame: Change game
   GameOver --> ChoosePlayer: Change player
+  GameOver --> Title: Close
   ChooseGame --> Title: Back
   ChoosePlayer --> ChooseGame: Back
+  Playing --> Paused: pause button, Escape, or leaving the app or tab
+  Paused --> Playing: Keep playing / Start again
+  Paused --> Title: Quit this game
+  Title --> Menu: menu button
+  Menu --> ChooseGame: Play
 ```
 
-Help and the leaderboard open over any of these and return to where they were.
+The menu, help, the leaderboard and the shop open over any of these and return to where they were.
+
+**The page is laid out like an app**, the same on the web and in the iOS app (`games/shootaround/index.html`,
+the game page section of `styles.css`). There's no site bar: the website's pages are links at the bottom of
+the menu, which the iOS app leaves out (`IN_APP`). The page fills the screen inside the safe areas and never
+scrolls. The court (`#stage`, a square) is as big as fits in the middle: on a tall screen, less a row of
+buttons above and the same space below; on a wide screen, less a column each side. Never less than 85% of
+the most that fits, so on a nearly square screen the buttons sit over the court's empty top corners. The
+buttons are in the top corners (menu, leaderboard and shop on the left; how to play, music and sound on the
+right); mid-game only pause, music and sound stay. Pausing stops the game's update (`state.paused`), so the clock and the ball freeze; quitting sends nothing. The bottom corners are kept free for thumbs and, later, a
+joystick and buttons. The score and clock stay on the wall scoreboard in the court art. Every other screen
+is a sheet that fills the whole screen, with its heading stuck to the top and back (or close) at the top
+left; Escape does the same as that button. The whole page takes presses, so a thumb can hold anywhere
+outside the buttons and sheets.
 
 **HORSE (pass and play)** is a mode (`modes/horse.js`) with a few optional hooks no other mode uses
 (documented in `modes/index.js`): `passAndPlay` makes choosing a player pick 2 to 4 players in turn order
@@ -308,7 +433,8 @@ picks a spot (one is picked at random to start from, from the seeded "spots" str
 other player still in has to make the same shot or get a letter; a missed lead shot passes the lead on.
 Each turn plays as that player without changing the device's chosen player (`useCharacter(id, { remember:
 false })`; the title and choose-a-game screens switch back). There's no fire (every shot is the same for
-everyone), no bonus balls, no best, no daily challenge, no start token and no leaderboard: nothing is sent.
+everyone), no bonus balls, no best, no daily challenge and no leaderboard; a finished match does get a start token and earns flat coins
+(see saved progress above), so it's counted in the admin's stats like any other game.
 
 ## Players' art
 

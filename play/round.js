@@ -37,12 +37,14 @@ export function startGame() {
   state.shotLog = [];
   state.replayShots = [];
   state.hiddenTab = false;
+  state.paused = false;
   state.gameToken = null;
   state.rngSeed = null;
   resetRandom();
   const game = ++gamesStarted;
-  // A start token for the leaderboard. Pass and play games (HORSE) and Free play have none: nothing is sent.
-  if (!mode().passAndPlay && mode().ranked !== false)
+  // A start token, for the leaderboard and coins (a finished HORSE match earns coins too). Free play
+  // never finishes, so it has none.
+  if (mode().ranked !== false || mode().passAndPlay)
     startToken().then((token) => {
       if (game === gamesStarted) state.gameToken = token;
     });

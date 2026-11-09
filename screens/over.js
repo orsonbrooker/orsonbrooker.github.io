@@ -4,6 +4,9 @@
 import { countsIn, doneToday, progress, streakDays, todaysChallenge } from "../daily.js";
 import { save } from "../engine/storage.js";
 import { showRoundResult } from "../leaderboard.js";
+import { claimCoins, progress as saved } from "../progress.js";
+import { HORSE_MATCH, coinsFor } from "../shared/rules.js";
+import { icon } from "../ui/icons.js";
 import { boardFace, characters } from "../play/players.js";
 import { announce, checkDaily } from "../play/react.js";
 import { bestShot } from "../play/replay.js";
@@ -37,11 +40,40 @@ export function endGame() {
   $("replay").hidden = !bestShot(); // nothing to replay if nothing went in
   showDaily();
   showScreen("over");
-  // Pass and play (HORSE) has no leaderboard: nothing is sent.
+  // Pass and play (HORSE) has no leaderboard, just a flat amount of coins for finishing.
   if (m.passAndPlay) {
     $("over-board").hidden = true;
     $("over-daily").textContent = "";
   } else showRound();
+  showCoins();
+}
+
+// The coins this game earned, saved to their progress (progress.js). Worked out here to show straight
+// away, then by the server, which has the final say.
+async function showCoins() {
+  const box = $("over-coins");
+  const horse = mode().passAndPlay;
+  const earned = horse ? HORSE_MATCH.coins : coinsFor(state.shotLog);
+  box.hidden = !earned;
+  if (!earned) return;
+  const line = (text) => {
+    box.innerHTML = icon("coins");
+    box.append(text);
+  };
+  const plus = `+${earned} ${earned === 1 ? "coin" : "coins"}`;
+  if (DEBUG) return line(`${plus} (test mode, not saved)`);
+  if (!state.gameToken) return line(`${plus}, but no internet, so they couldn't be saved.`);
+  line(`${plus}!`);
+  const shown = state.overAt;
+  try {
+    const game = horse ? { token: state.gameToken, mode: HORSE_MATCH.mode } : { token: state.gameToken, mode: state.mode, score: mode().boardScore(), shots: state.shotLog };
+    const got = await claimCoins(game);
+    if (state.overAt === shown) line(`+${got} ${got === 1 ? "coin" : "coins"}! You have ${saved.coins}.`);
+  } catch (err) {
+    if (state.overAt !== shown) return;
+    if (err.offline) line(`${plus}, but no internet, so they couldn't be saved.`);
+    else box.hidden = true; // the server didn't count this game
+  }
 }
 
 // The daily challenge line on the game select and game-over screens.

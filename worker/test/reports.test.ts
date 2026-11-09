@@ -3,29 +3,11 @@
 // Run: npm --prefix worker test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
-import { clearReports, REPORTED, reportScore } from "../src/scores.ts";
-import { hash } from "../src/util.ts";
+import type { DatabaseSync } from "node:sqlite";
+import { blockReportedName, clearReports, REPORTED, reportScore } from "../src/scores.ts";
+import { forgetBlockedNames, hash, isUnfriendly } from "../src/util.ts";
 import type { Env } from "../src/util.ts";
-
-// Just enough of D1's prepare().bind().all()/first()/run() for the code under test.
-function fakeEnv(): { env: Env; db: DatabaseSync } {
-	const db = new DatabaseSync(":memory:");
-	const dir = new URL("../migrations/", import.meta.url);
-	for (const file of readdirSync(dir).filter((f) => f.endsWith(".sql")).sort()) db.exec(readFileSync(new URL(file, dir), "utf8"));
-	const prepare = (sql: string) => {
-		let args: unknown[] = [];
-		const stmt = {
-			bind: (...values: unknown[]) => ((args = values), stmt),
-			all: async () => ({ results: db.prepare(sql).all(...(args as never[])) }),
-			first: async () => db.prepare(sql).get(...(args as never[])) ?? null,
-			run: async () => ({ meta: { changes: Number(db.prepare(sql).run(...(args as never[])).changes) } }),
-		};
-		return stmt;
-	};
-	return { env: { DB: { prepare }, HASH_SECRET: "test-secret" } as unknown as Env, db };
-}
+import { fakeEnv } from "./fake-d1.ts";
 
 function addScore(db: DatabaseSync, device: string, player = "orson", status = "shown"): number {
 	const row = db
@@ -105,4 +87,30 @@ test("clearing a name's reports clears that device and player's games only, and 
 	assert.deepEqual(open(db), [other]);
 	await report(env, { scoreId: a1 }); // the same report again doesn't bring it back
 	assert.deepEqual(open(db), [other]);
+});
+
+test("hiding a reported name blocks it everywhere people type; other hides don't", async () => {
+	const { env, db } = fakeEnv();
+	forgetBlockedNames();
+	const reported = addScore(db, "dev-a");
+	db.prepare("UPDATE scores SET nickname = 'Poo Head' WHERE id = ?").run(reported);
+	const odd = addScore(db, "dev-b", "p1"); // hidden for an odd score, never reported
+	db.prepare("UPDATE scores SET nickname = 'Zapper' WHERE id = ?").run(odd);
+	const short = addScore(db, "dev-c", "p2");
+	db.prepare("UPDATE scores SET nickname = 'Jo' WHERE id = ?").run(short);
+	await report(env, { scoreId: reported });
+	await report(env, { scoreId: short });
+
+	assert.equal(await blockReportedName(env, reported), "Poo Head");
+	assert.equal(await blockReportedName(env, odd), null);
+	assert.equal(await blockReportedName(env, short), null); // too short to block safely
+	for (const t of ["Poo Head", "poohead", "P00-HEAD", "Mr Poo Head 2"]) assert.equal(await isUnfriendly(env, t), true, t);
+	for (const t of ["Zapper", "Jo", "Pooja", "Head coach"]) assert.equal(await isUnfriendly(env, t), false, t);
+
+	// A name that was said to look fine (reports cleared) isn't blocked if hidden later.
+	const fine = addScore(db, "dev-d", "p3");
+	db.prepare("UPDATE scores SET nickname = 'Sparkles' WHERE id = ?").run(fine);
+	await report(env, { scoreId: fine });
+	await clearReports(env, fine);
+	assert.equal(await blockReportedName(env, fine), null);
 });

@@ -155,3 +155,33 @@ export function recountScore(shots) {
   }
   return score;
 }
+
+// ---------- Coins ----------
+// Earned only by playing: worked out from a game's shot log by the server when the game is sent, the
+// same way scores are checked. No real money, ever.
+
+export const COINS = { basket: 1, onFire: 2, bonusBall: 5 };
+
+/**
+ * HORSE (pass and play) isn't scored, so a finished match earns a flat amount, for the device it was
+ * played on. It can't have finished faster than `minSeconds` (at least ten shots and the turn screens).
+ */
+export const HORSE_MATCH = { mode: "horse", coins: 20, minSeconds: 30 };
+
+/**
+ * Coins for a game: 1 a basket, 2 while on fire, 5 for a money or rainbow ball that goes in.
+ * @param {Shot[]} shots
+ */
+export function coinsFor(shots) {
+  let coins = 0;
+  let streak = 0;
+  for (const [, , made, , kind] of shots) {
+    if (!made) {
+      streak = 0;
+      continue;
+    }
+    coins += kind === MONEY || kind === RAINBOW ? COINS.bonusBall : fireBonus(streak) ? COINS.onFire : COINS.basket;
+    streak++;
+  }
+  return coins;
+}

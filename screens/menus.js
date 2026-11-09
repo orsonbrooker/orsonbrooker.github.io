@@ -2,6 +2,7 @@
 // player. The first time someone plays, choosing a player comes first and then the game starts.
 
 import { attributesFor, skillWords } from "../content/attributes.js";
+import { IN_APP } from "../api.js";
 import { load, save } from "../engine/storage.js";
 import { modeShown } from "../modes/index.js";
 import { characters, setFace, useCharacter } from "../play/players.js";
@@ -21,7 +22,7 @@ for (const el of document.querySelectorAll("[data-mode], [data-board-mode], [dat
 // Picks the mode for the next game (remembered for next time) and shows its best.
 export function setMode(id) {
   state.mode = modes[id] && modeShown(id) ? id : "timed";
-  state.best = mode().bestKey ? load(mode().bestKey, 0) : 0;
+  state.best = mode().bestKey ? load(mode().bestKey, 0) : 0; // (saved progress may change it: progress.js)
   save("orson-hoops-mode", state.mode);
   stage.dataset.gameMode = state.mode; // free play shows its own buttons (styles.css)
   updateHud();
@@ -87,6 +88,11 @@ export async function selectCharacter(id) {
   if (state.phase === "select") renderPicker();
 }
 
+/** The picker again if it's open (the list of players changed). */
+export function refreshPicker() {
+  if (state.phase === "select") renderPicker();
+}
+
 // The player select screen: a card per player, then one to make your own.
 function renderPicker() {
   charPick.replaceChildren(
@@ -137,7 +143,8 @@ function renderPicker() {
       card.append(button, remove);
       return card;
     }),
-    Object.assign(document.createElement("a"), { href: "/players/", className: "card make-player", innerHTML: `${icon("plus")}<span>Make your player</span>` }),
+    // The builder is a page of the website, not in the iOS app (which is just the game).
+    ...(IN_APP ? [] : [Object.assign(document.createElement("a"), { href: "/players/", className: "card make-player", innerHTML: `${icon("plus")}<span>Make your player</span>` })]),
   );
   if (team) showTeam();
 }

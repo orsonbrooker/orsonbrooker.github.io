@@ -54,6 +54,7 @@ export const state = {
   rngSeed: null, // what this game's random spots and aim came from (its start token, if it had one by then)
   input: "touch",
   hiddenTab: false,
+  paused: false, // the game is stopped while the Paused screen shows (screens/pause.js)
 };
 
 export const player = {

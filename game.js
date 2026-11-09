@@ -17,16 +17,20 @@ import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { setUpTouchControls } from "./play/controls.js";
 import { COURTS, court, useCourt } from "./play/court.js";
-import { characters, faceHoop, loadImage, loadRoster } from "./play/players.js";
+import { characters, faceHoop, loadImage, loadRoster, reloadMyPlayers } from "./play/players.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play/react.js";
 import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js";
 import { canDunk, checkDecided, shoot, startDunk, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
 import { DEBUG, mode, player, setAnim, setSeed, state, steer } from "./play/state.js";
-import { $, charPick, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
-import { openModes, openSelect, selectBack, selectCharacter, setMode, showTitle, startTeam } from "./screens/menus.js";
+import { $, charPick, page, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
+import { openModes, openSelect, refreshPicker, selectBack, selectCharacter, setMode, showTitle, startTeam } from "./screens/menus.js";
 import { setGameVersion } from "./screens/over.js";
 import { closeBoard, closeHelp, openBoard, toggleBoard, toggleHelp, wireBoardTabs } from "./screens/panels.js";
+import { closeMenu, wireMenu } from "./screens/menu.js";
+import { openPause, pauseOpen, resumeGame, wirePause } from "./screens/pause.js";
+import { closeShop, wireShop } from "./screens/shop.js";
+import { ballLook, onProgress, onSave, refreshProgress } from "./progress.js";
 import { confirmDialog } from "./ui/confirm.js";
 import { fillIcons } from "./ui/icons.js";
 
@@ -42,7 +46,7 @@ function press() {
   state.pressed = true;
   sound.unlock();
 
-  if (!screens.help.hidden) return;
+  if (!screens.help.hidden || !screens.shop.hidden || !screens.menu.hidden || pauseOpen()) return;
   // A tap during a replay skips it.
   if (state.phase === "replay") return endReplay();
   // Tapping to start: choose a game, then a player, then play.
@@ -87,23 +91,19 @@ const resetTouchControls = setUpTouchControls({
   },
 });
 
-// Free play only ends when they leave (Escape, or the back button): back to choosing a game.
+// Free play only ends when they quit from the pause menu (the pause button, or Escape): let go of the
+// joystick and put the player back on his feet.
 function leaveFreePlay() {
-  if (state.phase !== "playing" || !mode().freeMove) return;
+  if (!mode().freeMove) return;
   resetTouchControls();
   state.pressed = false; // let go without shooting
   for (const b of state.balls) b.trail?.stop();
-  state.balls = [];
   player.steered = false;
   player.dunk = null;
   player.lift = 0;
   faceHoop();
   setAnim("idle");
-  sound.setIntensity({ stage: 0, fire: 0, final: false });
-  openModes();
 }
-$("leave-button").addEventListener("pointerdown", (e) => e.stopPropagation());
-$("leave-button").addEventListener("click", leaveFreePlay);
 
 // ---------- Buttons on the screens ----------
 
@@ -130,30 +130,40 @@ $("turn-quit").addEventListener("click", async () => {
 $("got-idea").addEventListener("click", () => window.dispatchEvent(new CustomEvent("feedback:open", { detail: { app: "basketball" } })));
 $("help-button").addEventListener("click", toggleHelp);
 $("help-close").addEventListener("click", closeHelp);
+$("help-back").addEventListener("click", closeHelp);
+$("over-close").addEventListener("click", showTitle);
 $("board-button").addEventListener("click", toggleBoard);
 $("board-back").addEventListener("click", closeBoard);
 wireBoardTabs();
+wireShop();
+wireMenu();
+wirePause({ onQuit: leaveFreePlay });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && state.phase === "playing") state.hiddenTab = true;
 });
-fillIcons(stage);
+fillIcons(page);
 
-// The whole game area takes presses, not just the court: on a phone there's room below the
-// court for a thumb to hold down without covering the player.
+// The whole screen takes presses, not just the court: on a phone there's room around the court
+// for a thumb to hold down without covering the player.
 listenForInput({
-  pad: document.querySelector(".game-page") ?? stage,
+  pad: page,
   stage,
   press,
   release,
   setInput: (how) => {
     state.input = how;
   },
+  // Escape does what the button at the top left of the screen does: back, or close.
   escape() {
     if (!screens.help.hidden) closeHelp();
+    else if (!screens.menu.hidden) closeMenu();
+    else if (pauseOpen()) resumeGame();
+    else if (state.phase === "playing") openPause();
+    else if (!screens.shop.hidden) closeShop();
     else if (!screens.board.hidden) closeBoard();
     else if (state.phase === "replay") endReplay();
-    else if (state.phase === "select" || state.phase === "modes") showTitle();
-    else leaveFreePlay();
+    else if (state.phase === "select") selectBack();
+    else if (state.phase === "modes" || (state.phase === "over" && performance.now() - state.overAt > 900)) showTitle();
   },
   // Free play: the arrow keys and WASD steer him.
   steer(x, y) {
@@ -180,7 +190,7 @@ async function boot() {
       selectCharacter(characters.selected),
       document.fonts?.load('48px "Press Start 2P"').catch(() => {}),
     ]);
-    art.ballSprites = makeBallSprites();
+    art.ballSprites = makeBallSprites(ballLook()); // their ball style from the shop
   } catch (err) {
     tapToPlay.textContent = "Oops! The game could not load. Try refreshing the page.";
     console.error(err);
@@ -193,11 +203,16 @@ async function boot() {
   resize();
   new ResizeObserver(resize).observe(stage);
   state.mode = load("orson-hoops-mode", "timed");
+  // A new ball style (bought here or on another device) shows from the next shot.
+  onProgress(() => (art.ballSprites = makeBallSprites(ballLook())));
+  // Players made on their other devices (saved progress) join the picker.
+  onSave(() => reloadMyPlayers().then(refreshPicker));
+  refreshProgress();
   showTitle();
   if (location.hash === "#leaderboard") openBoard("week");
   updateHud();
   startLoop((dt) => {
-    step(dt);
+    if (!state.paused) step(dt);
     render();
   });
 }

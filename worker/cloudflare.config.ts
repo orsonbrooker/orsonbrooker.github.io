@@ -21,6 +21,10 @@ export default defineConfig(({ mode }) => ({
 			ACCESS_AUD: bindings.secret(),
 			// Private ntfy.sh topic for the weekly "new ideas to check" phone notification.
 			NTFY_TOPIC: bindings.secret(),
+			// The admin page's page view counts: this zone's id (public), and an API token that can only
+			// read its analytics (Zone > Analytics > Read), copied daily (stats.ts).
+			CF_ZONE_ID: bindings.text("bab7b49217f21802b93f38c4238caae3"),
+			CF_ANALYTICS_TOKEN: bindings.secret(),
 			// Skips the Access check, so /admin can be tried locally. Only on in `cf dev`.
 			DEV_ADMIN: bindings.text(mode === "development" ? "1" : "0"),
 		},
@@ -29,6 +33,8 @@ export default defineConfig(({ mode }) => ({
 			triggers.fetch({ pattern: "orsonbrooker.com/admin*", zone: "orsonbrooker.com" }),
 			// Mondays 8am Melbourne (Sunday 21:00 UTC).
 			triggers.scheduled({ schedule: "0 21 * * SUN" }),
+			// Every day at 00:30 UTC: copy page views for the admin page's stats (DAILY in src/index.ts).
+			triggers.scheduled({ schedule: "30 0 * * *" }),
 		],
 	},
 }));

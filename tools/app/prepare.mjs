@@ -5,7 +5,8 @@ import { cpSync, rmSync, writeFileSync } from "node:fs";
 
 rmSync("dist-app", { recursive: true, force: true });
 cpSync("dist", "dist-app", { recursive: true });
-for (const f of ["CNAME", "404.html", "lab"]) rmSync(`dist-app/${f}`, { recursive: true, force: true });
+// The app is just the game: the website's other pages (and links to them) stay out.
+for (const f of ["CNAME", "404.html", "lab", "players", "ideas", "sitemap.xml", "robots.txt"]) rmSync(`dist-app/${f}`, { recursive: true, force: true });
 // The app opens on the game. The menu's Home link comes back here too.
 writeFileSync(
   "dist-app/index.html",
