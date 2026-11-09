@@ -255,7 +255,9 @@ Terms used across the code:
   whether or not the score ever goes on the board. A finished HORSE match has no score, so it earns a flat
   amount instead (`HORSE_MATCH` in `shared/rules.js`), checked only by the token's age (at least 30 seconds),
   for the device it was played on; a match quit from the pause earns nothing.
-  The first coins make a `progress` and give the device a random key (`orson-progress-key` in the browser; the server keeps only a keyed hash). No names,
+  The first coins make a `progress` and give the device a random key (`orson-progress-key` in the browser; the server keeps only a keyed hash). The game never
+  throws the key away, whatever an answer says (a 404 can come from a wrong route as easily as from the
+  server): it's the only way back to the coins and balls. No names,
   emails or passwords. Coins buy ball styles (`shared/shop.js`; the everyday ball's look, while money and
   rainbow balls keep theirs so they stand out). To carry progress to another device, one device asks for a
   pairing code (`/pair`: 8 letters and numbers, works once, for 10 minutes) and the other types it in
@@ -409,6 +411,14 @@ stateDiagram-v2
 ```
 
 The menu, help, the leaderboard and the shop open over any of these and return to where they were.
+
+In the code these are `state.phase`, and `PHASES` in `play/state.js` lists where each can go (the title is
+always allowed); change it only with `setPhase()`, which warns about a move the table doesn't list (an
+error in `?debug`). Between Playing and GameOver there's a short `ending` phase: time's up (or the game is
+decided), balls already in the air still count, and no new shot can start. A shot can only be taken while
+`canShoot()` (playing, not paused), so every ball that can score is in the shot log, and a ball is called
+made or missed once: one called a miss (it sat on the rim for 3 seconds) can't count later. Both keep the
+score the game shows equal to the server's recount of its shot log.
 
 **The page is laid out like an app**, the same on the web and in the iOS app (`games/shootaround/index.html`,
 the game page section of `styles.css`). There's no site bar: the website's pages are links at the bottom of

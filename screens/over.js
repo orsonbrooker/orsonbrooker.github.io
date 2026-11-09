@@ -10,7 +10,7 @@ import { icon } from "../ui/icons.js";
 import { boardFace, characters } from "../play/players.js";
 import { announce, checkDaily } from "../play/react.js";
 import { bestShot } from "../play/replay.js";
-import { DEBUG, mode, state } from "../play/state.js";
+import { DEBUG, mode, setPhase, state } from "../play/state.js";
 import { $, showScreen } from "../screens/base.js";
 
 // The game's version (game.js's ?v= stamp), sent with scores.
@@ -20,7 +20,7 @@ export function setGameVersion(version) {
 }
 
 export function endGame() {
-  state.phase = "over";
+  setPhase("over");
   state.overAt = performance.now();
   checkDaily(); // things only known at the end, like the final score
   const m = mode();

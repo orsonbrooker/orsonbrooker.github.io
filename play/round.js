@@ -12,7 +12,7 @@ import { frameCount, jumpLift, sheet, shoePoints } from "../play/players.js";
 import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss, timingWindow, zoneCenter } from "../play/react.js";
 import { recordMade, recordShot, updateReplay } from "../play/replay.js";
 import { updateHud } from "../play/scene.js";
-import { ANIM_FPS, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state } from "../play/state.js";
+import { ANIM_FPS, JUMP_FRAME_TIME, LAUNCH_ANGLE, canShoot, hints, mode, player, random, resetRandom, setAnim, setPhase, state } from "../play/state.js";
 import { showScreen } from "../screens/base.js";
 import { endGame } from "../screens/over.js";
 import { GAME_SECONDS } from "../shared/rules.js";
@@ -22,7 +22,7 @@ const SLOW_MO = 0.35; // game speed while a shot at the buzzer drops toward the 
 let gamesStarted = 0;
 
 export function startGame() {
-  state.phase = "playing";
+  setPhase("playing");
   state.score = 0;
   state.timeLeft = GAME_SECONDS;
   state.elapsed = 0;
@@ -73,8 +73,11 @@ function gaussian() {
   return (random("aim") + random("aim") + random("aim") - 1.5) / 1.5;
 }
 
-// `timing` is 0 for a perfect release, negative for early and positive for late.
+// `timing` is 0 for a perfect release, negative for early and positive for late. Only while playing
+// (canShoot): once time's up, a jump that's still going just ends, with no ball, so every shot that can
+// score is in the shot log.
 export function shoot(timing) {
+  if (!canShoot()) return setAnim("dribble");
   const releaseAnim = player.anim;
   const releaseT = player.t;
   // The green as they saw it, for the replay (before this shot is logged, which moves it on).
@@ -142,11 +145,9 @@ export function shoot(timing) {
     const p = project(u, v, z);
     ball.trail = pixelFx.fireTrail(p.x, p.y, ball.fire.fx);
   }
-  if (state.phase === "playing") {
-    ball.log = [Math.round(mode().gameSeconds() * 100) / 100, ball.three ? 1 : 0, 0, Math.round(clamped * 1000) / 1000, ball.kind];
-    state.shotLog.push(ball.log);
-    ball.replay = recordShot(ball, releaseAnim, releaseT, green); // for the instant replay (play/replay.js)
-  }
+  ball.log = [Math.round(mode().gameSeconds() * 100) / 100, ball.three ? 1 : 0, 0, Math.round(clamped * 1000) / 1000, ball.kind];
+  state.shotLog.push(ball.log);
+  ball.replay = recordShot(ball, releaseAnim, releaseT, green); // for the instant replay (play/replay.js)
   player.activeBall = ball;
   player.airT = player.anim === "jump" ? player.t : Infinity; // let go from a gather: not in the air
   setAnim("release");
@@ -186,6 +187,7 @@ function stepPhysics(dt) {
 
 function scoreBasket(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
+  if (b.decided) return; // already called a miss (it sat on the rim too long): it stays one, like in the shot log's order
   if (!mode().countsShot()) return;
   mode().onMake(b);
   recordMade(b);
@@ -207,7 +209,8 @@ function missedShot(b) {
   else if (Math.random() < 0.7) announce("miss", "#c8b6ff");
 }
 
-// A shot is decided once it has gone in or clearly missed.
+// A ball's call: in the air, then made or missed, once (b.decided). A miss can't become a make later,
+// so the score, the streak and the shot log always agree with the server's recount (recountScore).
 export function checkDecided(b) {
   if (b.decided) return;
   const missed = b.bounces > 0 || (b.vz < 0 && b.z < RIM.z - 0.6) || b.age > 3;
@@ -234,8 +237,9 @@ function updatePlayer(dt) {
       player.v = spot.v;
       player.moving = false;
       player.fade = 0;
-      // Already facing the hoop after the first shot: straight to dribbling (or jumping, if held).
-      setAnim(state.pressed ? "gather" : "dribble");
+      // Already facing the hoop after the first shot: straight to dribbling (or jumping, if held and
+      // there's still time to shoot).
+      setAnim(state.pressed && canShoot() ? "gather" : "dribble");
       if (isThreePointSpot(spot.u, spot.v)) {
         const p = project(spot.u, spot.v);
         addPopup("3PT SPOT", "#ffffff", p.x, p.y - 500);
@@ -253,7 +257,7 @@ function updatePlayer(dt) {
 
   switch (player.anim) {
     case "turn":
-      if (player.t >= frameCount("turn") / ANIM_FPS.turn) setAnim(state.pressed ? "gather" : "dribble");
+      if (player.t >= frameCount("turn") / ANIM_FPS.turn) setAnim(state.pressed && canShoot() ? "gather" : "dribble");
       break;
     case "gather":
       if (player.t >= frameCount("gather") / ANIM_FPS.gather) {

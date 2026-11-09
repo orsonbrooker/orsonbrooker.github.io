@@ -17,8 +17,43 @@ export const JUMP_APEX = 0.29;
 export const TIMING_WINDOW = 0.13;
 export const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16 };
 
+// ---------- Phases ----------
+// Where the game is, and where it can go from each phase (docs/architecture.md, "The game's screens", draws
+// it). Change it only with setPhase(). The title is always allowed (Home, Quit, Escape). Pausing isn't a
+// phase: it's `state.paused`, during "playing".
+//   loading   the art and sounds are loading
+//   title     tap to play
+//   modes     choose a game
+//   select    choose a player (or HORSE's players)
+//   playing   a game: the only phase a shot can be taken in (canShoot)
+//   turn      HORSE, between shots: pass the device
+//   ending    time's up, or the game is decided: balls already in the air still count, no new shots
+//   over      the game-over screen
+//   replay    its best shot again, then back to "over"
+export const PHASES = {
+  loading: ["title"],
+  title: ["modes"],
+  modes: ["select", "modes"],
+  select: ["playing", "turn", "modes", "select"],
+  playing: ["ending", "turn", "playing"],
+  turn: ["playing", "turn", "ending"],
+  ending: ["over"],
+  over: ["playing", "replay", "modes", "select"],
+  replay: ["over"],
+};
+
+export function setPhase(next) {
+  const from = state.phase;
+  // A move the table doesn't list is a bug: say so in test mode, but never stop a game over it.
+  if (next !== "title" && !PHASES[from]?.includes(next)) (DEBUG ? console.error : console.warn)(`Phase ${from} -> ${next} isn't in PHASES (play/state.js)`);
+  state.phase = next;
+}
+
+/** A shot can only be taken while a game is being played (not paused, not once time's up). */
+export const canShoot = () => state.phase === "playing" && !state.paused;
+
 export const state = {
-  phase: "loading", // loading | title | modes | select | playing | turn (HORSE, between shots) | ending | over | replay
+  phase: "loading", // see PHASES; change it with setPhase()
   score: 0,
   mode: "timed",
   best: 0,

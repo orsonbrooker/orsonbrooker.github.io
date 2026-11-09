@@ -8,7 +8,7 @@ import { FIRE_LEVELS } from "../content/looks.js";
 import { COURT_PX, LINE_CLEARANCE, RIM, ROOM_U, ROOM_V, project, threePointRadius } from "../engine/court.js";
 import { addPopup, announce, confettiBurst, fireLevel, fireStage, pixelFx, recordMake } from "../play/react.js";
 import { updateHud } from "../play/scene.js";
-import { state } from "../play/state.js";
+import { setPhase, state } from "../play/state.js";
 import { movingGreen } from "../play/zone.js";
 import { AROUND_SPOTS } from "../shared/rules.js";
 
@@ -46,7 +46,7 @@ function onMake(b) {
   if (swish) pixelFx.swish(p.x, p.y, "cyan");
   if (state.aroundAt >= AROUND_SPOTS) {
     state.aroundTime = state.elapsed;
-    state.phase = "ending";
+    setPhase("ending");
     sound.gameOver();
     state.flash = 0.8;
     confettiBurst(160);

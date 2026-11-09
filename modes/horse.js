@@ -17,7 +17,7 @@ import { LINE_CLEARANCE, RIM, ROOM_U, ROOM_V, isThreePointSpot, project, threePo
 import { characters, preloadCharacter, useCharacter } from "../play/players.js";
 import { addPopup, announce, pixelFx } from "../play/react.js";
 import { updateHud } from "../play/scene.js";
-import { player, random, setAnim, state } from "../play/state.js";
+import { player, random, setAnim, setPhase, state } from "../play/state.js";
 import { MOVING_GREEN } from "../play/zone.js";
 import { showScreen, stage } from "../screens/base.js";
 import { showTurn } from "../screens/horse.js";
@@ -87,7 +87,7 @@ function begin() {
   game.winner = null;
   game.queue = [];
   game.spot = Math.floor(random("spots") * spots().length);
-  state.phase = "turn";
+  setPhase("turn");
   turn(0, "set", { news: "" });
   showNext(true);
 }
@@ -98,7 +98,7 @@ function turn(shooter, role, next) {
   game.role = role;
   game.next = next;
   game.wait = PAUSE;
-  state.phase = "turn";
+  setPhase("turn");
   updateHud();
 }
 
@@ -147,7 +147,7 @@ async function go(spotIndex) {
   setAnim("dribble");
   state.streak = 0; // no fire in HORSE: everyone gets the same shot
   state.coldStreak = 0;
-  state.phase = "playing";
+  setPhase("playing");
   showScreen(null);
   stage.focus({ preventScroll: true });
   updateHud();
@@ -191,7 +191,7 @@ function onMiss() {
   const out = !isIn(game.shooter);
   if (playersIn() === 1) {
     game.winner = game.players.findIndex((q) => q.letters < HORSE_WORD.length);
-    state.phase = "ending";
+    setPhase("ending");
     sound.gameOver();
     updateHud();
     return;

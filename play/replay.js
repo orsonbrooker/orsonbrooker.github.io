@@ -14,7 +14,7 @@ import { stepBall } from "../engine/physics.js";
 import { pickPhrase } from "../phrases.js";
 import { characters, frameCount, useCharacter } from "../play/players.js";
 import { addPopup, confettiBurst, pixelFx } from "../play/react.js";
-import { ANIM_FPS, player, setAnim, state } from "../play/state.js";
+import { ANIM_FPS, player, setAnim, setPhase, state } from "../play/state.js";
 import { howTo, showScreen } from "../screens/base.js";
 import { ballPoints } from "../shared/rules.js";
 
@@ -85,7 +85,7 @@ export async function startReplay() {
   const shot = bestShot();
   if (!shot || state.phase !== "over") return;
   const restore = { who: characters.selected, streak: state.streak, u: player.u, v: player.v };
-  state.phase = "replay";
+  setPhase("replay");
   showScreen(null);
   if (shot.who !== characters.selected) await useCharacter(shot.who, { remember: false }).catch(() => {});
   for (const b of state.balls) b.trail?.stop();
@@ -181,7 +181,7 @@ export function endReplay() {
   player.activeBall = null;
   setAnim("idle");
   if (restore.who !== characters.selected) useCharacter(restore.who, { remember: false }).catch(() => {});
-  state.phase = "over";
+  setPhase("over");
   state.overAt = performance.now();
   showScreen("over");
   document.getElementById("replay")?.focus({ preventScroll: true });
