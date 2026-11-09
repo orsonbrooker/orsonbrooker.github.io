@@ -14,7 +14,7 @@
 // progress has one (`board`, its first device's) that all its devices' games go on (boardOf in
 // scores.ts), and joining moves the joining device's earlier rows onto it.
 
-import { MODES, coinsFor, modeOf } from "../../shared/rules.js";
+import { HORSE_MATCH, MODES, coinsFor, modeOf } from "../../shared/rules.js";
 import { mergeSaves, sameSave, tidySave } from "../../shared/save.js";
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../../shared/shop.js";
 import { HttpError } from "./http.ts";
@@ -160,17 +160,27 @@ export async function getProgress(request: Request, env: Env): Promise<Response>
 
 /**
  * POST /api/progress/games { key?, device?, token, mode, score, shots, save? }: a finished game earns its coins.
- * Checked like a leaderboard score, once per game. Without a key (their first coins), a new
+ * Checked like a leaderboard score, once per game; a finished HORSE match (mode "horse", no score)
+ * earns a flat amount instead (HORSE_MATCH in shared/rules.js). Without a key (their first coins), a new
  * progress is made and its key sent back.
  */
 export async function claimGame(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
 	if (body.debug) throw new HttpError(400, "Games in test mode don't earn coins.");
-	const mode = modeOf(body.mode);
-	const game = checkGame(mode, Number(body.score), body.shots, body.token);
-	await checkGameToken(env, body.token, game.minSeconds);
-	const coins = coinsFor(game.shots);
-	if (coins < 1) throw new HttpError(400, "No coins in that game.");
+	let mode: string;
+	let coins: number;
+	if (body.mode === HORSE_MATCH.mode) {
+		// A finished HORSE match: no score to check, just that it really started that long ago.
+		mode = HORSE_MATCH.mode;
+		await checkGameToken(env, body.token, HORSE_MATCH.minSeconds);
+		coins = HORSE_MATCH.coins;
+	} else {
+		mode = modeOf(body.mode);
+		const game = checkGame(modeOf(body.mode), Number(body.score), body.shots, body.token);
+		await checkGameToken(env, body.token, game.minSeconds);
+		coins = coinsFor(game.shots);
+		if (coins < 1) throw new HttpError(400, "No coins in that game.");
+	}
 	await rateLimit(request, env, "progress-game", GAMES_PER_DAY, "That's a lot of games for one day! Try again tomorrow.");
 
 	let found = await findProgress(env, body.key);

@@ -20,8 +20,9 @@
 //          POST /api/progress/pair  a code to carry progress to another device (10 minutes)
 //          POST /api/progress/join  type that code on the other device
 // Admin:   GET  /admin              triage page (behind Cloudflare Access)                 admin.ts
-//          GET  /admin/ideas, /admin/players, /admin/scores   the same page, open on that section
+//          GET  /admin/ideas, /admin/players, /admin/scores, /admin/stats   the same page, open on that section
 //          GET  /api/admin/inbox    new submissions, all ideas and apps
+//          GET  /api/admin/stats    usage and feature adoption, last 30 days               stats.ts
 //          POST /api/admin/submissions/:id   approve as a new idea, merge into an idea, or reject
 //          POST /api/admin/ideas/:id         edit an idea or change its status
 //          POST /api/admin/players/:id       approve, hide, rename or delete a player
@@ -31,6 +32,7 @@
 // Cron:    weekly phone notification of things to check                                  notify.ts
 
 import { admin, adminHtml } from "./admin.ts";
+import { copyPageViews } from "./stats.ts";
 import { cacheKey, cached } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { config, deviceOf, listIdeas, submit, vote } from "./ideas.ts";
@@ -40,6 +42,8 @@ import { buy, claimGame, getProgress, joinCode, pairCode, useBall } from "./prog
 import { gameToken, leaderboard, postScore, previewScore, reportScore, scoreDetail } from "./scores.ts";
 import { cors, isAdminPage, isUnfriendly, json } from "./util.ts";
 import type { Env } from "./util.ts";
+
+const DAILY = "30 0 * * *"; // the daily cron in cloudflare.config.ts (the other is the weekly notification)
 
 export default {
 	async fetch(request, env, ctx): Promise<Response> {
@@ -59,11 +63,12 @@ export default {
 		}
 	},
 
-	async scheduled(_controller, env): Promise<void> {
+	async scheduled(controller, env): Promise<void> {
 		// Daily rate-limit counts are only needed on the day.
 		await env.DB.prepare("DELETE FROM rate_limits WHERE day < date('now', '-1 day')").run();
 		await env.DB.prepare("DELETE FROM pair_codes WHERE expires_at < datetime('now')").run();
-		await notify(env);
+		if (controller.cron === DAILY) await copyPageViews(env);
+		else await notify(env); // the weekly one
 	},
 } satisfies ExportedHandler<Env>;
 

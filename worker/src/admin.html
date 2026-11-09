@@ -159,6 +159,27 @@
 				.score .when, .score .mode, .score .made { display: none; }
 				.score .flags { grid-column: 1 / -1; }
 			}
+
+			/* Stats: tiles, charts by day, and how many saves use each feature. */
+			.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+			.tile { background: var(--panel); border-radius: 8px; padding: 12px; }
+			.tile b { display: block; font-family: var(--pixel); font-size: 18px; margin: 6px 0 4px; }
+			.tile span, .tile small { opacity: 0.75; }
+			.panel { background: var(--panel); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+			.panel h3 { font-size: 15px; margin: 0 0 8px; }
+			.panel p.note { opacity: 0.75; margin: 6px 0 0; }
+			.chart { display: block; width: 100%; height: auto; }
+			.chart .axis { stroke: var(--line); stroke-width: 1; }
+			.chart .tick { fill: rgba(255, 255, 255, 0.6); font-size: 11px; }
+			.chart .day:hover rect:not([fill="transparent"]) { opacity: 0.8; }
+			.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+			.legend i, .bar i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+			.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+			.bars { display: grid; gap: 7px; }
+			.bar { display: grid; grid-template-columns: minmax(110px, 38%) 1fr auto; gap: 8px; align-items: center; }
+			.bar .track { height: 10px; background: rgba(255, 255, 255, 0.08); border-radius: 0 4px 4px 0; overflow: hidden; }
+			.bar .fill { height: 100%; background: #3987e5; border-radius: 0 4px 4px 0; }
+			.bar .val { font-variant-numeric: tabular-nums; opacity: 0.85; }
 		</style>
 	</head>
 	<body>
@@ -170,12 +191,14 @@
 					<a href="/admin/ideas" id="tab-ideas">Ideas</a>
 					<a href="/admin/players" id="tab-players">Players</a>
 					<a href="/admin/scores" id="tab-scores">Scores</a>
+					<a href="/admin/stats" id="tab-stats">Stats</a>
 				</nav>
 			</header>
 			<section id="inbox"></section>
 			<section id="ideas" hidden></section>
 			<section id="players" hidden></section>
 			<section id="scores" hidden></section>
+			<section id="stats" hidden></section>
 			<div id="toast" hidden></div>
 		</main>
 
@@ -783,9 +806,168 @@
 				);
 			}
 
+
+			// ---------- Stats ----------
+			// Totals only, from what's already saved (worker/src/stats.ts). A "save" is one saved progress:
+			// a device, or devices joined with a code, so it's the nearest thing to a player.
+			const MODE_ORDER = ["timed", "survival", "around", "threes", "horse"];
+			const MODE_NAMES = { timed: "Time attack", survival: "Sudden death", around: "Around the World", threes: "3-point contest", horse: "HORSE" };
+			const SERIES = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181"]; // fixed order, checked for colour blindness on the panel
+			const PAGE_NAMES = { "/": "Home", "/games/shootaround/": "Game", "/players/": "Player builder", "/ideas/": "Ideas board" };
+			const total = (a) => a.reduce((x, y) => x + y, 0);
+			const pct = (n, d) => (d ? `${Math.round((100 * n) / d)}%` : "-");
+			const shortDay = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" });
+			const svg = (tag, attrs = {}) => {
+				const n = document.createElementNS("http://www.w3.org/2000/svg", tag);
+				for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v);
+				return n;
+			};
+			const swatch = (color) => {
+				const i = el("i");
+				i.style.background = color;
+				return i;
+			};
+
+			// Bars by day (stacked when there's more than one series). Hover a day for its numbers.
+			function dayChart(days, series) {
+				const W = 600, H = 150, FOOT = 18, slot = W / days.length;
+				const sums = days.map((_, i) => total(series.map((s) => s.values[i])));
+				const max = Math.max(1, ...sums);
+				const chart = svg("svg", { viewBox: `0 0 ${W} ${H + FOOT}`, class: "chart", role: "img", "aria-label": series.map((s) => s.name).join(", ") });
+				const top = svg("text", { x: 0, y: 11, class: "tick" });
+				top.textContent = String(max);
+				chart.append(top, svg("line", { x1: 0, x2: W, y1: H, y2: H, class: "axis" }));
+				days.forEach((d, i) => {
+					const g = svg("g", { class: "day" });
+					let y = H;
+					for (const s of series) {
+						const v = s.values[i];
+						if (!v) continue;
+						const h = Math.max(2, (v / max) * (H - 18));
+						y -= h;
+						g.append(svg("rect", { x: i * slot + 1, y, width: Math.max(2, slot - 2), height: Math.max(1, h - 2), fill: s.color, rx: 1.5 }));
+					}
+					const hit = svg("rect", { x: i * slot, y: 0, width: slot, height: H, fill: "transparent" });
+					const tip = svg("title");
+					tip.textContent = [`${shortDay(d)}: ${sums[i]}`, ...(series.length > 1 ? series.filter((s) => s.values[i]).map((s) => `${s.name}: ${s.values[i]}`) : [])].join("\n");
+					hit.append(tip);
+					g.append(hit);
+					chart.append(g);
+				});
+				for (const [i, anchor] of [[0, "start"], [days.length - 1, "end"]]) {
+					const t = svg("text", { x: anchor === "start" ? 0 : W, y: H + FOOT - 3, "text-anchor": anchor, class: "tick" });
+					t.textContent = shortDay(days[i]);
+					chart.append(t);
+				}
+				const legend = series.length > 1 ? el("div", { className: "legend" }, ...series.map((s) => el("span", {}, swatch(s.color), `${s.name}: ${total(s.values)}`))) : null;
+				return el("div", {}, chart, legend);
+			}
+
+			const panel = (title, ...children) => el("div", { className: "panel" }, el("h3", { textContent: title }), ...children);
+			const note = (text) => el("p", { className: "note", textContent: text });
+			const tile = (label, value, small) => el("div", { className: "tile" }, el("span", { textContent: label }), el("b", { textContent: String(value) }), small ? el("small", { textContent: small }) : null);
+			// Horizontal bars: label, bar, number (and share of `of`, when given).
+			function bars(rows, of) {
+				const max = Math.max(1, of ?? 0, ...rows.map((r) => r.n));
+				return el(
+					"div",
+					{ className: "bars" },
+					...rows.map((r) => {
+						const fill = el("div", { className: "fill" });
+						fill.style.width = `${(100 * r.n) / max}%`;
+						return el("div", { className: "bar" }, el("span", { textContent: r.name }), el("div", { className: "track" }, fill), el("span", { className: "val", textContent: of != null ? `${r.n} (${pct(r.n, of)})` : String(r.n) }));
+					}),
+				);
+			}
+			const characterName = (id) => {
+				if (id === "own") return "Their own player";
+				const p = /^p(\d+)$/.exec(id) && data.players.find((q) => `p${q.id}` === id);
+				return p ? p.name : id[0].toUpperCase() + id.slice(1);
+			};
+
+			let statsLoading = null;
+			async function loadStats() {
+				const box = document.getElementById("stats");
+				if (statsLoading) return;
+				if (!box.childElementCount) box.append(el("div", { className: "empty", textContent: "Counting..." }));
+				statsLoading = api("stats")
+					.then(renderStats)
+					.catch((err) => box.replaceChildren(el("div", { className: "empty", textContent: err.message })))
+					.finally(() => setTimeout(() => (statsLoading = null), 60000)); // the server keeps it a few minutes anyway
+			}
+
+			function renderStats(s) {
+				const box = document.getElementById("stats");
+				const modes = MODE_ORDER.filter((m) => s.games[m]).map((m, i) => ({ name: MODE_NAMES[m], color: SERIES[i], values: s.games[m] }));
+				const games = total(modes.map((m) => total(m.values)));
+				const a = s.adoption;
+				const gameViews = s.pages["/games/shootaround/"] ? total(s.pages["/games/shootaround/"].views) : 0;
+				const pageSeries = Object.keys(PAGE_NAMES)
+					.filter((p) => s.pages[p])
+					.map((p, i) => ({ name: PAGE_NAMES[p], color: SERIES[i], values: s.pages[p].views }));
+				box.replaceChildren(
+					el("h2", { textContent: "Last 30 days" }),
+					el(
+						"div",
+						{ className: "tiles" },
+						tile("Playing today", s.active.today, "saves with a finished game"),
+						tile("This week", s.active.week, "saves"),
+						tile("Last 30 days", s.active.month, "saves"),
+						tile("Finished games", games),
+						tile("New saves", total(s.newSaves)),
+						tile("Came back", pct(s.cameBack, s.active.month), `${s.cameBack} played on 2 or more days`),
+						tile("Back a week later", pct(s.weekLater.back, s.weekLater.made), `of ${s.weekLater.made} saves made 1 to 5 weeks ago`),
+					),
+					el("h2", { textContent: "Playing" }),
+					panel("Finished games a day, by mode", dayChart(s.days, modes), note("Games that finished online. Offline games and ?debug games aren't counted.")),
+					panel("Saves playing each day", dayChart(s.days, [{ name: "Saves", color: SERIES[0], values: s.activeSaves }])),
+					el("h2", { textContent: "Visits" }),
+					s.pageViewsReady
+						? panel(
+								"Pages viewed a day",
+								dayChart(s.days, pageSeries),
+								note(`Cloudflare's counts (sampled, so roughly), copied each night. The game page was opened ${gameViews} times for ${games} finished games.`),
+							)
+						: panel("Pages viewed a day", note("Waiting for the Cloudflare analytics token (CF_ANALYTICS_TOKEN), then the first nightly copy.")),
+					el("h2", { textContent: "Features" }),
+					el(
+						"div",
+						{ className: "grid2" },
+						panel(
+							`Of the ${a.saves} saves that played`,
+							bars(
+								[
+									{ name: "On a leaderboard", n: a.leaderboard },
+									{ name: "Daily challenge", n: a.daily },
+									{ name: "Bought a ball", n: a.shop },
+									{ name: "Using a new ball", n: a.ball },
+									{ name: "Made a player", n: a.builder },
+									{ name: "Joined with a code", n: a.paired },
+									{ name: "Played HORSE", n: a.horse },
+								],
+								a.saves,
+							),
+						),
+						panel("Balls in use", bars(s.balls.map((b) => ({ name: b.name[0].toUpperCase() + b.name.slice(1), n: b.n })))),
+						panel("Played as (leaderboard sends)", bars(s.characters.map((c) => ({ name: characterName(c.name), n: c.n })))),
+						panel("How they play (leaderboard sends)", bars(s.inputs.map((c) => ({ name: c.name[0].toUpperCase() + c.name.slice(1), n: c.n })))),
+						panel("Game versions this week", bars(s.versions.map((v) => ({ name: v.name.slice(0, 7), n: v.n })))),
+						panel(
+							"Around the site",
+							bars([
+								{ name: "Leaderboard sends", n: total(s.leaderboardSends) },
+								{ name: "Players made", n: total(s.builderPlayers) },
+								{ name: "Ideas sent", n: total(s.ideasSent) },
+								{ name: "Votes", n: total(s.votes) },
+							]),
+						),
+					),
+				);
+			}
+
 			// Each section has its own address (/admin is the inbox, then /admin/ideas and so on), so a
 			// link or a reload opens it and Back goes to the one before. The Worker serves this page for all.
-			const TABS = ["inbox", "ideas", "players", "scores"];
+			const TABS = ["inbox", "ideas", "players", "scores", "stats"];
 			const sectionOf = (path) => TABS.find((t) => t !== "inbox" && new RegExp(`^/admin/${t}/?$`).test(path)) ?? "inbox";
 			function show(section) {
 				for (const t of TABS) {
@@ -794,6 +976,7 @@
 					else tab.removeAttribute("aria-current");
 					document.getElementById(t).hidden = t !== section;
 				}
+				if (section === "stats") loadStats();
 				document.title = `${section === "inbox" ? "Admin" : `${section[0].toUpperCase()}${section.slice(1)} | Admin`} | Orson Brooker`;
 			}
 			for (const section of TABS) {

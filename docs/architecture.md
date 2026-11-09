@@ -33,6 +33,7 @@ flowchart LR
   Worker --> Turnstile
   Admin --> Access --> Worker
   Worker -. cron .-> Ntfy
+  Worker -. "cron: page views" .-> CFAnalytics["Cloudflare analytics<br/>GraphQL API"]
 ```
 
 - **Static site:** plain JS modules built with Vite. On every push to `main`, the Pages workflow
@@ -53,7 +54,7 @@ flowchart LR
 - **Worker** (`worker/src/index.ts`, admin UI in `worker/src/admin.html`): the only server. It answers the API
   and the admin page on the same domain as the site, so there's no cross-site setup in production. The admin
   page has one address per section (`/admin` is the inbox, then `/admin/ideas`, `/admin/players`,
-  `/admin/scores`), all the same page behind the same sign-in check. It draws players front and back with
+  `/admin/scores`, `/admin/stats`), all the same page behind the same sign-in check. It draws players front and back with
   the site's own `players/recolor.js`, which the build copies to a fixed address for it.
 - **Edge cache** (`worker/src/cache.ts`): public answers that are the same for everyone (the boards, score
   cards, approved players, config, the ideas list without a device) are kept in Cloudflare's cache for 30-60 s,
@@ -248,11 +249,13 @@ Terms used across the code:
   re-flies every shot and checks each goes in or out as it did. A replay changes nothing about the score,
   the shot log or what's sent.
 - **Saved progress and coins:** coins are earned only by playing, never bought: 1 a basket, 2 while on fire,
-  5 for a money or rainbow ball that goes in (`coinsFor` in `shared/rules.js`). As a game ends (any mode but
-  HORSE, not in `?debug`) the game sends it to `POST /api/progress/games` with its start token and shot log;
-  the Worker checks it exactly like a leaderboard score (`checkGame`, the token's age) and adds the coins once
-  per token, whether or not the score ever goes on the board. The first coins make a `progress` and give the
-  device a random key (`orson-progress-key` in the browser; the server keeps only a keyed hash). No names,
+  5 for a money or rainbow ball that goes in (`coinsFor` in `shared/rules.js`). As a game ends (not in
+  `?debug`) the game sends it to `POST /api/progress/games` with its start token and shot log; the Worker
+  checks it exactly like a leaderboard score (`checkGame`, the token's age) and adds the coins once per token,
+  whether or not the score ever goes on the board. A finished HORSE match has no score, so it earns a flat
+  amount instead (`HORSE_MATCH` in `shared/rules.js`), checked only by the token's age (at least 30 seconds),
+  for the device it was played on; a match quit from the pause earns nothing.
+  The first coins make a `progress` and give the device a random key (`orson-progress-key` in the browser; the server keeps only a keyed hash). No names,
   emails or passwords. Coins buy ball styles (`shared/shop.js`; the everyday ball's look, while money and
   rainbow balls keep theirs so they stand out). To carry progress to another device, one device asks for a
   pairing code (`/pair`: 8 letters and numbers, works once, for 10 minutes) and the other types it in
@@ -304,6 +307,27 @@ there) and `three` (on a 3-pointer, timing mistakes and wobble are divided by th
 a device are always neutral. The picker shows a player's skills only when they have some. The server needs no
 change: it checks scores from the shot log, and the release timing in the log is measured in that player's own
 green-zone widths.
+
+## Admin stats
+
+The admin's Stats tab (`/admin/stats`, `worker/src/stats.ts`) shows the last 30 days of use and feature
+adoption, worked out from what's already saved, so nothing new is collected from players and nothing goes to
+another service:
+
+- **Games** are the coin claims in `progress_games` (every finished game played online, HORSE included).
+- **Saves** stand in for players: one `progress` is a device, or devices joined with a code. Active saves
+  today, this week and this month; saves that came back on another day; saves made 1 to 5 weeks ago that
+  played again a week after their first game.
+- **Features** are counted over the saves that played: on a leaderboard (`scores.device = progress.board`),
+  daily challenge (the save's `daily.done`), bought or using a ball, made a player (the save's `players`),
+  joined with a code (more than one `progress_devices` row), played HORSE. Leaderboard sends add how people
+  play (input), who they play as and which game versions are about.
+- **Page views** come from Cloudflare's own analytics (sampled, no cookies). Cloudflare keeps them about a
+  month, so the daily cron (00:30 UTC) copies each page's views and visits into `page_views` with a token
+  that can only read this zone's analytics (`CF_ANALYTICS_TOKEN`).
+
+Only totals are shown, never one save's history. It's admin-only (Access plus the token check), indexed by
+day (`0016_stats.sql`), and the answer is reused for 5 minutes, so the cost doesn't grow with players.
 
 ## How a score gets on the board
 
@@ -406,7 +430,8 @@ picks a spot (one is picked at random to start from, from the seeded "spots" str
 other player still in has to make the same shot or get a letter; a missed lead shot passes the lead on.
 Each turn plays as that player without changing the device's chosen player (`useCharacter(id, { remember:
 false })`; the title and choose-a-game screens switch back). There's no fire (every shot is the same for
-everyone), no bonus balls, no best, no daily challenge, no start token and no leaderboard: nothing is sent.
+everyone), no bonus balls, no best, no daily challenge and no leaderboard; a finished match does get a start token and earns flat coins
+(see saved progress above), so it's counted in the admin's stats like any other game.
 
 ## Players' art
 

@@ -163,6 +163,12 @@ export function recountScore(shots) {
 export const COINS = { basket: 1, onFire: 2, bonusBall: 5 };
 
 /**
+ * HORSE (pass and play) isn't scored, so a finished match earns a flat amount, for the device it was
+ * played on. It can't have finished faster than `minSeconds` (at least ten shots and the turn screens).
+ */
+export const HORSE_MATCH = { mode: "horse", coins: 20, minSeconds: 30 };
+
+/**
  * Coins for a game: 1 a basket, 2 while on fire, 5 for a money or rainbow ball that goes in.
  * @param {Shot[]} shots
  */

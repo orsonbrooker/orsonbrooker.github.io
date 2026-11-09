@@ -42,11 +42,10 @@ export function startGame() {
   state.rngSeed = null;
   resetRandom();
   const game = ++gamesStarted;
-  // A start token for the leaderboard (pass and play games have none: nothing is sent).
-  if (!mode().passAndPlay)
-    startToken().then((token) => {
-      if (game === gamesStarted) state.gameToken = token;
-    });
+  // A start token, for the leaderboard and coins (a finished HORSE match earns coins too).
+  startToken().then((token) => {
+    if (game === gamesStarted) state.gameToken = token;
+  });
   state.buzzerBeater = false;
   state.streak = 0;
   state.coldStreak = 0;

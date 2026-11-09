@@ -13,6 +13,8 @@ export interface Env {
 	ACCESS_TEAM_DOMAIN?: string;
 	ACCESS_AUD?: string;
 	NTFY_TOPIC?: string;
+	CF_ZONE_ID?: string;
+	CF_ANALYTICS_TOKEN?: string; // reads this zone's analytics only (stats.ts)
 	DEV_ADMIN?: string; // local development only: skips the Access check
 }
 
@@ -108,7 +110,7 @@ export function requireSameOriginJson(request: Request, env: Env): void {
 
 // The admin page's own addresses: /admin (the inbox) and one per section (admin.html opens the section
 // from its address). Every one gets the same page, behind the same sign-in check (admin.ts).
-export const ADMIN_SECTIONS = ["ideas", "players", "scores"];
+export const ADMIN_SECTIONS = ["ideas", "players", "scores", "stats"];
 const ADMIN_PAGE = new RegExp(`^/admin(/(${ADMIN_SECTIONS.join("|")}))?/?$`);
 export const isAdminPage = (path: string) => ADMIN_PAGE.test(path);
 

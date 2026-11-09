@@ -9,6 +9,7 @@ import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
 import { MAX_PLAYER_NAME, MAX_TEAM_NAME, parsePronoun, PLAYER_PARTS } from "./players.ts";
+import { stats } from "./stats.ts";
 import { blockReportedName, clearReports, ODD_UNCHECKED, REPORTED, renameScores } from "./scores.ts";
 import { clean, forgetBlockedNames, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
 import type { Env } from "./util.ts";
@@ -66,6 +67,7 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 	// Changes only come from the admin page itself, never a form or script on another site.
 	if (request.method !== "GET") requireSameOriginJson(request, env);
 	const parts = url.pathname.split("/").filter(Boolean); // api, admin, ...
+	if (request.method === "GET" && parts[2] === "stats") return json(await stats(env), 200, 0);
 	if (request.method === "GET" && parts[2] === "inbox") {
 		const [submissions, ideas, apps, players, scores, blocked] = await env.DB.batch([
 			env.DB.prepare("SELECT id, app, text, nickname, created_at, title, description, note, merge_into FROM submissions WHERE status = 'new' ORDER BY id"),

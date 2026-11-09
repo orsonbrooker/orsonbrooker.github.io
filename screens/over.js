@@ -5,7 +5,7 @@ import { countsIn, doneToday, progress, streakDays, todaysChallenge } from "../d
 import { save } from "../engine/storage.js";
 import { showRoundResult } from "../leaderboard.js";
 import { claimCoins, progress as saved } from "../progress.js";
-import { coinsFor } from "../shared/rules.js";
+import { HORSE_MATCH, coinsFor } from "../shared/rules.js";
 import { icon } from "../ui/icons.js";
 import { boardFace, characters } from "../play/players.js";
 import { announce, checkDaily } from "../play/react.js";
@@ -40,22 +40,20 @@ export function endGame() {
   $("replay").hidden = !bestShot(); // nothing to replay if nothing went in
   showDaily();
   showScreen("over");
-  // Pass and play (HORSE) has no leaderboard: nothing is sent.
+  // Pass and play (HORSE) has no leaderboard, just a flat amount of coins for finishing.
   if (m.passAndPlay) {
     $("over-board").hidden = true;
     $("over-daily").textContent = "";
-    $("over-coins").hidden = true;
-  } else {
-    showRound();
-    showCoins();
-  }
+  } else showRound();
+  showCoins();
 }
 
 // The coins this game earned, saved to their progress (progress.js). Worked out here to show straight
 // away, then by the server, which has the final say.
 async function showCoins() {
   const box = $("over-coins");
-  const earned = coinsFor(state.shotLog);
+  const horse = mode().passAndPlay;
+  const earned = horse ? HORSE_MATCH.coins : coinsFor(state.shotLog);
   box.hidden = !earned;
   if (!earned) return;
   const line = (text) => {
@@ -68,7 +66,8 @@ async function showCoins() {
   line(`${plus}!`);
   const shown = state.overAt;
   try {
-    const got = await claimCoins({ token: state.gameToken, mode: state.mode, score: mode().boardScore(), shots: state.shotLog });
+    const game = horse ? { token: state.gameToken, mode: HORSE_MATCH.mode } : { token: state.gameToken, mode: state.mode, score: mode().boardScore(), shots: state.shotLog };
+    const got = await claimCoins(game);
     if (state.overAt === shown) line(`+${got} ${got === 1 ? "coin" : "coins"}! You have ${saved.coins}.`);
   } catch (err) {
     if (state.overAt !== shown) return;
