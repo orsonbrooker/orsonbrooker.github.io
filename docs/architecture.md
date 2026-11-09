@@ -54,7 +54,7 @@ flowchart LR
 - **Worker** (`worker/src/index.ts`, admin UI in `worker/src/admin.html`): the only server. It answers the API
   and the admin page on the same domain as the site, so there's no cross-site setup in production. The admin
   page has one address per section (`/admin` is the inbox, then `/admin/ideas`, `/admin/players`,
-  `/admin/scores`, `/admin/stats`), all the same page behind the same sign-in check. It draws players front and back with
+  `/admin/scores`, `/admin/words`, `/admin/stats`), all the same page behind the same sign-in check. It draws players front and back with
   the site's own `players/recolor.js`, which the build copies to a fixed address for it.
 - **Edge cache** (`worker/src/cache.ts`): public answers that are the same for everyone (the boards, score
   cards, approved players, config, the ideas list without a device) are kept in Cloudflare's cache for 30-60 s,
@@ -119,6 +119,7 @@ erDiagram
     text description "tidied draft"
     text note "suggestion for the admin"
     int merge_into "suggested idea"
+    text kept_at "kept as kind words"
   }
   ideas {
     int id PK
@@ -370,12 +371,14 @@ stateDiagram-v2
   Inbox --> Board: Add to board (title, description, credit)
   Inbox --> Merged: Add to an existing idea<br/>(can edit it, upvote, credit the sender)
   Inbox --> Rejected
+  Inbox --> KindWords: Keep as kind words<br/>(a compliment, off the board, kept to read)
   Board --> Planned
   Planned --> Done: released (done_at set)
   Board --> Done
   Board --> Hidden
   Merged --> [*]
   Rejected --> [*]
+  KindWords --> [*]
   Done --> [*]
 ```
 

@@ -94,6 +94,13 @@
 			.sub .fields .wide { grid-column: 1 / -1; }
 			.sub .actions { display: flex; flex-direction: column; gap: 5px; }
 			.sub .actions .danger { margin-top: auto; }
+			.sub .actions .keep { margin-top: auto; }
+			.sub .actions .keep + .danger { margin-top: 0; }
+			/* Kind words: compliments kept off the board. */
+			.words { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+			.word { background: var(--panel); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+			.word blockquote { margin: 0; font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
+			.word .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 			.sub .credit-row { display: flex; gap: 6px; max-width: 360px; }
 			.sub .credit-row button { white-space: nowrap; }
 			.sub .merge-panel { border-left: 3px solid var(--accent); padding: 4px 0 2px 10px; display: grid; gap: 6px; }
@@ -191,6 +198,7 @@
 					<a href="/admin/ideas" id="tab-ideas">Ideas</a>
 					<a href="/admin/players" id="tab-players">Players</a>
 					<a href="/admin/scores" id="tab-scores">Scores</a>
+					<a href="/admin/words" id="tab-words">Kind words</a>
 					<a href="/admin/stats" id="tab-stats">Stats</a>
 				</nav>
 			</header>
@@ -198,6 +206,7 @@
 			<section id="ideas" hidden></section>
 			<section id="players" hidden></section>
 			<section id="scores" hidden></section>
+			<section id="words" hidden></section>
 			<section id="stats" hidden></section>
 			<div id="toast" hidden></div>
 		</main>
@@ -289,6 +298,7 @@
 				renderIdeas();
 				renderPlayers();
 				renderScores();
+				renderWords();
 				scrollTo(0, y);
 			}
 
@@ -415,7 +425,12 @@
 				const headline = el("h3", { textContent: title.value });
 				title.addEventListener("input", () => (headline.textContent = title.value));
 				// The button the suggestion points to gets an outline.
-				const suggested = s.merge_into ? "merge" : s.note?.startsWith("Reject") ? "reject" : s.note?.startsWith("Add to the board") ? "add" : null;
+				const suggested = s.merge_into
+					? "merge"
+					: /compliment|show Orson/i.test(s.note ?? "")
+						? "keep"
+						: s.note?.startsWith("Reject")
+							? "reject" : s.note?.startsWith("Add to the board") ? "add" : null;
 				const mark = (which, className = "") => (suggested === which ? `${className} suggested`.trim() : className);
 				return el(
 					"div",
@@ -453,6 +468,7 @@
 										)()
 									: toast("Pick an idea first"),
 						}),
+						el("button", { type: "button", className: mark("keep", "keep"), textContent: "Keep as kind words", onclick: act("keep", {}, "Kept in Kind words") }),
 						el("button", { type: "button", className: mark("reject", "danger"), textContent: "Reject", onclick: act("reject", {}, "Rejected") }),
 					),
 				);
@@ -673,6 +689,36 @@
 							textContent: "Delete",
 							onclick: () => confirm(`Delete ${p.name} for good?`) && run(() => api(`players/${p.id}`, { action: "delete" }), "Deleted")(),
 						}),
+					),
+				);
+			}
+
+			// ---------- Kind words ----------
+
+			// Compliments sent through the ideas form, kept off the board to read (and maybe quote one day).
+			function renderWords() {
+				const box = document.getElementById("words");
+				const words = data.words ?? [];
+				box.replaceChildren();
+				if (!words.length) return box.append(el("div", { className: "empty", innerHTML: "No kind words yet.<br>Keep compliments from the inbox." }));
+				box.append(
+					el("h2", { textContent: `Kind words (${words.length})` }),
+					el(
+						"div",
+						{ className: "words" },
+						...words.map((w) =>
+							el(
+								"div",
+								{ className: "word" },
+								el("blockquote", { textContent: `"${w.text}"` }),
+								el(
+									"div",
+									{ className: "row" },
+									el("span", { className: "meta", textContent: `${w.nickname ? w.nickname : "no name"} · ${appName(w.app)} · ${w.created_at.slice(0, 10)}` }),
+									el("button", { type: "button", textContent: "Remove", onclick: run(() => api(`submissions/${w.id}`, { action: "unkeep" }), "Removed from Kind words") }),
+								),
+							),
+						),
 					),
 				);
 			}
@@ -979,7 +1025,7 @@
 
 			// Each section has its own address (/admin is the inbox, then /admin/ideas and so on), so a
 			// link or a reload opens it and Back goes to the one before. The Worker serves this page for all.
-			const TABS = ["inbox", "ideas", "players", "scores", "stats"];
+			const TABS = ["inbox", "ideas", "players", "scores", "words", "stats"];
 			const sectionOf = (path) => TABS.find((t) => t !== "inbox" && new RegExp(`^/admin/${t}/?$`).test(path)) ?? "inbox";
 			function show(section) {
 				for (const t of TABS) {
@@ -989,7 +1035,8 @@
 					document.getElementById(t).hidden = t !== section;
 				}
 				if (section === "stats") loadStats();
-				document.title = `${section === "inbox" ? "Admin" : `${section[0].toUpperCase()}${section.slice(1)} | Admin`} | Orson Brooker`;
+				const name = section === "words" ? "Kind words" : `${section[0].toUpperCase()}${section.slice(1)}`;
+				document.title = `${section === "inbox" ? "Admin" : `${name} | Admin`} | Orson Brooker`;
 			}
 			for (const section of TABS) {
 				document.getElementById(`tab-${section}`).addEventListener("click", (e) => {
