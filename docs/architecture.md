@@ -350,15 +350,16 @@ flowchart LR
 ### Layered players
 
 Builder players move like Orson by sharing his body: his pixel-art frames with his head taken off, plus
-a head per style (drawn in five views: front, front-right, right, back-right, back; the left ones are
-flipped), at a build (taller or shorter, bulkier or thinner).
+a head per style, at a build (taller or shorter, bulkier or thinner). A head is drawn in ten views: five
+facings (front, front-right, right, back-right, back; the left ones are flipped), each normal and looking
+up (used in the jump and release of a shot).
 
 ```mermaid
 flowchart LR
   PX["orson-pixel/"] --> RIG["tools/pixelart/rig.py"]
-  RIG --> BODY["rig/: body.png (no head)<br/>rig.json: head spot + facing per frame"]
+  RIG --> BODY["rig/: body.png (no head)<br/>rig.json: head spot, facing, looking up, per frame"]
   RIG --> T["art/heads/template-orson.png<br/>(the guide for new heads)"]
-  H["art/heads/head-&lt;style&gt;.png<br/>5 views on green"] --> HT["tools/pixelart/heads.py"]
+  H["art/heads/head-&lt;style&gt;.png<br/>16:9, 2 rows of 5 views on green"] --> HT["tools/pixelart/heads.py"]
   HT --> HS["heads/&lt;style&gt;.png + index.json"]
   BODY & HS --> L["players/layered.js<br/>in the browser: body + head + build"]
   L --> K["players/pixelkit.js<br/>colours, number, team name"]
@@ -372,6 +373,11 @@ flowchart LR
   middle for the build, the head drawn under the body (his shoulders, arms and the ball stay in front), and
   the jersey faces moved to match. About 7 MB in memory per player (Orson's full-detail sheet is about
   100 MB), and a fraction of a second.
+- **Taking his head off:** his hair, and the skin joined to it under his hair without crossing a line
+  (his face), inside a head-sized circle and the head's usual shape for that view. A raised arm or hand
+  by his face is drawn with a line between, so it stays, and is drawn in front of the new head.
+- **Heads' placement:** each view's square sits at a fixed offset from the middle of his hair (from a
+  guide frame per view); a new head is lined up by its neck with Orson's in the same view.
 - **Heads' colours:** hair and skin become the rig's palette slots, shaded with the same share of each
   tone as Orson's own head in that view, so they recolour and shade like the body. Shading browns his art
   shares with the ball are folded into skin and hair (`fold_into_parts()` in `rig.py`).

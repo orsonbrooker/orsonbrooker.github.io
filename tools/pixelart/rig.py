@@ -5,15 +5,18 @@
 Reads assets/characters/orson-pixel (his frames from video) and writes:
   assets/characters/rig/body.png   his frames with his head taken off (same places, same palette)
   assets/characters/rig/rig.json   his sheet's frames, faces, palette and release points, plus for
-                                   every frame where the head goes (its middle), which way it faces,
-                                   and for each drawn facing the square a head image fills
-  art/heads/template-orson.png     his head in the five drawn facings (front, front-right, right,
-                                   back-right, back), 512 px squares on green: the guide for making
-                                   new heads (art/heads/README.md)
+                                   every frame where the head goes (the middle of his hair), which way
+                                   it faces and whether he's looking up (in a shot), and for each view
+                                   the square a head image fills
+  art/heads/template-orson.png     his head in every view on green, 16:9 (1920 x 1080): the guide for
+                                   making new heads (art/heads/README.md)
   art/heads/head-orson.png         the same, so his own head can be put back on as a check
 
-Left-facing frames use the right-facing head, flipped. Frames whose move isn't named by its facing
-(the turns, standing) are matched to the nearest facing by the shape of his head.
+Views: five facings (front, front-right, right, back-right, back), each normal and looking up (for the
+jump and release of a shot). Left-facing frames use the right-facing head, flipped. Frames whose move
+isn't named by its facing (turns, standing) are matched to the nearest facing by the shape of his head.
+
+The guide's layout (LAYOUT) is shared with tools/pixelart/heads.py, which reads the heads made from it.
 """
 import json
 from pathlib import Path
@@ -32,9 +35,34 @@ BALL = [26, 29, 30, 36, 37]  # the ball's own oranges
 DRAWN = ["f", "fr", "r", "br", "b"]
 MIRROR = {"l": "r", "fl": "fr", "bl": "br"}
 DIRS = ["f", "fr", "r", "br", "b", "bl", "l", "fl"]
-REF = {d: (f"dribble-{d}" if d != "f" else "run-f") for d in DRAWN}  # the frame each facing's guide comes from
-CELL = 512  # guide square, in the guide image's pixels
+UP_MOVES = ("jump", "release")  # moves where he looks up at the hoop
+# The frame each view's guide comes from: standing dribbles (or the jog, front), and early in the jump
+# for looking up (his face still clear of his arms). Nobody shoots facing straight at us, so the front
+# looking-up view is the normal front.
+REF = {d: (f"dribble-{d}" if d != "f" else "run-f", 0) for d in DRAWN}
+REF.update({f"up-{d}": (f"jump-{d}", 1) for d in DRAWN if d != "f"})
+REF["up-f"] = REF["f"]
+# His face is behind his arms in most shot frames, so the looking-up guide is his normal head tipped
+# back (degrees, anticlockwise: chin up for a head facing right); the frames above still say where the
+# head sits and what to take off.
+TILT = {"f": 0, "fr": 10, "r": 16, "br": 8, "b": 0}
 GREEN = (0, 177, 64)
+# The guide: 16:9, two rows of five squares (normal, then looking up), centred.
+LAYOUT = dict(w=1920, h=1080, side=360, x0=60, y0=180)
+VIEWS = [[d for d in DRAWN], [f"up-{d}" for d in DRAWN]]
+
+
+def view_box(row, col, scale=1.0):
+    """A view's square in the guide (or in a head image `scale` times the guide's size)."""
+    s = LAYOUT["side"] * scale
+    x = (LAYOUT["x0"] + col * LAYOUT["side"]) * scale
+    y = (LAYOUT["y0"] + row * LAYOUT["side"]) * scale
+    return int(round(x)), int(round(y)), int(round(x + s)), int(round(y + s))
+
+
+def view_key(d, pose):
+    base = MIRROR.get(d, d)
+    return (f"up-{base}" if pose == "up" else base), d != base
 
 
 def grow(mask, n=1):
@@ -58,39 +86,78 @@ def neck_of(cell):
 
 
 def head_mask(cell, dark, allowed=None):
-    """His head in one frame: his hair, the skin of his face and neck above his shoulders that sits
-    under or beside his hair, and the dark outline round them. With `allowed` (where his head
-    usually is for this facing), skin outside it stays: a raised arm or hand by his head."""
-    # the ball shares some browns with hair and skin: anything inside its round shape stays ball
+    """His head in one frame: his hair, his face and neck (the skin under his hair, joined to it without
+    crossing a line), what they enclose (eyes, mouth), and the dark outline round them. An arm or hand by
+    his head is skin too, but it's drawn with a line between it and his face, so it stays; with
+    `allowed` (where his head usually is, facing this way), nothing outside it goes either."""
     ball = ball_of(cell)
     hair = np.isin(cell, HAIR) & ~ball
     if hair.sum() < 8:
         return None, None
+    # his head of hair: the biggest lump, and anything touching it (hair colours turn up in shading
+    # elsewhere too)
+    lumps = sorted(pieces(hair), key=len, reverse=True)
+    main = np.zeros_like(hair)
+    for p in lumps[0]:
+        main[p] = True
+    near = grow(main, 2)
+    for lump in lumps[1:]:
+        if any(near[p] for p in lump):
+            for p in lump:
+                main[p] = True
+    hair = main
     neck = neck_of(cell)
     if neck is None:
         return None, None
     ys, xs = np.where(hair)
-    H, W = hair.shape
     above = np.zeros_like(hair)
     above[: neck + 3] = True
     x0, x1 = xs.min() - 1, xs.max() + 1
     band = np.zeros_like(hair)
     band[:, max(0, x0):x1 + 1] = True
-    # below the shoulders' top only the middle (the chin), not the shoulders or arms
-    inset = int((x1 - x0) * 0.2)
+    inset = int((x1 - x0) * 0.2)  # below the shoulders' top only the middle (the chin)
     band[neck:, : max(0, x0 + inset)] = False
     band[neck:, x1 - inset + 1:] = False
-    cand = (hair | np.isin(cell, SKIN)) & above & band & ~ball
+    zone = above & band & ~ball
+    # and round: a head-sized circle under his hair (not his shoulders or a hand beside him)
+    top = ys.min()
+    r = max(xs.max() - xs.min(), neck - top) * 0.55
+    cyy, cxx = top + (neck - top) * 0.55, xs.mean()
+    yy, xx = np.ogrid[: hair.shape[0], : hair.shape[1]]
+    zone &= (yy - cyy) ** 2 + (xx - cxx) ** 2 <= r * r
     if allowed is not None:
-        cand &= allowed | hair
-    # the skin joined to his hair
-    head = flood(cand, hair)
-    # what his head encloses (eyes, mouth, lines on his face)
-    head = fill_holes(head) & ~ball
-    if allowed is not None:
-        head &= allowed | hair
-    outline = np.isin(cell, dark) & grow(head, 1) & above & ~ball
+        zone &= allowed
+    skin = np.isin(cell, SKIN) & zone
+    # where his face starts: skin with hair just above it (his forehead, sideburns)
+    hair_above = np.zeros_like(hair)
+    for k in (1, 2):
+        hair_above[k:] |= hair[:-k]
+    face = flood4(skin, skin & hair_above)
+    head = hair | face
+    # what his head encloses: small bits (eyes, mouth, lines on his face) are head; a big patch of skin
+    # inside is an arm across him, and stays
+    for comp in pieces(fill_holes(head) & ~head):
+        if len(comp) <= 6 or not any(skin[p] for p in comp):
+            for p in comp:
+                head[p] = True
+    head &= ~ball
+    outline = np.isin(cell, dark) & grow(head, 1) & above & ~ball & ~grow(np.isin(cell, SKIN) & ~head & ~zone, 1)
     return head | outline, neck
+
+
+def flood4(allowed, seed):
+    """Grows `seed` through `allowed`, four ways (so a one-pixel line stops it)."""
+    out = seed & allowed
+    while True:
+        g = out.copy()
+        g[1:] |= out[:-1]
+        g[:-1] |= out[1:]
+        g[:, 1:] |= out[:, :-1]
+        g[:, :-1] |= out[:, 1:]
+        g &= allowed
+        if (g == out).all():
+            return out
+        out = g
 
 
 def ball_of(cell):
@@ -199,6 +266,7 @@ def descriptor(cell, head):
     return np.asarray(img)
 
 
+
 def main():
     meta = json.load(open(PIX / "sprites.json"))
     sheet = Image.open(PIX / "sprites.png")
@@ -208,11 +276,12 @@ def main():
     lum = rgb @ [0.299, 0.587, 0.114]
     dark = [i for i in range(1, len(rgb)) if lum[i] < 60]
 
-    # every distinct frame once
+    # every distinct frame once, with the move it first appears in
     frames = {}
     for name, lst in meta["frames"].items():
-        for f in lst:
+        for i, f in enumerate(lst):
             frames.setdefault(f"{f[0]},{f[1]}", (name, f))
+    pose_of = lambda name: "up" if name.split("-")[0] in UP_MOVES else ""
 
     info = {}
     for key, (name, f) in frames.items():
@@ -223,54 +292,64 @@ def main():
             continue
         hy, hx = np.where(head)
         ry, rx = np.where(head & np.isin(cell, HAIR))
-        info[key] = dict(name=name, head=head, neck=neck, cx=float(rx.mean()), cy=float(ry.mean()),
+        info[key] = dict(name=name, pose=pose_of(name), head=head, neck=neck, cx=float(rx.mean()), cy=float(ry.mean()),
                          top=int(hy.min()), left=int(hx.min()), right=int(hx.max()), desc=descriptor(cell, head))
 
-    # the guide frames: where the head square sits for each drawn facing, relative to the head's middle
+    # the guide frames: each view's square, relative to the middle of his hair
     det = json.load(open(DET / "sprites.json"))
     pix_of = det["printsFrom"]["frames"]
     K = det["printsFrom"]["scale"]
     det_atlas = Image.open(DET / "sprites.webp").convert("RGBA")
-    cells = {}
-    refs = {}
-    shapes = {}  # each facing's head shape in its guide frame, and its hair's middle
-    guide = Image.new("RGBA", (CELL * len(DRAWN), CELL), GREEN + (255,))
-    mine = Image.new("RGBA", (CELL * len(DRAWN), CELL), GREEN + (255,))
-    for n, d in enumerate(DRAWN):
-        dx, dy, dw, dh = det["frames"][REF[d]][0][:4]
-        key = pix_of[f"{dx},{dy}"]
-        it = info[key]
-        size = max(it["neck"] - it["top"], it["right"] - it["left"]) * 1.5
-        # the square, in the pixel frame (whole pixels)
-        sx = int(round((it["left"] + it["right"]) / 2 - size / 2))
-        sy = int(round(it["top"] - size * 0.15))
-        s = int(round(size))
-        cells[d] = dict(w=s, h=s, ox=sx - it["cx"], oy=sy - it["cy"], neck=it["neck"] - sy)
-        refs[d] = it["desc"]
-        shapes[d] = (it["head"], it["cx"], it["cy"])
-        # the guide, from the full-detail frame at the same place (K times finer)
-        frame = Image.new("RGBA", det_atlas.size, (0, 0, 0, 0))
-        frame.paste(det_atlas.crop((dx, dy, dx + dw, dy + dh)), (dx, dy))
-        box = (dx + sx * K, dy + sy * K, dx + (sx + s) * K, dy + (sy + s) * K)
-        crop = frame.crop(box)
-        # head and neck only: his own head pixels (from the pixel frame), grown a little
-        px, py, pw, ph = [v for v in frames[key][1][:4]]
-        keep = np.zeros((s, s), bool)
-        hm = it["head"]
-        for yy in range(s):
-            for xx in range(s):
-                fy, fx = sy + yy, sx + xx
-                if 0 <= fy < hm.shape[0] and 0 <= fx < hm.shape[1]:
-                    keep[yy, xx] = hm[fy, fx]
-        keep = grow(keep, 1)
-        km = Image.fromarray((keep * 255).astype(np.uint8)).resize(crop.size, Image.NEAREST)
-        cut = Image.new("RGBA", crop.size, (0, 0, 0, 0))
-        cut.paste(crop, (0, 0), km)
-        big = cut.resize((CELL, CELL), Image.NEAREST)
-        guide.alpha_composite(big, (n * CELL, 0))
-        mine.alpha_composite(big, (n * CELL, 0))
+    cells, refs, shapes = {}, {}, {}
+    guide = Image.new("RGBA", (LAYOUT["w"], LAYOUT["h"]), GREEN + (255,))
+    side = LAYOUT["side"]
+    squares = {}  # each normal view's guide square, and where his hair is in it (pixel-sized)
+    for row, keys in enumerate(VIEWS):
+        for col, vk in enumerate(keys):
+            name, i = REF[vk]
+            dx, dy, dw, dh = det["frames"][name][i][:4]
+            key = pix_of[f"{dx},{dy}"]
+            it = info[key]
+            bx, by, _, _ = view_box(row, col)
+            if row == 1:
+                # looking up: where his head is and what comes off are from the shot frame; the picture
+                # is the normal head tipped back, placed by the middle of its hair
+                base = vk[3:]
+                shapes[vk] = (it["head"], it["cx"], it["cy"])
+                big, hair_sq, c = squares[base]
+                tipped = Image.fromarray((hair_sq * 255).astype(np.uint8)).rotate(TILT[base], Image.NEAREST)
+                hy, hx = np.where(np.asarray(tipped) > 0)
+                cells[vk] = dict(w=c["w"], h=c["h"], ox=-float(hx.mean()), oy=-float(hy.mean()), neck=c["neck"])
+                guide.alpha_composite(big.rotate(TILT[base], Image.NEAREST), (bx, by))
+                continue
+            size = max(it["neck"] - it["top"], it["right"] - it["left"]) * 1.5
+            sx = int(round((it["left"] + it["right"]) / 2 - size / 2))
+            sy = int(round(it["top"] - size * 0.15))
+            s = int(round(size))
+            cells[vk] = c = dict(w=s, h=s, ox=sx - it["cx"], oy=sy - it["cy"], neck=it["neck"] - sy)
+            shapes[vk] = (it["head"], it["cx"], it["cy"])
+            refs[vk] = it["desc"]
+            # the guide square, from the full-detail frame at the same place (K times finer), his head only
+            frame = Image.new("RGBA", det_atlas.size, (0, 0, 0, 0))
+            frame.paste(det_atlas.crop((dx, dy, dx + dw, dy + dh)), (dx, dy))
+            crop = frame.crop((dx + sx * K, dy + sy * K, dx + (sx + s) * K, dy + (sy + s) * K))
+            keep = np.zeros((s, s), bool)
+            hair_sq = np.zeros((s, s), bool)
+            hm = it["head"]
+            cellpx = a[frames[key][1][1]:, frames[key][1][0]:]
+            for yy in range(s):
+                for xx in range(s):
+                    fy, fx = sy + yy, sx + xx
+                    if 0 <= fy < hm.shape[0] and 0 <= fx < hm.shape[1]:
+                        keep[yy, xx] = hm[fy, fx]
+                        hair_sq[yy, xx] = hm[fy, fx] and cellpx[fy, fx] in HAIR
+            km = Image.fromarray((grow(keep, 1) * 255).astype(np.uint8)).resize(crop.size, Image.NEAREST)
+            cut = Image.new("RGBA", crop.size, (0, 0, 0, 0))
+            cut.paste(crop, (0, 0), km)
+            big = cut.resize((side, side), Image.NEAREST)
+            squares[vk] = (big, hair_sq, c)
+            guide.alpha_composite(big, (bx, by))
 
-    # each frame's facing: from its move's name, else the nearest head shape
     def facing(it):
         parts = it["name"].split("-")
         if len(parts) == 2 and parts[1] in DIRS:
@@ -291,31 +370,30 @@ def main():
         x, y = map(int, key.split(","))
         h, w = it["head"].shape
         d = facing(it)
-        # where his head usually is, facing this way: the guide frame's head shape, moved to this
-        # frame's hair (and flipped for the left-facing ones), grown a little
-        shape, rcx, rcy = shapes[MIRROR.get(d, d)]
-        if d in MIRROR:
+        vk, flip = view_key(d, it["pose"])
+        # where his head usually is in this view: the guide frame's head, moved to this frame's hair
+        # (flipped for the left-facing ones), grown a little
+        shape, rcx, rcy = shapes[vk]
+        if flip:
             shape, rcx = shape[:, ::-1], shape.shape[1] - 1 - rcx
         allowed = np.zeros((h, w), bool)
         sy, sx = np.where(shape)
         ty, tx = sy + int(round(it["cy"] - rcy)), sx + int(round(it["cx"] - rcx))
         ok = (ty >= 0) & (ty < h) & (tx >= 0) & (tx < w)
         allowed[ty[ok], tx[ok]] = True
-        allowed = grow(allowed, 2)
         cell = a[y:y + h, x:x + w]
-        head, _ = head_mask(cell, dark, allowed)
-        it["head"] = head
+        head, _ = head_mask(cell, dark, grow(allowed, 2))
         region = body[y:y + h, x:x + w]
         region[head] = 0
         region[:] = fold_into_parts(region, rgb, keep=ball_of(region))
         # specks left floating near where his head was (bits of its outline)
-        near = grow(it["head"], 6)
+        near = grow(head, 6)
         solid = region > 0
         for comp in pieces(solid & near):
             if len(comp) < 12 and not any(solid[yy, xx] and not near[yy, xx] for (cy_, cx_) in comp for (yy, xx) in around(cy_, cx_, h, w)):
                 for (yy, xx) in comp:
                     region[yy, xx] = 0
-        rig_frames[key] = [d, round(it["cx"], 2), round(it["cy"], 2)]
+        rig_frames[key] = [d, round(it["cx"], 2), round(it["cy"], 2), it["pose"]]
 
     OUT.mkdir(parents=True, exist_ok=True)
     o = Image.fromarray(body, "P")
@@ -326,12 +404,12 @@ def main():
     json.dump(rig, open(OUT / "rig.json", "w"), separators=(",", ":"))
     HEADS.mkdir(parents=True, exist_ok=True)
     guide.convert("RGB").save(HEADS / "template-orson.png")
-    mine.convert("RGB").save(HEADS / "head-orson.png")
+    guide.convert("RGB").save(HEADS / "head-orson.png")
     counts = {}
     for v in rig_frames.values():
-        counts[v[0]] = counts.get(v[0], 0) + 1
-    print(len(rig_frames), "frames with a head;", "facings", counts)
-    print("squares", {d: c["w"] for d, c in cells.items()})
+        k = view_key(v[0], v[3])[0]
+        counts[k] = counts.get(k, 0) + 1
+    print(len(rig_frames), "frames with a head; views", counts)
 
 
 if __name__ == "__main__":

@@ -167,7 +167,7 @@ main checkout.
   `tools/dev/check_prints.mjs` on `?pixel` and restamp his `?v=` in `assets/characters/index.json`.
   `?old` plays his earlier art.
 - **Layered players** (builder bodies on Orson's moving body, `players/layered.js`): a new head is
-  `art/heads/head-<style>.png` (brief in `art/heads/README.md`), built with
+  `art/heads/head-<style>.png` (16:9, two rows of five views; brief in `art/heads/README.md`), built with
   `python tools/pixelart/heads.py <style>` (check `art/heads/preview-<style>.png`), tried with
   `?debug&head=<style>`. Naming it after a builder body id replaces that body for every player who chose it.
   After rebuilding Orson's video sheets, run `tools/pixelart/rig.py` then `heads.py` (all heads) again.

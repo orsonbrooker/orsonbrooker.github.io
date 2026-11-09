@@ -3,7 +3,7 @@
 //
 //   assets/characters/rig/       body.png and rig.json: every frame of the body, and where the head
 //                                goes in each (tools/pixelart/rig.py)
-//   assets/characters/heads/     a head per style, five views each, and index.json listing them
+//   assets/characters/heads/     a head per style (five facings, normal and looking up), and index.json listing them
 //                                (tools/pixelart/heads.py, from art/heads/head-<style>.png)
 //
 // The result is a sheet just like a pixel-art sheet made from video (frames, jersey faces for the
@@ -89,7 +89,7 @@ export async function buildPlayer({ head, build = {} }) {
       const key = `${f[0]},${f[1]}`;
       if (cells.has(key)) continue;
       const [x, y, w, h, ox, oy] = f;
-      const spot = rig.heads.frames[key]; // [facing, middle x, middle y]
+      const spot = rig.heads.frames[key]; // [facing, middle of his hair x, y, "up" in a shot]
       // the build: rows added or taken from below his neck to above his feet, columns across his middle
       const neck = spot ? spot[2] + 8 : h * 0.3;
       const rows = stretch(h, Math.round(height * HEIGHT_STEP * h), neck, h - 6);
@@ -99,10 +99,12 @@ export async function buildPlayer({ head, build = {} }) {
       // where the head goes, in the stretched frame
       let view = null;
       if (spot && style) {
-        const [facing, cx, cy] = spot;
+        // the view: its facing (left ones flipped from right ones), looking up in a shot if the head has it
+        const [facing, cx, cy, pose] = spot;
         const base = rig.heads.mirror[facing] ?? facing;
-        const c = rig.heads.cells[base];
-        const v = style.views[base];
+        const name = pose === "up" && style.views[`up-${base}`] ? `up-${base}` : base;
+        const c = rig.heads.cells[name];
+        const v = style.views[name];
         if (c && v) {
           const flip = base !== facing;
           const nx = cols.fwd(cx), ny = rows.fwd(cy);
@@ -165,6 +167,21 @@ export async function buildPlayer({ head, build = {} }) {
           o[ti + 3] = 255;
         }
     }
+  }
+  // Pinholes where his own head came off and the new one doesn't quite reach (by the chin): a clear
+  // pixel with solid pixels on nearly every side takes the colour below it, or beside it.
+  for (const c of cells.values()) {
+    if (!c.view) continue;
+    for (let y = c.y + 1; y < c.y + c.h - 1; y++)
+      for (let x = c.x + 1; x < c.x + c.w - 1; x++) {
+        const i = (y * SHEET_W + x) * 4;
+        if (o[i + 3]) continue;
+        let solid = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dy || dx) && o[i + (dy * SHEET_W + dx) * 4 + 3]) solid++;
+        if (solid < 6) continue;
+        const from = [SHEET_W, -1, 1, -SHEET_W].map((d) => i + d * 4).find((j) => o[j + 3]);
+        o.copyWithin(i, from, from + 4);
+      }
   }
   g.putImageData(out, 0, 0);
 

@@ -2,13 +2,16 @@
 
   python tools/pixelart/heads.py [style ...]      (no styles: every head-*.png in art/heads)
 
-Each image is five square views in a row (front, front-right, right, back-right, back; see
-art/heads/README.md). For each view this keys out the green, shrinks it to the game's pixel size
-(the square the rig gives that facing, tools/pixelart/rig.py), and gives every pixel a slot of the
-rig's palette: hair and skin get their five tones (so the game recolours them), dark lines the
-outline colour, anything else (eyes, a hair tie, glasses) the nearest fixed colour. Writes:
+Each image is 16:9 with two rows of five squares, laid out like art/heads/template-orson.png: front,
+front-right, right, back-right, back; normal, then looking up (for shots). Any 16:9 size works. (An
+older five-in-a-row image gives the normal views only, and shots use them too.) For each view this
+keys out the green, shrinks it to the game's pixel size (the square the rig gives that view,
+tools/pixelart/rig.py), lines it up by the neck with Orson's head in the same view, and gives every
+pixel a slot of the rig's palette: hair and skin get their five tones, shaded like his (so the game
+recolours them), dark lines the outline colour, anything else (eyes, a hair tie, glasses) the nearest
+fixed colour. Writes:
 
-  assets/characters/heads/<style>.png    the five views side by side, in the rig's palette
+  assets/characters/heads/<style>.png    the views side by side, in the rig's palette
   assets/characters/heads/index.json     each style's views (where they are in its image) and the
                                          cache versions of the heads and the body
   art/heads/preview-<style>.png          the head on the body in every facing, big, to check
@@ -19,12 +22,11 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).parent))
-from rig import fold_into_parts  # noqa: E402
+from rig import LAYOUT, VIEWS, fold_into_parts, view_box, view_key  # noqa: E402
 
 RIG = Path("assets/characters/rig")
 OUT = Path("assets/characters/heads")
 ART = Path("art/heads")
-DRAWN = ["f", "fr", "r", "br", "b"]
 SKIN = list(range(1, 6))
 HAIR = list(range(6, 11))
 PARTS = set(range(1, 26))  # recoloured slots: skin, hair, jersey, team, shoes
@@ -46,30 +48,39 @@ def chroma(c):
     return c / c.sum(-1, keepdims=True)
 
 
-def convert(style, rig):
-    src = Image.open(ART / f"head-{style}.png").convert("RGB")
-    n = len(DRAWN)
-    side = src.width // n
-    rgb = np.array(rig["rgb"])
-    fixed = [i for i in range(1, len(rgb)) if i not in PARTS]
-    dark = [i for i in fixed if lum(rgb[i]) < 60]
-    light_fixed = [i for i in fixed if i not in dark]
+def read_views(path, rig):
+    """Each view of a head image, shrunk to the game's size: {view: (colours, kept)}."""
+    src = Image.open(path).convert("RGB")
+    W, H = src.size
     cells = rig["heads"]["cells"]
-
+    if abs(W / H - 16 / 9) < 0.08:
+        scale = W / LAYOUT["w"]
+        boxes = {vk: view_box(r, c, scale) for r, keys in enumerate(VIEWS) for c, vk in enumerate(keys)}
+    else:  # five in a row: the normal views
+        side = W / len(VIEWS[0])
+        boxes = {vk: (int(c * side), 0, int((c + 1) * side), int(min(side, H))) for c, vk in enumerate(VIEWS[0])}
     views = {}
-    for k, d in enumerate(DRAWN):
-        sq = np.array(src.crop((k * side, 0, (k + 1) * side, min(side, src.height))))
+    for vk, box in boxes.items():
+        sq = np.array(src.crop(box))
         keep = key_green(sq)
         rgba = np.dstack([sq, keep * 255]).astype(np.uint8)
-        size = cells[d]["w"]
+        size = cells[vk]["w"]
         # shrink: average the colour of what's kept, keep a pixel if most of its block was kept
-        im = Image.fromarray(rgba, "RGBA")
-        pre = np.array(im).astype(float)
+        pre = rgba.astype(float)
         pre[..., :3] *= pre[..., 3:4] / 255
         small = np.array(Image.fromarray(pre.astype(np.uint8), "RGBA").resize((size, size), Image.BOX)).astype(float)
         a = small[..., 3]
         col = np.where(a[..., None] > 0, small[..., :3] * 255 / np.maximum(a[..., None], 1), 0)
-        views[d] = (col, a > 110)
+        views[vk] = (col, a > 110)
+    return views
+
+
+def label(views, rig):
+    """Each kept pixel's part: "skin", "hair", "dark" (a line) or a fixed palette slot."""
+    rgb = np.array(rig["rgb"])
+    fixed = [i for i in range(1, len(rgb)) if i not in PARTS]
+    dark = [i for i in fixed if lum(rgb[i]) < 60]
+    light_fixed = [i for i in fixed if i not in dark]
 
     # what's hair and what's skin: from where they surely are (the middle of the face from the front,
     # the crown from behind)
@@ -97,52 +108,92 @@ def convert(style, rig):
             return min(light_fixed, key=lambda i: ((rgb[i] - c) ** 2).sum())
         return "skin" if ds <= dh else "hair"
 
-    # tones within hair and skin: by brightness, across all five views
     labels = {}
-    lums = {"skin": [], "hair": []}
-    for d, (col, m) in views.items():
+    for vk, (col, m) in views.items():
         lab = np.empty(m.shape, object)
         for y, x in zip(*np.where(m)):
-            p = part_of(col[y, x])
-            lab[y, x] = p
-            if p in lums:
-                lums[p].append(lum(col[y, x]))
-        labels[d] = lab
+            lab[y, x] = part_of(col[y, x])
+        labels[vk] = lab
+    return labels, dark
+
+
+def neck_point(lab, m):
+    """The bottom middle of the neck: the lowest rows of skin, their middle. None if little skin shows."""
+    skin = np.zeros(m.shape, bool)
+    for y, x in zip(*np.where(m)):
+        skin[y, x] = lab[y, x] == "skin"
+    ys, xs = np.where(skin)
+    if len(ys) < 10:
+        return None
+    bottom = ys.max()
+    low = ys >= bottom - 2
+    return float(xs[low].mean()), float(bottom)
+
+
+def shift(a, dy, dx):
+    out = np.zeros_like(a)
+    h, w = a.shape[:2]
+    ys, yd = (slice(0, h - dy), slice(dy, h)) if dy >= 0 else (slice(-dy, h), slice(0, h + dy))
+    xs, xd = (slice(0, w - dx), slice(dx, w)) if dx >= 0 else (slice(-dx, w), slice(0, w + dx))
+    out[yd, xd] = a[ys, xs]
+    return out
+
+
+def convert(style, rig):
+    views = read_views(ART / f"head-{style}.png", rig)
+    labels, dark = label(views, rig)
+    rgb = np.array(rig["rgb"])
+    cells = rig["heads"]["cells"]
     slots = {"skin": SKIN, "hair": HAIR}
+
+    # lined up by the neck with Orson's head in the same view (a generated picture may sit a little off)
+    moves = {}
+    if style != "orson":
+        rv = read_views(ART / "head-orson.png", rig)
+        rl, _ = label(rv, rig)
+        for vk in views:
+            here = neck_point(labels[vk], views[vk][1])
+            there = neck_point(rl[vk], rv[vk][1]) if vk in rv else None
+            if here and there:
+                dx, dy = int(round(there[0] - here[0])), int(round(there[1] - here[1]))
+                limit = cells[vk]["w"] // 4
+                if abs(dx) <= limit and abs(dy) <= limit:
+                    moves[vk] = (dy, dx)
+
     # Tones like his: in each view, the same share of each tone (darkest to lightest) as his own head
     # had there, given out by brightness, so a new head is shaded the way the body around it is.
     target = his_tones(rig)
-    tone_of = {}
-    for d in DRAWN:
-        col, m = views[d]
-        tone_of[d] = {}
+    outs = {}
+    for vk, (col, m) in views.items():
+        lab = labels[vk]
+        tone_of = {}
         for p, ss in slots.items():
-            here = sorted(lum(col[y, x]) for y, x in zip(*np.where(m)) if labels[d][y, x] == p)
-            share = np.cumsum(target[d][p]) / max(1, sum(target[d][p]))
-            cuts = [here[min(len(here) - 1, int(s * len(here)))] for s in share[:-1]] if here else []
-            tone_of[d][p] = lambda L, cuts=cuts, ss=ss: ss[int(np.searchsorted(cuts, L, side="right"))] if cuts else ss[3]
-
-    xs = 0
-    index = {}
-    sheet = np.zeros((max(c["h"] for c in cells.values()), sum(cells[d]["w"] for d in DRAWN)), np.uint8)
-    for d in DRAWN:
-        col, m = views[d]
-        lab = labels[d]
-        c = cells[d]
+            here = sorted(lum(col[y, x]) for y, x in zip(*np.where(m)) if lab[y, x] == p)
+            t = target[vk][p] if target[vk][p].sum() else target[vk.replace("up-", "")][p]
+            share = np.cumsum(t) / max(1, t.sum())
+            cuts = [here[min(len(here) - 1, int(q * len(here)))] for q in share[:-1]] if here else []
+            tone_of[p] = lambda L, cuts=cuts, ss=ss: ss[int(np.searchsorted(cuts, L, side="right"))] if cuts else ss[3]
         out = np.zeros(m.shape, np.uint8)
         for y, x in zip(*np.where(m)):
             p = lab[y, x]
             if p == "dark":
                 out[y, x] = min(dark, key=lambda i: ((rgb[i] - col[y, x]) ** 2).sum())
             elif p in slots:
-                out[y, x] = tone_of[d][p](lum(col[y, x]))
+                out[y, x] = tone_of[p](lum(col[y, x]))
             else:
                 out[y, x] = p
         out = fold_into_parts(out, rig["rgb"])
+        if vk in moves:
+            out = shift(out, *moves[vk])
         # only down to his collar: the body's shoulders cover the rest
-        out[min(out.shape[0], c["neck"] + 3):] = 0
+        out[min(out.shape[0], cells[vk]["neck"] + 3):] = 0
+        outs[vk] = out
+    sheet = np.zeros((max(o.shape[0] for o in outs.values()), sum(o.shape[1] for o in outs.values())), np.uint8)
+    index = {}
+    xs = 0
+    for vk, out in outs.items():
         sheet[: out.shape[0], xs: xs + out.shape[1]] = out
-        index[d] = [xs, 0, out.shape[1], out.shape[0]]
+        index[vk] = [xs, 0, out.shape[1], out.shape[0]]
         xs += out.shape[1]
     OUT.mkdir(parents=True, exist_ok=True)
     o = Image.fromarray(sheet, "P")
@@ -153,14 +204,14 @@ def convert(style, rig):
 
 
 def his_tones(rig):
-    """How many of each skin and hair tone (darkest first) Orson's own head uses in each drawn view,
-    over all frames facing that way: what was taken off the body (tools/pixelart/rig.py)."""
+    """How many of each skin and hair tone (darkest first) Orson's own head uses in each view, over
+    all frames shown with it: what was taken off the body (tools/pixelart/rig.py)."""
     pix = np.array(Image.open("assets/characters/orson-pixel/sprites.png"))
     body = np.array(Image.open(RIG / "body.png"))
     removed = (body == 0) & (pix > 0)
-    out = {d: {"skin": np.zeros(5), "hair": np.zeros(5)} for d in DRAWN}
-    for key, (d, _, _) in rig["heads"]["frames"].items():
-        base = rig["heads"]["mirror"].get(d, d)
+    out = {vk: {"skin": np.zeros(5), "hair": np.zeros(5)} for row in VIEWS for vk in row}
+    for key, (d, _, _, pose) in rig["heads"]["frames"].items():
+        base, _ = view_key(d, pose)
         x, y = map(int, key.split(","))
         f = next(f for lst in rig["frames"].values() for f in lst if f[0] == x and f[1] == y)
         w, h = f[2], f[3]
@@ -171,15 +222,17 @@ def his_tones(rig):
     return out
 
 
-def place(rig, key, head_sheet, view):
-    """Where a head view goes in a frame: (x, y, flipped)."""
-    d, cx, cy = rig["heads"]["frames"][key]
-    base = rig["heads"]["mirror"].get(d, d)
-    c = rig["heads"]["cells"][base]
-    w = view[2]
-    flip = d != base
+def place(rig, key, index):
+    """Where a head goes in a frame: (x, y, view, flipped). A view the head doesn't have (an older
+    head without looking-up views) falls back to the normal one."""
+    d, cx, cy, pose = rig["heads"]["frames"][key]
+    vk, flip = view_key(d, pose)
+    if vk not in index:
+        vk = vk[3:]
+    c = rig["heads"]["cells"][vk]
+    w = index[vk][2]
     x = cx - c["ox"] - w if flip else cx + c["ox"]
-    return int(round(x)), int(round(cy + c["oy"])), base, flip
+    return int(round(x)), int(round(cy + c["oy"])), vk, flip
 
 
 def preview(style, rig, index, sheet):
@@ -202,8 +255,8 @@ def preview(style, rig, index, sheet):
         key = f"{x},{y}"
         canvas = np.zeros((h + 2 * P, w + 2 * P), np.uint8)
         if key in rig["heads"]["frames"]:
-            hx, hy, base, flip = place(rig, key, sheet, index[rig["heads"]["mirror"].get(rig["heads"]["frames"][key][0], rig["heads"]["frames"][key][0])])
-            vx, vy, vw, vh = index[base]
+            hx, hy, vk, flip = place(rig, key, index)
+            vx, vy, vw, vh = index[vk]
             v = sheet[vy:vy + vh, vx:vx + vw]
             if flip:
                 v = v[:, ::-1]
