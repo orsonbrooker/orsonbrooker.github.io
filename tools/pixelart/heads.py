@@ -76,44 +76,87 @@ def read_views(path, rig):
 
 
 def label(views, rig):
-    """Each kept pixel's part: "skin", "hair", "dark" (a line) or a fixed palette slot."""
+    """Each kept pixel's part: "skin", "hair", "dark" (a line) or a fixed palette slot.
+
+    Hair in shadow can be as dark and warm as skin, so one sample colour of each can't tell them apart.
+    Instead the head's colours are grouped (a dozen groups), and each group is hair or skin by where it
+    mostly turns up: the crown and the back of the head are hair, the middle of the face from the front
+    and the cheek from the side are skin."""
     rgb = np.array(rig["rgb"])
     fixed = [i for i in range(1, len(rgb)) if i not in PARTS]
     dark = [i for i in fixed if lum(rgb[i]) < 60]
     light_fixed = [i for i in fixed if i not in dark]
 
-    # what's hair and what's skin: from where they surely are (the middle of the face from the front,
-    # the crown from behind)
-    def sample(d, y0, y1, x0, x1):
-        col, m = views[d]
-        s = col.shape[0]
-        ys, xs = slice(int(s * y0), int(s * y1)), slice(int(s * x0), int(s * x1))
-        pick = col[ys, xs][m[ys, xs]]
-        pick = pick[lum(pick) > 70]
-        return np.median(pick, 0)
+    def zone(vk, y0, y1, x0, x1):
+        """A box in a view, as shares of its head's height and width."""
+        m = views[vk][1]
+        ys, xs = np.where(m)
+        z = np.zeros(m.shape, bool)
+        if not len(ys):
+            return z
+        t, b, l, r = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+        z[int(t + (b - t) * y0):int(t + (b - t) * y1), int(l + (r - l) * x0):int(l + (r - l) * x1)] = True
+        return z & m
 
-    skin_ref = sample("f", 0.5, 0.68, 0.38, 0.62)
-    hair_ref = sample("b", 0.2, 0.45, 0.35, 0.65)
+    hair_ev = {vk: np.zeros(views[vk][1].shape, bool) for vk in views}
+    skin_ev = {vk: np.zeros(views[vk][1].shape, bool) for vk in views}
+    for vk in views:
+        hair_ev[vk] |= zone(vk, 0, 0.22, 0.2, 0.8)  # the crown, every view
+    for vk in ("b", "up-b"):
+        if vk in views:
+            hair_ev[vk] |= zone(vk, 0, 0.62, 0.1, 0.9)  # the back of the head
+    if "f" in views:
+        skin_ev["f"] |= zone("f", 0.55, 0.85, 0.32, 0.68)  # nose, mouth, chin
+    if "r" in views:
+        skin_ev["r"] |= zone("r", 0.55, 0.85, 0.55, 0.9)  # cheek and jaw, side on
 
-    def part_of(c):
-        L = lum(c)
-        if L < 55:
-            return "dark"
-        ds = np.abs(chroma(c) - chroma(skin_ref)).sum() * 6 + abs(L - lum(skin_ref)) / 160
-        dh = np.abs(chroma(c) - chroma(hair_ref)).sum() * 6 + abs(L - lum(hair_ref)) / 160
-        # not hair or skin: far from both, or grey/white/blue (eyes, glasses, a hair tie)
-        c = np.asarray(c, float)
-        greyish = c.max() - c.min() < 30 or c[2] > c[0] + 10
-        if min(ds, dh) > 1.0 or (greyish and L > 120):
-            return min(light_fixed, key=lambda i: ((rgb[i] - c) ** 2).sum())
-        return "skin" if ds <= dh else "hair"
+    # the colours that might be hair or skin: not lines, not grey, white or blue
+    pts, where = [], []
+    for vk, (col, m) in views.items():
+        for y, x in zip(*np.where(m)):
+            c = col[y, x]
+            if lum(c) < 55 or c.max() - c.min() < 30 or c[2] > c[0] + 10:
+                continue
+            pts.append(c)
+            where.append((vk, y, x))
+    pts = np.array(pts, float)
+    # group them (k-means in a lightness-and-colour space, a few rounds)
+    feat = np.column_stack([lum(pts) / 2, (chroma(pts) * 400)])
+    k = min(12, len(pts))
+    rng = np.random.default_rng(0)
+    centres = feat[rng.choice(len(feat), k, replace=False)]
+    for _ in range(25):
+        group = ((feat[:, None] - centres[None]) ** 2).sum(2).argmin(1)
+        centres = np.array([feat[group == g].mean(0) if (group == g).any() else centres[g] for g in range(k)])
+    h_in = np.zeros(k)
+    s_in = np.zeros(k)
+    for (vk, y, x), g in zip(where, group):
+        h_in[g] += hair_ev[vk][y, x]
+        s_in[g] += skin_ev[vk][y, x]
+    h_share = h_in / max(1, h_in.sum())
+    s_share = s_in / max(1, s_in.sum())
+    decided = [g for g in range(k) if h_in[g] + s_in[g] >= 3]
+    part_of_group = {}
+    for g in range(k):
+        if g in decided:
+            part_of_group[g] = "hair" if h_share[g] >= s_share[g] else "skin"
+    for g in range(k):
+        if g not in part_of_group:  # seen in neither place: like the nearest group that was
+            near = min(decided, key=lambda d: ((centres[g] - centres[d]) ** 2).sum()) if decided else None
+            part_of_group[g] = part_of_group.get(near, "skin")
 
     labels = {}
     for vk, (col, m) in views.items():
         lab = np.empty(m.shape, object)
         for y, x in zip(*np.where(m)):
-            lab[y, x] = part_of(col[y, x])
+            c = col[y, x]
+            if lum(c) < 55:
+                lab[y, x] = "dark"
+            else:
+                lab[y, x] = min(light_fixed, key=lambda i: ((rgb[i] - c) ** 2).sum())  # eyes, glasses, a tie
         labels[vk] = lab
+    for (vk, y, x), g in zip(where, group):
+        labels[vk][y, x] = part_of_group[g]
     return labels, dark
 
 

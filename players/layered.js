@@ -168,6 +168,25 @@ export async function buildPlayer({ head, build = {} }) {
         }
     }
   }
+  // A short gap between the new head's neck and his shoulders (the new neck ends a little higher than
+  // his did): filled down from the neck.
+  for (const c of cells.values()) {
+    if (!c.view) continue;
+    const vh = c.view.v[3];
+    const y0 = c.y + c.dy + c.view.y + Math.floor(vh * 0.5);
+    const y1 = Math.min(c.y + c.h - 1, c.y + c.dy + c.view.y + vh + 6);
+    for (let x = c.x; x < c.x + c.w; x++) {
+      for (let y = y0; y < y1; y++) {
+        const i = (y * SHEET_W + x) * 4;
+        if (!o[i + 3] || o[i + 4 * SHEET_W + 3]) continue;
+        // a solid pixel with a clear run under it: how long, and is there something solid below?
+        let n = 1;
+        while (n <= 4 && y + n < y1 + 4 && !o[i + n * 4 * SHEET_W + 3]) n++;
+        if (n > 4 || y + n >= c.y + c.h || !o[i + n * 4 * SHEET_W + 3]) continue;
+        for (let k = 1; k < n; k++) o.copyWithin(i + k * 4 * SHEET_W, i, i + 4);
+      }
+    }
+  }
   // Pinholes where his own head came off and the new one doesn't quite reach (by the chin): a clear
   // pixel with solid pixels on nearly every side takes the colour below it, or beside it.
   for (const c of cells.values()) {

@@ -39,7 +39,7 @@ UP_MOVES = ("jump", "release")  # moves where he looks up at the hoop
 # The frame each view's guide comes from: standing dribbles (or the jog, front), and early in the jump
 # for looking up (his face still clear of his arms). Nobody shoots facing straight at us, so the front
 # looking-up view is the normal front.
-REF = {d: (f"dribble-{d}" if d != "f" else "run-f", 0) for d in DRAWN}
+REF = {d: (f"dribble-{d}" if d not in ("f", "fr") else f"run-{d}", 0) for d in DRAWN}
 REF.update({f"up-{d}": (f"jump-{d}", 1) for d in DRAWN if d != "f"})
 REF["up-f"] = REF["f"]
 # His face is behind his arms in most shot frames, so the looking-up guide is his normal head tipped
@@ -343,6 +343,21 @@ def main():
                     if 0 <= fy < hm.shape[0] and 0 <= fx < hm.shape[1]:
                         keep[yy, xx] = hm[fy, fx]
                         hair_sq[yy, xx] = hm[fy, fx] and cellpx[fy, fx] in HAIR
+            # clean: just the head in one piece, with no holes (no specks, no stray bits of hand)
+            lumps = sorted(pieces(keep), key=len, reverse=True)
+            keep = np.zeros_like(keep)
+            for p in lumps[0]:
+                keep[p] = True
+            keep = fill_holes(keep)
+            # and inside an oval from the top of his hair to just under his chin, as wide as his hair
+            # (narrow at the bottom: not a hand by his chin, or his collar)
+            hy, hx = np.where(hair_sq)
+            if len(hy):
+                top, bottom = hy.min(), c["neck"] + 1
+                ey, ex = (top + bottom) / 2, (hx.min() + hx.max()) / 2
+                ry, rx = (bottom - top) / 2 + 1, (hx.max() - hx.min()) / 2 * 1.08 + 1
+                yy, xx = np.ogrid[:s, :s]
+                keep &= ((yy - ey) / ry) ** 2 + ((xx - ex) / rx) ** 2 <= 1
             km = Image.fromarray((grow(keep, 1) * 255).astype(np.uint8)).resize(crop.size, Image.NEAREST)
             cut = Image.new("RGBA", crop.size, (0, 0, 0, 0))
             cut.paste(crop, (0, 0), km)
@@ -383,6 +398,11 @@ def main():
         allowed[ty[ok], tx[ok]] = True
         cell = a[y:y + h, x:x + w]
         head, _ = head_mask(cell, dark, grow(allowed, 2))
+        if it["pose"] == "up":
+            # in a shot only his hair comes off: his face, neck and arms (mostly in front of his face)
+            # stay as drawn, recoloured like the rest, and the new hair shows round them
+            lines = np.isin(cell, dark) & head
+            head = head & (np.isin(cell, HAIR) | (lines & grow(cell == 0, 1)) | (lines & ~grow(np.isin(cell, SKIN), 1)))
         region = body[y:y + h, x:x + w]
         region[head] = 0
         region[:] = fold_into_parts(region, rgb, keep=ball_of(region))
