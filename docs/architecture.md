@@ -324,7 +324,9 @@ another service:
   play (input), who they play as and which game versions are about.
 - **Page views** come from Cloudflare's own analytics (sampled, no cookies). Cloudflare keeps them about a
   month, so the daily cron (00:30 UTC) copies each page's views and visits into `page_views` with a token
-  that can only read this zone's analytics (`CF_ANALYTICS_TOKEN`).
+  that can only read this zone's analytics (`CF_ANALYTICS_TOKEN`). Working out the stats copies them too
+  (from the last day copied to today), so a new day shows straight away; if Cloudflare fails, the page says
+  why and shows the rest.
 
 Only totals are shown, never one save's history. It's admin-only (Access plus the token check), indexed by
 day (`0016_stats.sql`), and the answer is reused for 5 minutes, so the cost doesn't grow with players.

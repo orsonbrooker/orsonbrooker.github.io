@@ -20,11 +20,21 @@ export const PAGES = ["/", "/games/shootaround/", "/players/", "/ideas/"];
 
 const sinceDay = (days: number) => new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
 
-let kept: { at: number; body: unknown } | null = null;
+// The last answer, per database (so tests, each with their own, don't share it).
+const keptFor = new WeakMap<object, { at: number; body: unknown }>();
 
 /** GET /api/admin/stats */
 export async function stats(env: Env): Promise<unknown> {
+	const kept = keptFor.get(env.DB);
 	if (kept && Date.now() - kept.at < KEEP_MS) return kept.body;
+	// Page views are copied each night, and again here, so the first days show straight away and today
+	// stays current. A failure only leaves the copy as it was (and says why on the page).
+	let pageViewsError: string | null = null;
+	try {
+		await copyPageViews(env);
+	} catch (err) {
+		pageViewsError = (err as Error).message;
+	}
 	const since = sinceDay(DAYS - 1); // 30 days, today included
 	const q = (sql: string, ...binds: unknown[]) => env.DB.prepare(sql).bind(...binds);
 	const [games, saves, sends, players, ideas, votes, views, active, back, weekLater, adoption, balls, inputs, characters, versions] = await env.DB.batch([
@@ -118,6 +128,7 @@ export async function stats(env: Env): Promise<unknown> {
 		votes: byDay(votes.results),
 		pages,
 		pageViewsReady: !!env.CF_ANALYTICS_TOKEN,
+		pageViewsError,
 		active: { today: total(today), week: total("week"), month: total("month") },
 		cameBack: (back.results[0] as { n: number }).n,
 		weekLater: weekLater.results[0],
@@ -127,13 +138,14 @@ export async function stats(env: Env): Promise<unknown> {
 		characters: characters.results,
 		versions: versions.results,
 	};
-	kept = { at: Date.now(), body };
+	keptFor.set(env.DB, { at: Date.now(), body });
 	return body;
 }
 
 /**
  * Copies Cloudflare's page views for the site's pages into page_views, day by day, from the last day
- * copied (or as far back as Cloudflare keeps) up to yesterday, plus today so far. Run by the daily cron.
+ * copied (or as far back as Cloudflare keeps) up to today so far. Run by the daily cron, and when the
+ * stats are worked out (at most every few minutes, admin only).
  * Needs CF_ANALYTICS_TOKEN: an API token that can only read this zone's analytics.
  */
 export async function copyPageViews(env: Env): Promise<number> {
@@ -167,6 +179,6 @@ export async function copyPageViews(env: Env): Promise<number> {
 			).bind(r.dimensions.date, r.dimensions.clientRequestPath, r.count, r.sum.visits),
 		),
 	);
-	kept = null;
+	keptFor.delete(env.DB);
 	return rows.length;
 }

@@ -103,4 +103,29 @@ test("stats count games, saves and features from what's saved, and page views on
 	}
 });
 
+test("opening the stats gets page views straight away, and a Cloudflare error doesn't break the page", async () => {
+	const realFetch = globalThis.fetch;
+	const today = new Date().toISOString().slice(0, 10);
+	try {
+		const { env } = fakeEnv();
+		const withToken = { ...env, CF_ANALYTICS_TOKEN: "t", CF_ZONE_ID: "z" } as Env;
+		globalThis.fetch = (async () =>
+			new Response(
+				JSON.stringify({ data: { viewer: { zones: [{ httpRequestsAdaptiveGroups: [{ count: 12, sum: { visits: 5 }, dimensions: { date: today, clientRequestPath: "/ideas/" } }] }] } }, errors: null }),
+			)) as unknown as typeof fetch;
+		const s = (await stats(withToken)) as Record<string, any>;
+		assert.equal(s.pages["/ideas/"].views.at(-1), 12);
+		assert.equal(s.pageViewsError, null);
+
+		const other = fakeEnv();
+		globalThis.fetch = (async () => new Response(JSON.stringify({ data: null, errors: [{ message: "not authorized" }] }), { status: 403 })) as unknown as typeof fetch;
+		const broken = (await stats({ ...other.env, CF_ANALYTICS_TOKEN: "t", CF_ZONE_ID: "z" } as Env)) as Record<string, any>;
+		assert.match(broken.pageViewsError, /not authorized/);
+		assert.deepEqual(broken.pages, {});
+		assert.equal(broken.days.length, 30); // the rest still works
+	} finally {
+		globalThis.fetch = realFetch;
+	}
+});
+
 const total = (a: number[] = []) => a.reduce((x, y) => x + y, 0);

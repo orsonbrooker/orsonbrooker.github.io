@@ -922,13 +922,25 @@
 					panel("Finished games a day, by mode", dayChart(s.days, modes), note("Games that finished online. Offline games and ?debug games aren't counted.")),
 					panel("Saves playing each day", dayChart(s.days, [{ name: "Saves", color: SERIES[0], values: s.activeSaves }])),
 					el("h2", { textContent: "Visits" }),
-					s.pageViewsReady
+					s.pageViewsReady && pageSeries.length
 						? panel(
 								"Pages viewed a day",
 								dayChart(s.days, pageSeries),
-								note(`Cloudflare's counts (sampled, so roughly), copied each night. The game page was opened ${gameViews} times for ${games} finished games.`),
+								note(
+									`Cloudflare's counts (sampled, so roughly). The game page was opened ${gameViews} times for ${games} finished games.` +
+										(s.pageViewsError ? ` Couldn't refresh just now: ${s.pageViewsError}` : ""),
+								),
 							)
-						: panel("Pages viewed a day", note("Waiting for the Cloudflare analytics token (CF_ANALYTICS_TOKEN), then the first nightly copy.")),
+						: panel(
+								"Pages viewed a day",
+								note(
+									!s.pageViewsReady
+										? "Waiting for the Cloudflare analytics token (CF_ANALYTICS_TOKEN)."
+										: s.pageViewsError
+											? `Couldn't get page views from Cloudflare: ${s.pageViewsError}`
+											: "No page views from Cloudflare yet.",
+								),
+							),
 					el("h2", { textContent: "Features" }),
 					el(
 						"div",
