@@ -161,7 +161,7 @@
 			}
 
 			/* Stats: tiles, charts by day, and how many saves use each feature. */
-			.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+			.stat-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
 			.tile { background: var(--panel); border-radius: 8px; padding: 12px; }
 			.tile b { display: block; font-family: var(--pixel); font-size: 18px; margin: 6px 0 4px; }
 			.tile span, .tile small { opacity: 0.75; }
@@ -909,7 +909,7 @@
 					el("h2", { textContent: "Last 30 days" }),
 					el(
 						"div",
-						{ className: "tiles" },
+						{ className: "stat-tiles" },
 						tile("Playing today", s.active.today, "saves with a finished game"),
 						tile("This week", s.active.week, "saves"),
 						tile("Last 30 days", s.active.month, "saves"),
