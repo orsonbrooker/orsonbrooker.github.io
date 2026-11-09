@@ -166,6 +166,11 @@ main checkout.
   `tools/pixelart/video_body.py art/video/orson.json` (needs Luke's videos); after rebuilding, run
   `tools/dev/check_prints.mjs` on `?pixel` and restamp his `?v=` in `assets/characters/index.json`.
   `?old` plays his earlier art.
+- **Layered players** (builder bodies on Orson's moving body, `players/layered.js`): a new head is
+  `art/heads/head-<style>.png` (brief in `art/heads/README.md`), built with
+  `python tools/pixelart/heads.py <style>` (check `art/heads/preview-<style>.png`), tried with
+  `?debug&head=<style>`. Naming it after a builder body id replaces that body for every player who chose it.
+  After rebuilding Orson's video sheets, run `tools/pixelart/rig.py` then `heads.py` (all heads) again.
 - **Picker order** comes from `assets/characters/index.json` (Orson first); rebuilding a
   character can move it, so check.
 - **Ideas board data:** the `apps` table holds categories (`basketball` = Shootaround, `new-game`,

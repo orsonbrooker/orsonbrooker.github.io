@@ -347,6 +347,36 @@ flowchart LR
 - **Recolouring:** the full-detail sheet has a `regions.png` like the builder bodies; `?jersey=...&number=`
   on the game URL tries a kit on Orson.
 
+### Layered players
+
+Builder players move like Orson by sharing his body: his pixel-art frames with his head taken off, plus
+a head per style (drawn in five views: front, front-right, right, back-right, back; the left ones are
+flipped), at a build (taller or shorter, bulkier or thinner).
+
+```mermaid
+flowchart LR
+  PX["orson-pixel/"] --> RIG["tools/pixelart/rig.py"]
+  RIG --> BODY["rig/: body.png (no head)<br/>rig.json: head spot + facing per frame"]
+  RIG --> T["art/heads/template-orson.png<br/>(the guide for new heads)"]
+  H["art/heads/head-&lt;style&gt;.png<br/>5 views on green"] --> HT["tools/pixelart/heads.py"]
+  HT --> HS["heads/&lt;style&gt;.png + index.json"]
+  BODY & HS --> L["players/layered.js<br/>in the browser: body + head + build"]
+  L --> K["players/pixelkit.js<br/>colours, number, team name"]
+```
+
+- **Which players:** a builder body whose id has a head in `assets/characters/heads/index.json` becomes
+  layered (`loadBuiltPlayers()` in `play/players.js`); the others keep their hand-drawn sheet. So a head
+  replaces a body as soon as it's built. `?head=<style>&height=&bulk=` (each -1 to 1) tries one on Orson.
+- **Putting one together** happens once when the player loads: each frame is copied into a cell with room
+  round it (so long hair isn't cut off), rows added or taken between neck and feet and columns across the
+  middle for the build, the head drawn under the body (his shoulders, arms and the ball stay in front), and
+  the jersey faces moved to match. About 7 MB in memory per player (Orson's full-detail sheet is about
+  100 MB), and a fraction of a second.
+- **Heads' colours:** hair and skin become the rig's palette slots, shaded with the same share of each
+  tone as Orson's own head in that view, so they recolour and shade like the body. Shading browns his art
+  shares with the ball are folded into skin and hair (`fold_into_parts()` in `rig.py`).
+- **Build** is looks only: the jump, timing and scoring are the same for everyone.
+
 ## Going live
 
 Database migration first, then the Worker (it may need the new table), then the site (it may need the new

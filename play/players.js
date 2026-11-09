@@ -11,6 +11,7 @@ import { EU, EV, RIM, project } from "../engine/court.js";
 import { shoesIn } from "../engine/draw.js";
 import { load, save } from "../engine/storage.js";
 import { ANIM_FPS, JUMP_APEX, JUMP_FRAME_TIME, player } from "../play/state.js";
+import { buildPlayer, loadHeads } from "../players/layered.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, thumbnail } from "../players/recolor.js";
 
@@ -80,7 +81,10 @@ async function withKit(meta, img, entry, colours = {}) {
 async function loadCharacter(id) {
   if (!characters.loaded.has(id)) {
     const entry = characters.list.find((c) => c.id === id) ?? characters.list[0];
-    const loading = entry.base
+    const font = document.fonts?.load('16px "Press Start 2P"').catch(() => {}); // for printing the number
+    const loading = entry.layered
+      ? Promise.all([buildPlayer(entry.layered), font]).then(([{ meta, img }]) => withKit(meta, img, entry, entry.colours))
+      : entry.base
       ? loadBuilt(entry)
       : Promise.all([
           fetch(entry.meta).then((r) => r.json()),
@@ -127,6 +131,8 @@ export async function loadRoster() {
   const orson = characters.list.find((c) => c.id === "orson");
   if (orson && params.has("old")) Object.assign(orson, { atlas: "assets/sprites.webp", meta: "assets/sprites.json" });
   if (orson && params.has("pixel")) Object.assign(orson, { atlas: "assets/characters/orson-pixel/sprites.png", meta: "assets/characters/orson-pixel/sprites.json" });
+  // ?head=orson&height=1&bulk=-1: him as a layered player (players/layered.js), with that head and build.
+  if (orson && /^[a-z-]+$/.test(params.get("head") ?? "")) orson.layered = { head: params.get("head"), build: { height: params.get("height"), bulk: params.get("bulk") } };
   const custom = {};
   for (const k of ["skin", "hair", "jersey", "team", "shoes"]) if (/^[0-9a-f]{6}$/i.test(params.get(k) ?? "")) custom[k] = `#${params.get(k).toLowerCase()}`;
   if (/^\d{1,2}$/.test(params.get("number") ?? "")) custom.number = params.get("number");
@@ -140,10 +146,13 @@ export async function loadRoster() {
 
 // Players made on this device (saved by the builder's "Play now"), then approved builder players.
 async function loadBuiltPlayers() {
-  const bases = await loadBases().catch(() => []);
+  const [bases, heads] = await Promise.all([loadBases().catch(() => []), loadHeads()]);
+  // A body whose head has been made for the layered players moves like Orson (players/layered.js);
+  // the others keep their hand-drawn sheet.
+  const layered = (p) => (heads[p.base] ? { layered: { head: p.base, build: p.build ?? {} } } : {});
   for (const p of myPlayers()) {
     const base = bases.find((b) => b.id === p.base);
-    if (base) characters.list.push({ ...p, pronoun: p.pronoun || base.pronoun || "", mine: true, thumb: "/" + base.thumb, colours: { teamName: DEFAULT_TEAM, ...p.colours } });
+    if (base) characters.list.push({ ...p, ...layered(p), pronoun: p.pronoun || base.pronoun || "", mine: true, thumb: "/" + base.thumb, colours: { teamName: DEFAULT_TEAM, ...p.colours } });
   }
   try {
     const res = await fetch(PLAYERS_API);
@@ -158,6 +167,7 @@ async function loadBuiltPlayers() {
         pronoun: p.pronoun ?? base.pronoun ?? "", // set by the admin, else the body's
         base: p.base,
         thumb: "/" + base.thumb,
+        ...layered(p),
         colours: { skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name ?? DEFAULT_TEAM },
       });
     }
