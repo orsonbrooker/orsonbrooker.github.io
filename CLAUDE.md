@@ -171,6 +171,12 @@ main checkout.
   `python tools/pixelart/heads.py <style>` (check `art/heads/preview-<style>.png`), tried with
   `?debug&head=<style>`. Naming it after a builder body id replaces that body for every player who chose it.
   After rebuilding Orson's video sheets, run `tools/pixelart/rig.py` then `heads.py` (all heads) again.
+- **Kids from video** (the builder's Curly and Buns, `art/video/<kid>.json`): rebuild in this order,
+  `video_body.py`, then `tidy_regions.py`, `key_hair.py` and `ball_key.py` on `<kid>-detail` (the last two need
+  Flow's magenta hair and ball repaints of the kid's frame grids). Videos and Flow references get names
+  unique to the kid (Flow's project already holds older `grid-NN.jpg` files), and every downloaded repaint is
+  matched to its grid by picture before it's used. Make kids' videos with mid-brown hair, so any colour
+  recolours well.
 - **Picker order** comes from `assets/characters/index.json` (Orson first); rebuilding a
   character can move it, so check.
 - **Ideas board data:** the `apps` table holds categories (`basketball` = Shootaround, `new-game`,

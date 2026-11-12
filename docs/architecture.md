@@ -80,7 +80,7 @@ flowchart LR
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
 | Sound | `audio.js`, `phrases.js`, `assets/voice/`, `assets/sfx/` | Music that builds, synthesised effects, recorded bounces, a sneaker squeak and footsteps (`tools/build_sfx.py` packs `art/sfx/`), announcer clips (device voice as fallback); lines about the player in he and she versions. |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
-| Players | `assets/characters/`, `players/recolor.js`, `players/builder.js`, `players/pixelkit.js` | Built-in sprites; builder bodies recoloured from region maps; sheets made from video (Orson): which way he faces the hoop from each spot (`faceHoop()` in `play/players.js`), his number and team name warped onto a face on his jersey (`pixelkit.js`). |
+| Players | `assets/characters/`, `players/recolor.js`, `players/builder.js`, `players/pixelkit.js`, `players/stretch.js` | Built-in sprites; builder bodies recoloured from region maps; sheets made from video (Orson): which way he faces the hoop from each spot (`faceHoop()` in `play/players.js`), his number and team name warped onto a face on his jersey (`pixelkit.js`). |
 | Shared UI | `ui/` | Nav (the site bar on every page but the game), icons, styled dialogs, form helpers. |
 | Ideas widget | `feedback/` | The "Got an idea?" button on each page. |
 | Server address | `api.js` | Where the API is: this site's `/api`, the local Worker on localhost, or the live site from the iOS app. |
@@ -508,6 +508,32 @@ flowchart LR
   tone as Orson's own head in that view, so they recolour and shade like the body. Shading browns his art
   shares with the ball are folded into skin and hair (`fold_into_parts()` in `rig.py`).
 - **Build** is looks only: the jump, timing and scoring are the same for everyone.
+
+### Kids from video
+
+The builder's Curly and Buns bodies are kids made from their own videos, like Orson (`art/video/curly.json`,
+`buns.json`; `curly-detail/`, `buns-detail/`). Their entry in `assets/characters/bases/index.json` has
+`video: true` and a `card` (the frame and square for their card picture). The other bodies stay hand-drawn
+until each has its videos.
+
+```mermaid
+flowchart LR
+  V["7 videos per kid"] --> B["video_body.py"] --> T["tidy_regions.py<br/>skin edges, the ball's shades"]
+  G["grids of their frames<br/>repainted by Flow:<br/>hair, then ball, in magenta"] --> H["key_hair.py"] & K["ball_key.py"]
+  T --> H --> K --> S["sheet: hair at a mid-tone (meta.art),<br/>held ball cut out (meta.balls)"]
+```
+
+- **Hair** is stored at a mid-tone with full light and shade, whatever colour the video drew it, so any
+  hair colour recolours cleanly; `meta.art.hair` tells `recolor()` the stored colour differs from the kid's
+  own. It comes from Flow repainting the hair in shaded magenta on 24-frame grids (free images).
+- **The held ball** is the game's own ball: `meta.balls` gives each frame's ball (centre and radius, in the
+  frame), cut out of the body and drawn behind it (`drawPlayer()` in `play/scene.js`), so the shop's ball
+  styles show in their hands and fingers stay in front.
+- **Size:** `players/stretch.js` doubles or drops rows between the jersey's top and the feet and columns
+  across the jersey (6% taller or shorter, 10% wider or slimmer at the ends), with the number, team name and
+  held ball moved to match. Saved with the player on the device (`build` in `shared/save.js`).
+- **Moves:** their sheets add `start` (picking the dribble back up) and `recover` (arms down after a shot),
+  which the game uses when a sheet has them (`hasMove()` in `play/players.js`).
 
 ## Going live
 
