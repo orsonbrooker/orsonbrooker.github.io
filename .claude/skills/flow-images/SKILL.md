@@ -7,20 +7,29 @@ description: Make game art in Luke's Google Flow project (Shootaround) on this M
 
 Luke's Flow project **Shootaround** (flow.google.com) holds the game's references and past generations.
 Drive it with **agent-browser** on this Mac: a real Chrome with its own profile, signed in as Luke, headless.
-`flow.py` (next to this file) uploads, queues prompts and downloads. One session drives the "flow" browser
-at a time; ask any other session using it to stop first.
+`flow.py` (next to this file) uploads, queues prompts and downloads. Each browser has one driver at a
+time (below).
 
 ```sh
 agent-browser --config ~/.agent-browser/flow.json --session flow open https://flow.google.com   # once
 python .claude/skills/flow-images/flow.py upload <files>
 python .claude/skills/flow-images/flow.py queue <ref prefix> 0 13 <prompt file>
-python .claude/skills/flow-images/flow.py collect <newest N> <out dir> "BUNS BALL KEY \d\d"
+python .claude/skills/flow-images/flow.py collect <newest N> <out dir> "BUNS BALL KEY \d\d" [<expected>]
 ```
 
-A second browser, "flow2" (`~/.agent-browser/flow2.json`), lets two sessions work at once: run `flow.py`
-with `FLOW_SESSION=flow2`. Never copy a signed-in profile to make one: Google signed out both the copy and
-the original when we tried (13 Nov 2026). A new browser gets its own sign-in from Luke, in a visible window.
-Each browser has one driver; say which one you're taking.
+**Browsers** (each signed in by Luke himself, in a visible window): "flow" (`~/.agent-browser/flow.json`),
+"flow3" and "flow4". Pick one with `FLOW_SESSION=flow3` (the default is "flow"). Each browser has one
+driver: say which one you're taking, and never drive one another session is using. Never copy a signed-in
+profile to make another: Google signed out both the copy and the original when we tried (13 Nov 2026).
+Several browsers share the one account, so Flow's per-account limits still apply.
+
+**Files** live in `/Users/lukebrooker/Documents/Work/Shootaround`, never in Downloads or a scratchpad:
+- `orson-basketball/`: the kids' source videos (`~/Downloads/orson-basketball` links here, as
+  `art/video/*.json` still use that path)
+- `gear/`: `grids/<kid>/` (grids uploaded to Flow and `grids.json`), `flow/<item>/<kid>/` (Flow's images),
+  `refs/` (reference grids), `prompts/`, `sheets/` (contact sheets)
+- `flow-images/`: other Flow images; `reference/`: reference pictures
+- `downloads/`: where the browsers save files (flow3 and flow4 are set to it)
 
 If Google asks to sign in, reopen with `--headed` and ask Luke to sign in in that window; never type his
 password. Shell commands with `eval` in them are refused in a worktree: put them in a script and run that.
