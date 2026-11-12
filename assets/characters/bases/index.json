@@ -18,18 +18,28 @@
  {
   "id": "curly",
   "name": "Curly",
-  "atlas": "assets/characters/bases/curly/sprites.webp?v=639d5503",
-  "meta": "assets/characters/bases/curly/sprites.json?v=92332630",
-  "regions": "assets/characters/bases/curly/regions.png?v=86fd2c6a",
-  "thumb": "assets/characters/bases/curly/thumb.webp?v=0d6e2d50",
+  "atlas": "assets/characters/curly-detail/sprites.webp?v=7bfe482a",
+  "meta": "assets/characters/curly-detail/sprites.json?v=3cd8c513",
+  "regions": "assets/characters/curly-detail/regions.png?v=6713bf28",
+  "thumb": "assets/characters/bases/curly/thumb.webp?v=621f9be4",
   "colours": {
-   "skin": "#a06c5a",
-   "hair": "#67423a",
-   "jersey": "#cdd6da",
-   "team": "#35577c",
-   "shoes": "#403e4c"
+   "skin": "#a7755a",
+   "hair": "#b78f4e",
+   "jersey": "#c8dada",
+   "team": "#36576b",
+   "shoes": "#704b91"
   },
-  "pronoun": "he"
+  "pronoun": "he",
+  "video": true,
+  "card": [
+   927,
+   1692,
+   99,
+   264,
+   6,
+   5,
+   116
+  ]
  },
  {
   "id": "buzz",
@@ -66,18 +76,28 @@
  {
   "id": "buns",
   "name": "Buns",
-  "atlas": "assets/characters/bases/buns/sprites.webp?v=e4ff7082",
-  "meta": "assets/characters/bases/buns/sprites.json?v=b3bb8415",
-  "regions": "assets/characters/bases/buns/regions.png?v=458b46ed",
-  "thumb": "assets/characters/bases/buns/thumb.webp?v=1939de95",
+  "atlas": "assets/characters/buns-detail/sprites.webp?v=0a5ebe04",
+  "meta": "assets/characters/buns-detail/sprites.json?v=dbaef608",
+  "regions": "assets/characters/buns-detail/regions.png?v=586ad93f",
+  "thumb": "assets/characters/bases/buns/thumb.webp?v=5d5c725f",
   "colours": {
-   "skin": "#956353",
-   "hair": "#452f30",
-   "jersey": "#cbd5da",
-   "team": "#35567a",
-   "shoes": "#3f3d4b"
+   "skin": "#6d4b42",
+   "hair": "#28292f",
+   "jersey": "#c8dbdd",
+   "team": "#355469",
+   "shoes": "#6d4791"
   },
-  "pronoun": "she"
+  "pronoun": "she",
+  "video": true,
+  "card": [
+   1907,
+   2407,
+   153,
+   300,
+   -10,
+   6,
+   132
+  ]
  },
  {
   "id": "headband",
