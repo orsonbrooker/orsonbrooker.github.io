@@ -562,6 +562,7 @@ flowchart LR
   V["7 videos per kid"] --> B["video_body.py"] --> T["tidy_regions.py<br/>skin edges, the ball's shades"]
   G["grids of their frames<br/>repainted by Flow:<br/>hair, then ball, in magenta"] --> H["key_hair.py"] & K["ball_key.py"]
   T --> H --> K --> S["sheet: hair at a mid-tone (meta.art),<br/>held ball cut out (meta.balls)"]
+  S --> C["check_regions.py --fix"] --> VB["video_bases.py<br/>bodies list: sheet, card, thumb"]
 ```
 
 - **Hair** is stored at a mid-tone with full light and shade, whatever colour the video drew it, so any
@@ -569,7 +570,10 @@ flowchart LR
   own. It comes from Flow repainting the hair in shaded magenta on 24-frame grids (free images).
 - **The held ball** is the game's own ball: `meta.balls` gives each frame's ball (centre and radius, in the
   frame), cut out of the body and drawn behind it (`drawPlayer()` in `play/scene.js`), so the shop's ball
-  styles show in their hands and fingers stay in front.
+  styles show in their hands and fingers stay in front. Where Flow moved the ball when repainting it, the
+  cut goes on the frame's own ball instead (its colours learnt from the kid's other frames), and a frame
+  Flow left unpainted beside one holding the ball is cut too, so the ball never switches between the drawn
+  one and the game's.
 - **Size:** `players/stretch.js` doubles or drops rows between the jersey's top and the feet and columns
   across the jersey (6% taller or shorter, 10% wider or slimmer at the ends), with the number, team name and
   held ball moved to match. Saved with the player on the device (`build` in `shared/save.js`).

@@ -180,7 +180,9 @@ main checkout.
   `video_body.py`, then `tidy_regions.py`, `key_hair.py` and `ball_key.py` on `<kid>-detail` (those two need
   Flow's magenta hair and ball repaints of the kid's frame grids), then `check_regions.py <dir> <out.png> --fix`
   and again without `--fix`: it must say 0 frames with issues, and its contact sheet (every frame in clashing
-  colours) must show nothing changing with the wrong part. Videos and Flow references get names
+  colours) must show nothing changing with the wrong part. Last, `video_bases.py curly buns` points the
+  builder's bodies at the new sheets (`?v=` stamps, card picture from `recover-fl` frame 6, thumbs); if frame
+  picks move that frame, check the cards. Videos and Flow references get names
   unique to the kid (Flow's project already holds older `grid-NN.jpg` files), and every downloaded repaint is
   matched to its grid by picture before it's used. Make kids' videos with mid-brown hair, so any colour
   recolours well.
