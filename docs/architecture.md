@@ -472,6 +472,12 @@ flowchart LR
   `tools/dev/check_prints.mjs` checks every frame keeps the print on the jersey.
 - **Recolouring:** the full-detail sheet has a `regions.png` like the builder bodies; `?jersey=...&number=`
   on the game URL tries a kit on Orson.
+- **Shade ramps** (`players/shades.js`, used by `recolor()` for hair only): the hair's pixels are ranked by
+  lightness over the whole sheet (worked out once per body, contrast-limited so flat areas don't go blotchy).
+  A chosen colour becomes 6 shades in OKLCH (three shadows, the colour, two highlights; squeezed near black
+  or white rather than greyed), and a 256-entry table maps each pixel's lightness to its place on that ramp,
+  so black hair keeps its curls and blonde stays blonde. Skin, kit and shoes keep the plain scaling, which
+  leaves eyes and freckles drawn on the skin as they are.
 
 ### Layered players
 
