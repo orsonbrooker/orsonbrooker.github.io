@@ -60,7 +60,7 @@ function press() {
   if (player.anim === "idle") {
     setAnim("turn");
     sound.squeak();
-  } else if (player.anim === "dribble" || player.anim === "run") {
+  } else if (player.anim === "start" || player.anim === "dribble" || player.anim === "run") {
     // Free play: if he's on the move, he stops where he is and squares up to the hoop to shoot.
     player.steered = false;
     faceHoop();

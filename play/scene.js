@@ -6,7 +6,7 @@ import { drawArtLab } from "../play/artlab.js";
 import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, project } from "../engine/court.js";
 import { BALL_FRAMES, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow } from "../engine/draw.js";
 import { currentFrame, frameCount, liftNow, sheet } from "../play/players.js";
-import { fireLevel, nextBallBadge, pixelFx, timingWindow, zoneCenter } from "../play/react.js";
+import { fireLevel, nextBallBadge, nextBallKind, pixelFx, timingWindow, zoneCenter } from "../play/react.js";
 import { drawReplay, replayGreen } from "../play/replay.js";
 import { DEBUG, JUMP_APEX, JUMP_FRAME_TIME, hints, mode, player, state } from "../play/state.js";
 import { howTo, stage } from "../screens/base.js";
@@ -75,6 +75,15 @@ function drawPlayer() {
     if (print) ctx.drawImage(print, 0, 0, print.width, print.height, fx + ox * n, fy + oy * n, w * n, h * n);
     ctx.restore();
   } else {
+    // the ball in their hands, when the frame has its own (a kid from video): the game's ball, behind the
+    // body, so the fingers in front of it stay in front
+    const held = sheet.sprites.balls?.[`${sx},${sy}`];
+    if (held) {
+      const [cx, cy, r] = held;
+      const sprite = (art.ballSprites[nextBallKind()] ?? art.ballSprites[NORMAL])[0];
+      const d = 2 * r * scale * 1.04; // the sprite's ball fills a little less than its square
+      ctx.drawImage(sprite, p.x + (ox + cx) * scale - d / 2, p.y + (oy + cy) * scale - d / 2, d, d);
+    }
     ctx.drawImage(sheet.atlas, sx, sy, w, h, p.x + ox * scale, p.y + oy * scale, w * scale, h * scale);
     // a full-detail sheet from video: its number and team name over the frame
     const print = sheet.prints?.get(`${sx},${sy}`);
@@ -136,7 +145,7 @@ function drawHint() {
   if (hints.learned || state.phase !== "playing" || player.moving || player.fade < 1) return;
   const text =
     player.anim === "idle" ? howTo("Tap to face the hoop", "Press Space to face the hoop", "Tap or press Space to face the hoop")
-    : player.anim === "turn" || player.anim === "dribble" ? howTo("Hold to jump", "Hold Space to jump", "Hold (or hold Space) to jump")
+    : player.anim === "turn" || player.anim === "start" || player.anim === "dribble" ? howTo("Hold to jump", "Hold Space to jump", "Hold (or hold Space) to jump")
     : player.anim === "gather" || player.anim === "jump" ? "Let go at the top!"
     : "";
   if (!text) return;

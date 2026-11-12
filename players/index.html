@@ -39,14 +39,25 @@
 
     <main class="builder" id="builder">
       <div class="builder-preview">
-        <canvas id="preview" width="360" height="460" aria-label="Your player"></canvas>
-        <p class="builder-name" id="preview-name"></p>
+        <canvas id="preview" width="200" height="256" aria-label="Your player"></canvas>
+        <p class="builder-name"><img class="builder-face" id="preview-face" alt="" width="48" height="48" /> <span id="preview-name"></span></p>
       </div>
 
       <form class="builder-form" id="form">
         <fieldset>
           <legend>Body</legend>
           <div class="choices" id="bases"></div>
+        </fieldset>
+        <fieldset id="size" hidden>
+          <legend>Size</legend>
+          <div class="steps-row">
+            <label for="height">Height</label>
+            <div class="pixel-slider" data-part="height"><i class="end lo"></i><div class="track"><input type="range" id="height" min="0" max="4" step="1" value="2" /></div><i class="end hi"></i></div>
+          </div>
+          <div class="steps-row">
+            <label for="bulk">Build</label>
+            <div class="pixel-slider" data-part="bulk"><i class="end lo"></i><div class="track"><input type="range" id="bulk" min="0" max="4" step="1" value="2" /></div><i class="end hi"></i></div>
+          </div>
         </fieldset>
         <fieldset>
           <legend>Skin</legend>

@@ -75,7 +75,9 @@ export function recolor(loadedBase, colours, rect) {
     const target = colours[name];
     const ref = loadedBase.meta.regions[name];
     // Very dark regions (black shoes) have little shade to scale, so their range is stretched.
-    if (target && ref && target.toLowerCase() !== loadedBase.colours[name]) plans[id] = { t: hex(target), refL: Math.max(1, luma(...ref)), dark: luma(...ref) < 70 };
+    // (a kid from video stores some parts in another colour than their own, e.g. keyed hair: `meta.art`)
+    const own = loadedBase.meta.art?.[name] ?? loadedBase.colours[name];
+    if (target && ref && target.toLowerCase() !== own) plans[id] = { t: hex(target), refL: Math.max(1, luma(...ref)), dark: luma(...ref) < 70 };
   }
   const d = src.data;
   const shade = new Float32Array(w * h); // each jersey pixel's light/shade, for printing the number
@@ -228,6 +230,17 @@ export function removeMyPlayer(id) {
 
 // Head-and-shoulders picture of a player, for pickers.
 export function thumbnail(loadedBase, colours, size = 96) {
+  if (loadedBase.card) {
+    // a kid from video: their card's frame [x, y, w, h], placed at (dx, dy) in a square `side` across
+    const [x, y, w, h, dx, dy, side] = loadedBase.card;
+    const c = document.createElement("canvas");
+    c.width = c.height = size;
+    const g = c.getContext("2d");
+    g.imageSmoothingQuality = "high";
+    const k = size / side;
+    g.drawImage(recolor(loadedBase, colours, [x, y, w, h]), dx * k, dy * k, w * k, h * k);
+    return c;
+  }
   const [x, y, w, h] = loadedBase.meta.frames.idle[0];
   const head = recolor(loadedBase, colours, [x, y, w, Math.round(h * 0.45)]);
   const c = document.createElement("canvas");

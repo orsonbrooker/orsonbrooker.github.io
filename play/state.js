@@ -19,7 +19,7 @@ export const JOG_SPEED = 4.5;
 export const JOG_MAX_TIME = 0.9;
 export const JUMP_APEX = 0.29;
 export const TIMING_WINDOW = 0.13;
-export const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16 };
+export const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 16, recover: 12, start: 12 };
 
 export const state = {
   phase: "loading", // loading | title | modes | select | playing | turn (HORSE, between shots) | ending | over | replay (free play never ends)

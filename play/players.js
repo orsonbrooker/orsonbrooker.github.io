@@ -13,6 +13,7 @@ import { load, save } from "../engine/storage.js";
 import { ANIM_FPS, JUMP_APEX, JUMP_FRAME_TIME, player } from "../play/state.js";
 import { buildPlayer, loadHeads } from "../players/layered.js";
 import { paletteSwap } from "../players/pixelkit.js";
+import { stretchSheet } from "../players/stretch.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, thumbnail } from "../players/recolor.js";
 
 const PLAYERS_API = `${API}/players`;
@@ -37,6 +38,18 @@ export function loadImage(src) {
 
 async function loadBuilt(entry) {
   const base = (await loadBases()).find((b) => b.id === entry.base);
+  if (base.video) {
+    // a kid made from their own videos: their full-detail sheet in the player's colours, as for Orson
+    const [meta, img, regions] = await Promise.all([fetch("/" + base.meta).then((r) => r.json()), loadImage("/" + base.atlas), loadImage("/" + base.regions)]);
+    const kit = await withKit(meta, img, entry, entry.colours);
+    if (!+entry.build?.height && !+entry.build?.bulk) return kit;
+    // their height and build: the frames stretched, the number and team name with them
+    const c = Object.assign(document.createElement("canvas"), { width: regions.width, height: regions.height });
+    const g = c.getContext("2d", { willReadFrequently: true });
+    g.drawImage(regions, 0, 0);
+    const s = stretchSheet({ meta: kit.meta, img: kit.img, prints: kit.img.prints }, g.getImageData(0, 0, c.width, c.height), entry.build);
+    return { meta: s.meta, img: s.img };
+  }
   const loaded = await loadBase(base);
   return { meta: loaded.meta, img: recolor(loaded, entry.colours), loaded };
 }
@@ -147,10 +160,12 @@ export async function loadRoster() {
 // Players made on this device (or on another of theirs, with saved progress), as picker entries.
 // A body whose head has been made for the layered players moves like Orson (players/layered.js);
 // the others keep their hand-drawn sheet.
-const layeredOf = (heads) => (p) => (heads[p.base] ? { layered: { head: p.base, build: p.build ?? {} } } : {});
+// A kid made from their own videos (Curly, Buns) moves as themselves.
+const layeredOf = (heads, bases = []) => (p) =>
+  bases.find((b) => b.id === p.base)?.video ? {} : heads[p.base] ? { layered: { head: p.base, build: p.build ?? {} } } : {};
 
 function minePlayers(bases, heads) {
-  const layered = layeredOf(heads);
+  const layered = layeredOf(heads, bases);
   return myPlayers().flatMap((p) => {
     const base = bases.find((b) => b.id === p.base);
     return base ? [{ ...p, ...layered(p), pronoun: p.pronoun || base.pronoun || "", mine: true, thumb: "/" + base.thumb, colours: { teamName: DEFAULT_TEAM, ...p.colours } }] : [];
@@ -172,7 +187,7 @@ export async function reloadMyPlayers() {
 // Players made on this device (saved by the builder's "Play now"), then approved builder players.
 async function loadBuiltPlayers() {
   const [bases, heads] = await Promise.all([loadBases().catch(() => []), loadHeads()]);
-  const layered = layeredOf(heads);
+  const layered = layeredOf(heads, bases);
   characters.list.push(...minePlayers(bases, heads));
   try {
     const res = await fetch(PLAYERS_API);
@@ -300,6 +315,12 @@ function named(anim) {
     if (f[name]) return name;
   }
   return anim;
+}
+
+// Whether this player's sheet has a move at all (a sheet made from video has more of them).
+export function hasMove(anim) {
+  const f = sheet.sprites?.frames;
+  return !!f && !!f[named(anim)];
 }
 
 export function frameCount(anim) {

@@ -8,7 +8,7 @@ import { COURT_PX, EU, EV, PX_PER_M, RIM, ROOM_U, ROOM_V, isThreePointSpot, proj
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "../engine/physics.js";
 import { save } from "../engine/storage.js";
 import { startToken } from "../leaderboard.js";
-import { canJog, faceHoop, faceToward, frameCount, jumpLift, loopFps, releaseOffset, sheet, shoePoints } from "../play/players.js";
+import { canJog, faceHoop, faceToward, frameCount, hasMove, jumpLift, loopFps, releaseOffset, sheet, shoePoints } from "../play/players.js";
 import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss, timingWindow, zoneCenter } from "../play/react.js";
 import { recordMade, recordShot, updateReplay } from "../play/replay.js";
 import { updateHud } from "../play/scene.js";
@@ -313,7 +313,11 @@ function jogSounds() {
 // (Worked out when used: the court can change.)
 const freeArea = () => ({ u0: 1.2, u1: ROOM_U - 0.7, v0: RIM.v + 0.4, v1: ROOM_V - 0.7, rim: 1.1 });
 // Moves he can be steered out of (not mid-shot).
-const STEERABLE = ["idle", "turn", "dribble", "run"];
+const STEERABLE = ["idle", "turn", "start", "dribble", "run"];
+
+// Back to dribbling while standing still (after a shot, or at a new spot he didn't jog to): picking
+// the dribble back up if the sheet has it (a sheet made from video does), else straight into it.
+const dribbleAgain = () => (hasMove("start") ? "start" : "dribble");
 const clamp = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
 
 // Free play: they steer him (steering() in play/state.js, a direction on screen). He jogs that way,
@@ -402,8 +406,9 @@ function updatePlayer(dt) {
       faceHoop();
       player.moving = false;
       if (!canJog()) player.fade = 0;
-      // Already facing the hoop after the first shot: straight to dribbling (or jumping, if held).
-      setAnim(state.pressed ? "gather" : "dribble");
+      // Already facing the hoop after the first shot: straight to dribbling (or jumping, if held). He
+      // jogs in dribbling; standing where he shot from, he picks the dribble back up.
+      setAnim(state.pressed ? "gather" : player.anim === "run" ? "dribble" : dribbleAgain());
       if (isThreePointSpot(spot.u, spot.v)) {
         const p = project(spot.u, spot.v);
         addPopup("3PT SPOT", "#ffffff", p.x, p.y - 500);
@@ -433,6 +438,11 @@ function updatePlayer(dt) {
         sound.squeak();
       }
       break;
+    case "start": {
+      // Picking the dribble back up (ball at his waist, the first bounces), then the dribble loop.
+      if (player.t * ANIM_FPS.start >= frameCount("start")) setAnim("dribble");
+      break;
+    }
     case "dribble": {
       // Bounce sound when the ball hits the floor (the first frame of the loop).
       const frame = Math.floor(player.t * loopFps("dribble")) % frameCount("dribble");
@@ -444,9 +454,18 @@ function updatePlayer(dt) {
       if (player.dunk) dunkRise();
       else if (player.t >= frameCount("jump") * JUMP_FRAME_TIME) shoot(2.5);
       break;
-    case "release": {
+    case "release":
+    case "recover": {
       if (player.dunk) dunkFall();
-      const done = player.t >= Math.max(frameCount("release") / ANIM_FPS.release, player.dunk ? DUNK_FALL : 0);
+      const done =
+        player.anim === "recover" ? player.t >= frameCount("recover") / ANIM_FPS.recover
+        : player.t >= Math.max(frameCount("release") / ANIM_FPS.release, player.dunk ? DUNK_FALL : 0);
+      // After a jump shot his arms come down and he stands ready (a sheet made from video has it),
+      // rather than holding the follow-through.
+      if (done && player.anim === "release" && !player.dunk && hasMove("recover")) {
+        setAnim("recover");
+        break;
+      }
       const ball = player.activeBall;
       // (A ball that's gone from play without being decided can't hold him up.)
       if (done && (!ball || ball.decided || !state.balls.includes(ball)) && state.phase === "playing") {
@@ -455,7 +474,7 @@ function updatePlayer(dt) {
         if (mode().freeMove) {
           // Free play: the ball's back in his hands where he stands, ready to move or shoot again.
           faceHoop();
-          setAnim(state.pressed ? "gather" : "dribble");
+          setAnim(state.pressed ? "gather" : dribbleAgain());
         } else player.moving = true;
       }
       break;

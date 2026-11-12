@@ -12,7 +12,7 @@ import { FIRE_LEVELS } from "../content/looks.js";
 import { COURT_PX, RIM, project } from "../engine/court.js";
 import { stepBall } from "../engine/physics.js";
 import { pickPhrase } from "../phrases.js";
-import { characters, faceHoop, frameCount, useCharacter } from "../play/players.js";
+import { characters, faceHoop, frameCount, hasMove, useCharacter } from "../play/players.js";
 import { addPopup, confettiBurst, pixelFx } from "../play/react.js";
 import { ANIM_FPS, player, setAnim, state } from "../play/state.js";
 import { howTo, showScreen } from "../screens/base.js";
@@ -119,6 +119,7 @@ export function updateReplay() {
     return;
   }
   const b = replay.ball;
+  if (player.anim === "release" && player.t >= frameCount("release") / ANIM_FPS.release && hasMove("recover")) setAnim("recover");
   if (b.scored && !replay.cheered) cheer(shot, b);
   if (b.decided && !replay.doneAt) replay.doneAt = performance.now() / 1000 + HOLD_AFTER;
   if (replay.doneAt && performance.now() / 1000 >= replay.doneAt) endReplay();

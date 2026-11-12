@@ -8,14 +8,14 @@
 // A save: {
 //   bests: { timed, survival, around, threes }   numbers; 0 is no best (Around the World is seconds, lower wins)
 //   daily: { done, last, days }                  the date today's challenge was last done ("2026-11-09"), the streak
-//   players: [{ id, name, base, colours, pronoun? }]   made in the builder, newest first
+//   players: [{ id, name, base, colours, pronoun?, build? }]   made in the builder, newest first
 //   gone: [id]                                   players removed, so a merge doesn't bring them back
 //   nickname: { name, at }                       the leaderboard nickname, and when it was typed (ms)
 // }
 
 import { MODES, lowWins } from "./rules.js";
 
-/** @typedef {{ id: string, name: string, base: string, colours: Record<string, string>, pronoun?: "he" | "she" }} SavedPlayer */
+/** @typedef {{ id: string, name: string, base: string, colours: Record<string, string>, pronoun?: "he" | "she", build?: { height: number, bulk: number } }} SavedPlayer */
 /** @typedef {{ bests: Record<string, number>, daily: { done: string, last: string, days: number }, players: SavedPlayer[], gone: string[], nickname: { name: string, at: number } }} Save */
 
 export const MAX_SAVED_PLAYERS = 6;
@@ -53,6 +53,11 @@ function tidyPlayer(raw) {
   /** @type {SavedPlayer} */
   const player = { id, name, base, colours };
   if (p.pronoun === "he" || p.pronoun === "she") player.pronoun = p.pronoun;
+  // their size: height and build (bulk), -1 to 1 each
+  const b = obj(p.build);
+  /** @type {(v: unknown) => number} */
+  const step = (v) => (typeof v === "number" && Number.isFinite(v) ? Math.round(Math.max(-1, Math.min(1, v)) * 100) / 100 : 0);
+  if (step(b.height) || step(b.bulk)) player.build = { height: step(b.height), bulk: step(b.bulk) };
   return player;
 }
 
