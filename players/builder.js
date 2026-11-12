@@ -609,7 +609,7 @@ function loadTwin({ atlas, meta }) {
 // A video kid's number and team name for each of their frames, from the twin's jersey faces.
 function twinPrints() {
   if (!current.twin) return null;
-  const parts = Object.fromEntries(PARTS.map((p) => [p, colours[p]]));
+  const parts = Object.fromEntries(PARTS.filter((p) => colours[p]).map((p) => [p, colours[p]]));
   const kitText = { number: colours.number ?? "", team: colours.teamName ?? DEFAULT_TEAM };
   const layers = paletteSwap(current.twin.pimg, current.twin.pm, parts, kitText).printLayers ?? new Map();
   const prints = new Map();
