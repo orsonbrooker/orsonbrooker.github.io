@@ -1,0 +1,3275 @@
+{
+ "out": "assets/characters/buns-pixel",
+ "period": 5.35,
+ "clusters": 48,
+ "fixed": 12,
+ "background": "green",
+ "clips": {
+  "turn": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-turn.mp4"
+  },
+  "shot-back-left": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-shot-back-left.mp4"
+  },
+  "shot-back": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-shot-back.mp4"
+  },
+  "dribble-back": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-dribble-back.mp4",
+   "keep_ball": true
+  },
+  "dribble-back-left": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-dribble-back-left.mp4",
+   "keep_ball": true
+  },
+  "dribble-left": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-dribble-left.mp4",
+   "keep_ball": true
+  },
+  "shot-front-left": {
+   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-shot-fl.mp4"
+  }
+ },
+ "anims": {
+  "idle-t": {
+   "clip": "turn",
+   "frames": [
+    12,
+    22,
+    32,
+    42,
+    50
+   ],
+   "face": "front"
+  },
+  "turn-t": {
+   "clip": "turn",
+   "frames": [
+    52,
+    56,
+    60,
+    64,
+    68,
+    72,
+    78
+   ],
+   "face": [
+    "front",
+    "front",
+    "side",
+    "side",
+    "side",
+    "back",
+    "back"
+   ]
+  },
+  "dribble-b": {
+   "clip": "dribble-back",
+   "frames": [
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40
+   ],
+   "fps": 24,
+   "face": "back"
+  },
+  "start-b": {
+   "clip": "dribble-back",
+   "frames": [
+    0,
+    3,
+    6,
+    9,
+    12,
+    15,
+    18,
+    21,
+    24
+   ],
+   "fps": 12,
+   "face": "back",
+   "anchor": "dribble-b"
+  },
+  "gather-bl": {
+   "clip": "shot-back-left",
+   "frames": [
+    10,
+    13,
+    16,
+    19,
+    22,
+    25,
+    27
+   ],
+   "face": "back"
+  },
+  "jump-bl": {
+   "clip": "shot-back-left",
+   "frames": [
+    28,
+    30,
+    32,
+    34,
+    36,
+    38,
+    40
+   ],
+   "face": "back",
+   "anchor": "gather-bl"
+  },
+  "release-bl": {
+   "clip": "shot-back-left",
+   "frames": [
+    41,
+    44,
+    47,
+    50,
+    53,
+    56,
+    59
+   ],
+   "face": "back",
+   "anchor": "gather-bl"
+  },
+  "recover-bl": {
+   "clip": "shot-back-left",
+   "frames": [
+    70,
+    76,
+    82,
+    88,
+    94,
+    100,
+    106
+   ],
+   "face": "back",
+   "anchor": "gather-bl"
+  },
+  "gather-b": {
+   "clip": "shot-back",
+   "frames": [
+    8,
+    10,
+    12,
+    14,
+    16,
+    18,
+    20
+   ],
+   "face": "back"
+  },
+  "jump-b": {
+   "clip": "shot-back",
+   "frames": [
+    22,
+    24,
+    26,
+    28,
+    30,
+    32,
+    34
+   ],
+   "face": "back",
+   "anchor": "gather-b"
+  },
+  "release-b": {
+   "clip": "shot-back",
+   "frames": [
+    36,
+    39,
+    42,
+    45,
+    48,
+    51,
+    54
+   ],
+   "face": "back",
+   "anchor": "gather-b"
+  },
+  "recover-b": {
+   "clip": "shot-back",
+   "frames": [
+    58,
+    62,
+    66,
+    70,
+    74,
+    78,
+    82
+   ],
+   "face": "back",
+   "anchor": "gather-b"
+  },
+  "dribble-bl": {
+   "clip": "dribble-back-left",
+   "frames": [
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37
+   ],
+   "fps": 24,
+   "face": "back"
+  },
+  "start-bl": {
+   "clip": "dribble-back-left",
+   "frames": [
+    0,
+    3,
+    6,
+    9,
+    12,
+    15,
+    18,
+    21
+   ],
+   "fps": 12,
+   "face": "back",
+   "anchor": "dribble-bl"
+  },
+  "dribble-l": {
+   "clip": "dribble-left",
+   "frames": [
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25
+   ],
+   "fps": 24,
+   "face": "side"
+  },
+  "start-l": {
+   "clip": "dribble-left",
+   "frames": [
+    0,
+    2,
+    4,
+    6,
+    8,
+    10,
+    12
+   ],
+   "fps": 12,
+   "face": "side",
+   "anchor": "dribble-l"
+  },
+  "gather-l": {
+   "clip": "shot-front-left",
+   "frames": [
+    4,
+    7,
+    10,
+    13,
+    16,
+    19,
+    22
+   ],
+   "face": "side"
+  },
+  "jump-l": {
+   "clip": "shot-front-left",
+   "frames": [
+    24,
+    26,
+    28,
+    30,
+    32,
+    34,
+    36
+   ],
+   "face": "front",
+   "anchor": "gather-l"
+  },
+  "release-l": {
+   "clip": "shot-front-left",
+   "frames": [
+    38,
+    41,
+    44,
+    47,
+    50,
+    53,
+    56
+   ],
+   "face": "front",
+   "anchor": "gather-l"
+  },
+  "recover-l": {
+   "clip": "shot-front-left",
+   "frames": [
+    58,
+    64,
+    70,
+    76,
+    82,
+    88,
+    94
+   ],
+   "face": "front",
+   "anchor": "gather-l"
+  },
+  "jog-b": {
+   "clip": "dribble-back",
+   "frames": [
+    61,
+    63,
+    65,
+    67,
+    69,
+    71,
+    73,
+    75,
+    77,
+    79,
+    81,
+    83,
+    85,
+    87
+   ],
+   "fps": 12,
+   "face": "back"
+  },
+  "jog-bl": {
+   "clip": "dribble-back-left",
+   "frames": [
+    55,
+    57,
+    59,
+    61,
+    63,
+    65,
+    67,
+    69,
+    71,
+    73,
+    75,
+    77,
+    79,
+    81,
+    83
+   ],
+   "fps": 12,
+   "face": "back"
+  },
+  "jog-l": {
+   "clip": "dribble-left",
+   "frames": [
+    62,
+    64,
+    66,
+    68,
+    70,
+    72,
+    74,
+    76,
+    78,
+    80,
+    82,
+    84,
+    86,
+    88
+   ],
+   "fps": 12,
+   "face": "side"
+  },
+  "jog-f": {
+   "clip": "dribble-left",
+   "frames": [
+    62,
+    64,
+    66,
+    68,
+    70,
+    72,
+    74,
+    76,
+    78,
+    80,
+    82,
+    84,
+    86,
+    88
+   ],
+   "fps": 12,
+   "face": "side"
+  },
+  "jog-fl": {
+   "clip": "dribble-left",
+   "frames": [
+    62,
+    64,
+    66,
+    68,
+    70,
+    72,
+    74,
+    76,
+    78,
+    80,
+    82,
+    84,
+    86,
+    88
+   ],
+   "fps": 12,
+   "face": "side"
+  },
+  "dribble-fl": {
+   "clip": "dribble-left",
+   "frames": [
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25
+   ],
+   "fps": 24,
+   "face": "side"
+  },
+  "start-fl": {
+   "clip": "dribble-left",
+   "frames": [
+    0,
+    2,
+    4,
+    6,
+    8,
+    10,
+    12
+   ],
+   "fps": 12,
+   "face": "side",
+   "anchor": "dribble-fl"
+  },
+  "gather-fl": {
+   "clip": "shot-front-left",
+   "frames": [
+    4,
+    7,
+    10,
+    13,
+    16,
+    19,
+    22
+   ],
+   "face": "front"
+  },
+  "jump-fl": {
+   "clip": "shot-front-left",
+   "frames": [
+    24,
+    26,
+    28,
+    30,
+    32,
+    34,
+    36
+   ],
+   "face": "front",
+   "anchor": "gather-fl"
+  },
+  "release-fl": {
+   "clip": "shot-front-left",
+   "frames": [
+    38,
+    41,
+    44,
+    47,
+    50,
+    53,
+    56
+   ],
+   "face": "front",
+   "anchor": "gather-fl"
+  },
+  "recover-fl": {
+   "clip": "shot-front-left",
+   "frames": [
+    58,
+    64,
+    70,
+    76,
+    82,
+    88,
+    94
+   ],
+   "face": "front",
+   "anchor": "gather-fl"
+  }
+ },
+ "spin": {
+  "clip": "turn",
+  "frames": [
+   28
+  ]
+ },
+ "res": 0.2,
+ "derived": {
+  "idle": {
+   "from": [
+    [
+     "idle-t",
+     0
+    ],
+    [
+     "idle-t",
+     1
+    ],
+    [
+     "idle-t",
+     2
+    ],
+    [
+     "idle-t",
+     3
+    ],
+    [
+     "idle-t",
+     4
+    ],
+    [
+     "idle-t",
+     3
+    ],
+    [
+     "idle-t",
+     2
+    ],
+    [
+     "idle-t",
+     1
+    ]
+   ],
+   "fps": 4
+  },
+  "turn-bl": {
+   "from": [
+    [
+     "turn-t",
+     0
+    ],
+    [
+     "turn-t",
+     1
+    ],
+    [
+     "turn-t",
+     2
+    ],
+    [
+     "turn-t",
+     3
+    ],
+    [
+     "turn-t",
+     4
+    ],
+    [
+     "turn-t",
+     5
+    ],
+    [
+     "turn-t",
+     6
+    ]
+   ]
+  },
+  "turn-b": {
+   "from": [
+    [
+     "turn-t",
+     0
+    ],
+    [
+     "turn-t",
+     1
+    ],
+    [
+     "turn-t",
+     2
+    ],
+    [
+     "turn-t",
+     3
+    ],
+    [
+     "turn-t",
+     4
+    ],
+    [
+     "turn-t",
+     5
+    ],
+    [
+     "turn-t",
+     6
+    ]
+   ]
+  },
+  "turn-l": {
+   "from": [
+    [
+     "turn-t",
+     0
+    ],
+    [
+     "turn-t",
+     1
+    ],
+    [
+     "turn-t",
+     2
+    ],
+    [
+     "turn-t",
+     3
+    ],
+    [
+     "turn-t",
+     4
+    ]
+   ]
+  },
+  "dribble-bl": {
+   "from": [
+    [
+     "dribble-bl",
+     0
+    ],
+    [
+     "dribble-bl",
+     1
+    ],
+    [
+     "dribble-bl",
+     2
+    ],
+    [
+     "dribble-bl",
+     3
+    ],
+    [
+     "dribble-bl",
+     4
+    ],
+    [
+     "dribble-bl",
+     5
+    ],
+    [
+     "dribble-bl",
+     6
+    ],
+    [
+     "dribble-bl",
+     7
+    ],
+    [
+     "dribble-bl",
+     8
+    ],
+    [
+     "dribble-bl",
+     9
+    ],
+    [
+     "dribble-bl",
+     10
+    ],
+    [
+     "dribble-bl",
+     11
+    ],
+    [
+     "dribble-bl",
+     12
+    ],
+    [
+     "dribble-bl",
+     13
+    ],
+    [
+     "dribble-bl",
+     14
+    ]
+   ],
+   "fps": 24
+  },
+  "dribble-b": {
+   "from": [
+    [
+     "dribble-b",
+     0
+    ],
+    [
+     "dribble-b",
+     1
+    ],
+    [
+     "dribble-b",
+     2
+    ],
+    [
+     "dribble-b",
+     3
+    ],
+    [
+     "dribble-b",
+     4
+    ],
+    [
+     "dribble-b",
+     5
+    ],
+    [
+     "dribble-b",
+     6
+    ],
+    [
+     "dribble-b",
+     7
+    ],
+    [
+     "dribble-b",
+     8
+    ],
+    [
+     "dribble-b",
+     9
+    ],
+    [
+     "dribble-b",
+     10
+    ],
+    [
+     "dribble-b",
+     11
+    ],
+    [
+     "dribble-b",
+     12
+    ],
+    [
+     "dribble-b",
+     13
+    ]
+   ],
+   "fps": 24
+  },
+  "dribble-l": {
+   "from": [
+    [
+     "dribble-l",
+     0
+    ],
+    [
+     "dribble-l",
+     1
+    ],
+    [
+     "dribble-l",
+     2
+    ],
+    [
+     "dribble-l",
+     3
+    ],
+    [
+     "dribble-l",
+     4
+    ],
+    [
+     "dribble-l",
+     5
+    ],
+    [
+     "dribble-l",
+     6
+    ],
+    [
+     "dribble-l",
+     7
+    ],
+    [
+     "dribble-l",
+     8
+    ],
+    [
+     "dribble-l",
+     9
+    ],
+    [
+     "dribble-l",
+     10
+    ],
+    [
+     "dribble-l",
+     11
+    ]
+   ],
+   "fps": 24
+  },
+  "gather-bl": {
+   "from": [
+    [
+     "gather-bl",
+     0
+    ],
+    [
+     "gather-bl",
+     1
+    ],
+    [
+     "gather-bl",
+     2
+    ],
+    [
+     "gather-bl",
+     3
+    ],
+    [
+     "gather-bl",
+     4
+    ],
+    [
+     "gather-bl",
+     5
+    ],
+    [
+     "gather-bl",
+     6
+    ]
+   ]
+  },
+  "gather-b": {
+   "from": [
+    [
+     "gather-b",
+     0
+    ],
+    [
+     "gather-b",
+     1
+    ],
+    [
+     "gather-b",
+     2
+    ],
+    [
+     "gather-b",
+     3
+    ],
+    [
+     "gather-b",
+     4
+    ],
+    [
+     "gather-b",
+     5
+    ],
+    [
+     "gather-b",
+     6
+    ]
+   ]
+  },
+  "gather-l": {
+   "from": [
+    [
+     "gather-l",
+     0
+    ],
+    [
+     "gather-l",
+     1
+    ],
+    [
+     "gather-l",
+     2
+    ],
+    [
+     "gather-l",
+     3
+    ],
+    [
+     "gather-l",
+     4
+    ],
+    [
+     "gather-l",
+     5
+    ],
+    [
+     "gather-l",
+     6
+    ]
+   ]
+  },
+  "jump-bl": {
+   "from": [
+    [
+     "jump-bl",
+     0
+    ],
+    [
+     "jump-bl",
+     1
+    ],
+    [
+     "jump-bl",
+     2
+    ],
+    [
+     "jump-bl",
+     3
+    ],
+    [
+     "jump-bl",
+     4
+    ],
+    [
+     "jump-bl",
+     5
+    ],
+    [
+     "jump-bl",
+     6
+    ]
+   ]
+  },
+  "jump-b": {
+   "from": [
+    [
+     "jump-b",
+     0
+    ],
+    [
+     "jump-b",
+     1
+    ],
+    [
+     "jump-b",
+     2
+    ],
+    [
+     "jump-b",
+     3
+    ],
+    [
+     "jump-b",
+     4
+    ],
+    [
+     "jump-b",
+     5
+    ],
+    [
+     "jump-b",
+     6
+    ]
+   ]
+  },
+  "jump-l": {
+   "from": [
+    [
+     "jump-l",
+     0
+    ],
+    [
+     "jump-l",
+     1
+    ],
+    [
+     "jump-l",
+     2
+    ],
+    [
+     "jump-l",
+     3
+    ],
+    [
+     "jump-l",
+     4
+    ],
+    [
+     "jump-l",
+     5
+    ],
+    [
+     "jump-l",
+     6
+    ]
+   ]
+  },
+  "release-bl": {
+   "from": [
+    [
+     "release-bl",
+     0
+    ],
+    [
+     "release-bl",
+     1
+    ],
+    [
+     "release-bl",
+     2
+    ],
+    [
+     "release-bl",
+     3
+    ],
+    [
+     "release-bl",
+     4
+    ],
+    [
+     "release-bl",
+     5
+    ],
+    [
+     "release-bl",
+     6
+    ]
+   ]
+  },
+  "recover-bl": {
+   "from": [
+    [
+     "recover-bl",
+     0
+    ],
+    [
+     "recover-bl",
+     1
+    ],
+    [
+     "recover-bl",
+     2
+    ],
+    [
+     "recover-bl",
+     3
+    ],
+    [
+     "recover-bl",
+     4
+    ],
+    [
+     "recover-bl",
+     5
+    ],
+    [
+     "recover-bl",
+     6
+    ]
+   ]
+  },
+  "release-b": {
+   "from": [
+    [
+     "release-b",
+     0
+    ],
+    [
+     "release-b",
+     1
+    ],
+    [
+     "release-b",
+     2
+    ],
+    [
+     "release-b",
+     3
+    ],
+    [
+     "release-b",
+     4
+    ],
+    [
+     "release-b",
+     5
+    ],
+    [
+     "release-b",
+     6
+    ]
+   ]
+  },
+  "recover-b": {
+   "from": [
+    [
+     "recover-b",
+     0
+    ],
+    [
+     "recover-b",
+     1
+    ],
+    [
+     "recover-b",
+     2
+    ],
+    [
+     "recover-b",
+     3
+    ],
+    [
+     "recover-b",
+     4
+    ],
+    [
+     "recover-b",
+     5
+    ],
+    [
+     "recover-b",
+     6
+    ]
+   ]
+  },
+  "release-l": {
+   "from": [
+    [
+     "release-l",
+     0
+    ],
+    [
+     "release-l",
+     1
+    ],
+    [
+     "release-l",
+     2
+    ],
+    [
+     "release-l",
+     3
+    ],
+    [
+     "release-l",
+     4
+    ],
+    [
+     "release-l",
+     5
+    ],
+    [
+     "release-l",
+     6
+    ]
+   ]
+  },
+  "recover-l": {
+   "from": [
+    [
+     "recover-l",
+     0
+    ],
+    [
+     "recover-l",
+     1
+    ],
+    [
+     "recover-l",
+     2
+    ],
+    [
+     "recover-l",
+     3
+    ],
+    [
+     "recover-l",
+     4
+    ],
+    [
+     "recover-l",
+     5
+    ],
+    [
+     "recover-l",
+     6
+    ]
+   ]
+  },
+  "turn": {
+   "from": [
+    [
+     "turn-t",
+     0
+    ],
+    [
+     "turn-t",
+     1
+    ],
+    [
+     "turn-t",
+     2
+    ],
+    [
+     "turn-t",
+     3
+    ],
+    [
+     "turn-t",
+     4
+    ],
+    [
+     "turn-t",
+     5
+    ],
+    [
+     "turn-t",
+     6
+    ]
+   ]
+  },
+  "dribble": {
+   "from": [
+    [
+     "dribble-bl",
+     0
+    ],
+    [
+     "dribble-bl",
+     1
+    ],
+    [
+     "dribble-bl",
+     2
+    ],
+    [
+     "dribble-bl",
+     3
+    ],
+    [
+     "dribble-bl",
+     4
+    ],
+    [
+     "dribble-bl",
+     5
+    ],
+    [
+     "dribble-bl",
+     6
+    ],
+    [
+     "dribble-bl",
+     7
+    ],
+    [
+     "dribble-bl",
+     8
+    ],
+    [
+     "dribble-bl",
+     9
+    ],
+    [
+     "dribble-bl",
+     10
+    ],
+    [
+     "dribble-bl",
+     11
+    ],
+    [
+     "dribble-bl",
+     12
+    ],
+    [
+     "dribble-bl",
+     13
+    ],
+    [
+     "dribble-bl",
+     14
+    ]
+   ],
+   "fps": 24
+  },
+  "gather": {
+   "from": [
+    [
+     "gather-bl",
+     0
+    ],
+    [
+     "gather-bl",
+     1
+    ],
+    [
+     "gather-bl",
+     2
+    ],
+    [
+     "gather-bl",
+     3
+    ],
+    [
+     "gather-bl",
+     4
+    ],
+    [
+     "gather-bl",
+     5
+    ],
+    [
+     "gather-bl",
+     6
+    ]
+   ]
+  },
+  "jump": {
+   "from": [
+    [
+     "jump-bl",
+     0
+    ],
+    [
+     "jump-bl",
+     1
+    ],
+    [
+     "jump-bl",
+     2
+    ],
+    [
+     "jump-bl",
+     3
+    ],
+    [
+     "jump-bl",
+     4
+    ],
+    [
+     "jump-bl",
+     5
+    ],
+    [
+     "jump-bl",
+     6
+    ]
+   ]
+  },
+  "release": {
+   "from": [
+    [
+     "release-bl",
+     0
+    ],
+    [
+     "release-bl",
+     1
+    ],
+    [
+     "release-bl",
+     2
+    ],
+    [
+     "release-bl",
+     3
+    ],
+    [
+     "release-bl",
+     4
+    ],
+    [
+     "release-bl",
+     5
+    ],
+    [
+     "release-bl",
+     6
+    ]
+   ]
+  },
+  "run-f": {
+   "from": [
+    [
+     "jog-f",
+     0
+    ],
+    [
+     "jog-f",
+     1
+    ],
+    [
+     "jog-f",
+     2
+    ],
+    [
+     "jog-f",
+     3
+    ],
+    [
+     "jog-f",
+     4
+    ],
+    [
+     "jog-f",
+     5
+    ],
+    [
+     "jog-f",
+     6
+    ],
+    [
+     "jog-f",
+     7
+    ],
+    [
+     "jog-f",
+     8
+    ],
+    [
+     "jog-f",
+     9
+    ],
+    [
+     "jog-f",
+     10
+    ],
+    [
+     "jog-f",
+     11
+    ],
+    [
+     "jog-f",
+     12
+    ],
+    [
+     "jog-f",
+     13
+    ]
+   ],
+   "fps": 12
+  },
+  "run-fr": {
+   "from": [
+    [
+     "jog-fl",
+     0,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     1,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     2,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     3,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     4,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     5,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     6,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     7,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     8,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     9,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     10,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     11,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     12,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     13,
+     "flip"
+    ]
+   ],
+   "fps": 12
+  },
+  "run-r": {
+   "from": [
+    [
+     "jog-l",
+     0,
+     "flip"
+    ],
+    [
+     "jog-l",
+     1,
+     "flip"
+    ],
+    [
+     "jog-l",
+     2,
+     "flip"
+    ],
+    [
+     "jog-l",
+     3,
+     "flip"
+    ],
+    [
+     "jog-l",
+     4,
+     "flip"
+    ],
+    [
+     "jog-l",
+     5,
+     "flip"
+    ],
+    [
+     "jog-l",
+     6,
+     "flip"
+    ],
+    [
+     "jog-l",
+     7,
+     "flip"
+    ],
+    [
+     "jog-l",
+     8,
+     "flip"
+    ],
+    [
+     "jog-l",
+     9,
+     "flip"
+    ],
+    [
+     "jog-l",
+     10,
+     "flip"
+    ],
+    [
+     "jog-l",
+     11,
+     "flip"
+    ],
+    [
+     "jog-l",
+     12,
+     "flip"
+    ],
+    [
+     "jog-l",
+     13,
+     "flip"
+    ]
+   ],
+   "fps": 12
+  },
+  "run-br": {
+   "from": [
+    [
+     "jog-bl",
+     0,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     1,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     2,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     3,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     4,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     5,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     6,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     7,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     8,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     9,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     10,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     11,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     12,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     13,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     14,
+     "flip"
+    ]
+   ],
+   "fps": 12
+  },
+  "run-b": {
+   "from": [
+    [
+     "jog-b",
+     0
+    ],
+    [
+     "jog-b",
+     1
+    ],
+    [
+     "jog-b",
+     2
+    ],
+    [
+     "jog-b",
+     3
+    ],
+    [
+     "jog-b",
+     4
+    ],
+    [
+     "jog-b",
+     5
+    ],
+    [
+     "jog-b",
+     6
+    ],
+    [
+     "jog-b",
+     7
+    ],
+    [
+     "jog-b",
+     8
+    ],
+    [
+     "jog-b",
+     9
+    ],
+    [
+     "jog-b",
+     10
+    ],
+    [
+     "jog-b",
+     11
+    ],
+    [
+     "jog-b",
+     12
+    ],
+    [
+     "jog-b",
+     13
+    ]
+   ],
+   "fps": 12
+  },
+  "run-bl": {
+   "from": [
+    [
+     "jog-bl",
+     0
+    ],
+    [
+     "jog-bl",
+     1
+    ],
+    [
+     "jog-bl",
+     2
+    ],
+    [
+     "jog-bl",
+     3
+    ],
+    [
+     "jog-bl",
+     4
+    ],
+    [
+     "jog-bl",
+     5
+    ],
+    [
+     "jog-bl",
+     6
+    ],
+    [
+     "jog-bl",
+     7
+    ],
+    [
+     "jog-bl",
+     8
+    ],
+    [
+     "jog-bl",
+     9
+    ],
+    [
+     "jog-bl",
+     10
+    ],
+    [
+     "jog-bl",
+     11
+    ],
+    [
+     "jog-bl",
+     12
+    ],
+    [
+     "jog-bl",
+     13
+    ],
+    [
+     "jog-bl",
+     14
+    ]
+   ],
+   "fps": 12
+  },
+  "run-l": {
+   "from": [
+    [
+     "jog-l",
+     0
+    ],
+    [
+     "jog-l",
+     1
+    ],
+    [
+     "jog-l",
+     2
+    ],
+    [
+     "jog-l",
+     3
+    ],
+    [
+     "jog-l",
+     4
+    ],
+    [
+     "jog-l",
+     5
+    ],
+    [
+     "jog-l",
+     6
+    ],
+    [
+     "jog-l",
+     7
+    ],
+    [
+     "jog-l",
+     8
+    ],
+    [
+     "jog-l",
+     9
+    ],
+    [
+     "jog-l",
+     10
+    ],
+    [
+     "jog-l",
+     11
+    ],
+    [
+     "jog-l",
+     12
+    ],
+    [
+     "jog-l",
+     13
+    ]
+   ],
+   "fps": 12
+  },
+  "run-fl": {
+   "from": [
+    [
+     "jog-fl",
+     0
+    ],
+    [
+     "jog-fl",
+     1
+    ],
+    [
+     "jog-fl",
+     2
+    ],
+    [
+     "jog-fl",
+     3
+    ],
+    [
+     "jog-fl",
+     4
+    ],
+    [
+     "jog-fl",
+     5
+    ],
+    [
+     "jog-fl",
+     6
+    ],
+    [
+     "jog-fl",
+     7
+    ],
+    [
+     "jog-fl",
+     8
+    ],
+    [
+     "jog-fl",
+     9
+    ],
+    [
+     "jog-fl",
+     10
+    ],
+    [
+     "jog-fl",
+     11
+    ],
+    [
+     "jog-fl",
+     12
+    ],
+    [
+     "jog-fl",
+     13
+    ]
+   ],
+   "fps": 12
+  },
+  "dribble-br": {
+   "from": [
+    [
+     "dribble-bl",
+     0,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     1,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     2,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     3,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     4,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     5,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     6,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     7,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     8,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     9,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     10,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     11,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     12,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     13,
+     "flip"
+    ],
+    [
+     "dribble-bl",
+     14,
+     "flip"
+    ]
+   ],
+   "fps": 24
+  },
+  "dribble-r": {
+   "from": [
+    [
+     "dribble-l",
+     0,
+     "flip"
+    ],
+    [
+     "dribble-l",
+     1,
+     "flip"
+    ],
+    [
+     "dribble-l",
+     2,
+     "flip"
+    ],
+    [
+     "dribble-l",
+     3,
+     "flip"
+    ],
+    [
+     "dribble-l",
+     4,
+     "flip"
+    ],
+    [
+     "dribble-l",
+     5,
+     "flip"
+    ],
+    [
+     "dribble-l",
+     6,
+     "flip"
+    ],
+    [
+     "dribble-l",
+     7,
+     "flip"
+    ],
+    [
+     "dribble-l",
+     8,
+     "flip"
+    ],
+    [
+     "dribble-l",
+     9,
+     "flip"
+    ],
+    [
+     "dribble-l",
+     10,
+     "flip"
+    ],
+    [
+     "dribble-l",
+     11,
+     "flip"
+    ]
+   ],
+   "fps": 24
+  },
+  "gather-br": {
+   "from": [
+    [
+     "gather-bl",
+     0,
+     "flip"
+    ],
+    [
+     "gather-bl",
+     1,
+     "flip"
+    ],
+    [
+     "gather-bl",
+     2,
+     "flip"
+    ],
+    [
+     "gather-bl",
+     3,
+     "flip"
+    ],
+    [
+     "gather-bl",
+     4,
+     "flip"
+    ],
+    [
+     "gather-bl",
+     5,
+     "flip"
+    ],
+    [
+     "gather-bl",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "gather-r": {
+   "from": [
+    [
+     "gather-l",
+     0,
+     "flip"
+    ],
+    [
+     "gather-l",
+     1,
+     "flip"
+    ],
+    [
+     "gather-l",
+     2,
+     "flip"
+    ],
+    [
+     "gather-l",
+     3,
+     "flip"
+    ],
+    [
+     "gather-l",
+     4,
+     "flip"
+    ],
+    [
+     "gather-l",
+     5,
+     "flip"
+    ],
+    [
+     "gather-l",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "jump-br": {
+   "from": [
+    [
+     "jump-bl",
+     0,
+     "flip"
+    ],
+    [
+     "jump-bl",
+     1,
+     "flip"
+    ],
+    [
+     "jump-bl",
+     2,
+     "flip"
+    ],
+    [
+     "jump-bl",
+     3,
+     "flip"
+    ],
+    [
+     "jump-bl",
+     4,
+     "flip"
+    ],
+    [
+     "jump-bl",
+     5,
+     "flip"
+    ],
+    [
+     "jump-bl",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "jump-r": {
+   "from": [
+    [
+     "jump-l",
+     0,
+     "flip"
+    ],
+    [
+     "jump-l",
+     1,
+     "flip"
+    ],
+    [
+     "jump-l",
+     2,
+     "flip"
+    ],
+    [
+     "jump-l",
+     3,
+     "flip"
+    ],
+    [
+     "jump-l",
+     4,
+     "flip"
+    ],
+    [
+     "jump-l",
+     5,
+     "flip"
+    ],
+    [
+     "jump-l",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "release-br": {
+   "from": [
+    [
+     "release-bl",
+     0,
+     "flip"
+    ],
+    [
+     "release-bl",
+     1,
+     "flip"
+    ],
+    [
+     "release-bl",
+     2,
+     "flip"
+    ],
+    [
+     "release-bl",
+     3,
+     "flip"
+    ],
+    [
+     "release-bl",
+     4,
+     "flip"
+    ],
+    [
+     "release-bl",
+     5,
+     "flip"
+    ],
+    [
+     "release-bl",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "recover-br": {
+   "from": [
+    [
+     "recover-bl",
+     0,
+     "flip"
+    ],
+    [
+     "recover-bl",
+     1,
+     "flip"
+    ],
+    [
+     "recover-bl",
+     2,
+     "flip"
+    ],
+    [
+     "recover-bl",
+     3,
+     "flip"
+    ],
+    [
+     "recover-bl",
+     4,
+     "flip"
+    ],
+    [
+     "recover-bl",
+     5,
+     "flip"
+    ],
+    [
+     "recover-bl",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "release-r": {
+   "from": [
+    [
+     "release-l",
+     0,
+     "flip"
+    ],
+    [
+     "release-l",
+     1,
+     "flip"
+    ],
+    [
+     "release-l",
+     2,
+     "flip"
+    ],
+    [
+     "release-l",
+     3,
+     "flip"
+    ],
+    [
+     "release-l",
+     4,
+     "flip"
+    ],
+    [
+     "release-l",
+     5,
+     "flip"
+    ],
+    [
+     "release-l",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "recover-r": {
+   "from": [
+    [
+     "recover-l",
+     0,
+     "flip"
+    ],
+    [
+     "recover-l",
+     1,
+     "flip"
+    ],
+    [
+     "recover-l",
+     2,
+     "flip"
+    ],
+    [
+     "recover-l",
+     3,
+     "flip"
+    ],
+    [
+     "recover-l",
+     4,
+     "flip"
+    ],
+    [
+     "recover-l",
+     5,
+     "flip"
+    ],
+    [
+     "recover-l",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "dribble-fl": {
+   "from": [
+    [
+     "dribble-fl",
+     0
+    ],
+    [
+     "dribble-fl",
+     1
+    ],
+    [
+     "dribble-fl",
+     2
+    ],
+    [
+     "dribble-fl",
+     3
+    ],
+    [
+     "dribble-fl",
+     4
+    ],
+    [
+     "dribble-fl",
+     5
+    ],
+    [
+     "dribble-fl",
+     6
+    ],
+    [
+     "dribble-fl",
+     7
+    ],
+    [
+     "dribble-fl",
+     8
+    ],
+    [
+     "dribble-fl",
+     9
+    ],
+    [
+     "dribble-fl",
+     10
+    ],
+    [
+     "dribble-fl",
+     11
+    ]
+   ],
+   "fps": 24
+  },
+  "dribble-fr": {
+   "from": [
+    [
+     "dribble-fl",
+     0,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     1,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     2,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     3,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     4,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     5,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     6,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     7,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     8,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     9,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     10,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     11,
+     "flip"
+    ]
+   ],
+   "fps": 24
+  },
+  "gather-fl": {
+   "from": [
+    [
+     "gather-fl",
+     0
+    ],
+    [
+     "gather-fl",
+     1
+    ],
+    [
+     "gather-fl",
+     2
+    ],
+    [
+     "gather-fl",
+     3
+    ],
+    [
+     "gather-fl",
+     4
+    ],
+    [
+     "gather-fl",
+     5
+    ],
+    [
+     "gather-fl",
+     6
+    ]
+   ]
+  },
+  "gather-fr": {
+   "from": [
+    [
+     "gather-fl",
+     0,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     1,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     2,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     3,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     4,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     5,
+     "flip"
+    ],
+    [
+     "gather-fl",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "jump-fl": {
+   "from": [
+    [
+     "jump-fl",
+     0
+    ],
+    [
+     "jump-fl",
+     1
+    ],
+    [
+     "jump-fl",
+     2
+    ],
+    [
+     "jump-fl",
+     3
+    ],
+    [
+     "jump-fl",
+     4
+    ],
+    [
+     "jump-fl",
+     5
+    ],
+    [
+     "jump-fl",
+     6
+    ]
+   ]
+  },
+  "jump-fr": {
+   "from": [
+    [
+     "jump-fl",
+     0,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     1,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     2,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     3,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     4,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     5,
+     "flip"
+    ],
+    [
+     "jump-fl",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "release-fl": {
+   "from": [
+    [
+     "release-fl",
+     0
+    ],
+    [
+     "release-fl",
+     1
+    ],
+    [
+     "release-fl",
+     2
+    ],
+    [
+     "release-fl",
+     3
+    ],
+    [
+     "release-fl",
+     4
+    ],
+    [
+     "release-fl",
+     5
+    ],
+    [
+     "release-fl",
+     6
+    ]
+   ]
+  },
+  "recover-fl": {
+   "from": [
+    [
+     "recover-fl",
+     0
+    ],
+    [
+     "recover-fl",
+     1
+    ],
+    [
+     "recover-fl",
+     2
+    ],
+    [
+     "recover-fl",
+     3
+    ],
+    [
+     "recover-fl",
+     4
+    ],
+    [
+     "recover-fl",
+     5
+    ],
+    [
+     "recover-fl",
+     6
+    ]
+   ]
+  },
+  "release-fr": {
+   "from": [
+    [
+     "release-fl",
+     0,
+     "flip"
+    ],
+    [
+     "release-fl",
+     1,
+     "flip"
+    ],
+    [
+     "release-fl",
+     2,
+     "flip"
+    ],
+    [
+     "release-fl",
+     3,
+     "flip"
+    ],
+    [
+     "release-fl",
+     4,
+     "flip"
+    ],
+    [
+     "release-fl",
+     5,
+     "flip"
+    ],
+    [
+     "release-fl",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "recover-fr": {
+   "from": [
+    [
+     "recover-fl",
+     0,
+     "flip"
+    ],
+    [
+     "recover-fl",
+     1,
+     "flip"
+    ],
+    [
+     "recover-fl",
+     2,
+     "flip"
+    ],
+    [
+     "recover-fl",
+     3,
+     "flip"
+    ],
+    [
+     "recover-fl",
+     4,
+     "flip"
+    ],
+    [
+     "recover-fl",
+     5,
+     "flip"
+    ],
+    [
+     "recover-fl",
+     6,
+     "flip"
+    ]
+   ]
+  },
+  "start-r": {
+   "from": [
+    [
+     "start-l",
+     0,
+     "flip"
+    ],
+    [
+     "start-l",
+     1,
+     "flip"
+    ],
+    [
+     "start-l",
+     2,
+     "flip"
+    ],
+    [
+     "start-l",
+     3,
+     "flip"
+    ],
+    [
+     "start-l",
+     4,
+     "flip"
+    ],
+    [
+     "start-l",
+     5,
+     "flip"
+    ],
+    [
+     "start-l",
+     6,
+     "flip"
+    ]
+   ],
+   "fps": 12
+  },
+  "start-br": {
+   "from": [
+    [
+     "start-bl",
+     0,
+     "flip"
+    ],
+    [
+     "start-bl",
+     1,
+     "flip"
+    ],
+    [
+     "start-bl",
+     2,
+     "flip"
+    ],
+    [
+     "start-bl",
+     3,
+     "flip"
+    ],
+    [
+     "start-bl",
+     4,
+     "flip"
+    ],
+    [
+     "start-bl",
+     5,
+     "flip"
+    ],
+    [
+     "start-bl",
+     6,
+     "flip"
+    ],
+    [
+     "start-bl",
+     7,
+     "flip"
+    ]
+   ],
+   "fps": 12
+  },
+  "start-fr": {
+   "from": [
+    [
+     "start-fl",
+     0,
+     "flip"
+    ],
+    [
+     "start-fl",
+     1,
+     "flip"
+    ],
+    [
+     "start-fl",
+     2,
+     "flip"
+    ],
+    [
+     "start-fl",
+     3,
+     "flip"
+    ],
+    [
+     "start-fl",
+     4,
+     "flip"
+    ],
+    [
+     "start-fl",
+     5,
+     "flip"
+    ],
+    [
+     "start-fl",
+     6,
+     "flip"
+    ]
+   ],
+   "fps": 12
+  },
+  "jog-r": {
+   "from": [
+    [
+     "jog-l",
+     0,
+     "flip"
+    ],
+    [
+     "jog-l",
+     1,
+     "flip"
+    ],
+    [
+     "jog-l",
+     2,
+     "flip"
+    ],
+    [
+     "jog-l",
+     3,
+     "flip"
+    ],
+    [
+     "jog-l",
+     4,
+     "flip"
+    ],
+    [
+     "jog-l",
+     5,
+     "flip"
+    ],
+    [
+     "jog-l",
+     6,
+     "flip"
+    ],
+    [
+     "jog-l",
+     7,
+     "flip"
+    ],
+    [
+     "jog-l",
+     8,
+     "flip"
+    ],
+    [
+     "jog-l",
+     9,
+     "flip"
+    ],
+    [
+     "jog-l",
+     10,
+     "flip"
+    ],
+    [
+     "jog-l",
+     11,
+     "flip"
+    ],
+    [
+     "jog-l",
+     12,
+     "flip"
+    ],
+    [
+     "jog-l",
+     13,
+     "flip"
+    ]
+   ],
+   "fps": 12
+  },
+  "jog-br": {
+   "from": [
+    [
+     "jog-bl",
+     0,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     1,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     2,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     3,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     4,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     5,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     6,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     7,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     8,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     9,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     10,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     11,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     12,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     13,
+     "flip"
+    ],
+    [
+     "jog-bl",
+     14,
+     "flip"
+    ]
+   ],
+   "fps": 12
+  },
+  "jog-fr": {
+   "from": [
+    [
+     "jog-fl",
+     0,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     1,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     2,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     3,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     4,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     5,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     6,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     7,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     8,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     9,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     10,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     11,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     12,
+     "flip"
+    ],
+    [
+     "jog-fl",
+     13,
+     "flip"
+    ]
+   ],
+   "fps": 12
+  }
+ },
+ "release": {
+  "bl": [
+   "jump-bl",
+   5
+  ],
+  "b": [
+   "jump-b",
+   6
+  ],
+  "l": [
+   "jump-l",
+   6
+  ],
+  "br": [
+   "jump-bl",
+   5,
+   "flip"
+  ],
+  "r": [
+   "jump-l",
+   6,
+   "flip"
+  ],
+  "fl": [
+   "jump-fl",
+   6
+  ],
+  "fr": [
+   "jump-fl",
+   6,
+   "flip"
+  ]
+ },
+ "release_from": [
+  "jump-bl",
+  5
+ ],
+ "detail": {
+  "out": "assets/characters/buns-detail",
+  "scale": 3,
+  "quality": 80
+ },
+ "parts": {
+  "skin": [
+   13,
+   18,
+   24,
+   26,
+   27,
+   28,
+   32,
+   33,
+   34,
+   35,
+   37,
+   38
+  ],
+  "hair": [
+   12,
+   14,
+   16,
+   19,
+   23
+  ],
+  "jersey": [
+   43,
+   44,
+   45,
+   46,
+   47
+  ],
+  "team": [
+   17,
+   21,
+   25,
+   31,
+   36,
+   42
+  ],
+  "shoes": [
+   30,
+   40
+  ]
+ },
+ "ball": [
+  29,
+  39,
+  41
+ ],
+ "either": {
+  "22": [
+   "skin",
+   "fixed"
+  ]
+ }
+}
