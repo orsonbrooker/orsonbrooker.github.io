@@ -59,6 +59,40 @@ function jerseyBox(regions, x, y, w, h) {
   return top < 0 ? null : { top, left, right };
 }
 
+// One frame at a size: the frame [x, y, w, h, ox] drawn from `src` at (sx, sy) (and its print, if any),
+// with the region map read at the frame's own place. Returns { canvas, w, h, dx (columns added left of
+// the feet), dy (rows added), ball } for a held ball at [x, y, r] in the frame.
+export function stretchFrame(src, [sx, sy], regions, [x, y, w, h, ox], build = {}, { print, ball } = {}) {
+  const height = Math.max(-1, Math.min(1, +build.height || 0));
+  const bulk = Math.max(-1, Math.min(1, +build.bulk || 0));
+  const one = Object.assign(document.createElement("canvas"), { width: w, height: h });
+  const g1 = one.getContext("2d");
+  g1.drawImage(src, sx, sy, w, h, 0, 0, w, h);
+  if (print) g1.drawImage(print, 0, 0, print.width, print.height, 0, 0, w, h);
+  const j = jerseyBox(regions, x, y, w, h);
+  const top = j ? j.top : Math.round(h * 0.36);
+  const rowFit = stretch(h, Math.round(height * HEIGHT_STEP * h), top, h - 6);
+  const rows = rowFit.map;
+  const [l, r] = j ? [j.left, j.right] : [Math.round(w * 0.28), Math.round(w * 0.72)];
+  const colFit = stretch(w, Math.round(bulk * BULK_STEP * (r - l + 1) * 2), l, r);
+  const cols = colFit.map;
+  const tall = Object.assign(document.createElement("canvas"), { width: w, height: rows.length });
+  const gt = tall.getContext("2d");
+  for (const s of runs(rows)) gt.drawImage(one, 0, s.src, w, s.n, 0, s.at, w, s.n);
+  const out = Object.assign(document.createElement("canvas"), { width: cols.length, height: rows.length });
+  const go = out.getContext("2d");
+  for (const s of runs(cols)) go.drawImage(tall, s.src, 0, s.n, rows.length, s.at, 0, s.n, rows.length);
+  // the feet stay where they stand: how far they moved right (columns added to their left), and down
+  return {
+    canvas: out,
+    w: cols.length,
+    h: rows.length,
+    dx: colFit.fwd(-ox) + ox,
+    dy: rows.length - h,
+    ball: ball && [colFit.fwd(ball[0]), rowFit.fwd(ball[1]), ball[2]],
+  };
+}
+
 export function stretchSheet({ meta, img, prints }, regions, build = {}) {
   const height = Math.max(-1, Math.min(1, +build.height || 0));
   const bulk = Math.max(-1, Math.min(1, +build.bulk || 0));
@@ -67,38 +101,10 @@ export function stretchSheet({ meta, img, prints }, regions, build = {}) {
   // each frame once, however many moves use it
   const rects = new Map();
   for (const list of Object.values(meta.frames)) for (const f of list) rects.set(`${f[0]},${f[1]},${f[2]},${f[3]}`, f);
-  const made = new Map(); // key -> { canvas, w, h, dx (columns added left of the feet), dy (rows added) }
-  const one = document.createElement("canvas");
-  for (const [key, [x, y, w, h, ox]] of rects) {
-    one.width = w;
-    one.height = h;
-    const g1 = one.getContext("2d");
-    g1.drawImage(img, x, y, w, h, 0, 0, w, h);
-    const print = prints?.get(`${x},${y}`);
-    if (print) g1.drawImage(print, 0, 0, print.width, print.height, 0, 0, w, h);
-    const j = jerseyBox(regions, x, y, w, h);
-    const top = j ? j.top : Math.round(h * 0.36);
-    const rowFit = stretch(h, Math.round(height * HEIGHT_STEP * h), top, h - 6);
-    const rows = rowFit.map;
-    const [l, r] = j ? [j.left, j.right] : [Math.round(w * 0.28), Math.round(w * 0.72)];
-    const colFit = stretch(w, Math.round(bulk * BULK_STEP * (r - l + 1) * 2), l, r);
-    const cols = colFit.map;
-    const tall = Object.assign(document.createElement("canvas"), { width: w, height: rows.length });
-    const gt = tall.getContext("2d");
-    for (const s of runs(rows)) gt.drawImage(one, 0, s.src, w, s.n, 0, s.at, w, s.n);
-    const out = Object.assign(document.createElement("canvas"), { width: cols.length, height: rows.length });
-    const go = out.getContext("2d");
-    for (const s of runs(cols)) go.drawImage(tall, s.src, 0, s.n, rows.length, s.at, 0, s.n, rows.length);
-    // the feet stay where they stand: how far they moved right (columns added to their left), and down
-    const ball = meta.balls?.[`${x},${y}`];
-    made.set(key, {
-      canvas: out,
-      w: cols.length,
-      h: rows.length,
-      dx: colFit.fwd(-ox) + ox,
-      dy: rows.length - h,
-      ball: ball && [colFit.fwd(ball[0]), rowFit.fwd(ball[1]), ball[2]],
-    });
+  const made = new Map(); // key -> stretchFrame's result
+  for (const [key, f] of rects) {
+    const [x, y] = f;
+    made.set(key, stretchFrame(img, [x, y], regions, f, { height, bulk }, { print: prints?.get(`${x},${y}`), ball: meta.balls?.[`${x},${y}`] }));
   }
 
   // packed in shelves on a new sheet

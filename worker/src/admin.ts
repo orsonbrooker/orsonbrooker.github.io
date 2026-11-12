@@ -8,7 +8,7 @@ import { verifyAccessToken } from "./access.ts";
 import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
-import { MAX_PLAYER_NAME, MAX_TEAM_NAME, parsePronoun, PLAYER_PARTS } from "./players.ts";
+import { MAX_PLAYER_NAME, MAX_TEAM_NAME, parsePronoun, parseShorts, PLAYER_PARTS } from "./players.ts";
 import { stats } from "./stats.ts";
 import { blockReportedName, clearReports, ODD_UNCHECKED, REPORTED, renameScores } from "./scores.ts";
 import { clean, forgetBlockedNames, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
@@ -74,7 +74,7 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 			env.DB.prepare("SELECT id, app, title, description, credit, status, votes FROM ideas ORDER BY app, votes DESC"),
 			env.DB.prepare("SELECT slug, name FROM apps ORDER BY name"),
 			env.DB.prepare(
-				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, pronoun, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
+				"SELECT id, name, base, skin, hair, jersey, team, shorts, shoes, number, team_name, pronoun, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
 			),
 			env.DB.prepare(
 				// Reported ones (with how many open reports) and odd ones not yet looked at first, then the last two weeks.
@@ -225,10 +225,11 @@ async function editPlayer(env: Env, id: number, body: Record<string, unknown>): 
 	const result = await env.DB.prepare(
 		`UPDATE players SET name = ?, status = COALESCE(?, status), base = COALESCE(?, base),
 		   skin = COALESCE(?, skin), hair = COALESCE(?, hair), jersey = COALESCE(?, jersey), team = COALESCE(?, team), shoes = COALESCE(?, shoes),
+		   shorts = CASE WHEN ? THEN ? ELSE shorts END,
 		   number = CASE WHEN ? THEN ? ELSE number END, team_name = COALESCE(?, team_name),
 		   pronoun = CASE WHEN ? THEN ? ELSE pronoun END, updated_at = datetime('now') WHERE id = ?`,
 	)
-		.bind(name, status, base, ...colours, setNumber ? 1 : 0, number, teamName, setPronoun ? 1 : 0, parsePronoun(body.pronoun), id)
+		.bind(name, status, base, ...colours, sent ? 1 : 0, sent ? parseShorts(sent.shorts) : null, setNumber ? 1 : 0, number, teamName, setPronoun ? 1 : 0, parsePronoun(body.pronoun), id)
 		.run();
 	if (!result.meta.changes) throw new HttpError(404, "No such player.");
 	return json({ ok: true }, 200, 0);

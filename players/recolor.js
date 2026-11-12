@@ -2,13 +2,23 @@
 //
 // Each base body (assets/characters/bases/) has a regions.png whose red channel marks every
 // pixel as skin (1), hair (2), jersey (3), team colour (4), shoes (5) or "leave as drawn" (0).
+// The team colour is the jersey's trim and the shorts: a player can give the shorts a colour of their
+// own (`shorts`), and team-colour pixels away from the jersey's edges take it (see shortsMask).
 // Recolouring swaps a region's colour while keeping each pixel's light and shade relative to the
-// region's average, so a red jersey keeps its folds. The player's number (and their team name on
-// the front, KINGS unless they pick another) is printed onto jersey pixels only, tilted to follow
-// the shoulders, so it looks printed on and arms and the ball pass in front of it.
+// region's average, so a red jersey keeps its folds and eyes and freckles drawn on the skin stay as
+// they are. Hair instead gets a ramp of shades made from the chosen colour (shades.js), each pixel
+// taking the shade its lightness ranks at, so black hair keeps its curls and blonde stays blonde.
+// The player's number (and their team name on the front, KINGS unless they pick another) is
+// printed onto jersey pixels only, tilted to follow the shoulders, so it looks printed on and arms
+// and the ball pass in front of it.
+
+import { shadeRanks, shadeTable, lightness } from "./shades.js";
 
 const REGIONS = { 1: "skin", 2: "hair", 3: "jersey", 4: "team", 5: "shoes" };
+const HAIR = 2;
 const JERSEY = 3;
+const TEAM = 4;
+const TRIM_REACH = 4; // team-colour pixels this close to the jersey are its trim; the rest are shorts
 export const DEFAULT_TEAM = "KINGS";
 
 export const PALETTES = {
@@ -63,6 +73,51 @@ function pixels(img, rect = [0, 0, img.width, img.height]) {
 const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
 const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
+// The hair's lightness ranks over the whole sheet (every frame), worked out once per sheet (by its
+// address, since the game loads a video kid's sheet afresh for each place it shows them).
+const rankCache = new Map();
+function hairRanks(loadedBase) {
+  const { atlasImg, regionsData } = loadedBase;
+  const key = atlasImg.src || atlasImg;
+  if (!rankCache.has(key)) {
+    const reg = regionsData.data;
+    const px = pixels(atlasImg, [0, 0, regionsData.width, regionsData.height]).data;
+    rankCache.set(key, shadeRanks([{ px, region: (i) => (reg[i * 4] === HAIR ? HAIR : 0) }])[HAIR]);
+  }
+  return rankCache.get(key);
+}
+
+// Which team-colour pixels are the shorts (1) rather than the jersey's trim (0): those more than
+// TRIM_REACH pixels from any jersey pixel. Worked out once per sheet, like the hair's ranks.
+const shortsCache = new Map();
+function shortsMask(loadedBase) {
+  const { atlasImg, regionsData } = loadedBase;
+  const key = atlasImg.src || atlasImg;
+  if (!shortsCache.has(key)) {
+    const { data: reg, width: w, height: h } = regionsData;
+    const mask = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        if (reg[(y * w + x) * 4] !== TEAM) continue;
+        let near = false;
+        for (let dy = -TRIM_REACH; dy <= TRIM_REACH && !near; dy++) {
+          const yy = y + dy;
+          if (yy < 0 || yy >= h) continue;
+          for (let dx = -TRIM_REACH; dx <= TRIM_REACH; dx++) {
+            const xx = x + dx;
+            if (xx >= 0 && xx < w && reg[(yy * w + xx) * 4] === JERSEY) {
+              near = true;
+              break;
+            }
+          }
+        }
+        if (!near) mask[y * w + x] = 1;
+      }
+    shortsCache.set(key, mask);
+  }
+  return shortsCache.get(key);
+}
+
 // Returns a canvas of the base's sprite sheet (or one rectangle of it) in the given colours.
 export function recolor(loadedBase, colours, rect) {
   const full = [0, 0, loadedBase.atlasImg.width, loadedBase.atlasImg.height];
@@ -77,8 +132,15 @@ export function recolor(loadedBase, colours, rect) {
     // Very dark regions (black shoes) have little shade to scale, so their range is stretched.
     // (a kid from video stores some parts in another colour than their own, e.g. keyed hair: `meta.art`)
     const own = loadedBase.meta.art?.[name] ?? loadedBase.colours[name];
-    if (target && ref && target.toLowerCase() !== own) plans[id] = { t: hex(target), refL: Math.max(1, luma(...ref)), dark: luma(...ref) < 70 };
+    if (!target || !ref || target.toLowerCase() === own) continue;
+    const hair = +id === HAIR && hairRanks(loadedBase);
+    plans[id] = hair ? { table: shadeTable(hair, target) } : { t: hex(target), refL: Math.max(1, luma(...ref)), dark: luma(...ref) < 70 };
   }
+  // Shorts in a colour of their own: the team colour's plan, aimed at the shorts colour.
+  const teamRef = loadedBase.meta.regions.team;
+  const shortsTarget = colours.shorts && colours.shorts.toLowerCase() !== (colours.team ?? "").toLowerCase() ? colours.shorts : null;
+  const shortsPlan = shortsTarget && teamRef && { t: hex(shortsTarget), refL: Math.max(1, luma(...teamRef)), dark: luma(...teamRef) < 70 };
+  const shorts = shortsPlan && shortsMask(loadedBase);
   const d = src.data;
   const shade = new Float32Array(w * h); // each jersey pixel's light/shade, for printing the number
   const jerseyRef = Math.max(1, luma(...(loadedBase.meta.regions.jersey ?? [200, 200, 200])));
@@ -88,8 +150,15 @@ export function recolor(loadedBase, colours, rect) {
       if (!d[i + 3]) continue;
       const region = regionPx[((py + y) * atlasW + px + x) * 4];
       if (region === JERSEY) shade[py * w + px] = luma(d[i], d[i + 1], d[i + 2]) / jerseyRef;
-      const plan = plans[region];
+      const plan = shorts && region === TEAM && shorts[(py + y) * atlasW + px + x] ? shortsPlan : plans[region];
       if (!plan) continue;
+      if (plan.table) {
+        const l = lightness(d[i], d[i + 1], d[i + 2]) * 3;
+        d[i] = plan.table[l];
+        d[i + 1] = plan.table[l + 1];
+        d[i + 2] = plan.table[l + 2];
+        continue;
+      }
       let k = luma(d[i], d[i + 1], d[i + 2]) / plan.refL;
       if (plan.dark) k = 0.35 + 0.65 * k;
       for (let ch = 0; ch < 3; ch++) {

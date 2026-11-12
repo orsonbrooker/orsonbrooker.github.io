@@ -203,7 +203,7 @@ async function loadBuiltPlayers() {
         base: p.base,
         thumb: "/" + base.thumb,
         ...layered(p),
-        colours: { skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name ?? DEFAULT_TEAM },
+        colours: { skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shorts: p.shorts ?? undefined, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name ?? DEFAULT_TEAM },
         build: p.build,
       });
     }

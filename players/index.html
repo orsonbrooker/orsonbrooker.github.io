@@ -29,27 +29,39 @@
     <link rel="stylesheet" href="../feedback/widget.css" />
     <link rel="stylesheet" href="../players/builder.css" />
   </head>
-  <body>
+  <body class="builder-page">
     <nav class="site-nav" data-site-nav></nav>
-    <header>
+    <header class="builder-top">
       <a class="back-link" data-back-link href="/games/shootaround/"></a>
       <h1>Make your player</h1>
-      <p>Make your player and play as them straight away. Send them to me to put them in the game for everyone!</p>
+      <button type="button" class="fb-button fb-primary builder-done" id="done-open"><span data-icon="check"></span>Done</button>
     </header>
 
-    <main class="builder" id="builder">
-      <div class="builder-preview">
+    <main class="builder" id="builder" data-tab="character">
+      <div class="builder-stage">
         <canvas id="preview" width="200" height="256" aria-label="Your player"></canvas>
-        <p class="builder-name"><img class="builder-face" id="preview-face" alt="" width="48" height="48" /> <span id="preview-name"></span></p>
+        <p class="builder-name"><span id="preview-name"></span></p>
       </div>
 
-      <form class="builder-form" id="form">
-        <fieldset>
-          <legend>Body</legend>
-          <div class="choices" id="bases"></div>
-        </fieldset>
-        <fieldset id="size" hidden>
-          <legend>Size</legend>
+      <nav class="builder-tabs" role="tablist" aria-label="Make your player">
+        <button type="button" role="tab" id="tab-character" aria-controls="pane-character" data-tab="character"><span data-icon="player"></span>Character</button>
+        <button type="button" role="tab" id="tab-body" aria-controls="pane-body" data-tab="body"><span data-icon="size"></span>Body</button>
+        <button type="button" role="tab" id="tab-team" aria-controls="pane-team" data-tab="team"><span data-icon="jersey"></span>Team</button>
+        <button type="button" role="tab" id="tab-gear" aria-controls="pane-gear" data-tab="gear"><span data-icon="shoe"></span>Gear</button>
+      </nav>
+
+      <div class="builder-panel" id="panel">
+        <section id="pane-character" role="tabpanel" aria-labelledby="tab-character" data-pane="character">
+          <div class="look">
+            <p class="pane-title">Your colours</p>
+            <div class="part-chips" role="radiogroup" aria-label="Colour to change" id="look-parts"></div>
+            <div class="swatch-row" id="look-swatches"></div>
+          </div>
+          <p class="pane-title">Pick your character</p>
+          <div class="character-wall" id="bases"></div>
+        </section>
+
+        <section id="pane-body" role="tabpanel" aria-labelledby="tab-body" data-pane="body" hidden>
           <div class="steps-row">
             <label for="height">Height</label>
             <div class="pixel-slider" data-part="height"><i class="end lo"></i><div class="track"><input type="range" id="height" min="0" max="4" step="1" value="2" /></div><i class="end hi"></i></div>
@@ -58,47 +70,48 @@
             <label for="bulk">Build</label>
             <div class="pixel-slider" data-part="bulk"><i class="end lo"></i><div class="track"><input type="range" id="bulk" min="0" max="4" step="1" value="2" /></div><i class="end hi"></i></div>
           </div>
-        </fieldset>
-        <fieldset>
-          <legend>Skin</legend>
-          <div class="choices swatches" data-part="skin"></div>
-        </fieldset>
-        <fieldset>
-          <legend>Hair</legend>
-          <div class="choices swatches" data-part="hair"></div>
-        </fieldset>
-        <fieldset>
-          <legend>Jersey</legend>
-          <div class="choices swatches" data-part="jersey"></div>
-        </fieldset>
-        <fieldset>
-          <legend>Team colour</legend>
-          <div class="choices swatches" data-part="team"></div>
-        </fieldset>
-        <fieldset>
-          <legend>Shoes</legend>
-          <div class="choices swatches" data-part="shoes"></div>
-        </fieldset>
-        <fieldset>
-          <legend><label for="team-name">Team</label></legend>
-          <input id="team-name" type="text" maxlength="10" autocomplete="off" value="KINGS" />
-        </fieldset>
-        <fieldset>
-          <legend><label for="number">Number</label></legend>
-          <input id="number" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" placeholder="0 to 99" />
-        </fieldset>
-        <fieldset>
-          <legend><label for="name">Nickname</label></legend>
-          <input id="name" type="text" maxlength="12" autocomplete="off" required placeholder="Up to 12 letters" />
-          <p class="fb-hint">Just a nickname, please. No real names or schools.</p>
-        </fieldset>
-        <button type="button" class="fb-button fb-primary" id="play">Play as them now!</button>
-        <p class="fb-hint">Saved on this device, so only you can see them.</p>
-        <div class="fb-check" id="check"></div>
-        <p class="fb-message" id="message" role="status"></p>
-        <button type="submit" class="fb-button" id="send">Send to Orson for everyone</button>
-      </form>
+          <p class="fb-hint" id="size-hint" hidden>Only the NEW characters can change size for now.</p>
+        </section>
+
+        <section id="pane-team" role="tabpanel" aria-labelledby="tab-team" data-pane="team" hidden>
+          <div class="team-now">
+            <div class="team-now-name"><span class="mini-label">Playing for</span><b id="team-now"></b></div>
+            <label class="number-field"><span class="mini-label">Number</span><input id="number" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" placeholder="0-99" /></label>
+          </div>
+          <div class="kit-picker" role="radiogroup" aria-label="Kit" id="kit-picker"></div>
+          <div id="team-list"></div>
+          <div id="team-editor" hidden>
+            <label class="field"><span class="mini-label">Team name</span><input id="team-name" type="text" maxlength="10" autocomplete="off" /></label>
+            <div class="kit-colours" id="kit-colours"></div>
+            <div class="editor-actions">
+              <button type="button" class="fb-button" id="team-delete">Delete team</button>
+              <button type="button" class="fb-button fb-primary" id="team-done"><span data-icon="check"></span>Done</button>
+            </div>
+          </div>
+          <p class="fb-hint">Every team has a home kit and an away kit.</p>
+        </section>
+
+        <section id="pane-gear" role="tabpanel" aria-labelledby="tab-gear" data-pane="gear" hidden>
+          <p class="pane-title">Shoes</p>
+          <div class="swatch-row" data-part="shoes"></div>
+        </section>
+      </div>
     </main>
+
+    <div class="builder-scrim" id="scrim" hidden></div>
+    <form class="builder-done-sheet" id="form" role="dialog" aria-modal="true" aria-labelledby="done-title" hidden>
+      <div class="done-head">
+        <h2 id="done-title">Ready to play?</h2>
+        <button type="button" class="icon-close" id="done-close" aria-label="Keep making"><span data-icon="close"></span></button>
+      </div>
+      <label class="field"><span class="mini-label">Nickname</span><input id="name" type="text" maxlength="12" autocomplete="off" required placeholder="Up to 12 letters" /></label>
+      <p class="fb-hint">Just a nickname, please. No real names or schools.</p>
+      <button type="button" class="fb-button fb-primary" id="play"><span data-icon="play"></span>Play as them now!</button>
+      <p class="fb-hint">Saved on this device, so only you can see them.</p>
+      <div class="fb-check" id="check"></div>
+      <p class="fb-message" id="message" role="status"></p>
+      <button type="submit" class="fb-button" id="send">Send to Orson for everyone</button>
+    </form>
 
     <script type="module" src="../players/builder.js"></script>
     <script type="module" src="../ui/nav.js"></script>

@@ -208,6 +208,12 @@ Terms used across the code:
   or 1 (0 is the body as drawn). Sent with the player (`build`), kept in the `players` table's `height` and
   `bulk` (null when none was sent) and returned as `build` (or null) by `GET /api/players`, so an approved
   player is the same size for everyone; own players keep it on the device.
+- **Builder** (`players/`): four tabs under a preview that stays on screen: *Character* (skin and hair
+  colour, with every body below as a card in those colours and size, so kids compare them before picking),
+  *Body* (height and build, for kids made from video), *Team* (`players/teams.js`: the teams everyone has,
+  Kings first, or your own, kept on the device as `orson-hoops-my-teams`; each has a home and an away kit of
+  jersey, shorts and trim; plus the player's number) and *Gear* (shoes for now). *Done* opens a sheet with
+  the nickname, "Play as them now" and "Send to Orson". The cards load every body in the background.
 - **Pronoun:** whether a player is a "he" or a "she", for the announcer's lines. Built-in players have it in
   `index.json` ("he"); builder players get their body's (`pronoun` in `assets/characters/bases/index.json`:
   ponytail and buns are "she", the rest "he"), unless the admin sets one of their own (the `players` table's
@@ -491,6 +497,16 @@ flowchart LR
   `tools/dev/check_prints.mjs` checks every frame keeps the print on the jersey.
 - **Recolouring:** the full-detail sheet has a `regions.png` like the builder bodies; `?jersey=...&number=`
   on the game URL tries a kit on Orson.
+- **Kits: jersey, shorts and trim.** The region map has one "team" region for the jersey's trim and the
+  shorts. `recolor()` splits it when a player has `shorts` of their own: team pixels within 4 pixels of the
+  jersey are the trim (and the number's ink), the rest the shorts (`shortsMask()`, once per sheet). No
+  `shorts` (players made before, the `players` table's null): the shorts are the team colour, as before.
+- **Shade ramps** (`players/shades.js`, used by `recolor()` for hair only): the hair's pixels are ranked by
+  lightness over the whole sheet (worked out once per body, contrast-limited so flat areas don't go blotchy).
+  A chosen colour becomes 6 shades in OKLCH (three shadows, the colour, two highlights; squeezed near black
+  or white rather than greyed), and a 256-entry table maps each pixel's lightness to its place on that ramp,
+  so black hair keeps its curls and blonde stays blonde. Skin, kit and shoes keep the plain scaling, which
+  leaves eyes and freckles drawn on the skin as they are.
 
 ### Layered players
 

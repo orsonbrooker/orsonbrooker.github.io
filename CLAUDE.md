@@ -28,7 +28,7 @@ plan for growing the game and the iOS app; read it when working on structure.
   attributes, looks, spots, calls), `screens/` (menus,
   help, leaderboard, game over), `leaderboard.js`, `audio.js`,
   `phrases.js` (announcer lines), `fx.js` + `effects/` + `vendor/pixelfx/` (pixel effects), `shared/rules.js`
-  (scoring rules, shared with the Worker), `daily.js` (daily challenge), `players/recolor.js` (builder players' colours).
+  (scoring rules, shared with the Worker), `daily.js` (daily challenge), `players/recolor.js` (builder players' colours, shaded by `players/shades.js`).
   Canvas 2D, isometric court image, ball physics in metres with a fixed step.
 - **Server:** `worker/` is one Cloudflare Worker on `orsonbrooker.com/api/*` and `/admin*`, with a D1
   database. Code is in `worker/src/`, split by area (`index.ts` is the router; `ideas.ts`, `players.ts`,
