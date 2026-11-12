@@ -14,47 +14,89 @@ const FONT = '"Press Start 2P", monospace';
 // (rotating one picture smears its pixels). The seam pattern repeats every half turn.
 export const BALL_FRAMES = 12;
 
-// A colour a little darker, for the shaded side of a striped ball.
-function darker(hex, by = 0.78) {
-  const n = parseInt(hex.slice(1), 16);
-  const ch = (shift) => Math.round(((n >> shift) & 255) * by);
-  return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
-}
+export const BALL_PX = 24; // the sprite's size: enough pixels for round shading and thin seams
+
+const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+const mixRgb = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+const hsl = (h, s, l) => {
+  const k = (n) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  return [0, 8, 4].map((n) => 255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
+};
+
+// Seeing the ball a little from above and the side, so the curved seams curve.
+const TILT = [1.15, -0.3]; // radians about the vertical, then the sideways axis
+const LIGHT = (() => {
+  const l = [-0.4, -0.5, 0.77];
+  const n = Math.hypot(...l);
+  return l.map((v) => v / n);
+})();
 
 // look: the ball's colours (BALL_LOOKS in content/looks.js, or a ball style from shared/shop.js).
-// With `panels`, three stripes that turn with the seams.
+// With `panels`, three stripes that turn with the seams; `rainbow`, colours that run round it.
+// Shaded like a sphere lit from the top left, in a few flat tones (pixel art, no blur): the shine
+// colour toward the light, the main colour, the shade, and the edge colour round the dark side,
+// with a thin outline. The seams are drawn on the sphere, so they curve and turn as it spins.
 function makeBallSprite(turn, look = BALL_LOOKS[NORMAL]) {
-  const size = 16;
+  const size = BALL_PX;
   const c = document.createElement("canvas");
   c.width = c.height = size;
   const g = c.getContext("2d");
+  const img = g.createImageData(size, size);
   const mid = (size - 1) / 2;
-  const cos = Math.cos(turn), sin = Math.sin(turn);
+  const R = size / 2 - 0.5;
+  const [ty, tx] = TILT;
+  const seamW = 1.0 / R; // about one pixel, in the sphere's units
+  const edge = rgb(look.edge);
+  const seamC = rgb(look.seam);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const d = Math.hypot(x - mid, y - mid);
-      if (d > 7.6) continue;
-      // the seams, in the ball's own turned frame
-      const rx = mid + (x - mid) * cos + (y - mid) * sin;
-      const ry = mid - (x - mid) * sin + (y - mid) * cos;
-      const shaded = x + y > 19;
-      const panel = look.panels?.[ry < 5 ? 0 : ry < 10 ? 1 : 2];
-      let color = look.rainbow
-        ? `hsl(${Math.round(((rx + ry) * 22) % 360)}, 90%, ${shaded ? 48 : 60}%)`
-        : panel ? (shaded ? darker(panel) : panel)
-        : shaded ? look.shade : look.main;
-      if (Math.hypot(x - 5, y - 4.5) < 2) color = look.shine;
-      const seam =
-        Math.abs(rx - mid) < 0.6 ||
-        Math.abs(ry - mid) < 0.6 ||
-        Math.abs(Math.hypot(rx + 4, ry - mid) - 9.5) < 0.6 ||
-        Math.abs(Math.hypot(rx - 19, ry - mid) - 9.5) < 0.6;
-      if (seam) color = look.seam;
-      if (d > 6.7) color = look.edge;
-      g.fillStyle = color;
-      g.fillRect(x, y, 1, 1);
+      const nx = (x - mid) / R, ny = (y - mid) / R;
+      const r2 = nx * nx + ny * ny;
+      if (r2 > 1) continue;
+      const nz = Math.sqrt(1 - r2);
+      // the light, flattened into four tones
+      const lit = Math.max(0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]);
+      // the point on the ball's own surface: tilted toward us, then spun about its axis
+      let px = nx * Math.cos(ty) + nz * Math.sin(ty);
+      let pz = -nx * Math.sin(ty) + nz * Math.cos(ty);
+      let py = ny * Math.cos(tx) - pz * Math.sin(tx);
+      pz = ny * Math.sin(tx) + pz * Math.cos(tx);
+      const sx = px * Math.cos(turn) + pz * Math.sin(turn);
+      const sz = -px * Math.sin(turn) + pz * Math.cos(turn);
+      px = sx;
+      pz = sz;
+      let base, light, dark;
+      if (look.rainbow) {
+        const hue = ((Math.atan2(py, px) / Math.PI) * 180 + 360) % 360;
+        base = hsl(hue, 0.85, 0.55);
+        light = hsl(hue, 0.9, 0.72);
+        dark = hsl(hue, 0.8, 0.38);
+      } else if (look.panels) {
+        base = rgb(look.panels[py < -0.33 ? 0 : py < 0.33 ? 1 : 2]);
+        light = mixRgb(base, [255, 255, 255], 0.35);
+        dark = mixRgb(base, [0, 0, 0], 0.3);
+      } else {
+        base = rgb(look.main);
+        light = rgb(look.shine);
+        dark = rgb(look.shade);
+      }
+      let col = lit > 0.86 ? mixRgb(base, light, 0.55) : lit > 0.42 ? base : lit > 0.16 ? dark : mixRgb(dark, edge, 0.4);
+      // a small highlight where the light hits straight on
+      if (lit > 0.985) col = rgb(look.shine);
+      // seams: two great circles (one round the middle, one over the top) and two curved side seams
+      const seam = Math.abs(px) < seamW || Math.abs(py) < seamW || Math.abs(Math.abs(pz) - 0.72) < seamW * 0.9;
+      if (seam) col = mixRgb(seamC, edge, lit > 0.42 ? 0 : 0.5);
+      // the outline
+      if (r2 > ((R - 1) / R) ** 2) col = edge;
+      const i = (y * size + x) * 4;
+      img.data[i] = col[0];
+      img.data[i + 1] = col[1];
+      img.data[i + 2] = col[2];
+      img.data[i + 3] = 255;
     }
   }
+  g.putImageData(img, 0, 0);
   return c;
 }
 
