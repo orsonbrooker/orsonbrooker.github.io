@@ -24,8 +24,10 @@ const hsl = (h, s, l) => {
   return [0, 8, 4].map((n) => 255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
 };
 
-// Seeing the ball a little from above and the side, so the curved seams curve.
-const TILT = [1.15, -0.3]; // radians about the vertical, then the sideways axis
+// A basketball's seams: one line round its middle, one over the top, and a curved seam on each side
+// (parallel to the one over the top). Seen turned a little, so those curve like ( and ), as in the art.
+const TURNED = 0.55; // radians about the vertical
+const SIDE_SEAM = 0.68; // where the side seams sit, across the ball (0 middle, 1 edge)
 const LIGHT = (() => {
   const l = [-0.4, -0.5, 0.77];
   const n = Math.hypot(...l);
@@ -45,8 +47,7 @@ function makeBallSprite(turn, look = BALL_LOOKS[NORMAL]) {
   const img = g.createImageData(size, size);
   const mid = (size - 1) / 2;
   const R = size / 2 - 0.5;
-  const [ty, tx] = TILT;
-  const seamW = 1.0 / R; // about one pixel, in the sphere's units
+  const seamW = 0.62 / R; // half a seam's width: lines about a pixel wide
   const edge = rgb(look.edge);
   const seamC = rgb(look.seam);
   for (let y = 0; y < size; y++) {
@@ -57,15 +58,10 @@ function makeBallSprite(turn, look = BALL_LOOKS[NORMAL]) {
       const nz = Math.sqrt(1 - r2);
       // the light, flattened into four tones
       const lit = Math.max(0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]);
-      // the point on the ball's own surface: tilted toward us, then spun about its axis
-      let px = nx * Math.cos(ty) + nz * Math.sin(ty);
-      let pz = -nx * Math.sin(ty) + nz * Math.cos(ty);
-      let py = ny * Math.cos(tx) - pz * Math.sin(tx);
-      pz = ny * Math.sin(tx) + pz * Math.cos(tx);
-      const sx = px * Math.cos(turn) + pz * Math.sin(turn);
-      const sz = -px * Math.sin(turn) + pz * Math.cos(turn);
-      px = sx;
-      pz = sz;
+      // the point on the ball's own surface, the ball turned (and spinning) about its vertical axis
+      const a = TURNED + turn;
+      const px = nx * Math.cos(a) + nz * Math.sin(a);
+      const py = ny;
       let base, light, dark;
       if (look.rainbow) {
         const hue = ((Math.atan2(py, px) / Math.PI) * 180 + 360) % 360;
@@ -84,8 +80,12 @@ function makeBallSprite(turn, look = BALL_LOOKS[NORMAL]) {
       let col = lit > 0.86 ? mixRgb(base, light, 0.55) : lit > 0.42 ? base : lit > 0.16 ? dark : mixRgb(dark, edge, 0.4);
       // a small highlight where the light hits straight on
       if (lit > 0.985) col = rgb(look.shine);
-      // seams: two great circles (one round the middle, one over the top) and two curved side seams
-      const seam = Math.abs(px) < seamW || Math.abs(py) < seamW || Math.abs(Math.abs(pz) - 0.72) < seamW * 0.9;
+      // the seams, each about a pixel wide on screen: how fast px changes across the screen here
+      const zs = Math.max(nz, 0.2);
+      const grad = Math.min(3, Math.hypot(Math.cos(a) - (Math.sin(a) * nx) / zs, (Math.sin(a) * ny) / zs));
+      const w = seamW * grad;
+      const middle = Math.abs(py - 0.5 / R) < 0.5 / R; // the row just under the centre, one pixel
+      const seam = middle || Math.abs(px) < w || Math.abs(Math.abs(px) - SIDE_SEAM) < w;
       if (seam) col = mixRgb(seamC, edge, lit > 0.42 ? 0 : 0.5);
       // the outline
       if (r2 > ((R - 1) / R) ** 2) col = edge;
