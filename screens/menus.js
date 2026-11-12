@@ -141,6 +141,12 @@ function renderPicker() {
       });
       const card = Object.assign(document.createElement("span"), { className: "mine" });
       card.append(button, remove);
+      // and a way to change them in the builder (a page of the website, not in the iOS app)
+      if (!IN_APP) {
+        const edit = Object.assign(document.createElement("a"), { className: "edit", href: `/players/?edit=${encodeURIComponent(c.id)}`, innerHTML: icon("edit") });
+        edit.setAttribute("aria-label", `Change ${c.name}`);
+        card.append(edit);
+      }
       return card;
     }),
     // The builder is a page of the website, not in the iOS app (which is just the game).

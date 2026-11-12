@@ -46,6 +46,21 @@ const heightInput = $("height");
 const bulkInput = $("bulk");
 
 const params = new URLSearchParams(location.search);
+// ?edit=<id>: change a player made on this device (from the game's player picker). Their look is
+// read in as if it were a link's, and saving keeps their id, so their scores stay theirs.
+const ownPlayer = myPlayers().find((p) => p.id === params.get("edit")) ?? null;
+if (ownPlayer) {
+  const c = ownPlayer.colours ?? {};
+  params.set("base", ownPlayer.base);
+  for (const part of [...PARTS, "shorts"]) if (/^#[0-9a-f]{6}$/i.test(c[part] ?? "")) params.set(part, c[part].slice(1));
+  if (c.number !== undefined && c.number !== "") params.set("number", String(c.number));
+  params.set("teamName", c.teamName ?? DEFAULT_TEAM);
+  params.set("name", ownPlayer.name);
+  if (ownPlayer.build) {
+    params.set("height", String(ownPlayer.build.height ?? 0));
+    params.set("bulk", String(ownPlayer.build.bulk ?? 0));
+  }
+}
 let bases = [];
 let current; // the loaded base
 // what the preview draws: { meta, img, prints }, the body's sheet in their colours (and size)
@@ -887,7 +902,7 @@ function needName() {
 // Play straight away: save to this device and jump into the game as them.
 play.addEventListener("click", () => {
   if (rude || needName()) return;
-  const id = saveMyPlayer({ name: nameInput.value.trim(), ...look() });
+  const id = saveMyPlayer({ ...ownPlayer, name: nameInput.value.trim(), ...look() });
   try {
     localStorage.setItem("orson-hoops-character", JSON.stringify(id));
     localStorage.setItem("orson-hoops-chosen", "true"); // straight into a game, no player select
@@ -909,7 +924,7 @@ form.addEventListener("submit", async (e) => {
   // Already playing as a player by this name on this device? Give it this look, here and on the
   // leaderboard (the server updates the scores this device played as it).
   const name = nameInput.value.trim();
-  const same = myPlayers().find((p) => p.name.toLowerCase() === name.toLowerCase());
+  const same = ownPlayer ?? myPlayers().find((p) => p.name.toLowerCase() === name.toLowerCase());
   if (same) saveMyPlayer({ ...same, name, ...look() });
   let device = "";
   try {
@@ -934,6 +949,7 @@ form.addEventListener("submit", async (e) => {
     });
     const out = await res.json();
     if (!res.ok) throw new Error(out.error);
+    if (same) saveMyPlayer({ ...same, name, ...look(), sent: true });
     say(message, `Sent! Orson will check ${name} soon. Once approved, pick them in the game.`);
     send.textContent = "Make another";
     token = "";
@@ -964,11 +980,15 @@ async function setup() {
   // A link with a kit of its own wears it as a team of yours (saved only if you change it).
   const teamName = (params.get("teamName") ?? "").toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, 10);
   const [jersey, trim] = [hexParam("jersey"), hexParam("team")];
+  let startKit = "home";
   if (jersey && trim) {
-    const home = { jersey, shorts: hexParam("shorts") ?? trim, trim };
-    const known = [...mine, ...TEAMS].find((t) => t.name === (teamName || DEFAULT_TEAM) && KIT_PARTS.every((p) => t.home[p] === home[p]));
-    linkTeam = known ? null : { id: `mine${Date.now()}`, name: teamName || DEFAULT_TEAM, home, away: { jersey: "#f2f2ef", shorts: trim, trim } };
+    // the team it's from, in either of its kits; else a team of yours in that kit
+    const worn = { jersey, shorts: hexParam("shorts") ?? trim, trim };
+    const same = (k) => KIT_PARTS.every((p) => k[p] === worn[p]);
+    const known = [...mine, ...TEAMS].find((t) => t.name === (teamName || DEFAULT_TEAM) && (same(t.home) || same(t.away)));
+    linkTeam = known ? null : { id: `mine${Date.now()}`, name: teamName || DEFAULT_TEAM, home: worn, away: { jersey: "#f2f2ef", shorts: trim, trim } };
     team = known ?? linkTeam;
+    if (known && !same(known.home)) startKit = "away";
   } else {
     team = [...mine, ...TEAMS].find((t) => t.name === teamName) ?? TEAMS[0];
   }
@@ -984,7 +1004,12 @@ async function setup() {
   mark(shoesRow, colours.shoes);
   showTab("character");
   await chooseBase(start);
-  wearTeam(team, "home");
+  wearTeam(team, startKit);
+  if (ownPlayer) {
+    document.querySelector(".builder-top h1").textContent = "Edit your player";
+    document.title = "Edit your player | Orson Brooker";
+    $("sent-note").hidden = !ownPlayer.sent;
+  }
   requestAnimationFrame(draw);
   loadCards();
 }

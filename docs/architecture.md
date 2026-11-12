@@ -209,7 +209,9 @@ Terms used across the code:
   jersey, shorts and trim; plus the player's number) and *Gear* (shoe colour, and the shop's ball styles
   through `progress.js`: owned ones are picked straight away, others are tried on in a kid from video's hands
   with Buy or Cancel covering the gear). *Done* opens a sheet with
-  the nickname, "Play as them now" and "Send to Orson". The cards load every body in the background.
+  the nickname, "Play as them now" and "Send to Orson". The cards load every body in the background. Own players have an edit pencil in the game's picker:
+  `/players/?edit=<id>` loads them (body, colours, team and kit, number, size) and saving keeps their id, even
+  under a new name; one already sent (`sent` in the save) is told that sending again sends the new look.
 - **Pronoun:** whether a player is a "he" or a "she", for the announcer's lines. Built-in players have it in
   `index.json` ("he"); builder players get their body's (`pronoun` in `assets/characters/bases/index.json`:
   ponytail and buns are "she", the rest "he"), unless the admin sets one of their own (the `players` table's
