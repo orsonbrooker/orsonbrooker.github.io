@@ -134,6 +134,16 @@ def build(kid, item, gdir, prefix):
     pick = {}
     for gi, cs in cands.items():
         pick[gi] = min(range(len(cs)), key=lambda j: int(cs[j][6].sum()))
+    # a grid whose second colour (flames, a cuff) is mostly missing, against the item's other grids, is
+    # left out, so its frames borrow from a better one
+    share = {gi: float(cands[gi][j][4].sum()) / max(1.0, float((cands[gi][j][3] | cands[gi][j][4]).sum())) for gi, j in pick.items()}
+    if share:
+        med = float(np.median(list(share.values())))
+        if med > 0.05:
+            for gi, sh in share.items():
+                if sh < 0.3 * med:
+                    notes.append(f"grid {gi}: second colour mostly missing ({sh:.0%} of the item, usually {med:.0%}): its frames borrow")
+                    del pick[gi]
     pieces, odd = {}, []
     for k, c in enumerate(layout):
         if c["grid"] not in pick:
@@ -148,7 +158,23 @@ def build(kid, item, gdir, prefix):
         piece = cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, item_info.get("hides") == "hair")
         if piece is not None:
             pieces[f"{c['rect'][0]},{c['rect'][1]}"] = piece
+    # and single frames like that (a standing grid can be fine in its other move)
+    weak = {}
+    if any((p["part"][..., 0] == 2).any() for p in pieces.values()):
+        side = {f"{c['rect'][0]},{c['rect'][1]}": facing(c["anim"]) for c in layout}
+        sh = {k: float((p["part"][..., 0] == 2).sum()) / max(1.0, float((p["part"][..., 0] > 0).sum())) for k, p in pieces.items()}
+        for f in "fsb":  # against frames facing the same way (flames show less from behind)
+            vals = [v for k, v in sh.items() if side.get(k) == f]
+            med = float(np.median(vals)) if vals else 0
+            for k, v in sh.items():
+                if side.get(k) == f and med > 0.05 and v < 0.2 * med:
+                    weak[k] = pieces.pop(k)
     borrowed = borrow(layout, pieces, sheet)
+    kept = [k for k in weak if k not in pieces]
+    for k in kept:  # nothing close enough to borrow from: its own painting is better than none
+        pieces[k] = weak[k]
+    if weak:
+        notes.append(f"{len(weak)} frames had little of the second colour: {len(weak) - len(kept)} borrowed, {len(kept)} kept their own")
     if item_info.get("hides") == "hair":
         for c in layout:
             key = f"{c['rect'][0]},{c['rect'][1]}"
@@ -160,9 +186,6 @@ def build(kid, item, gdir, prefix):
     for n in notes:
         print(n)
     print(f"{len(odd)} frames far from the item's usual size")
-    redo = sorted({int(o[5:7]) for o in odd})
-    if redo:
-        print("their grids (check them; redo with a finished grid as a second reference):", ",".join(f"{g:02d}" for g in redo))
 
 
 def hide_hair_above(p, rect, sheet, regions):
@@ -199,7 +222,7 @@ def hide_hair_above(p, rect, sheet, regions):
     return {"rgba": rgba[t:b, l:r], "part": part[t:b, l:r], "dx": int(l) + left, "dy": int(t) + top}
 
 
-def borrow(layout, pieces, sheet, reach=14):
+def borrow(layout, pieces, sheet, reach=8, donors=12):
     """Frames Flow didn't paint take the item from the frame facing the same way whose body, where the
     item sits, matches best (lined up by shifting a few pixels): a standing frame borrows from the first
     frame of the turn, which is the same pose."""
@@ -216,9 +239,10 @@ def borrow(layout, pieces, sheet, reach=14):
         tgt = body(c["rect"])
         th, tw = tgt.shape[:2]
         best = None
-        for d in have:
-            if facing(d["anim"]) != facing(c["anim"]):
-                continue
+        # the frames facing the same way that are nearest in size (the same pose shape) are the candidates
+        near = sorted((d for d in have if facing(d["anim"]) == facing(c["anim"])),
+                      key=lambda d: abs(d["rect"][2] - c["rect"][2]) + abs(d["rect"][3] - c["rect"][3]))[:donors]
+        for d in near:
             p = pieces[f"{d['rect'][0]},{d['rect'][1]}"]
             ph, pw = p["rgba"].shape[:2]
             src = body(d["rect"])
@@ -239,7 +263,7 @@ def borrow(layout, pieces, sheet, reach=14):
                     err = float(np.abs(patch[..., :3] - t[..., :3]).sum(-1)[a].mean() + 255 * np.mean((patch[..., 3] > 0) != (t[..., 3] > 0))) if a.any() else 1e9
                     if best is None or err < best[0]:
                         best = (err, p, oy, ox)
-        if best and best[0] < 90:
+        if best and best[0] < 120:  # a far-off match floats the item beside the body: worse than none
             _, p, oy, ox = best
             pieces[key] = {**p, "dx": p["dx"] + ox, "dy": p["dy"] + oy}
             n += 1

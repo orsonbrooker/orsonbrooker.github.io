@@ -812,6 +812,10 @@
   height: 48px;
 }
 
+#wear-items canvas {
+  image-rendering: pixelated;
+}
+
 .ball-name {
   font-family: var(--pixel);
   font-size: 7px;

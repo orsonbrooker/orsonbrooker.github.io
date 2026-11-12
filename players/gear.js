@@ -3,7 +3,8 @@
 // tools/pixelart/gear_key.py: its own pixels for each frame (assets/characters/gear/<item>/<kid>.webp), a
 // part map (gear1 and gear2, recoloured from their light and shade like hair) and which body pixels it
 // hides (hair under a hat). content/gear.json lists the items: their slot, which of the player's colours
-// gear1 and gear2 take, whether an item goes over the held ball (arms) and whether the number and team
+// gear1 and gear2 take (a second colour too close to the first is swapped for the item's `contrast` colour,
+// or white or near-black, so flames on a shoe always show), whether an item goes over the held ball (arms) and whether the number and team
 // name print over it (a striped jersey) or it covers them (a hoodie).
 //
 // wearGear() gives a new sheet with the items on: frames grow where an item reaches outside them (a
@@ -42,38 +43,79 @@ export async function madeFor(kid, root = "/") {
   return out;
 }
 
-/** A picture of an item as worn in one frame ("x,y" of the body sheet), in the player's colours. */
-export function itemArt(layer, frameKey, colours, size) {
+// Where on the body each slot's picture looks: a band of the frame's height, top to bottom.
+const ZONE = { head: [0, 0.34], face: [0.08, 0.32], jersey: [0.22, 0.62], arms: [0.2, 0.62], legs: [0.55, 1], shoes: [0.74, 1] };
+
+/**
+ * A picture of an item for the builder: the kid wearing it in a frame where it shows well, cropped to where
+ * it's worn (the feet for shoes, the head for a hat), scaled up sharp. frameOf(rect) gives that frame of
+ * the kid in their colours; meta is the body sheet's.
+ */
+export function itemArt(layer, colours, size, frameOf, meta) {
   const c = Object.assign(document.createElement("canvas"), { width: size, height: size });
-  const piece = layer.meta.frames[frameKey] ?? Object.values(layer.meta.frames)[0];
-  if (!piece) return c;
-  const [, , pw, ph] = piece;
-  const one = Object.assign(document.createElement("canvas"), { width: pw, height: ph });
-  const g1 = one.getContext("2d");
-  const data = g1.createImageData(pw, ph);
-  const tints = {};
-  layer.info.colours.forEach((name, i) => {
-    if (colours[name]) tints[i + 1] = { rgb: hex(colours[name]), ref: layer.meta.refs[`gear${i + 1}`] ?? 150 };
-  });
-  paint(layer, piece, tints, data.data, pw, ph, 0, 0);
+  layer.best ??= bestPiece(layer, meta);
+  const key = layer.best && Object.keys(layer.meta.frames).find((k) => layer.meta.frames[k] === layer.best);
+  const rect = key && Object.values(meta.frames).flat().find((f) => `${f[0]},${f[1]}` === key);
+  if (!rect) return c;
+  const [, , w, h] = rect;
+  const piece = layer.best;
+  const left = Math.min(0, piece[4]), top = Math.min(0, piece[5]);
+  const fw = Math.max(w, piece[4] + piece[2]) - left, fh = Math.max(h, piece[5] + piece[3]) - top;
+  const one = Object.assign(document.createElement("canvas"), { width: fw, height: fh });
+  const g1 = one.getContext("2d", { willReadFrequently: true });
+  g1.drawImage(frameOf(rect.slice(0, 4)), -left, -top);
+  const data = g1.getImageData(0, 0, fw, fh);
+  hide(layer, piece, data.data, fw, fh, piece[4] - left, piece[5] - top);
+  paint(layer, piece, tintsOf(layer, colours), data.data, fw, fh, piece[4] - left, piece[5] - top);
   g1.putImageData(data, 0, 0);
-  // just the item (the piece also covers what it hides)
-  let l = pw, t = ph, r = -1, b = -1;
-  for (let y = 0; y < ph; y++)
-    for (let x = 0; x < pw; x++)
-      if (data.data[(y * pw + x) * 4 + 3]) {
+  // the band where it's worn, widened to the drawn pixels in it, as a square
+  const [z0, z1] = ZONE[layer.info.slot] ?? [0, 1];
+  const y0 = Math.floor(-top + h * z0), y1 = Math.ceil(-top + h * z1);
+  let l = fw, r = -1;
+  for (let y = Math.max(0, y0); y < Math.min(fh, y1); y++)
+    for (let x = 0; x < fw; x++)
+      if (data.data[(y * fw + x) * 4 + 3] > 127) {
         if (x < l) l = x;
         if (x > r) r = x;
-        if (y < t) t = y;
-        if (y > b) b = y;
       }
   if (r < 0) return c;
-  const w = r - l + 1, h = b - t + 1;
-  const k = Math.min(size / w, size / h) * 0.92;
+  const bw = r - l + 1, bh = y1 - y0;
+  const side = Math.max(bw, bh) + 4;
   const g = c.getContext("2d");
-  g.imageSmoothingQuality = "high";
-  g.drawImage(one, l, t, w, h, (size - w * k) / 2, (size - h * k) / 2, w * k, h * k);
+  g.imageSmoothingEnabled = false;
+  g.drawImage(one, l - (side - bw) / 2, y0 - (side - bh) / 2, side, side, 0, 0, size, size);
   return c;
+}
+
+// A well-shown, typical piece: three quarters of the way up the pieces by size (the biggest are often
+// odd ones); for an item with its own contrast colour, only pieces where that colour is a usual share.
+// Facing us, in a calm move: these frames come first.
+const SHOW = ["dribble-fr", "dribble-fl", "idle", "start-fr", "start-fl", "jog-fr", "jog-fl", "dribble"];
+function bestPiece(layer, meta) {
+  const art = layer.art.data, part = layer.part.data, aw = layer.art.width;
+  const rows = [];
+  const front = new Set(SHOW.flatMap((a) => (meta.frames[a] ?? []).map((f) => `${f[0]},${f[1]}`)));
+  const shown = Object.entries(layer.meta.frames).filter(([k]) => front.has(k));
+  for (const [, p] of shown.length ? shown : Object.entries(layer.meta.frames)) {
+    const [ax, ay, w, h] = p;
+    let n = 0, second = 0;
+    for (let y = 0; y < h; y++)
+      for (let x = 0; x < w; x++) {
+        const i = ((ay + y) * aw + ax + x) * 4;
+        if (art[i + 3] > 127) {
+          n++;
+          if (part[i] === 2) second++;
+        }
+      }
+    if (n) rows.push({ p, n, share: second / n });
+  }
+  let pool = rows;
+  if (layer.info.contrast) {
+    const ok = rows.filter((r) => r.share > 0.1 && r.share < 0.4);
+    if (ok.length) pool = ok;
+  }
+  pool.sort((a, b) => a.n - b.n);
+  return pool[Math.floor(pool.length * 0.75)]?.p ?? null;
 }
 
 /** { slot: id } from a test link's "beanie,stripes". */
@@ -126,6 +168,21 @@ export async function loadGear(kid, gear, root = "/") {
 }
 
 const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
+const luma = ([r, g, b]) => 0.299 * r + 0.587 * g + 0.114 * b;
+
+// An item's two colours from the player's: { 1: { rgb, ref }, 2: ... }. A second colour that wouldn't show
+// against the first takes the item's contrast colour instead.
+function tintsOf(layer, colours) {
+  const [a, b] = layer.info.colours.map((name) => (colours[name] ? hex(colours[name]) : null));
+  const t = {};
+  if (a) t[1] = { rgb: a, ref: layer.meta.refs.gear1 ?? 150 };
+  if (b) {
+    const close = a && Math.abs(luma(a) - luma(b)) < 60 && Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 140;
+    const swap = layer.info.contrast ? hex(layer.info.contrast) : luma(a) > 128 ? [43, 43, 47] : [242, 242, 239];
+    t[2] = { rgb: close ? swap : b, ref: layer.meta.refs.gear2 ?? 150 };
+  }
+  return t;
+}
 
 // One item's piece onto a frame's pixels (d, w wide), its corner at (px, py): first the body pixels it
 // hides, then its own, the key parts in the player's colours.
@@ -167,15 +224,7 @@ function paint(layer, piece, tints, d, w, h, px, py) {
  */
 export function wearGear({ meta, img, prints, regions }, worn, colours) {
   if (!worn.length) return { meta, img, prints, regions };
-  const tintsOf = (layer) => {
-    const t = {};
-    layer.info.colours.forEach((name, i) => {
-      const c = colours[name];
-      if (c) t[i + 1] = { rgb: hex(c), ref: layer.meta.refs[`gear${i + 1}`] ?? 150 };
-    });
-    return t;
-  };
-  const tints = worn.map(tintsOf);
+  const tints = worn.map((layer) => tintsOf(layer, colours));
   const regionCanvas = Object.assign(document.createElement("canvas"), { width: regions.width, height: regions.height });
   regionCanvas.getContext("2d").putImageData(regions, 0, 0);
 
