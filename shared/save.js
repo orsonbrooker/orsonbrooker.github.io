@@ -44,6 +44,7 @@ function tidyPlayer(raw) {
   const c = obj(p.colours);
   if (!PARTS.every((part) => HEX.test(c[part] ?? ""))) return null;
   const colours = Object.fromEntries(PARTS.map((part) => [part, c[part].toLowerCase()]));
+  if (HEX.test(c.shorts ?? "")) colours.shorts = c.shorts.toLowerCase(); // shorts of their own (else the team colour)
   const number = text(String(c.number ?? ""), 2);
   colours.number = /^\d{1,2}$/.test(number) ? number : "";
   if (typeof c.teamName === "string") {

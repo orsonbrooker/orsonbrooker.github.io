@@ -212,7 +212,8 @@
 				["done", "Done", false],
 				["hidden", "Hidden", false],
 			];
-			const PARTS = ["skin", "hair", "jersey", "team", "shoes"];
+			// "team" is the trim (and number); shorts of their own, or the team colour when not set
+			const PARTS = ["skin", "hair", "jersey", "team", "shorts", "shoes"];
 			let data = { submissions: [], ideas: [], apps: [], players: [], scores: [] };
 			// Pictures and the builder live on the main site (a different port when testing locally).
 			const SITE = location.hostname === "localhost" ? "http://localhost:5173" : "";
@@ -285,6 +286,7 @@
 			async function load() {
 				const y = scrollY;
 				data = await api("inbox");
+				for (const p of data.players ?? []) p.shorts ??= p.team;
 				renderInbox();
 				renderIdeas();
 				renderPlayers();
@@ -527,7 +529,7 @@
 			let basesList;
 			const bases = () => (basesList ??= kit().then(({ loadBases }) => loadBases(`${SITE}/`)));
 			// The colours exactly as the game reads a builder player (play/players.js).
-			const lookOf = (p) => ({ skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name ?? "KINGS" });
+			const lookOf = (p) => ({ skin: p.skin, hair: p.hair, jersey: p.jersey, team: p.team, shorts: p.shorts, shoes: p.shoes, number: p.number ?? "", teamName: p.team_name ?? "KINGS" });
 			function paintPlayer(img, p) {
 				const ticket = (img.dataset.ticket = String(Number(img.dataset.ticket ?? 0) + 1));
 				kit()

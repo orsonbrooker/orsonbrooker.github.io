@@ -8,6 +8,15 @@ import type { Env } from "./util.ts";
 export const MAX_PLAYER_NAME = 12;
 export const MAX_TEAM_NAME = 10;
 export const PLAYER_PARTS = ["skin", "hair", "jersey", "team", "shoes"] as const;
+
+/** Shorts in a colour of their own: a colour, or null to wear the team colour (the jersey's trim). */
+export const parseShorts = (value: unknown): string | null => (typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : null);
+
+/** The look saved with a score: the five colours, and the shorts when they have their own. */
+export const lookJson = (colours: Record<string, unknown>) => {
+	const shorts = parseShorts(colours.shorts);
+	return JSON.stringify({ ...Object.fromEntries(PLAYER_PARTS.map((p) => [p, String(colours[p]).toLowerCase()])), ...(shorts ? { shorts } : {}) });
+};
 const PLAYERS_PER_HOUR = 3;
 
 /** A nickname starts with a letter or number, then letters, numbers, spaces, ' and -. */
@@ -18,7 +27,7 @@ export const parsePronoun = (value: unknown): "he" | "she" | null => (value === 
 
 export async function listPlayers(env: Env): Promise<Response> {
 	const players = await env.DB.prepare(
-		"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, pronoun FROM players WHERE status = 'approved' ORDER BY name COLLATE NOCASE",
+		"SELECT id, name, base, skin, hair, jersey, team, shorts, shoes, number, team_name, pronoun FROM players WHERE status = 'approved' ORDER BY name COLLATE NOCASE",
 	).all();
 	return json({ players: players.results }, 200, 60);
 }
@@ -48,16 +57,16 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	if ((recent?.n ?? 0) >= PLAYERS_PER_HOUR) throw new HttpError(429, "That's a lot of players! Try again in a bit.");
 
 	await env.DB.prepare(
-		"INSERT INTO players (name, base, skin, hair, jersey, team, shoes, number, team_name, pronoun, ip_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO players (name, base, skin, hair, jersey, team, shoes, shorts, number, team_name, pronoun, ip_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 	)
-		.bind(name, base, ...PLAYER_PARTS.map((p) => (colours[p] as string).toLowerCase()), number, teamName || "KINGS", pronoun, ipHash)
+		.bind(name, base, ...PLAYER_PARTS.map((p) => (colours[p] as string).toLowerCase()), parseShorts(colours.shorts), number, teamName || "KINGS", pronoun, ipHash)
 		.run();
 
 	// If they've played as this player on their device, its leaderboard scores get this look.
 	const localId = String(body.localId ?? "");
 	const device = clean(body.device, 64);
 	if (/^me\d{1,15}$/.test(localId) && device.length >= 16) {
-		const look = JSON.stringify(Object.fromEntries(PLAYER_PARTS.map((p) => [p, (colours[p] as string).toLowerCase()])));
+		const look = lookJson(colours);
 		await env.DB.prepare("UPDATE scores SET colours = ?, base = ? WHERE device = ? AND player = ?")
 			.bind(look, base, await hash(env, `device:${device}`), localId)
 			.run();

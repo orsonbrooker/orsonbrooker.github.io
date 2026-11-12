@@ -1,154 +1,604 @@
-/* Player builder page. Colours come from styles.css. */
+/* Player builder page: one screen that never scrolls; its panel does. Phone: the preview on top, the
+   panel, then the tabs at the bottom where thumbs reach (on the Character tab the cards are the preview).
+   Tablet and up: the preview on the left, tabs and panel on the right. Colours come from styles.css. */
 
-.builder {
-  display: grid;
-  grid-template-columns: minmax(220px, 360px) minmax(0, 480px);
-  justify-content: center;
-  gap: 24px;
-  max-width: 900px;
-  margin: 8px auto 0;
+.builder-page {
+  /* the form styles (feedback/widget.css), for the Done button and sheet outside .builder too */
+  --fb-ink: var(--ink);
+  --fb-panel: var(--panel);
+  --fb-accent: var(--accent);
+  --fb-pixel: var(--pixel);
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
 }
 
-@media (max-width: 720px) {
-  .builder {
-    grid-template-columns: 1fr;
-  }
+.builder-page .site-nav {
+  width: 100%;
+  flex: none;
 }
 
-.builder-preview {
-  position: sticky;
-  top: 12px;
-  align-self: start;
-  background: var(--panel);
-  border-radius: 8px;
-  padding: 12px;
+.builder-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto 8px;
+  flex: none;
+  text-align: left;
+}
+
+.builder-top .back-link {
+  margin: 0;
+}
+
+.builder-top h1 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: clamp(12px, 2.4vw, 20px);
   text-align: center;
 }
 
-@media (max-width: 720px) {
-  .builder-preview {
-    position: static;
+.builder-done {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+}
+
+@media (max-width: 559px) {
+  .builder-top h1 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .builder-top .back-link {
+    margin-right: auto;
   }
 }
 
-.builder-preview canvas {
+.builder {
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  max-width: 200px;
-  height: auto;
-  aspect-ratio: 200 / 256;
-  image-rendering: pixelated;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.builder-stage {
+  flex: none;
+  height: clamp(170px, 32dvh, 330px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 6px 4px;
+  border-radius: 10px;
+  background: radial-gradient(ellipse 70% 40% at 50% 92%, rgba(240, 138, 60, 0.18), transparent 70%), var(--sheet);
+}
+
+.builder-stage canvas {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
 }
 
 .builder-name {
   font-family: var(--pixel);
-  font-size: 14px;
+  font-size: 11px;
   min-height: 1.4em;
-  margin: 8px 0 0;
+  margin: 2px 0 0;
   color: var(--accent);
 }
 
-.builder-form fieldset {
-  min-width: 0;
-  border: 0;
-  background: var(--panel);
-  border-radius: 8px;
-  padding: 12px;
-  margin: 0 0 10px;
+.builder-panel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  margin-top: 8px;
+  padding: 14px 12px 18px;
+  border-radius: 10px 10px 0 0;
+  background: var(--sheet);
 }
 
-.builder-form legend {
-  padding: 0;
-  font-family: var(--pixel);
-  font-size: 11px;
-  margin-bottom: 10px;
+.builder-tabs {
+  flex: none;
+  order: 3;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--sheet);
+  border-top: 2px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0 0 10px 10px;
 }
 
-.choices {
+.builder-tabs button {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.choices button {
-  border: 3px solid transparent;
-  border-radius: 6px;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-height: 58px;
+  padding: 8px 2px;
+  border: 0;
+  background: none;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: var(--pixel);
+  font-size: 8px;
   cursor: pointer;
 }
 
-.choices button[aria-pressed="true"] {
+.builder-tabs button[aria-selected="true"] {
+  color: var(--accent);
+}
+
+@media (max-width: 699px) {
+  .builder[data-tab="character"] .builder-stage {
+    display: none;
+  }
+  .builder[data-tab="character"] .builder-panel {
+    margin-top: 0;
+  }
+}
+
+@media (min-width: 700px) {
+  .builder {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    grid-template-rows: auto 1fr;
+    gap: 0 16px;
+  }
+  .builder-stage {
+    grid-row: 1 / 3;
+    height: auto;
+  }
+  .builder-tabs {
+    grid-column: 2;
+    grid-row: 1;
+    border-top: 0;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px 10px 0 0;
+  }
+  .builder-panel {
+    grid-column: 2;
+    margin: 0;
+    border-radius: 0 0 10px 10px;
+  }
+}
+
+.pane-title,
+.mini-label {
+  font-family: var(--pixel);
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 10px;
+}
+
+.mini-label {
+  font-size: 8px;
+  margin: 0;
+}
+
+/* ---------- Character ---------- */
+
+/* Skin and hair stay in view while the cards scroll under them. */
+.look {
+  position: sticky;
+  top: -14px;
+  z-index: 1;
+  margin: -14px -12px 12px;
+  padding: 12px 12px 10px;
+  background: var(--sheet);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.14);
+}
+
+.part-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.part-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 2px solid transparent;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-family: var(--pixel);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.part-chip[aria-checked="true"] {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.part-chip .dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 2px solid var(--ink);
+}
+
+/* One row of colours that shrinks to fit rather than wrapping. */
+.swatch-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px 2px 2px;
+}
+
+.swatch {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 52px;
+  height: 44px;
+  padding: 0;
+  border: 3px solid rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.swatch[aria-pressed="true"] {
   border-color: #fff;
   box-shadow: 0 0 0 2px var(--ink);
 }
 
-/* Bodies: equal cards in a grid that fills the panel (4 across, 3 rows for 12 bodies). */
-#bases {
+.character-wall {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
 }
 
-#bases button {
+@media (min-width: 1000px) {
+  .character-wall {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.character-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
   min-width: 0;
-  padding: 6px 4px;
-  background: rgba(255, 255, 255, 0.12);
+  padding: 6px 4px 8px;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
   color: #fff;
+  cursor: pointer;
+}
+
+.character-card[aria-pressed="true"] {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.character-card[aria-pressed="true"]::after {
+  content: "YOU";
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  padding: 3px 4px;
+  border-radius: 3px;
+  background: #fff;
+  color: var(--ink);
   font-family: var(--pixel);
-  font-size: clamp(6px, 1.6vw, 8px);
+  font-size: 6px;
 }
 
-#bases img {
+.card-art {
   width: 100%;
-  max-width: 72px;
   height: auto;
-  aspect-ratio: 1;
+  aspect-ratio: 120 / 170;
 }
 
-/* One row of colours that shrinks to fit rather than wrapping. */
-.swatches {
+.card-name {
+  font-family: var(--pixel);
+  font-size: 7px;
+  white-space: nowrap;
+}
+
+.card-new {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  padding: 3px 4px;
+  border-radius: 3px;
+  background: var(--accent);
+  color: var(--ink);
+  font-family: var(--pixel);
+  font-size: 6px;
+}
+
+/* ---------- Team ---------- */
+
+.team-now {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.team-now-name {
+  flex: 1;
+  min-width: 0;
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 40px);
   gap: 6px;
 }
 
-.swatches button {
-  width: 100%;
-  aspect-ratio: 1;
-  padding: 0;
+.team-now-name b {
+  font-family: var(--pixel);
+  font-size: 12px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
-.builder-form input[type="text"] {
+.number-field {
+  display: grid;
+  gap: 6px;
+  width: 92px;
+  flex: none;
+}
+
+.kit-picker {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.kit-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 14px 0 8px;
+  border: 3px solid transparent;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-family: var(--pixel);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.kit-choice[aria-checked="true"] {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* A kit: jersey, shorts and trim. */
+.kit {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.kit span {
+  width: 12px;
+  height: 22px;
+  border: 2px solid var(--ink);
+  border-radius: 3px;
+}
+
+.kits {
+  display: inline-flex;
+  gap: 8px;
+}
+
+.team-list {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.team-list .pane-title {
+  margin: 0 0 2px;
+}
+
+.team-row {
+  display: flex;
+  gap: 6px;
+}
+
+.team-pick {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 6px 12px;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.team-pick[aria-pressed="true"] {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.team-pick b {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--pixel);
+  font-size: 9px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.team-on {
+  display: grid;
+  color: #8fe0a3;
+}
+
+.team-edit {
+  flex: none;
+  min-height: 56px;
+}
+
+.make-team {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 52px;
+  border: 2px dashed rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  background: none;
+  color: #fff;
+  font-family: var(--pixel);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+#team-editor {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+#team-editor[hidden] {
+  display: none;
+}
+
+.kit-colours,
+.colour-field {
+  display: grid;
+  gap: 4px;
+}
+
+.kit-colours {
+  gap: 12px;
+}
+
+.editor-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.editor-actions .fb-button,
+.builder-done-sheet .fb-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+}
+
+.builder-page input[type="text"] {
   width: 100%;
   font: inherit;
   font-size: 16px;
   padding: 10px;
   border: 2px solid var(--ink);
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
-.builder-form .fb-button {
-  width: 100%;
-  font-size: 12px;
+/* ---------- Done ---------- */
+
+.builder-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(20, 8, 16, 0.6);
 }
 
-/* The face shown in the picker and on the leaderboard, beside the name. */
-.builder-name {
+.builder-done-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 21;
+  display: grid;
+  gap: 10px;
+  max-height: 90dvh;
+  overflow-y: auto;
+  padding: 14px max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  border-radius: 16px 16px 0 0;
+  background: var(--sheet);
+  transform: translateY(102%);
+  transition: transform 0.25s;
+}
+
+.builder-done-sheet[hidden],
+.builder-scrim[hidden] {
+  display: none;
+}
+
+.finishing .builder-done-sheet {
+  transform: none;
+}
+
+@media (min-width: 700px) {
+  .builder-done-sheet {
+    left: 50%;
+    right: auto;
+    width: 560px;
+    translate: -50% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .builder-done-sheet {
+    transition: none;
+  }
+}
+
+.done-head {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 8px;
 }
 
-.builder-face {
-  width: 48px;
-  height: 48px;
-  image-rendering: pixelated;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 6px;
+.done-head h2 {
+  flex: 1;
+  margin: 0;
+  font-family: var(--pixel);
+  font-size: 13px;
+  font-weight: 400;
 }
+
+.icon-close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+}
+
+.builder-done-sheet .fb-hint {
+  margin: 0;
+}
+
+/* ---------- Body ---------- */
 
 /* Size: a pixel slider each for height and build, with five big steps. Hard edges, no rounding: a
    chunky track with a notch per step, filled up to the handle, and a block handle with a hard shadow.
@@ -262,4 +712,9 @@
 .pixel-slider input:focus-visible {
   outline: 3px solid #fff;
   outline-offset: 2px;
+}
+
+.pixel-slider input:disabled {
+  cursor: default;
+  opacity: 0.4;
 }
