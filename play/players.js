@@ -11,6 +11,7 @@ import { EU, EV, RIM, project } from "../engine/court.js";
 import { shoesIn } from "../engine/draw.js";
 import { load, save } from "../engine/storage.js";
 import { ANIM_FPS, JUMP_APEX, JUMP_FRAME_TIME, player } from "../play/state.js";
+import { gearParam, loadGear, wearGear } from "../players/gear.js";
 import { buildPlayer, loadHeads } from "../players/layered.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { stretchSheet } from "../players/stretch.js";
@@ -42,13 +43,18 @@ async function loadBuilt(entry) {
     // a kid made from their own videos: their full-detail sheet in the player's colours, as for Orson
     const [meta, img, regions] = await Promise.all([fetch("/" + base.meta).then((r) => r.json()), loadImage("/" + base.atlas), loadImage("/" + base.regions)]);
     const kit = await withKit(meta, img, entry, entry.colours);
-    if (!+entry.build?.height && !+entry.build?.bulk) return kit;
-    // their height and build: the frames stretched, the number and team name with them
+    // their gear (saved with them; ?gear=beanie,stripes tries some on every kid from video)
+    const testGear = new URLSearchParams(location.search).get("gear");
+    const worn = await loadGear(base.id, testGear ? gearParam(testGear) : entry.gear).catch(() => []);
+    if (!worn.length && !+entry.build?.height && !+entry.build?.bulk) return kit;
     const c = Object.assign(document.createElement("canvas"), { width: regions.width, height: regions.height });
     const g = c.getContext("2d", { willReadFrequently: true });
     g.drawImage(regions, 0, 0);
-    const s = stretchSheet({ meta: kit.meta, img: kit.img, prints: kit.img.prints }, g.getImageData(0, 0, c.width, c.height), entry.build);
-    return { meta: s.meta, img: s.img };
+    let s = { meta: kit.meta, img: kit.img, prints: kit.img.prints, regions: g.getImageData(0, 0, c.width, c.height) };
+    s = wearGear(s, worn, { ...base.colours, ...entry.colours });
+    // their height and build: the frames stretched, the number and team name (and gear) with them
+    s = stretchSheet(s, s.regions, entry.build);
+    return { meta: s.meta, img: Object.assign(s.img, { prints: s.prints }) };
   }
   const loaded = await loadBase(base);
   return { meta: loaded.meta, img: recolor(loaded, entry.colours), loaded };

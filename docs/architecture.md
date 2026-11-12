@@ -573,6 +573,16 @@ flowchart LR
 - **Size:** `players/stretch.js` doubles or drops rows between the jersey's top and the feet and columns
   across the jersey (6% taller or shorter, 10% wider or slimmer at the ends), with the number, team name and
   held ball moved to match. Saved with the player on the device (`build` in `shared/save.js`).
+- **Gear** (`content/gear.json`: shoes, head, face, jersey, arms and legs items) is a layer over the kid,
+  never part of the body. Flow paints one item per pass onto grids of the kid's frames (greyed shoes and
+  shorts, the ball painted back in, from `gear_key.py grids`), its main part in shaded magenta and a second
+  colour in shaded bright blue; `gear_key.py build` turns that into `assets/characters/gear/<item>/<kid>`:
+  the item's pixels per frame (packed), a part map (gear1, gear2, recoloured from light and shade like
+  hair, in the player colours the item names) and the body pixels it hides (hair under a hat).
+  `players/gear.js` puts the worn items on the recoloured sheet before height and build, growing frames
+  where an item reaches outside them. Items behind the held ball are cut where the ball is; arm items go
+  over it; jersey prints go over stripes and under a hoodie. Saved with the player (`gear` in
+  `shared/save.js`); `?gear=beanie,stripes` tries items in the builder and the game.
 - **Moves:** their sheets add `start` (picking the dribble back up) and `recover` (arms down after a shot),
   which the game uses when a sheet has them (`hasMove()` in `play/players.js`).
 

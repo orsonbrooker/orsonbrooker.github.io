@@ -8,14 +8,14 @@
 // A save: {
 //   bests: { timed, survival, around, threes }   numbers; 0 is no best (Around the World is seconds, lower wins)
 //   daily: { done, last, days }                  the date today's challenge was last done ("2026-11-09"), the streak
-//   players: [{ id, name, base, colours, pronoun?, build?, sent? }]   made in the builder, newest first
+//   players: [{ id, name, base, colours, pronoun?, build?, gear?, sent? }]   made in the builder, newest first
 //   gone: [id]                                   players removed, so a merge doesn't bring them back
 //   nickname: { name, at }                       the leaderboard nickname, and when it was typed (ms)
 // }
 
 import { MODES, lowWins } from "./rules.js";
 
-/** @typedef {{ id: string, name: string, base: string, colours: Record<string, string>, pronoun?: "he" | "she", build?: { height: number, bulk: number }, sent?: true }} SavedPlayer */
+/** @typedef {{ id: string, name: string, base: string, colours: Record<string, string>, pronoun?: "he" | "she", build?: { height: number, bulk: number }, gear?: Record<string, string>, sent?: true }} SavedPlayer */
 /** @typedef {{ bests: Record<string, number>, daily: { done: string, last: string, days: number }, players: SavedPlayer[], gone: string[], nickname: { name: string, at: number } }} Save */
 
 export const MAX_SAVED_PLAYERS = 6;
@@ -23,6 +23,7 @@ const MAX_GONE = 50;
 const MAX_NAME = 12;
 const MAX_TEAM = 10;
 const PARTS = ["skin", "hair", "jersey", "team", "shoes"];
+const GEAR_SLOTS = ["head", "face", "jersey", "arms", "legs", "shoes"]; // as in content/gear.json
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HEX = /^#[0-9a-f]{6}$/i;
 const NICKNAME = /^[\p{L}\p{N}][\p{L}\p{N} '-]*$/u;
@@ -60,6 +61,9 @@ function tidyPlayer(raw) {
   /** @type {(v: unknown) => number} */
   const step = (v) => (typeof v === "number" && Number.isFinite(v) ? Math.round(Math.max(-1, Math.min(1, v)) * 100) / 100 : 0);
   if (step(b.height) || step(b.bulk)) player.build = { height: step(b.height), bulk: step(b.bulk) };
+  // what they wear: one item per slot (content/gear.json), by id
+  const gear = Object.entries(obj(p.gear)).filter(([slot, id]) => GEAR_SLOTS.includes(slot) && typeof id === "string" && /^[a-z0-9-]{1,20}$/.test(id));
+  if (gear.length) player.gear = Object.fromEntries(gear);
   return player;
 }
 

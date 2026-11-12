@@ -9,6 +9,7 @@
 //
 // Open with ?base=curly&skin=c98c5f&hair=26222a&jersey=d63a3a&team=2b2b2f&shoes=f2f2ef&number=7&teamName=KINGS&name=Ace
 // to preload a look (&shorts=… too; &height=1&bulk=-0.5 starts a kid from video at a size).
+// &gear=beanie,stripes tries gear on a kid from video (content/gear.json), saved with the player for the game.
 
 import { API } from "../api.js";
 import { markField, say } from "../ui/form.js";
@@ -17,6 +18,7 @@ import { ballFrame, makeBallFrames, makeBallSprites } from "../engine/draw.js";
 import { buyBall, hasProgress, onProgress, owns, progress, refreshProgress, useBall } from "../progress.js";
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../shared/shop.js";
 import { paletteSwap } from "../players/pixelkit.js";
+import { gearParam, loadGear, wearGear } from "../players/gear.js";
 import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, recolor, saveMyPlayer } from "../players/recolor.js";
@@ -56,6 +58,7 @@ if (ownPlayer) {
   if (c.number !== undefined && c.number !== "") params.set("number", String(c.number));
   params.set("teamName", c.teamName ?? DEFAULT_TEAM);
   params.set("name", ownPlayer.name);
+  if (ownPlayer.gear) params.set("gear", Object.values(ownPlayer.gear).join(","));
   if (ownPlayer.build) {
     params.set("height", String(ownPlayer.build.height ?? 0));
     params.set("bulk", String(ownPlayer.build.bulk ?? 0));
@@ -79,6 +82,8 @@ const ballSet = () => {
 const ball = (held) => ballFrame(ballSet(), held ? (held[1] / held[2]) * 0.6 : 0);
 const colours = {}; // skin, hair, jersey, shorts, team (the trim), shoes, number, teamName
 const build = { height: 0, bulk: 0 };
+const gear = gearParam(params.get("gear")); // { slot: item } (a test link, until the builder can pick gear)
+let worn = []; // the gear's layers for the current body
 const LOOK = ["skin", "hair"];
 let lookPart = "skin";
 
@@ -270,6 +275,7 @@ async function chooseBase(base) {
   heightInput.disabled = bulkInput.disabled = !current.video;
   showTurning();
   $("size-hint").hidden = !!current.video;
+  worn = current.video ? await loadGear(base.id, gear).catch(() => []) : [];
   repaint();
 }
 
@@ -618,9 +624,11 @@ function repaint() {
   requestAnimationFrame(() => {
     repaintQueued = false;
     if (!current) return; // the body is still loading: chooseBase() paints when it's in
-    sheet = current.video
-      ? stretchSheet({ meta: current.meta, img: recolor(current, colours), prints: twinPrints() }, current.regionsData, build)
-      : { meta: current.meta, img: recolor(current, colours), prints: null };
+    if (current.video) {
+      // their gear on, then their height and build
+      const dressed = wearGear({ meta: current.meta, img: recolor(current, colours), prints: twinPrints(), regions: current.regionsData }, worn, colours);
+      sheet = stretchSheet(dressed, dressed.regions, build);
+    } else sheet = { meta: current.meta, img: recolor(current, colours), prints: null };
     showName();
     paintCards();
   });
@@ -890,8 +898,13 @@ async function setupTurnstile() {
   }
 }
 
-// What's saved with a player: their colours (with the team's name) and, for a kid from video, their size.
-const look = () => ({ base: current.id, colours: { ...colours, teamName: colours.teamName ?? DEFAULT_TEAM }, build: current.video ? { ...build } : undefined });
+// What's saved with a player: their colours (with the team's name) and, for a kid from video, their size and gear.
+const look = () => ({
+  base: current.id,
+  colours: { ...colours, teamName: colours.teamName ?? DEFAULT_TEAM },
+  build: current.video ? { ...build } : undefined,
+  gear: current.video && Object.keys(gear).length ? { ...gear } : undefined,
+});
 
 // Before the body has loaded there's nothing to save yet (a fast tap on a slow connection).
 function stillLoading() {
