@@ -50,6 +50,14 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	if (await isUnfriendly(env, name, teamName)) throw new HttpError(400, RUDE);
 	await checkTurnstile(request, env, body.turnstileToken);
 
+	// The same player sent again from the same device (the builder sends its id on this device) while
+	// the first is still waiting: this one replaces it, so the inbox has it once. One already approved
+	// (or hidden) stays, and this one waits as a new look.
+	const sentId = String(body.localId ?? "");
+	const sentDevice = clean(body.device, 64);
+	const localKey = /^me\d{1,15}$/.test(sentId) && sentDevice.length >= 16 ? await hash(env, `player:${sentDevice}:${sentId}`) : null;
+	if (localKey) await env.DB.prepare("DELETE FROM players WHERE local_key = ? AND status = 'new'").bind(localKey).run();
+
 	const ipHash = await ipKey(request, env);
 	const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM players WHERE ip_hash = ? AND created_at > datetime('now', '-1 hour')")
 		.bind(ipHash)
@@ -66,6 +74,11 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	const localId = String(body.localId ?? "");
 	const device = clean(body.device, 64);
 	if (/^me\d{1,15}$/.test(localId) && device.length >= 16) {
+		// the request just made, marked as this device's player (see above)
+		if (localKey)
+			await env.DB.prepare("UPDATE players SET local_key = ? WHERE id = (SELECT MAX(id) FROM players WHERE ip_hash = ? AND name = ?)")
+				.bind(localKey, ipHash, name)
+				.run();
 		const look = lookJson(colours);
 		await env.DB.prepare("UPDATE scores SET colours = ?, base = ? WHERE device = ? AND player = ?")
 			.bind(look, base, await hash(env, `device:${device}`), localId)
