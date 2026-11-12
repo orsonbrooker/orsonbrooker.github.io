@@ -617,6 +617,7 @@ function repaint() {
   repaintQueued = true;
   requestAnimationFrame(() => {
     repaintQueued = false;
+    if (!current) return; // the body is still loading: chooseBase() paints when it's in
     sheet = current.video
       ? stretchSheet({ meta: current.meta, img: recolor(current, colours), prints: twinPrints() }, current.regionsData, build)
       : { meta: current.meta, img: recolor(current, colours), prints: null };
@@ -666,6 +667,7 @@ const turnLeft = $("turn-left");
 const turnRight = $("turn-right");
 
 function turn(step) {
+  if (!current) return;
   const sides = sidesOf(current.meta.frames);
   if (sides.length < 2) return;
   const at = facing === null ? 0 : Math.max(0, sides.indexOf(facing));
@@ -891,6 +893,13 @@ async function setupTurnstile() {
 // What's saved with a player: their colours (with the team's name) and, for a kid from video, their size.
 const look = () => ({ base: current.id, colours: { ...colours, teamName: colours.teamName ?? DEFAULT_TEAM }, build: current.video ? { ...build } : undefined });
 
+// Before the body has loaded there's nothing to save yet (a fast tap on a slow connection).
+function stillLoading() {
+  if (current) return false;
+  say(message, "Your player is still loading. Try again in a moment.", { error: true });
+  return true;
+}
+
 function needName() {
   if (nameInput.value.trim()) return false;
   say(message, "Give your player a nickname.", { error: true });
@@ -901,7 +910,7 @@ function needName() {
 
 // Play straight away: save to this device and jump into the game as them.
 play.addEventListener("click", () => {
-  if (rude || needName()) return;
+  if (rude || stillLoading() || needName()) return;
   const id = saveMyPlayer({ ...ownPlayer, name: nameInput.value.trim(), ...look() });
   try {
     localStorage.setItem("orson-hoops-character", JSON.stringify(id));
@@ -914,7 +923,7 @@ play.addEventListener("click", () => {
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (needName()) return;
+  if (stillLoading() || needName()) return;
   if (!token) {
     say(message, "Please finish the robot check first.", { error: true });
     return;
