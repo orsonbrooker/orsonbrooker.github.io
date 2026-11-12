@@ -112,11 +112,15 @@
   background: var(--sheet);
 }
 
+/* The tabs: a bar of four equal buttons, inset to line up with the panel's content (its 12px sides).
+   The open one is filled and outlined like the other picked things on the page, with an orange label. */
 .builder-tabs {
   flex: none;
   order: 3;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  padding: 8px 12px;
   background: var(--sheet);
   border-top: 2px solid rgba(255, 255, 255, 0.14);
   border-radius: 0 0 10px 10px;
@@ -126,19 +130,39 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 4px;
-  min-height: 58px;
-  padding: 8px 2px;
-  border: 0;
+  min-width: 0;
+  min-height: 52px;
+  padding: 6px 2px;
+  border: 2px solid transparent;
+  border-radius: 8px;
   background: none;
   color: rgba(255, 255, 255, 0.75);
   font-family: var(--pixel);
-  font-size: 8px;
+  font-size: clamp(7px, 2vw, 8px); /* "Character" fits a quarter of a small phone */
+  white-space: nowrap;
   cursor: pointer;
 }
 
+.builder-tabs .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.builder-tabs button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .builder-tabs button[aria-selected="true"] {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.18);
   color: var(--accent);
+}
+
+.builder-tabs button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @media (max-width: 699px) {
@@ -164,6 +188,7 @@
   .builder-tabs {
     grid-column: 2;
     grid-row: 1;
+    padding: 10px 12px 8px;
     border-top: 0;
     border-bottom: 2px solid rgba(255, 255, 255, 0.14);
     border-radius: 10px 10px 0 0;
@@ -260,6 +285,16 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
+}
+
+/* Room for icon and label side by side. */
+@media (min-width: 1000px) {
+  .builder-tabs button {
+    flex-direction: row;
+    gap: 8px;
+    min-height: 46px;
+    font-size: 9px;
+  }
 }
 
 @media (min-width: 1000px) {
