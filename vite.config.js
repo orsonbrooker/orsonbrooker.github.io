@@ -26,9 +26,10 @@ const STATIC = [
   "favicon.ico",
   "site.webmanifest",
   "games/shootaround/manifest.webmanifest",
-  // The admin page (served by the Worker) imports it to draw players exactly as the game does. It has no
-  // imports of its own, so the plain file works; the site's pages use their own bundled copy.
+  // The admin page (served by the Worker) imports it to draw players exactly as the game does. Its only
+  // import is shades.js beside it, so the plain files work; the site's pages use their own bundled copy.
   "players/recolor.js",
+  "players/shades.js",
   "robots.txt",
   "sitemap.xml",
   "CNAME",

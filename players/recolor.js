@@ -3,11 +3,17 @@
 // Each base body (assets/characters/bases/) has a regions.png whose red channel marks every
 // pixel as skin (1), hair (2), jersey (3), team colour (4), shoes (5) or "leave as drawn" (0).
 // Recolouring swaps a region's colour while keeping each pixel's light and shade relative to the
-// region's average, so a red jersey keeps its folds. The player's number (and their team name on
-// the front, KINGS unless they pick another) is printed onto jersey pixels only, tilted to follow
-// the shoulders, so it looks printed on and arms and the ball pass in front of it.
+// region's average, so a red jersey keeps its folds and eyes and freckles drawn on the skin stay as
+// they are. Hair instead gets a ramp of shades made from the chosen colour (shades.js), each pixel
+// taking the shade its lightness ranks at, so black hair keeps its curls and blonde stays blonde.
+// The player's number (and their team name on the front, KINGS unless they pick another) is
+// printed onto jersey pixels only, tilted to follow the shoulders, so it looks printed on and arms
+// and the ball pass in front of it.
+
+import { shadeRanks, shadeTable, lightness } from "./shades.js";
 
 const REGIONS = { 1: "skin", 2: "hair", 3: "jersey", 4: "team", 5: "shoes" };
+const HAIR = 2;
 const JERSEY = 3;
 export const DEFAULT_TEAM = "KINGS";
 
@@ -63,6 +69,18 @@ function pixels(img, rect = [0, 0, img.width, img.height]) {
 const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
 const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
+// The hair's lightness ranks over the whole sheet (every frame), worked out once per body.
+const rankCache = new WeakMap();
+function hairRanks(loadedBase) {
+  const key = loadedBase.regionsData;
+  if (!rankCache.has(key)) {
+    const reg = key.data;
+    const px = pixels(loadedBase.atlasImg, [0, 0, key.width, key.height]).data;
+    rankCache.set(key, shadeRanks([{ px, region: (i) => (reg[i * 4] === HAIR ? HAIR : 0) }])[HAIR]);
+  }
+  return rankCache.get(key);
+}
+
 // Returns a canvas of the base's sprite sheet (or one rectangle of it) in the given colours.
 export function recolor(loadedBase, colours, rect) {
   const full = [0, 0, loadedBase.atlasImg.width, loadedBase.atlasImg.height];
@@ -77,7 +95,9 @@ export function recolor(loadedBase, colours, rect) {
     // Very dark regions (black shoes) have little shade to scale, so their range is stretched.
     // (a kid from video stores some parts in another colour than their own, e.g. keyed hair: `meta.art`)
     const own = loadedBase.meta.art?.[name] ?? loadedBase.colours[name];
-    if (target && ref && target.toLowerCase() !== own) plans[id] = { t: hex(target), refL: Math.max(1, luma(...ref)), dark: luma(...ref) < 70 };
+    if (!target || !ref || target.toLowerCase() === own) continue;
+    const hair = +id === HAIR && hairRanks(loadedBase);
+    plans[id] = hair ? { table: shadeTable(hair, target) } : { t: hex(target), refL: Math.max(1, luma(...ref)), dark: luma(...ref) < 70 };
   }
   const d = src.data;
   const shade = new Float32Array(w * h); // each jersey pixel's light/shade, for printing the number
@@ -90,6 +110,13 @@ export function recolor(loadedBase, colours, rect) {
       if (region === JERSEY) shade[py * w + px] = luma(d[i], d[i + 1], d[i + 2]) / jerseyRef;
       const plan = plans[region];
       if (!plan) continue;
+      if (plan.table) {
+        const l = lightness(d[i], d[i + 1], d[i + 2]) * 3;
+        d[i] = plan.table[l];
+        d[i + 1] = plan.table[l + 1];
+        d[i + 2] = plan.table[l + 2];
+        continue;
+      }
       let k = luma(d[i], d[i + 1], d[i + 2]) / plan.refL;
       if (plan.dark) k = 0.35 + 0.65 * k;
       for (let ch = 0; ch < 3; ch++) {
