@@ -390,6 +390,15 @@
   overflow-wrap: anywhere;
 }
 
+/* Home, Away and the number in one row, the number dropping under them on a narrow phone. */
+.kit-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
 .number-field {
   display: grid;
   gap: 6px;
@@ -397,10 +406,14 @@
   flex: none;
 }
 
+.builder-page .number-field input {
+  height: 52px;
+  text-align: center;
+}
+
 .kit-picker {
   display: flex;
   gap: 8px;
-  margin-bottom: 16px;
 }
 
 .kit-choice {

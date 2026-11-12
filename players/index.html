@@ -76,9 +76,11 @@
         <section id="pane-team" role="tabpanel" aria-labelledby="tab-team" data-pane="team" hidden>
           <div class="team-now">
             <div class="team-now-name"><span class="mini-label">Playing for</span><b id="team-now"></b></div>
+          </div>
+          <div class="kit-row">
+            <div class="kit-picker" role="radiogroup" aria-label="Kit" id="kit-picker"></div>
             <label class="number-field"><span class="mini-label">Number</span><input id="number" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" placeholder="0-99" /></label>
           </div>
-          <div class="kit-picker" role="radiogroup" aria-label="Kit" id="kit-picker"></div>
           <div id="team-list"></div>
           <div id="team-editor" hidden>
             <label class="field"><span class="mini-label">Team name</span><input id="team-name" type="text" maxlength="10" autocomplete="off" /></label>
