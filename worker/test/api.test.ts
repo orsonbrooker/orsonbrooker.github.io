@@ -133,7 +133,7 @@ test("the local admin shortcut is only for this machine's own address", () => {
 });
 
 test("each admin section has its own address, and nothing else under /admin is the page", () => {
-	for (const path of ["/admin", "/admin/", "/admin/ideas", "/admin/players/", "/admin/scores"]) assert.equal(isAdminPage(path), true, path);
+	for (const path of ["/admin", "/admin/", "/admin/ideas", "/admin/players/", "/admin/scores", "/admin/words"]) assert.equal(isAdminPage(path), true, path);
 	for (const path of ["/admin/inbox", "/admin/bogus", "/admin/players/x", "/administrator", "/admin//ideas", "/api/admin/ideas"])
 		assert.equal(isAdminPage(path), false, path);
 });

@@ -97,11 +97,9 @@ async function call(path, body = {}) {
     throw Object.assign(new Error("Can't reach the internet right now. Try again soon."), { offline: true });
   }
   const out = await res.json().catch(() => ({}));
-  if (res.status === 404 && path === "") {
-    // The server doesn't know this key: start again with nothing.
-    save(KEY, null);
-    apply(fresh());
-  }
+  // The key is never thrown away here, whatever comes back: it's the only way back to their coins and
+  // balls, and a 404 can come from a wrong route or a page in the way as easily as from the server. If
+  // the server really doesn't know it, their next game's coins start a new progress and a new key.
   if (!res.ok) throw new Error(out.error || "Something went wrong. Try again soon.");
   return out;
 }

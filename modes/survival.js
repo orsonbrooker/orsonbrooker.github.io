@@ -6,7 +6,7 @@ import { runCall } from "../content/calls.js";
 import { COURT_PX } from "../engine/court.js";
 import { pointsMode, scorePoints } from "../modes/points.js";
 import { addPopup, announce, confettiBurst, fireStage, pixelFx } from "../play/react.js";
-import { made, player, setAnim, state } from "../play/state.js";
+import { made, player, setAnim, setPhase, state } from "../play/state.js";
 import { movingGreen } from "../play/zone.js";
 
 // Sudden death gets harder the longer the run goes. Each of these rises from nothing at `…From`
@@ -68,7 +68,7 @@ export default {
   // The first miss ends it, once the reaction has played.
   onMiss() {
     sound.gameOver();
-    state.phase = "ending";
+    setPhase("ending");
     if (player.anim === "gather" || player.anim === "jump") setAnim("dribble");
   },
   squeeze: () => SUDDEN_DEATH.squeeze * pressure(SUDDEN_DEATH.squeezeFrom, SUDDEN_DEATH.squeezeFull),

@@ -144,6 +144,10 @@ main checkout.
 
 ## Gotchas
 
+- **Game phases** are a table: `PHASES` in `play/state.js`. Change `state.phase` only with `setPhase()` (add a
+  new move to the table), and let a shot start only when `canShoot()`. A basket that isn't in the shot log,
+  or scored in a different order, makes the server reject the game ("doesn't match its shots") and its coins.
+
 - **Caching.** Cloudflare caches for 4 hours. Scripts and stylesheets have hashed names, so they're never
   stale, but the pages themselves and files under `assets/` keep their names: if a page looks old right
   after a deploy, purge it: `npx cf cache purge -z orsonbrooker.com --force --body '{"files":["<url>"]}'`

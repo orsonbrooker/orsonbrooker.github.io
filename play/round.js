@@ -4,7 +4,7 @@
 
 import { sound } from "../audio.js";
 import { BALL_BADGES } from "../content/looks.js";
-import { COURT_PX, EU, EV, PX_PER_M, RIM, ROOM_U, ROOM_V, isThreePointSpot, project } from "../engine/court.js";
+import { COURT_PX, EU, EV, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, isThreePointSpot, project } from "../engine/court.js";
 import { GRAVITY, stepBall as physicsStep, stepFixed } from "../engine/physics.js";
 import { save } from "../engine/storage.js";
 import { startToken } from "../leaderboard.js";
@@ -12,7 +12,7 @@ import { canJog, faceHoop, faceToward, frameCount, hasMove, jumpLift, loopFps, r
 import { BUZZER_CELEBRATION, addPopup, announce, fireLevel, newStats, nextBallKind, pixelFx, recordMiss, timingWindow, zoneCenter } from "../play/react.js";
 import { recordMade, recordShot, updateReplay } from "../play/replay.js";
 import { updateHud } from "../play/scene.js";
-import { ANIM_FPS, JOG_MAX_TIME, JOG_SPEED, JUMP_FRAME_TIME, LAUNCH_ANGLE, hints, mode, player, random, resetRandom, setAnim, state, steering } from "../play/state.js";
+import { ANIM_FPS, JOG_MAX_TIME, JOG_SPEED, JUMP_FRAME_TIME, LAUNCH_ANGLE, canShoot, hints, mode, player, random, resetRandom, setAnim, setPhase, state, steering } from "../play/state.js";
 import { showScreen } from "../screens/base.js";
 import { endGame } from "../screens/over.js";
 import { GAME_SECONDS } from "../shared/rules.js";
@@ -22,7 +22,7 @@ const SLOW_MO = 0.35; // game speed while a shot at the buzzer drops toward the 
 let gamesStarted = 0;
 
 export function startGame() {
-  state.phase = "playing";
+  setPhase("playing");
   state.score = 0;
   state.timeLeft = GAME_SECONDS;
   state.elapsed = 0;
@@ -80,8 +80,11 @@ function gaussian() {
   return (random("aim") + random("aim") + random("aim") - 1.5) / 1.5;
 }
 
-// `timing` is 0 for a perfect release, negative for early and positive for late.
+// `timing` is 0 for a perfect release, negative for early and positive for late. Only while playing
+// (canShoot): once time's up, a jump that's still going just ends, with no ball, so every shot that can
+// score is in the shot log.
 export function shoot(timing) {
+  if (!canShoot()) return setAnim("dribble");
   const releaseAnim = player.anim;
   const releaseT = player.t;
   // The green as they saw it, for the replay (before this shot is logged, which moves it on).
@@ -265,6 +268,7 @@ function stepPhysics(dt) {
 
 function scoreBasket(b) {
   if (state.phase !== "playing" && state.phase !== "ending") return;
+  if (b.decided) return; // already called a miss: it stays one (checkDecided waits while it's on the rim)
   if (!mode().countsShot()) return;
   mode().onMake(b);
   recordMade(b);
@@ -286,10 +290,15 @@ function missedShot(b) {
   else if (Math.random() < 0.7) announce("miss", "#c8b6ff");
 }
 
-// A shot is decided once it has gone in or clearly missed.
+// A ball's call: in the air, then made or missed, once (b.decided). A miss can't become a make later,
+// so the score, the streak and the shot log always agree with the server's recount (recountScore).
+// A ball still sitting on the rim isn't called yet: if it drops in, it counts. It's only given up on
+// just before it's cleared away (BALL_LIFE), so nothing can drop in after the call.
+const BALL_LIFE = 5; // seconds a ball stays in play
+const onRim = (b) => b.z > RIM.z - 0.3 && Math.hypot(b.u - RIM.u, b.v - RIM.v) < RIM_R + 0.3;
 export function checkDecided(b) {
   if (b.decided) return;
-  const missed = b.bounces > 0 || (b.vz < 0 && b.z < RIM.z - 0.6) || b.age > 3;
+  const missed = b.bounces > 0 || (b.vz < 0 && b.z < RIM.z - 0.6) || (b.age > 3 && !onRim(b)) || b.age > BALL_LIFE - 0.2;
   if (b.scored || missed) {
     b.decided = true;
     if (!b.scored) missedShot(b);
@@ -406,9 +415,10 @@ function updatePlayer(dt) {
       faceHoop();
       player.moving = false;
       if (!canJog()) player.fade = 0;
-      // Already facing the hoop after the first shot: straight to dribbling (or jumping, if held). He
-      // jogs in dribbling; standing where he shot from, he picks the dribble back up.
-      setAnim(state.pressed ? "gather" : player.anim === "run" ? "dribble" : dribbleAgain());
+      // Already facing the hoop after the first shot: straight to dribbling (or jumping, if held and
+      // there's still time to shoot). He jogs in dribbling; standing where he shot from, he picks the
+      // dribble back up.
+      setAnim(state.pressed && canShoot() ? "gather" : player.anim === "run" ? "dribble" : dribbleAgain());
       if (isThreePointSpot(spot.u, spot.v)) {
         const p = project(spot.u, spot.v);
         addPopup("3PT SPOT", "#ffffff", p.x, p.y - 500);
@@ -429,7 +439,7 @@ function updatePlayer(dt) {
     case "turn":
       if (player.t >= frameCount("turn") / ANIM_FPS.turn) {
         sound.step(); // his feet set as he finishes turning to the hoop
-        setAnim(state.pressed ? "gather" : "dribble");
+        setAnim(state.pressed && canShoot() ? "gather" : "dribble");
       }
       break;
     case "gather":
@@ -498,7 +508,7 @@ function update(dt) {
 
   for (const b of state.balls) checkDecided(b);
   state.balls = state.balls.filter((b) => {
-    const keep = b.age < 5 && b.z > -4;
+    const keep = b.age < BALL_LIFE && b.z > -4;
     if (!keep) b.trail?.stop();
     return keep;
   });

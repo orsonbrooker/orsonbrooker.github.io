@@ -5,7 +5,7 @@ import { sound } from "../audio.js";
 import { pointsMode, scorePoints } from "../modes/points.js";
 import { fireStage } from "../play/react.js";
 import { updateHud } from "../play/scene.js";
-import { player, setAnim, state } from "../play/state.js";
+import { player, setAnim, setPhase, state } from "../play/state.js";
 import { GAME_SECONDS } from "../shared/rules.js";
 
 export default {
@@ -30,7 +30,7 @@ export default {
     });
     if (state.timeLeft <= 0) {
       sound.gameOver();
-      state.phase = "ending";
+      setPhase("ending");
       for (const b of state.balls) if (!b.decided) b.atBuzzer = true;
       // A shot already in the air still counts.
       if (player.anim === "gather" || player.anim === "jump") setAnim("dribble");

@@ -11,7 +11,7 @@ import timed from "../modes/timed.js";
 import { pointsMode, scorePoints } from "../modes/points.js";
 import { loadImage } from "../play/players.js";
 import { announce, confettiBurst } from "../play/react.js";
-import { player, setAnim, state } from "../play/state.js";
+import { player, setAnim, setPhase, state } from "../play/state.js";
 import { movingGreen } from "../play/zone.js";
 import { MONEY, THREE_POINT_CONTEST, contestBall } from "../shared/rules.js";
 
@@ -65,7 +65,7 @@ function onMiss(b) {
 function finish() {
   if (state.phase !== "playing") return;
   sound.gameOver();
-  state.phase = "ending";
+  setPhase("ending");
   state.flash = 0.6;
   if (player.anim === "gather" || player.anim === "jump") setAnim("dribble");
   setTimeout(() => announce("contestDone", "#ffd700", { big: true }), 900);
