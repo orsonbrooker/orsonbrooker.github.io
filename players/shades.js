@@ -75,6 +75,7 @@ export function shadeRanks(sources) {
       const stretched = Math.min(1, Math.max(0, (l - lo) / Math.max(1, hi - lo)));
       rank[l] = RANK * r + (1 - RANK) * stretched;
     }
+    rank.count = total; // how many pixels it was made from
     ranks[id] = rank;
   }
   return ranks;
@@ -105,31 +106,31 @@ export function shadeRamp(hex) {
 // The middle of each shade's share of the region, 0..1.
 const MIDDLES = SHARES.map((s, k) => SHARES.slice(0, k).reduce((a, b) => a + b, 0) + s / 2);
 
-// A region's lookup table: lightness 0..255 -> its colour, 3 bytes each.
-export function shadeTable(rank, hex) {
+// The ramp of a colour sampled finely once (SAMPLES points from darkest to lightest, 3 bytes each),
+// so many tables of the same colour (one per frame) are quick to make.
+const SAMPLES = 256;
+export function shadeSamples(hex) {
   const ramp = shadeRamp(hex);
+  const out = new Uint8ClampedArray(SAMPLES * 3);
+  for (let n = 0; n < SAMPLES; n++) out.set(ramp(((STEPS - 1) * n) / (SAMPLES - 1)), n * 3);
+  return out;
+}
+
+// A region's lookup table: lightness 0..255 -> its colour, 3 bytes each, from its ranks and the
+// colour's samples (shadeSamples).
+export function shadeTable(rank, samples) {
   const table = new Uint8ClampedArray(256 * 3);
   for (let l = 0; l < 256; l++) {
     const p = rank[l];
     let k = 0;
     while (k < STEPS - 1 && p > MIDDLES[k + 1]) k++;
     const at = p <= MIDDLES[0] ? 0 : k === STEPS - 1 ? k : k + (p - MIDDLES[k]) / (MIDDLES[k + 1] - MIDDLES[k]);
-    table.set(ramp(at), l * 3);
+    const n = Math.round((at / (STEPS - 1)) * (SAMPLES - 1)) * 3;
+    table[l * 3] = samples[n];
+    table[l * 3 + 1] = samples[n + 1];
+    table[l * 3 + 2] = samples[n + 2];
   }
   return table;
-}
-
-// Recolours RGBA pixels in place: tables[region id] (from shadeTable) for each pixel's region.
-export function applyShades(px, region, tables) {
-  for (let i = 0, n = px.length >> 2; i < n; i++) {
-    if (!px[i * 4 + 3]) continue;
-    const t = tables[region(i)];
-    if (!t) continue;
-    const l = lightness(px[i * 4], px[i * 4 + 1], px[i * 4 + 2]) * 3;
-    px[i * 4] = t[l];
-    px[i * 4 + 1] = t[l + 1];
-    px[i * 4 + 2] = t[l + 2];
-  }
 }
 
 // --- OKLab / OKLCH (Björn Ottosson's), sRGB bytes in and out ---
