@@ -21,6 +21,8 @@ export function setPhysics(physics) {
 }
 setPhysics(COURTS[DEFAULT_COURT].physics);
 
+const SHOT_BACKSPIN = -14; // radians a second: about two turns, backward
+
 export function stepBall(b, dt, on) {
   b.age += dt;
   b.prevZ = b.z;
@@ -36,7 +38,12 @@ export function stepBall(b, dt, on) {
   b.u += b.vu * dt;
   b.v += b.vv * dt;
   b.z += b.vz * dt;
-  b.spin -= dt * 9;
+  // How it turns (only for drawing): backspin off the fingers, slowing a little in the air; a bounce
+  // on the floor grips and turns it into a forward roll, and rolling it turns as fast as it goes.
+  // `spin` is how far it has turned, forward positive (the way it's travelling); `spinRate` per second.
+  b.spinRate ??= SHOT_BACKSPIN;
+  b.spinRate *= 1 - 0.15 * dt;
+  b.spin += b.spinRate * dt;
 
   collideRim(b, on);
   collideBoard(b, on);
@@ -65,12 +72,14 @@ export function stepBall(b, dt, on) {
       if (b.vz < 0.5) b.vz = 0;
       b.vu *= 0.86;
       b.vv *= 0.86;
+      b.spinRate = (b.spinRate ?? 0) * 0.25 + (Math.hypot(b.vu, b.vv) / BALL_R) * 0.75;
       b.bounces++;
     }
     if (b.vz === 0) {
       const roll = Math.exp(-1.5 * dt);
       b.vu *= roll;
       b.vv *= roll;
+      b.spinRate = Math.hypot(b.vu, b.vv) / BALL_R;
     }
   }
   // Walls.

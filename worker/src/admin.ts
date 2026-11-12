@@ -8,7 +8,7 @@ import { verifyAccessToken } from "./access.ts";
 import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
-import { MAX_PLAYER_NAME, MAX_TEAM_NAME, parsePronoun, PLAYER_PARTS } from "./players.ts";
+import { MAX_PLAYER_NAME, MAX_TEAM_NAME, parsePronoun, parseShorts, PLAYER_PARTS } from "./players.ts";
 import { stats } from "./stats.ts";
 import { blockReportedName, clearReports, ODD_UNCHECKED, REPORTED, renameScores } from "./scores.ts";
 import { clean, forgetBlockedNames, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
@@ -69,12 +69,12 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 	const parts = url.pathname.split("/").filter(Boolean); // api, admin, ...
 	if (request.method === "GET" && parts[2] === "stats") return json(await stats(env), 200, 0);
 	if (request.method === "GET" && parts[2] === "inbox") {
-		const [submissions, ideas, apps, players, scores, blocked] = await env.DB.batch([
+		const [submissions, ideas, apps, players, scores, blocked, words] = await env.DB.batch([
 			env.DB.prepare("SELECT id, app, text, nickname, created_at, title, description, note, merge_into FROM submissions WHERE status = 'new' ORDER BY id"),
 			env.DB.prepare("SELECT id, app, title, description, credit, status, votes FROM ideas ORDER BY app, votes DESC"),
 			env.DB.prepare("SELECT slug, name FROM apps ORDER BY name"),
 			env.DB.prepare(
-				"SELECT id, name, base, skin, hair, jersey, team, shoes, number, team_name, pronoun, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
+				"SELECT id, name, base, skin, hair, jersey, team, shorts, shoes, number, team_name, pronoun, status, created_at FROM players ORDER BY status = 'new' DESC, id DESC",
 			),
 			env.DB.prepare(
 				// Reported ones (with how many open reports) and odd ones not yet looked at first, then the last two weeks.
@@ -84,9 +84,11 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 				 ORDER BY id IN (${REPORTED}) DESC, (${ODD_UNCHECKED}) DESC, id DESC LIMIT 200`,
 			),
 			env.DB.prepare("SELECT squashed, name, created_at FROM blocked_names ORDER BY created_at DESC"),
+			// Kind words: compliments kept off the board, newest first.
+			env.DB.prepare("SELECT id, app, text, nickname, created_at, kept_at FROM submissions WHERE kept_at IS NOT NULL ORDER BY kept_at DESC, id DESC"),
 		]);
 		return json(
-			{ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results, scores: scores.results, blocked: blocked.results },
+			{ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results, scores: scores.results, blocked: blocked.results, words: words.results },
 			200,
 			0,
 		);
@@ -134,6 +136,12 @@ async function triage(env: Env, id: number, body: Record<string, unknown>): Prom
 	if (!sub) throw new HttpError(404, "No such submission.");
 	if (body.action === "reject") {
 		await env.DB.prepare("UPDATE submissions SET status = 'rejected' WHERE id = ?").bind(id).run();
+	} else if (body.action === "keep") {
+		// A compliment with no idea in it: off the board, but kept in Kind words.
+		await env.DB.prepare("UPDATE submissions SET status = 'rejected', kept_at = COALESCE(kept_at, datetime('now')) WHERE id = ?").bind(id).run();
+	} else if (body.action === "unkeep") {
+		// Kept by mistake: out of Kind words (it stays off the board).
+		await env.DB.prepare("UPDATE submissions SET kept_at = NULL WHERE id = ?").bind(id).run();
 	} else if (body.action === "approve") {
 		const title = clean(body.title, 80);
 		if (!title) throw new HttpError(400, "Give the idea a title.");
@@ -217,10 +225,11 @@ async function editPlayer(env: Env, id: number, body: Record<string, unknown>): 
 	const result = await env.DB.prepare(
 		`UPDATE players SET name = ?, status = COALESCE(?, status), base = COALESCE(?, base),
 		   skin = COALESCE(?, skin), hair = COALESCE(?, hair), jersey = COALESCE(?, jersey), team = COALESCE(?, team), shoes = COALESCE(?, shoes),
+		   shorts = CASE WHEN ? THEN ? ELSE shorts END,
 		   number = CASE WHEN ? THEN ? ELSE number END, team_name = COALESCE(?, team_name),
 		   pronoun = CASE WHEN ? THEN ? ELSE pronoun END, updated_at = datetime('now') WHERE id = ?`,
 	)
-		.bind(name, status, base, ...colours, setNumber ? 1 : 0, number, teamName, setPronoun ? 1 : 0, parsePronoun(body.pronoun), id)
+		.bind(name, status, base, ...colours, sent ? 1 : 0, sent ? parseShorts(sent.shorts) : null, setNumber ? 1 : 0, number, teamName, setPronoun ? 1 : 0, parsePronoun(body.pronoun), id)
 		.run();
 	if (!result.meta.changes) throw new HttpError(404, "No such player.");
 	return json({ ok: true }, 200, 0);

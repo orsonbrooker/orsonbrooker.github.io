@@ -1,7 +1,7 @@
 // The shop: ball styles bought with coins earned by playing, and a pairing code to bring them to
 // another device. Opens over whichever screen is showing and goes back to it, like help.
 
-import { makeBallFrames } from "../engine/draw.js";
+import { BALL_FRAMES, BALL_PX, makeBallFrames } from "../engine/draw.js";
 import { buyBall, hasProgress, joinWithCode, onProgress, owns, pairCode, progress, refreshProgress, useBall } from "../progress.js";
 import { $, openScreen, screens, showScreen, stage } from "../screens/base.js";
 import { BALL_STYLES } from "../shared/shop.js";
@@ -43,7 +43,7 @@ function render() {
       const using = progress.ball === style.id;
       card.setAttribute("aria-pressed", String(using));
       const canvas = document.createElement("canvas");
-      canvas.width = canvas.height = 16;
+      canvas.width = canvas.height = BALL_PX;
       canvas.getContext("2d").drawImage(framesFor(style)[0], 0, 0);
       const name = Object.assign(document.createElement("strong"), { textContent: style.name });
       const tag = document.createElement("em");
@@ -88,11 +88,11 @@ function startSpin() {
   if (REDUCED_MOTION.matches) return;
   let frame = 0;
   spin = setInterval(() => {
-    frame = (frame + 1) % 12;
+    frame = (frame + 1) % BALL_FRAMES;
     for (const card of list.querySelectorAll(".ball-card")) {
       const style = BALL_STYLES.find((s) => s.id === card.dataset.ball);
       const g = card.querySelector("canvas").getContext("2d");
-      g.clearRect(0, 0, 16, 16);
+      g.clearRect(0, 0, BALL_PX, BALL_PX);
       g.drawImage(framesFor(style)[frame], 0, 0);
     }
   }, 90);

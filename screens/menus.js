@@ -8,7 +8,7 @@ import { modeShown } from "../modes/index.js";
 import { characters, setFace, useCharacter } from "../play/players.js";
 import { startGame } from "../play/round.js";
 import { updateHud } from "../play/scene.js";
-import { mode, modes, state } from "../play/state.js";
+import { mode, modes, setPhase, state } from "../play/state.js";
 import { removeMyPlayer } from "../players/recolor.js";
 import { $, charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js";
 import { showDaily } from "../screens/over.js";
@@ -35,7 +35,7 @@ function restoreChosenPlayer() {
 }
 
 export function showTitle() {
-  state.phase = "title";
+  setPhase("title");
   tapToPlay.textContent = howTo("Tap to play", "Press Space to play", "Tap or press Space to play");
   setMode(state.mode);
   restoreChosenPlayer();
@@ -44,7 +44,7 @@ export function showTitle() {
 
 // Step two, after tapping to start: pick a game (each card shows its best), then a player.
 export function openModes() {
-  state.phase = "modes";
+  setPhase("modes");
   restoreChosenPlayer();
   showDaily();
   for (const card of screens.modes.querySelectorAll("[data-mode]")) {
@@ -68,7 +68,7 @@ let selectThenPlay = false;
 let team = null; // pass and play: { min, max, chosen: [ids in turn order] }
 export function openSelect(thenPlay = false) {
   selectThenPlay = thenPlay;
-  state.phase = "select";
+  setPhase("select");
   const pass = mode().passAndPlay;
   team = pass ? { ...pass, chosen: load("orson-hoops-team", []).filter((id) => characters.list.some((c) => c.id === id)).slice(0, pass.max) } : null;
   $("select-title").textContent = team ? "Who's playing?" : "Choose your player";
@@ -141,6 +141,12 @@ function renderPicker() {
       });
       const card = Object.assign(document.createElement("span"), { className: "mine" });
       card.append(button, remove);
+      // and a way to change them in the builder (a page of the website, not in the iOS app)
+      if (!IN_APP) {
+        const edit = Object.assign(document.createElement("a"), { className: "edit", href: `/players/?edit=${encodeURIComponent(c.id)}`, innerHTML: icon("edit") });
+        edit.setAttribute("aria-label", `Change ${c.name}`);
+        card.append(edit);
+      }
       return card;
     }),
     // The builder is a page of the website, not in the iOS app (which is just the game).

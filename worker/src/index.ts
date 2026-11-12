@@ -20,10 +20,10 @@
 //          POST /api/progress/pair  a code to carry progress to another device (10 minutes)
 //          POST /api/progress/join  type that code on the other device
 // Admin:   GET  /admin              triage page (behind Cloudflare Access)                 admin.ts
-//          GET  /admin/ideas, /admin/players, /admin/scores, /admin/stats   the same page, open on that section
+//          GET  /admin/ideas, /admin/players, /admin/scores, /admin/words, /admin/stats   the same page, open on that section
 //          GET  /api/admin/inbox    new submissions, all ideas and apps
 //          GET  /api/admin/stats    usage and feature adoption, last 30 days               stats.ts
-//          POST /api/admin/submissions/:id   approve as a new idea, merge into an idea, or reject
+//          POST /api/admin/submissions/:id   approve as a new idea, merge into an idea, reject, or keep as kind words
 //          POST /api/admin/ideas/:id         edit an idea or change its status
 //          POST /api/admin/players/:id       approve, hide, rename or delete a player
 //          POST /api/admin/scores/:id        show or hide a leaderboard score, rename its player, or clear its reports

@@ -33,6 +33,12 @@ test("tidying keeps only what's known, in the right shapes", () => {
 	assert.deepEqual(tidySave(null), tidySave({}));
 });
 
+test("a player's gear: one item id per known slot, anything else dropped", () => {
+	const s = tidySave({ players: [player("me1", "Zip", { gear: { head: "beanie", jersey: "stripes", hat: "crown", face: "<b>", arms: 3 } })] });
+	assert.deepEqual(s.players[0].gear, { head: "beanie", jersey: "stripes" });
+	assert.equal("gear" in tidySave({ players: [player("me1", "Zip", { gear: "beanie" })] }).players[0], false);
+});
+
 test("merging: the better best (fastest for Around the World), the latest streak, the latest nickname", () => {
 	const a = tidySave({ bests: { timed: 40, around: 30 }, daily: { done: "2026-11-08", last: "2026-11-08", days: 3 }, nickname: { name: "Ace", at: 200 } });
 	const b = tidySave({ bests: { timed: 55, survival: 9, around: 25 }, daily: { done: "2026-11-09", last: "2026-11-09", days: 1 }, nickname: { name: "Bo", at: 100 } });

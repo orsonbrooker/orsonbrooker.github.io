@@ -22,7 +22,7 @@ import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play
 import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js";
 import { canDunk, checkDecided, shoot, startDunk, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
-import { DEBUG, mode, player, setAnim, setSeed, state, steer } from "./play/state.js";
+import { DEBUG, PHASES, canShoot, mode, player, setAnim, setSeed, state, steer } from "./play/state.js";
 import { $, charPick, page, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
 import { openModes, openSelect, refreshPicker, selectBack, selectCharacter, setMode, showTitle, startTeam } from "./screens/menus.js";
 import { setGameVersion } from "./screens/over.js";
@@ -55,7 +55,7 @@ function press() {
     if (performance.now() - state.overAt < 900) return;
     startGame();
   }
-  if (state.phase !== "playing" || player.moving) return;
+  if (!canShoot() || player.moving) return;
 
   if (player.anim === "idle") {
     setAnim("turn");
@@ -198,7 +198,7 @@ async function boot() {
   }
   if (DEBUG) {
     const pickSpot = () => mode().pickSpot();
-    window.game = { state, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, get RIM() { return RIM; }, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed, setCourt: useCourt, courts: COURTS, get court() { return court; }, bestShot, checkReplays, zoneCenter };
+    window.game = { state, PHASES, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, get RIM() { return RIM; }, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed, setCourt: useCourt, courts: COURTS, get court() { return court; }, bestShot, checkReplays, zoneCenter };
   }
   resize();
   new ResizeObserver(resize).observe(stage);

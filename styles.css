@@ -561,6 +561,21 @@ header p {
   color: var(--ink);
 }
 
+.char-pick .edit {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--ink);
+}
+
+.char-pick .edit .icon,
 .char-pick .remove .icon {
   width: 16px;
   height: 16px;

@@ -1,161 +1,385 @@
-// The player builder: pick a body and colours, watch them dribble and shoot, send it to Orson.
+// The player builder, in four tabs under a preview that's always on screen:
+//   Character: skin and hair colour first, with every character below in those colours (and size),
+//              so kids can compare them before picking one.
+//   Body:      height and build (kids made from video).
+//   Team:      a team from the list or one of your own, its home or away kit, and your number.
+//   Gear:      shoes, for now.
+// Done opens a sheet with the nickname, "Play as them now" and "Send to Orson".
 // Players wait for approval in /admin before they show up in the game's player picker.
+//
 // Open with ?base=curly&skin=c98c5f&hair=26222a&jersey=d63a3a&team=2b2b2f&shoes=f2f2ef&number=7&teamName=KINGS&name=Ace
-// to preload a look.
-// A kid made from their own videos (Curly, Buns) moves as in the game, all the way round, and their size
-// (height and build) can be set; &height=1&bulk=-0.5 starts at a size.
+// to preload a look (&shorts=… too; &height=1&bulk=-0.5 starts a kid from video at a size).
+// &gear=beanie,stripes tries gear on a kid from video (content/gear.json), saved with the player for the game.
 
 import { API } from "../api.js";
 import { markField, say } from "../ui/form.js";
-import { makeBallSprites } from "../engine/draw.js";
+import { fillIcons, icon } from "../ui/icons.js";
+import { ballFrame, makeBallFrames, makeBallSprites } from "../engine/draw.js";
+import { buyBall, hasProgress, onProgress, owns, progress, refreshProgress, useBall } from "../progress.js";
+import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../shared/shop.js";
 import { paletteSwap } from "../players/pixelkit.js";
-import { stretchSheet } from "../players/stretch.js";
+import { gearParam, loadGear, wearGear } from "../players/gear.js";
+import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
-import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, recolor, saveMyPlayer, thumbnail } from "../players/recolor.js";
+import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, recolor, saveMyPlayer } from "../players/recolor.js";
+import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
 
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...children) => {
+  const e = Object.assign(document.createElement(tag), props);
+  e.append(...children);
+  return e;
+};
+const button = (props, ...children) => el("button", { type: "button", ...props }, ...children);
+const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
-// Preview loop: [animation, frames per second, times to repeat].
-// The preview's loop: standing, then a dribble and a shot facing each way the sheet has (a hand-drawn
-// body has the front only; a kid from video turns all the way round), so every side can be checked.
-const SIDES = ["", "-fr", "-r", "-br", "-b", "-bl", "-l", "-fl"];
-function showSteps(frames) {
-  const steps = [["idle", 3, 2]];
-  for (const side of SIDES) {
-    if (!frames[`release${side}`]) continue;
-    steps.push(
-      [`dribble${side}`, 14, 2],
-      [`gather${side}`, 24, 1],
-      [`jump${side}`, 1 / 0.085, 1],
-      [`release${side}`, 16, 1],
-      [`release${side}`, 1, 0.8, "hold"],
-      [`recover${side}`, 14, 1],
-    );
-  }
-  return steps
-    .filter(([anim]) => frames[anim])
-    .map(([anim, fps, repeats, how]) => {
-      const list = how === "hold" ? [frames[anim].at(-1)] : frames[anim];
-      return { anim, list, fps, length: (list.length / fps) * repeats };
-    });
-}
-
-const canvas = document.getElementById("preview");
+const builder = $("builder");
+const canvas = $("preview");
 const ctx = canvas.getContext("2d");
-const form = document.getElementById("form");
-const nameInput = document.getElementById("name");
-const numberInput = document.getElementById("number");
-const teamInput = document.getElementById("team-name");
-const message = document.getElementById("message");
-const send = document.getElementById("send");
-const previewName = document.getElementById("preview-name");
-const previewFace = document.getElementById("preview-face");
-const sizeBox = document.getElementById("size");
-const heightInput = document.getElementById("height");
-const bulkInput = document.getElementById("bulk");
+const form = $("form");
+const nameInput = $("name");
+const numberInput = $("number");
+const teamInput = $("team-name");
+const message = $("message");
+const send = $("send");
+const play = $("play");
+const previewName = $("preview-name");
+const heightInput = $("height");
+const bulkInput = $("bulk");
 
 const params = new URLSearchParams(location.search);
+// ?edit=<id>: change a player made on this device (from the game's player picker). Their look is
+// read in as if it were a link's, and saving keeps their id, so their scores stay theirs.
+const ownPlayer = myPlayers().find((p) => p.id === params.get("edit")) ?? null;
+if (ownPlayer) {
+  const c = ownPlayer.colours ?? {};
+  params.set("base", ownPlayer.base);
+  for (const part of [...PARTS, "shorts"]) if (/^#[0-9a-f]{6}$/i.test(c[part] ?? "")) params.set(part, c[part].slice(1));
+  if (c.number !== undefined && c.number !== "") params.set("number", String(c.number));
+  params.set("teamName", c.teamName ?? DEFAULT_TEAM);
+  params.set("name", ownPlayer.name);
+  if (ownPlayer.gear) params.set("gear", Object.values(ownPlayer.gear).join(","));
+  if (ownPlayer.build) {
+    params.set("height", String(ownPlayer.build.height ?? 0));
+    params.set("bulk", String(ownPlayer.build.bulk ?? 0));
+  }
+}
 let bases = [];
 let current; // the loaded base
 // what the preview draws: { meta, img, prints }, the body's sheet in their colours (and size)
 let sheet;
-let ballSprites = null; // the held ball, made when first needed
-const colours = {};
-const picked = new Set(); // parts the player has chosen a colour for, kept when they switch bodies
+// The ball a kid from video holds: the one they're trying on in the Gear tab, else their ball from the
+// shop (the same one the game uses).
+let tryingBall = null;
+const ballId = () => tryingBall ?? ballStyle(progress.ball)?.id ?? DEFAULT_BALL;
+const ballSprites = new Map();
+// `held` [x, y, r]: as in the game, it rolls a little as the dribble moves it up and down.
+const ballSet = () => {
+  const id = ballId();
+  if (!ballSprites.has(id)) ballSprites.set(id, makeBallSprites(ballStyle(id).look));
+  return ballSprites.get(id)[NORMAL];
+};
+const ball = (held) => ballFrame(ballSet(), held ? (held[1] / held[2]) * 0.6 : 0);
+const colours = {}; // skin, hair, jersey, shorts, team (the trim), shoes, number, teamName
 const build = { height: 0, bulk: 0 };
+const gear = gearParam(params.get("gear")); // { slot: item } (a test link, until the builder can pick gear)
+let worn = []; // the gear's layers for the current body
+const LOOK = ["skin", "hair"];
+let lookPart = "skin";
 
+// ---------- Tabs ----------
 
-function button(props, ...children) {
-  const b = Object.assign(document.createElement("button"), { type: "button", ...props });
-  b.append(...children);
-  return b;
-}
-
-function press(group, chosen) {
-  for (const b of group.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b === chosen));
-}
-
-// A video kid's pixel-art twin, whose jersey faces print the number and team name (as in the game).
-const twins = new Map();
-function loadTwin({ atlas, meta }) {
-  if (!twins.has(meta)) {
-    const img = new Promise((resolve, reject) => Object.assign(new Image(), { onload() { resolve(this); }, onerror: reject, src: "/" + atlas }));
-    const p = Promise.all([fetch("/" + meta).then((r) => r.json()), img]).then(([pm, pimg]) => ({ pm, pimg }));
-    p.catch(() => twins.delete(meta));
-    twins.set(meta, p);
+const tabs = [...document.querySelectorAll(".builder-tabs [role=tab]")];
+function showTab(name) {
+  builder.dataset.tab = name;
+  for (const t of tabs) {
+    const on = t.dataset.tab === name;
+    t.setAttribute("aria-selected", String(on));
+    t.tabIndex = on ? 0 : -1;
   }
-  return twins.get(meta);
+  for (const p of document.querySelectorAll("[data-pane]")) p.hidden = p.dataset.pane !== name;
+  $("panel").scrollTop = 0;
 }
-
-async function chooseBase(base, keepColours) {
-  current = await loadBase(base);
-  if (base.video && current.meta.printsFrom) current.twin ??= await loadTwin(current.meta.printsFrom).catch(() => null);
-  // A new body brings its own colours for anything the player hasn't picked yet; their picks stay.
-  if (!keepColours) for (const part of PARTS) if (!picked.has(part)) colours[part] = base.colours[part];
-  for (const part of PARTS) markSwatch(part);
-  sizeBox.hidden = !current.video;
-  repaint();
-}
-
-function markSwatch(part) {
-  const group = document.querySelector(`[data-part="${part}"]`);
-  for (const b of group.querySelectorAll("button")) b.setAttribute("aria-pressed", String(b.dataset.colour === colours[part]));
-}
-
-// A video kid's number and team name for each of their frames, from the twin's jersey faces.
-function twinPrints() {
-  if (!current.twin) return null;
-  const parts = Object.fromEntries(PARTS.map((p) => [p, colours[p]]));
-  const kit = { number: colours.number ?? "", team: colours.teamName ?? DEFAULT_TEAM };
-  const layers = paletteSwap(current.twin.pimg, current.twin.pm, parts, kit).printLayers ?? new Map();
-  const prints = new Map();
-  for (const [key, pixelKey] of Object.entries(current.meta.printsFrom.frames)) if (layers.has(pixelKey)) prints.set(key, layers.get(pixelKey));
-  return prints;
-}
-
-let repaintQueued = false;
-function repaint() {
-  if (repaintQueued) return;
-  repaintQueued = true;
-  requestAnimationFrame(() => {
-    repaintQueued = false;
-    sheet = current.video
-      ? stretchSheet({ meta: current.meta, img: recolor(current, colours), prints: twinPrints() }, current.regionsData, build)
-      : { meta: current.meta, img: recolor(current, colours), prints: null };
-    previewFace.src = thumbnail(current, colours, 48).toDataURL(); // the body's card picture, in their colours
+for (const t of tabs) {
+  t.addEventListener("click", () => {
+    if (t.dataset.tab !== "gear") cancelBall();
+    showTab(t.dataset.tab);
+  });
+  t.addEventListener("keydown", (e) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    if (!step) return;
+    const next = tabs[(tabs.indexOf(t) + step + tabs.length) % tabs.length];
+    next.focus();
+    showTab(next.dataset.tab);
   });
 }
 
-// ---------- Choices ----------
+// ---------- Swatches ----------
 
-async function setup() {
-  bases = await loadBases();
-  const basesBox = document.getElementById("bases");
-  for (const base of bases) {
-    const img = Object.assign(document.createElement("img"), { src: "/" + base.thumb, alt: "" });
-    const b = button({ ariaLabel: base.name }, img, base.name);
-    b.addEventListener("click", () => {
-      press(basesBox, b);
-      chooseBase(base, false);
-    });
-    basesBox.append(b);
-  }
-
-  for (const part of PARTS) {
-    const group = document.querySelector(`[data-part="${part}"]`);
-    for (const colour of PALETTES[part]) {
-      const b = button({ ariaLabel: `${part} ${colour}` });
+function swatches(row, part, palette, onPick) {
+  row.replaceChildren(
+    ...palette.map((colour) => {
+      const b = button({ className: "swatch", ariaLabel: `${part} colour` });
       b.dataset.colour = colour;
       b.style.background = colour;
-      b.addEventListener("click", () => {
-        colours[part] = colour;
-        picked.add(part);
-        markSwatch(part);
-        repaint();
-      });
-      group.append(b);
-    }
-  }
+      b.addEventListener("click", () => onPick(colour));
+      return b;
+    }),
+  );
+}
+const mark = (row, colour) => {
+  for (const b of row.querySelectorAll(".swatch")) b.setAttribute("aria-pressed", String(b.dataset.colour === colour));
+};
 
+// Character tab: skin or hair, then its colours.
+const lookParts = $("look-parts");
+const lookRow = $("look-swatches");
+function paintLook() {
+  for (const b of lookParts.children) {
+    b.setAttribute("aria-checked", String(b.dataset.part === lookPart));
+    b.querySelector(".dot").style.background = colours[b.dataset.part];
+  }
+  swatches(lookRow, lookPart, PALETTES[lookPart], (c) => setColours({ [lookPart]: c }));
+  mark(lookRow, colours[lookPart]);
+}
+for (const part of LOOK) {
+  const b = button({ className: "part-chip", role: "radio" }, el("span", { className: "dot" }), part === "skin" ? "Skin" : "Hair");
+  b.dataset.part = part;
+  b.addEventListener("click", () => {
+    lookPart = part;
+    paintLook();
+  });
+  lookParts.append(b);
+}
+
+// Gear tab: shoes.
+const shoesRow = document.querySelector('[data-part="shoes"]');
+swatches(shoesRow, "shoes", PALETTES.shoes, (c) => setColours({ shoes: c }));
+
+function setColours(change) {
+  Object.assign(colours, change);
+  paintLook();
+  mark(shoesRow, colours.shoes);
+  repaint();
+}
+
+// ---------- Characters: every body, in your colours and size ----------
+
+const wall = $("bases");
+const cards = new Map(); // base id -> { base, button, canvas, loaded, frames: Map(frame -> canvas) }
+const CARD_W = 120;
+const CARD_H = 170;
+
+// The look a card shows: colours and size, without the number and team name (too small to read).
+const cardKey = () => JSON.stringify([LOOK.map((p) => colours[p]), kitColours(currentKit()), colours.shoes, build.height, build.bulk, ballId()]);
+let cardsKey = "";
+
+const HEIGHT_ROOM = 0.08; // how much taller the tallest setting makes a kid, roughly
+
+// How tall a body stands: the drawn rows of its first idle frame, feet to the top of the hair.
+function standingHeight(b) {
+  const [x, y, w, h] = b.meta.frames.idle[0];
+  const c = el("canvas", { width: w, height: h });
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(b.atlasImg, x, y, w, h, 0, 0, w, h);
+  const a = g.getImageData(0, 0, w, h).data;
+  const row = (r) => {
+    for (let i = r * w * 4 + 3; i < (r + 1) * w * 4; i += 4) if (a[i] > 32) return true;
+    return false;
+  };
+  let top = 0;
+  while (top < h - 1 && !row(top)) top++;
+  let bottom = h - 1;
+  while (bottom > top && !row(bottom)) bottom--;
+  return Math.max(1, bottom - top + 1);
+}
+
+function cardFrame(card, i) {
+  if (card.frames.has(i)) return card.frames.get(i);
+  const b = card.loaded;
+  const f = b.meta.frames.idle[i];
+  const [x, y, w, h, ox, oy] = f;
+  const art = recolor(b, { ...colours, number: "", teamName: "" }, [x, y, w, h]);
+  const held = b.meta.balls?.[`${x},${y}`];
+  const sized = b.video ? stretchFrame(art, [0, 0], b.regionsData, f, build, { ball: held }) : { canvas: art, w, h, dx: 0, dy: 0, ball: held };
+  const c = el("canvas", { width: CARD_W, height: CARD_H });
+  const g = c.getContext("2d");
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = "high";
+  // Room for the tallest player standing, feet on the card's floor.
+  // Every character the same standing height on its card (kids from video are drawn at a different
+  // scale from the hand-drawn bodies), with room above for the tallest size.
+  card.standing ??= standingHeight(b);
+  const s = (CARD_H - 12) / (1 + HEIGHT_ROOM) / card.standing;
+  const at = [CARD_W / 2 + (ox - sized.dx) * s, CARD_H - 5 + (oy - sized.dy) * s];
+  if (sized.ball) {
+    const d = 2 * sized.ball[2] * s * 1.04;
+    g.drawImage(ball(sized.ball), at[0] + sized.ball[0] * s - d / 2, at[1] + sized.ball[1] * s - d / 2, d, d);
+  }
+  g.drawImage(sized.canvas, 0, 0, sized.w, sized.h, at[0], at[1], sized.w * s, sized.h * s);
+  card.frames.set(i, c);
+  return c;
+}
+
+function paintCard(card, i = 0) {
+  if (!card.loaded) return;
+  const g = card.canvas.getContext("2d");
+  g.clearRect(0, 0, CARD_W, CARD_H);
+  g.drawImage(cardFrame(card, i % card.loaded.meta.frames.idle.length), 0, 0);
+}
+
+function paintCards() {
+  const key = cardKey();
+  if (key !== cardsKey) {
+    cardsKey = key;
+    for (const card of cards.values()) card.frames.clear();
+  }
+  for (const card of cards.values()) {
+    card.button.setAttribute("aria-pressed", String(card.base.id === current?.id));
+    paintCard(card, 0);
+  }
+}
+
+// The cards stand still, apart from a slow idle loop while the Character tab is open.
+let cardTick = 0;
+setInterval(() => {
+  if (reducedMotion.matches || document.hidden || builder.dataset.tab !== "character") return;
+  cardTick++;
+  for (const card of cards.values()) paintCard(card, cardTick);
+}, 250);
+
+function setupWall() {
+  for (const base of bases) {
+    const c = el("canvas", { width: CARD_W, height: CARD_H, className: "card-art" });
+    const b = button({ className: "character-card", ariaLabel: base.name }, c, el("span", { className: "card-name" }, base.name));
+    if (base.video) b.append(el("span", { className: "card-new" }, "NEW"));
+    b.addEventListener("click", () => chooseBase(base));
+    wall.append(b);
+    cards.set(base.id, { base, button: b, canvas: c, loaded: null, frames: new Map() });
+  }
+}
+
+// Every body loads in the background (the picked one first), one at a time so the page stays quick.
+async function loadCards() {
+  const order = [current.id, ...bases.map((b) => b.id).filter((id) => id !== current.id)];
+  for (const id of order) {
+    const card = cards.get(id);
+    card.loaded = await loadBase(card.base).catch(() => null);
+    paintCard(card, cardTick);
+  }
+}
+
+async function chooseBase(base) {
+  current = await loadBase(base);
+  if (base.video && current.meta.printsFrom) current.twin ??= await loadTwin(current.meta.printsFrom).catch(() => null);
+  heightInput.disabled = bulkInput.disabled = !current.video;
+  showTurning();
+  $("size-hint").hidden = !!current.video;
+  worn = current.video ? await loadGear(base.id, gear).catch(() => []) : [];
+  repaint();
+}
+
+// ---------- Balls: the shop's ball styles, tried on here and bought with coins ----------
+
+const coinText = (n) => `${n} ${n === 1 ? "coin" : "coins"}`;
+const ballArt = (style, size) => {
+  const c = el("canvas", { width: size, height: size });
+  c.getContext("2d").drawImage(makeBallFrames(style.look)[0], 0, 0, size, size);
+  return c;
+};
+let ballBusy = false;
+
+function paintBalls() {
+  const coins = $("coins");
+  coins.innerHTML = icon("coins");
+  coins.append(String(progress.coins));
+  coins.setAttribute("aria-label", `You have ${coinText(progress.coins)}`);
+  $("balls").replaceChildren(
+    ...BALL_STYLES.map((style) => {
+      const using = ballStyle(progress.ball)?.id === style.id || (!ballStyle(progress.ball) && style.id === DEFAULT_BALL);
+      const tag = el("span", { className: owns(style.id) ? "ball-price owned" : "ball-price" });
+      if (owns(style.id)) tag.innerHTML = `${icon("check")}${using ? "Using" : "Yours"}`;
+      else tag.innerHTML = `${icon("coins")}${style.price}`;
+      const b = button({ className: "ball-card", ariaPressed: String(using), ariaLabel: style.name }, ballArt(style, 48), el("span", { className: "ball-name" }, style.name), tag);
+      b.addEventListener("click", () => pickBall(style));
+      return b;
+    }),
+  );
+}
+
+async function pickBall(style) {
+  if (ballBusy || ballId() === style.id) return;
+  say($("gear-message"), "");
+  if (!owns(style.id)) return tryBall(style);
+  ballBusy = true;
+  try {
+    await useBall(style.id);
+  } catch (err) {
+    say($("gear-message"), err.message, { error: true });
+  } finally {
+    ballBusy = false;
+  }
+}
+
+// Picking a ball they don't have: it goes in their hands, and the gear is covered until they buy or cancel.
+function tryBall(style) {
+  tryingBall = style.id;
+  const can = progress.coins >= style.price;
+  $("buy-art").getContext("2d").clearRect(0, 0, 96, 96);
+  $("buy-art").getContext("2d").drawImage(makeBallFrames(style.look)[0], 0, 0, 96, 96);
+  $("buy-name").textContent = `${style.name} ball`;
+  $("buy-price").innerHTML = `${icon("coins")}${style.price}`;
+  $("buy-say").textContent = can
+    ? `You have ${coinText(progress.coins)}. Buy it to keep it.`
+    : `You have ${coinText(progress.coins)}. Win ${style.price - progress.coins} more in the game to buy it.`;
+  const yes = $("buy-yes");
+  yes.innerHTML = `${icon("coins")}Buy for ${style.price}`;
+  yes.disabled = !can;
+  $("gear-main").hidden = true;
+  $("ball-buy").hidden = false;
+  repaint();
+}
+
+function cancelBall() {
+  if (!tryingBall) return;
+  tryingBall = null;
+  $("gear-main").hidden = false;
+  $("ball-buy").hidden = true;
+  repaint();
+}
+
+function setupBalls() {
+  $("buy-cancel").addEventListener("click", cancelBall);
+  $("buy-yes").addEventListener("click", async () => {
+    const style = ballStyle(tryingBall);
+    if (!style || ballBusy) return;
+    ballBusy = true;
+    $("buy-yes").disabled = true;
+    try {
+      await buyBall(style.id);
+      tryingBall = null;
+      $("gear-main").hidden = false;
+      $("ball-buy").hidden = true;
+      say($("gear-message"), `The ${style.name} ball is yours!`);
+      repaint();
+    } catch (err) {
+      $("buy-say").textContent = err.message;
+      $("buy-yes").disabled = false;
+    } finally {
+      ballBusy = false;
+    }
+  });
+  onProgress(() => {
+    paintBalls();
+    repaint();
+  });
+  paintBalls();
+  if (hasProgress()) refreshProgress(); // coins from games on another device
+}
+
+// ---------- Size ----------
+
+function setupSize() {
   // Height and build: pixel sliders with five big steps (a notch for each), snapping as they're dragged.
   const STEPS = [-1, -0.5, 0, 0.5, 1];
   const WORDS = { height: ["Shortest", "Shorter", "Middle", "Taller", "Tallest"], bulk: ["Slimmest", "Slimmer", "Middle", "Broader", "Broadest"] };
@@ -196,7 +420,7 @@ async function setup() {
       return Math.max(0, Math.min(STEPS.length - 1, Math.round(f * (STEPS.length - 1))));
     };
     input.addEventListener("pointerdown", (e) => {
-      if (e.button !== 0) return;
+      if (e.button !== 0 || input.disabled) return;
       e.preventDefault();
       input.focus();
       input.setPointerCapture(e.pointerId);
@@ -206,18 +430,130 @@ async function setup() {
       if (input.hasPointerCapture(e.pointerId)) choose(stepAt(e.clientX));
     });
   }
+}
 
-  nameInput.addEventListener("input", checkWords);
-  teamInput.addEventListener("input", checkWords);
-  const showName = () => {
-    const n = colours.number;
-    previewName.textContent = [nameInput.value.trim(), n !== "" && n !== undefined ? `#${n}` : ""].filter(Boolean).join(" ");
-  };
-  nameInput.addEventListener("input", showName);
+// ---------- Teams ----------
+
+let mine = myTeams();
+let team; // the team being played for
+let kit = "home";
+let editing = false;
+let linkTeam = null; // a look from a link (the admin page's "open in builder"), kept only if edited
+
+const allTeams = () => [...mine, ...(linkTeam ? [linkTeam] : []), ...TEAMS];
+const currentKit = () => team[kit];
+const isMine = (t) => t === linkTeam || mine.includes(t);
+
+const kitSwatch = (k) => el("span", { className: "kit" }, ...KIT_PARTS.map((p) => el("span", { style: `background:${k[p]}` })));
+
+function wearTeam(t, which = kit) {
+  team = t;
+  kit = which;
+  Object.assign(colours, kitColours(team[kit]), { teamName: team.name });
+  teamInput.value = team.name;
+  paintTeams();
+  repaint();
+}
+
+function keepMine() {
+  if (team === linkTeam) {
+    mine = [...mine, linkTeam];
+    linkTeam = null;
+  }
+  saveMyTeams(mine);
+}
+
+function teamRow(t) {
+  const on = t === team;
+  const pick = button({ className: "team-pick", ariaPressed: String(on) }, el("span", { className: "kits" }, kitSwatch(t.home), kitSwatch(t.away)), el("b", {}, t.name));
+  if (on) pick.insertAdjacentHTML("beforeend", `<span class="team-on">${icon("check")}</span>`);
+  pick.addEventListener("click", () => wearTeam(t));
+  const row = el("div", { className: "team-row" }, pick);
+  if (isMine(t)) {
+    const edit = button({ className: "fb-button team-edit" }, "Edit");
+    edit.addEventListener("click", () => {
+      wearTeam(t);
+      editing = true;
+      paintTeams();
+      teamInput.focus({ preventScroll: true });
+    });
+    row.append(edit);
+  }
+  return row;
+}
+
+function paintTeams() {
+  $("team-now").textContent = team.name;
+  // Home and away.
+  const picker = $("kit-picker");
+  picker.replaceChildren(
+    ...["home", "away"].map((which) => {
+      const b = button({ className: "kit-choice", role: "radio", ariaChecked: String(kit === which) }, kitSwatch(team[which]), which === "home" ? "Home" : "Away");
+      b.addEventListener("click", () => wearTeam(team, which));
+      return b;
+    }),
+  );
+  $("team-list").hidden = editing;
+  $("team-editor").hidden = !editing;
+  if (editing) {
+    const box = $("kit-colours");
+    const label = kit === "home" ? "Home" : "Away";
+    box.replaceChildren(
+      ...KIT_PARTS.map((part) => {
+        const row = el("div", { className: "swatch-row" });
+        const palette = part === "trim" ? PALETTES.team : PALETTES.jersey;
+        swatches(row, part, palette, (c) => {
+          team[kit] = { ...team[kit], [part]: c };
+          keepMine();
+          wearTeam(team);
+        });
+        mark(row, team[kit][part]);
+        return el("div", { className: "colour-field" }, el("span", { className: "mini-label" }, `${label} ${part === "trim" ? "trim and number" : part}`), row);
+      }),
+    );
+    return;
+  }
+  const list = $("team-list");
+  const make = button({ className: "make-team" });
+  make.innerHTML = `${icon("plus")}Make a team`;
+  make.addEventListener("click", () => {
+    const t = newTeam(mine.length);
+    mine = [...mine, t];
+    saveMyTeams(mine);
+    editing = true;
+    wearTeam(t, "home");
+    teamInput.focus({ preventScroll: true });
+    teamInput.select();
+  });
+  const yours = [...mine, ...(linkTeam ? [linkTeam] : [])];
+  list.replaceChildren(
+    el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Your teams"), ...yours.map(teamRow), make),
+    el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Teams"), ...TEAMS.map(teamRow)),
+  );
+}
+
+function setupTeams() {
   teamInput.addEventListener("input", () => {
     teamInput.value = teamInput.value.toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, 10);
+    team.name = teamInput.value.trim() || team.name;
     colours.teamName = teamInput.value.trim();
+    $("team-now").textContent = teamInput.value.trim();
+    keepMine();
+    checkWords();
     repaint();
+  });
+  $("team-done").addEventListener("click", () => {
+    if (!teamInput.value.trim()) teamInput.value = team.name;
+    editing = false;
+    keepMine();
+    paintTeams();
+  });
+  $("team-delete").addEventListener("click", () => {
+    mine = mine.filter((t) => t !== team);
+    if (team === linkTeam) linkTeam = null;
+    saveMyTeams(mine);
+    editing = false;
+    wearTeam(TEAMS[0], "home");
   });
   numberInput.addEventListener("input", () => {
     numberInput.value = numberInput.value.replace(/\D/g, "").slice(0, 2);
@@ -225,39 +561,159 @@ async function setup() {
     showName();
     repaint();
   });
-
-  // Start from the link's look, if any, otherwise the first body.
-  const start = bases.find((b) => b.id === params.get("base")) ?? bases[0];
-  press(basesBox, basesBox.children[bases.indexOf(start)]);
-  Object.assign(colours, start.colours);
-  for (const part of PARTS) {
-    const c = params.get(part);
-    if (c && /^[0-9a-f]{6}$/i.test(c)) {
-      colours[part] = `#${c.toLowerCase()}`;
-      picked.add(part);
-    }
-  }
-  if (/^\d{1,2}$/.test(params.get("number") ?? "")) numberInput.value = colours.number = params.get("number");
-  teamInput.value = colours.teamName = (params.get("teamName") ?? DEFAULT_TEAM).toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, 10);
-  if (params.get("name")) nameInput.value = params.get("name").slice(0, 12);
-  showName();
-  await chooseBase(start, true);
-  requestAnimationFrame(draw);
-  setupTurnstile();
 }
 
 // ---------- Preview ----------
 
+// Preview loop: [animation, frames per second, times to repeat].
+// The preview's loop: standing, then a dribble and a shot facing each way the sheet has (a hand-drawn
+// body has the front only; a kid from video turns all the way round), so every side can be checked.
+const SIDES = ["", "-fr", "-r", "-br", "-b", "-bl", "-l", "-fl"];
+// Turned by hand (the arrows, or a swipe on the preview): that side's dribble and shot, over and over.
+function showSteps(frames, facing = null) {
+  const steps = facing === null ? [["idle", 3, 2]] : [];
+  for (const side of facing === null ? sidesOf(frames) : [facing]) {
+    if (!frames[`release${side}`] && facing === null) continue;
+    steps.push(
+      [`dribble${side}`, 14, 2],
+      [`gather${side}`, 24, 1],
+      [`jump${side}`, 1 / 0.085, 1],
+      [`release${side}`, 16, 1],
+      [`release${side}`, 1, 0.8, "hold"],
+      [`recover${side}`, 14, 1],
+    );
+  }
+  const has = (anim) => frames[anim]?.length > 0;
+  const kept = steps.filter(([anim]) => has(anim));
+  // nothing for that side (or no idle): whatever move the sheet has
+  const any = has("idle") ? "idle" : Object.keys(frames).find(has);
+  return (kept.length ? kept : any ? [[any, 3, 1]] : [])
+    .map(([anim, fps, repeats, how]) => {
+      const list = how === "hold" ? [frames[anim].at(-1)] : frames[anim];
+      return { anim, list, fps, length: (list.length / fps) * repeats };
+    });
+}
+
+// A video kid's pixel-art twin, whose jersey faces print the number and team name (as in the game).
+const twins = new Map();
+function loadTwin({ atlas, meta }) {
+  if (!twins.has(meta)) {
+    const img = new Promise((resolve, reject) => Object.assign(new Image(), { onload() { resolve(this); }, onerror: reject, src: "/" + atlas }));
+    const p = Promise.all([fetch("/" + meta).then((r) => r.json()), img]).then(([pm, pimg]) => ({ pm, pimg }));
+    p.catch(() => twins.delete(meta));
+    twins.set(meta, p);
+  }
+  return twins.get(meta);
+}
+
+// A video kid's number and team name for each of their frames, from the twin's jersey faces.
+function twinPrints() {
+  if (!current.twin) return null;
+  const parts = Object.fromEntries(PARTS.map((p) => [p, colours[p]]));
+  const kitText = { number: colours.number ?? "", team: colours.teamName ?? DEFAULT_TEAM };
+  const layers = paletteSwap(current.twin.pimg, current.twin.pm, parts, kitText).printLayers ?? new Map();
+  const prints = new Map();
+  for (const [key, pixelKey] of Object.entries(current.meta.printsFrom.frames)) if (layers.has(pixelKey)) prints.set(key, layers.get(pixelKey));
+  return prints;
+}
+
+let repaintQueued = false;
+function repaint() {
+  if (repaintQueued) return;
+  repaintQueued = true;
+  requestAnimationFrame(() => {
+    repaintQueued = false;
+    if (!current) return; // the body is still loading: chooseBase() paints when it's in
+    if (current.video) {
+      // their gear on, then their height and build
+      const dressed = wearGear({ meta: current.meta, img: recolor(current, colours), prints: twinPrints(), regions: current.regionsData }, worn, colours);
+      sheet = stretchSheet(dressed, dressed.regions, build);
+    } else sheet = { meta: current.meta, img: recolor(current, colours), prints: null };
+    showName();
+    paintCards();
+  });
+}
+
+function showName() {
+  const n = colours.number;
+  const name = nameInput.value.trim() || bases.find((b) => b.id === current?.id)?.name || "";
+  previewName.textContent = [name, n !== "" && n !== undefined ? `#${n}` : ""].filter(Boolean).join(" ");
+}
+
 let started = performance.now();
+let lastHeld = null; // where the held ball was last drawn, to send it off when they let go
+let shotGone = false; // the ball has left their hands in this shot
+let flight = null; // a shot ball flying off: canvas position, size, velocity, spin
+
+// The canvas matches its size on screen, in device pixels, so the stage's whole area is drawn on
+// (checked as each frame is drawn).
+function fitCanvas() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+  const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+  if (canvas.width !== w || canvas.height !== h) Object.assign(canvas, { width: w, height: h });
+}
+
+// ---------- Turning the player round ----------
+
+let facing = null; // a side from SIDES once they've turned the player; null shows every side in turn
+// The sides a sheet really has: a side that reuses another's frames (a kid's front-left can be their
+// left until it's made) is left out, keeping the plainer name, so turning never shows the same twice.
+const PLAINEST = ["-b", "-bl", "-l", "-r", "-br", "-fl", "-fr", ""];
+function sidesOf(frames) {
+  const seen = new Set();
+  const kept = new Set();
+  for (const side of PLAINEST) {
+    const first = frames[`dribble${side}`]?.[0];
+    if (!first || seen.has(first.join())) continue;
+    seen.add(first.join());
+    kept.add(side);
+  }
+  return SIDES.filter((side) => kept.has(side));
+}
+const turnLeft = $("turn-left");
+const turnRight = $("turn-right");
+
+function turn(step) {
+  if (!current) return;
+  const sides = sidesOf(current.meta.frames);
+  if (sides.length < 2) return;
+  const at = facing === null ? 0 : Math.max(0, sides.indexOf(facing));
+  facing = sides[(at + step + sides.length) % sides.length];
+  started = performance.now();
+}
+
+function setupTurning() {
+  turnLeft.addEventListener("click", () => turn(-1));
+  turnRight.addEventListener("click", () => turn(1));
+  // a sideways swipe on the preview turns them too
+  let x0 = null;
+  canvas.addEventListener("pointerdown", (e) => (x0 = e.clientX));
+  canvas.addEventListener("pointerup", (e) => {
+    if (x0 !== null && Math.abs(e.clientX - x0) > 30) turn(e.clientX < x0 ? 1 : -1);
+    x0 = null;
+  });
+  canvas.addEventListener("pointercancel", () => (x0 = null));
+}
+
+// Only bodies drawn from every side can turn (kids from video); a new body starts by showing them all.
+function showTurning() {
+  facing = null;
+  started = performance.now();
+  turnLeft.hidden = turnRight.hidden = sidesOf(current.meta.frames).length < 2;
+}
 function draw(now) {
   requestAnimationFrame(draw);
   if (!sheet) return;
+  fitCanvas();
+  if (canvas.height < 60 || canvas.width < 60) return; // not laid out yet (or squeezed): nothing to draw
   const frames = sheet.meta.frames;
-  // Find where we are in the show loop.
-  if (sheet.steps?.frames !== frames) sheet.steps = Object.assign(showSteps(frames), { frames });
+  // Find where we are in the show loop (standing still when motion is reduced).
+  if (sheet.steps?.frames !== frames || sheet.steps.facing !== facing) sheet.steps = Object.assign(showSteps(frames, facing), { frames, facing });
   const steps = sheet.steps;
+  if (!steps.length) return;
   const total = steps.reduce((t, s) => t + s.length, 0);
-  let t = ((now - started) / 1000) % total;
+  let t = reducedMotion.matches ? 0 : ((now - started) / 1000) % total;
   let step = steps[0];
   for (const s of steps) {
     if (t < s.length) {
@@ -266,13 +722,20 @@ function draw(now) {
     }
     t -= s.length;
   }
-  const [x, y, w, h, ox, oy] = step.list[Math.floor(t * step.fps) % step.list.length];
+  const frame = step.list[Math.floor(t * step.fps) % step.list.length];
+  if (!frame) return;
+  const [x, y, w, h, ox, oy] = frame;
   const meta = sheet.meta;
   const res = meta.res;
 
+  // The canvas fills the stage. The player is drawn no bigger than about 1.3 screen pixels to each of
+  // the art's (so they stay crisp), and fits the tallest pose (ball overhead); with room to spare they
+  // stand in the middle, and a shot flies on up to the stage's edge.
+  const dpr = canvas.width / Math.max(1, canvas.clientWidth);
+  const tallest = 520 * res;
+  const s = Math.max(0.05, Math.min((canvas.height - 26 * dpr) / tallest, 1.3 * dpr * (0.6 / res)));
   const groundX = canvas.width / 2;
-  const groundY = canvas.height - 14;
-  const s = (groundY - 12) / (520 * res); // atlas px -> canvas px, so the tallest pose (ball overhead) fits
+  const groundY = Math.min(canvas.height - 14 * dpr, canvas.height / 2 + (tallest * s) / 2);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "rgba(45, 20, 35, 0.35)";
   ctx.beginPath();
@@ -282,22 +745,99 @@ function draw(now) {
   ctx.imageSmoothingQuality = "high";
   const at = [Math.round(groundX + ox * s), Math.round(groundY + oy * s)];
   // a kid from video holds the game's own ball, drawn behind them
-  const held = meta.balls?.[`${x},${y}`];
+  const shooting = /^(gather|jump|release)/.test(step.anim);
+  if (!shooting) shotGone = false;
+  // once it's left their hands, a later frame of the shot that still has it doesn't bring it back
+  const held = shotGone ? null : meta.balls?.[`${x},${y}`];
   if (held) {
-    ballSprites ??= makeBallSprites();
     const d = 2 * held[2] * s * 1.04;
-    ctx.drawImage(ballSprites[NORMAL][0], at[0] + held[0] * s - d / 2, at[1] + held[1] * s - d / 2, d, d);
-  }
+    ctx.drawImage(ball(held), at[0] + held[0] * s - d / 2, at[1] + held[1] * s - d / 2, d, d);
+    lastHeld = { x: at[0] + held[0] * s, y: at[1] + held[1] * s, d, step, ox };
+  } else if (lastHeld && step.anim.startsWith("release") && !reducedMotion.matches) {
+    // The ball has left their hands: from where the game lets it go for this way they face
+    // (releaseOffsets, from the feet, in court pixels: times res for the sheet's; a right side is the
+    // left mirrored, so its offset is too), on a
+    // shot's arc that way, with backspin. A ball only hidden behind the head in a jump isn't let go.
+    const side = step.anim.split("-")[1] ?? "";
+    const [offX, offY] = meta.releaseOffsets?.[side] ?? meta.releaseOffset ?? [0, -455];
+    const [dx, dz] = SHOT_WAY[side] ?? SHOT_WAY[""];
+    flight = { x0: groundX + offX * res * s, y0: groundY + offY * res * s, d: lastHeld.d, s, dx, dz, t: now };
+    lastHeld = null;
+    shotGone = true;
+  } else if (!shooting) lastHeld = null;
+  const flying = flight && flightAt(flight, now);
+  if (flying && !flying.front) ctx.drawImage(flying.img, flying.x - flying.r, flying.y - flying.r, 2 * flying.r, 2 * flying.r);
   ctx.drawImage(sheet.img, x, y, w, h, at[0], at[1], w * s, h * s);
   // a kid from video: their number and team name, printed finer than the art (as in the game)
   const print = sheet.prints?.get(`${x},${y}`);
   if (print) ctx.drawImage(print, 0, 0, print.width, print.height, at[0], at[1], w * s, h * s);
+  // a shot coming toward us flies in front of them
+  if (flying?.front) ctx.drawImage(flying.img, flying.x - flying.r, flying.y - flying.r, 2 * flying.r, 2 * flying.r);
 }
+
+// A shot in the preview: where it goes for each way they face, across the screen (right +) and into it
+// (away +). A kid's plain moves face up the court, away and to the left.
+// A kid's left (and right) shot is their front-left video (flipped for the right), so it comes out toward us.
+const SHOT_WAY = { "": [-0.55, 0.85], b: [0, 1], bl: [-0.55, 0.85], br: [0.55, 0.85], l: [-0.55, -0.85], r: [0.55, -0.85], fl: [-0.55, -0.85], fr: [0.55, -0.85], f: [0, -1] };
+const SHOT_UP = 520; // art pixels a second, upward at the release: a little over the head, then down
+const SHOT_ON = 620; // and along the ground, the way they face
+const SHOT_FALL = 1150; // gravity
+const DEPTH_RISE = 0.3; // on screen, further away is a little higher up
+const DEPTH_SHRINK = 0.0011; // and smaller
+
+// Where a shot is now (canvas position, radius, which frame), or null once it's gone from the stage.
+function flightAt(f, now) {
+  const t = (now - f.t) / 1000;
+  const up = SHOT_UP * t - (SHOT_FALL * t * t) / 2;
+  const along = SHOT_ON * t;
+  const across = f.dx * along;
+  const away = f.dz * along;
+  const k = 1 / (1 + away * DEPTH_SHRINK);
+  const x = f.x0 + across * f.s;
+  const y = f.y0 - (up + away * DEPTH_RISE) * f.s;
+  const r = (f.d / 2) * k;
+  // a shot going away is gone (into a hoop in the distance) once it drops back to where it left the hands
+  const done = f.dz > 0 ? t > 0.3 && up < 0 : t > 0.3 && up < -150;
+  if (t > 2.5 || done || y < -r || y > canvas.height + r || x < -r || x > canvas.width + r) {
+    flight = null;
+    return null;
+  }
+  // backspin: turning against the way it travels on screen
+  const sideways = Math.abs(f.dx) > Math.abs(f.dz);
+  const turn = -9 * t * (sideways ? Math.sign(f.dx) : -Math.sign(f.dz || 1));
+  return { x, y, r, front: f.dz < 0, img: ballFrame(ballSet(), turn, sideways) };
+}
+
+// ---------- Done: nickname, play or send ----------
+
+const scrim = $("scrim");
+let opener = null;
+function openDone() {
+  opener = document.activeElement;
+  form.hidden = scrim.hidden = false;
+  void form.offsetHeight; // lay it out below the screen first, so it slides up
+  document.body.classList.add("finishing");
+  if (!turnstileStarted) setupTurnstile();
+  nameInput.focus({ preventScroll: true });
+}
+function closeDone() {
+  document.body.classList.remove("finishing");
+  form.hidden = scrim.hidden = true;
+  opener?.focus?.({ preventScroll: true });
+}
+$("done-open").addEventListener("click", () => {
+  cancelBall();
+  openDone();
+});
+$("done-close").addEventListener("click", closeDone);
+scrim.addEventListener("click", closeDone);
+form.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeDone();
+});
 
 // ---------- Friendly words ----------
 // Names are checked as they're typed (the server checks again when sending).
 
-const play = document.getElementById("play");
 const RUDE = "Let's keep it friendly. Try different words.";
 let checkTimer;
 let rude = false;
@@ -313,7 +853,7 @@ async function friendly(text) {
 function checkWords() {
   clearTimeout(checkTimer);
   checkTimer = setTimeout(async () => {
-    const [nameOk, teamOk] = await Promise.all([friendly(nameInput.value), friendly(teamInput.value)]);
+    const [nameOk, teamOk] = await Promise.all([friendly(nameInput.value), friendly(colours.teamName ?? "")]);
     markField(nameInput, nameOk ? "" : RUDE);
     markField(teamInput, teamOk ? "" : RUDE);
     rude = !nameOk || !teamOk;
@@ -322,12 +862,18 @@ function checkWords() {
     else if (message.classList.contains("fb-error")) say(message, "");
   }, 350);
 }
+nameInput.addEventListener("input", () => {
+  checkWords();
+  showName();
+});
 
 // ---------- Sending ----------
 
 let token = "";
 let widgetId;
+let turnstileStarted = false;
 async function setupTurnstile() {
+  turnstileStarted = true;
   try {
     const [{ turnstileSiteKey }, turnstile] = await Promise.all([
       fetch(`${API}/config`).then((r) => r.json()),
@@ -341,7 +887,7 @@ async function setupTurnstile() {
         document.head.append(s);
       }),
     ]);
-    widgetId = turnstile.render(document.getElementById("check"), {
+    widgetId = turnstile.render($("check"), {
       sitekey: turnstileSiteKey,
       theme: "dark",
       callback: (t) => (token = t),
@@ -352,20 +898,33 @@ async function setupTurnstile() {
   }
 }
 
-// A kid from video's size, saved with them on this device.
-const looks = () => ({ build: current.video ? { ...build } : undefined });
+// What's saved with a player: their colours (with the team's name) and, for a kid from video, their size and gear.
+const look = () => ({
+  base: current.id,
+  colours: { ...colours, teamName: colours.teamName ?? DEFAULT_TEAM },
+  build: current.video ? { ...build } : undefined,
+  gear: current.video && Object.keys(gear).length ? { ...gear } : undefined,
+});
+
+// Before the body has loaded there's nothing to save yet (a fast tap on a slow connection).
+function stillLoading() {
+  if (current) return false;
+  say(message, "Your player is still loading. Try again in a moment.", { error: true });
+  return true;
+}
+
+function needName() {
+  if (nameInput.value.trim()) return false;
+  say(message, "Give your player a nickname.", { error: true });
+  markField(nameInput, "Give your player a nickname.");
+  nameInput.focus();
+  return true;
+}
 
 // Play straight away: save to this device and jump into the game as them.
 play.addEventListener("click", () => {
-  if (rude) return;
-  const name = nameInput.value.trim();
-  if (!name) {
-    say(message, "Give your player a nickname.", { error: true });
-    markField(nameInput, "Give your player a nickname.");
-    nameInput.focus();
-    return;
-  }
-  const id = saveMyPlayer({ name, base: current.id, colours: { ...colours, teamName: teamInput.value.trim() }, ...looks() });
+  if (rude || stillLoading() || needName()) return;
+  const id = saveMyPlayer({ ...ownPlayer, name: nameInput.value.trim(), ...look() });
   try {
     localStorage.setItem("orson-hoops-character", JSON.stringify(id));
     localStorage.setItem("orson-hoops-chosen", "true"); // straight into a game, no player select
@@ -377,12 +936,7 @@ play.addEventListener("click", () => {
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (!nameInput.value.trim()) {
-    say(message, "Give your player a nickname.", { error: true });
-    markField(nameInput, "Give your player a nickname.");
-    nameInput.focus();
-    return;
-  }
+  if (stillLoading() || needName()) return;
   if (!token) {
     say(message, "Please finish the robot check first.", { error: true });
     return;
@@ -392,8 +946,8 @@ form.addEventListener("submit", async (e) => {
   // Already playing as a player by this name on this device? Give it this look, here and on the
   // leaderboard (the server updates the scores this device played as it).
   const name = nameInput.value.trim();
-  const mine = myPlayers().find((p) => p.name.toLowerCase() === name.toLowerCase());
-  if (mine) saveMyPlayer({ ...mine, name, base: current.id, colours: { ...colours, teamName: teamInput.value.trim() }, ...looks() });
+  const same = ownPlayer ?? myPlayers().find((p) => p.name.toLowerCase() === name.toLowerCase());
+  if (same) saveMyPlayer({ ...same, name, ...look() });
   let device = "";
   try {
     device = localStorage.getItem("orson-device") ?? "";
@@ -409,15 +963,17 @@ form.addEventListener("submit", async (e) => {
         base: current.id,
         colours,
         number: numberInput.value,
-        teamName: teamInput.value.trim(),
-        localId: mine?.id,
+        teamName: colours.teamName ?? DEFAULT_TEAM,
+        build: look().build,
+        localId: same?.id,
         device,
         turnstileToken: token,
       }),
     });
     const out = await res.json();
     if (!res.ok) throw new Error(out.error);
-    say(message, `Sent! Orson will check ${nameInput.value.trim()} soon. Once approved, pick them in the game.`);
+    if (same) saveMyPlayer({ ...same, name, ...look(), sent: true });
+    say(message, `Sent! Orson will check ${name} soon. Once approved, pick them in the game.`);
     send.textContent = "Make another";
     token = "";
     window.turnstile?.reset(widgetId);
@@ -429,6 +985,57 @@ form.addEventListener("submit", async (e) => {
     send.disabled = false;
   }
 });
+
+// ---------- Start ----------
+
+const hexParam = (part) => {
+  const c = params.get(part);
+  return c && /^[0-9a-f]{6}$/i.test(c) ? `#${c.toLowerCase()}` : null;
+};
+
+async function setup() {
+  fillIcons();
+  bases = await loadBases();
+  // Start from the link's look, if any, otherwise the first body.
+  const start = bases.find((b) => b.id === params.get("base")) ?? bases[0];
+  for (const part of [...LOOK, "shoes"]) colours[part] = hexParam(part) ?? start.colours[part];
+
+  // A link with a kit of its own wears it as a team of yours (saved only if you change it).
+  const teamName = (params.get("teamName") ?? "").toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, 10);
+  const [jersey, trim] = [hexParam("jersey"), hexParam("team")];
+  let startKit = "home";
+  if (jersey && trim) {
+    // the team it's from, in either of its kits; else a team of yours in that kit
+    const worn = { jersey, shorts: hexParam("shorts") ?? trim, trim };
+    const same = (k) => KIT_PARTS.every((p) => k[p] === worn[p]);
+    const known = [...mine, ...TEAMS].find((t) => t.name === (teamName || DEFAULT_TEAM) && (same(t.home) || same(t.away)));
+    linkTeam = known ? null : { id: `mine${Date.now()}`, name: teamName || DEFAULT_TEAM, home: worn, away: { jersey: "#f2f2ef", shorts: trim, trim } };
+    team = known ?? linkTeam;
+    if (known && !same(known.home)) startKit = "away";
+  } else {
+    team = [...mine, ...TEAMS].find((t) => t.name === teamName) ?? TEAMS[0];
+  }
+  if (/^\d{1,2}$/.test(params.get("number") ?? "")) numberInput.value = colours.number = params.get("number");
+  if (params.get("name")) nameInput.value = params.get("name").slice(0, 12);
+
+  setupWall();
+  setupSize();
+  setupTeams();
+  setupBalls();
+  setupTurning();
+  paintLook();
+  mark(shoesRow, colours.shoes);
+  showTab("character");
+  await chooseBase(start);
+  wearTeam(team, startKit);
+  if (ownPlayer) {
+    document.querySelector(".builder-top h1").textContent = "Edit your player";
+    document.title = "Edit your player | Orson Brooker";
+    $("sent-note").hidden = !ownPlayer.sent;
+  }
+  requestAnimationFrame(draw);
+  loadCards();
+}
 
 setup().catch(() => {
   say(message, "The builder couldn't load. Try refreshing the page.", { error: true });

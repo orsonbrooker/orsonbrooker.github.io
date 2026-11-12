@@ -12,7 +12,7 @@ import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, THREE_POINT_CONTEST, lowWins,
 import type { Mode, Shot } from "../../shared/rules.js";
 import { forget } from "./cache.ts";
 import { HttpError } from "./http.ts";
-import { MAX_PLAYER_NAME, PLAYER_PARTS, isNickname } from "./players.ts";
+import { MAX_PLAYER_NAME, PLAYER_PARTS, isNickname, lookJson } from "./players.ts";
 import { checkGame, oddFlags } from "./scoring.ts";
 import { checkTurnstile, clean, forgetBlockedNames, hash, ipKey, isUnfriendly, json, MIN_BLOCKED, rateLimit, readJson, RUDE, squash } from "./util.ts";
 import type { Env } from "./util.ts";
@@ -88,7 +88,7 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 	const sent = body.colours && typeof body.colours === "object" ? (body.colours as Record<string, unknown>) : null;
 	const colours =
 		base && sent && PLAYER_PARTS.every((p) => /^#[0-9a-f]{6}$/i.test(String(sent[p])))
-			? JSON.stringify(Object.fromEntries(PLAYER_PARTS.map((p) => [p, String(sent[p]).toLowerCase()])))
+			? lookJson(sent)
 			: null;
 
 	// The shot log and score, by the game's rules (scoring.ts), then the token: signed, unused, old enough.

@@ -54,7 +54,7 @@ flowchart LR
 - **Worker** (`worker/src/index.ts`, admin UI in `worker/src/admin.html`): the only server. It answers the API
   and the admin page on the same domain as the site, so there's no cross-site setup in production. The admin
   page has one address per section (`/admin` is the inbox, then `/admin/ideas`, `/admin/players`,
-  `/admin/scores`, `/admin/stats`), all the same page behind the same sign-in check. It draws players front and back with
+  `/admin/scores`, `/admin/words`, `/admin/stats`), all the same page behind the same sign-in check. It draws players front and back with
   the site's own `players/recolor.js`, which the build copies to a fixed address for it.
 - **Edge cache** (`worker/src/cache.ts`): public answers that are the same for everyone (the boards, score
   cards, approved players, config, the ideas list without a device) are kept in Cloudflare's cache for 30-60 s,
@@ -119,6 +119,7 @@ erDiagram
     text description "tidied draft"
     text note "suggestion for the admin"
     int merge_into "suggested idea"
+    text kept_at "kept as kind words"
   }
   ideas {
     int id PK
@@ -142,6 +143,7 @@ erDiagram
     text number "0-99 or none"
     text team_name "KINGS by default"
     text pronoun "he, she, or null (the body's)"
+    real height_bulk "size: -1, -0.5, 0, 0.5 or 1, or null"
     text status "new, approved, hidden"
   }
   scores {
@@ -202,6 +204,20 @@ Terms used across the code:
 - **Player:** who you play as. *Built-in* (Orson: `assets/characters/index.json`), *approved builder
   players* (`players` table, status `approved`, shown to everyone) and *own players* (made in the builder, kept
   in that browser only, ids like `me1793858104451`; their look travels with their scores as `base` + `colours`).
+- **Size (build):** a builder player's `{ height, bulk }` from the builder's sliders, each -1, -0.5, 0, 0.5
+  or 1 (0 is the body as drawn). Sent with the player (`build`), kept in the `players` table's `height` and
+  `bulk` (null when none was sent) and returned as `build` (or null) by `GET /api/players`, so an approved
+  player is the same size for everyone; own players keep it on the device.
+- **Builder** (`players/`): four tabs under a preview that stays on screen: *Character* (skin and hair
+  colour, with every body below as a card in those colours and size, so kids compare them before picking),
+  *Body* (height and build, for kids made from video), *Team* (`players/teams.js`: the teams everyone has,
+  Kings first, or your own, kept on the device as `orson-hoops-my-teams`; each has a home and an away kit of
+  jersey, shorts and trim; plus the player's number) and *Gear* (shoe colour, and the shop's ball styles
+  through `progress.js`: owned ones are picked straight away, others are tried on in a kid from video's hands
+  with Buy or Cancel covering the gear). *Done* opens a sheet with
+  the nickname, "Play as them now" and "Send to Orson". The cards load every body in the background. Own players have an edit pencil in the game's picker:
+  `/players/?edit=<id>` loads them (body, colours, team and kit, number, size) and saving keeps their id, even
+  under a new name; one already sent (`sent` in the save) is told that sending again sends the new look.
 - **Pronoun:** whether a player is a "he" or a "she", for the announcer's lines. Built-in players have it in
   `index.json` ("he"); builder players get their body's (`pronoun` in `assets/characters/bases/index.json`:
   ponytail and buns are "she", the rest "he"), unless the admin sets one of their own (the `players` table's
@@ -255,7 +271,9 @@ Terms used across the code:
   whether or not the score ever goes on the board. A finished HORSE match has no score, so it earns a flat
   amount instead (`HORSE_MATCH` in `shared/rules.js`), checked only by the token's age (at least 30 seconds),
   for the device it was played on; a match quit from the pause earns nothing.
-  The first coins make a `progress` and give the device a random key (`orson-progress-key` in the browser; the server keeps only a keyed hash). No names,
+  The first coins make a `progress` and give the device a random key (`orson-progress-key` in the browser; the server keeps only a keyed hash). The game never
+  throws the key away, whatever an answer says (a 404 can come from a wrong route as easily as from the
+  server): it's the only way back to the coins and balls. No names,
   emails or passwords. Coins buy ball styles (`shared/shop.js`; the everyday ball's look, while money and
   rainbow balls keep theirs so they stand out). To carry progress to another device, one device asks for a
   pairing code (`/pair`: 8 letters and numbers, works once, for 10 minutes) and the other types it in
@@ -368,12 +386,14 @@ stateDiagram-v2
   Inbox --> Board: Add to board (title, description, credit)
   Inbox --> Merged: Add to an existing idea<br/>(can edit it, upvote, credit the sender)
   Inbox --> Rejected
+  Inbox --> KindWords: Keep as kind words<br/>(a compliment, off the board, kept to read)
   Board --> Planned
   Planned --> Done: released (done_at set)
   Board --> Done
   Board --> Hidden
   Merged --> [*]
   Rejected --> [*]
+  KindWords --> [*]
   Done --> [*]
 ```
 
@@ -410,6 +430,15 @@ stateDiagram-v2
 ```
 
 The menu, help, the leaderboard and the shop open over any of these and return to where they were.
+
+In the code these are `state.phase`, and `PHASES` in `play/state.js` lists where each can go (the title is
+always allowed); change it only with `setPhase()`, which warns about a move the table doesn't list (an
+error in `?debug`). Between Playing and GameOver there's a short `ending` phase: time's up (or the game is
+decided), balls already in the air still count, and no new shot can start. A shot can only be taken while
+`canShoot()` (playing, not paused), so every ball that can score is in the shot log, and a ball is called
+made or missed once: a ball still sitting on the rim isn't called until it drops in (it counts) or
+falls off, or just before it's cleared away (5 seconds), and a ball called a miss can't count later. Both keep the
+score the game shows equal to the server's recount of its shot log.
 
 **The page is laid out like an app**, the same on the web and in the iOS app (`games/shootaround/index.html`,
 the game page section of `styles.css`). There's no site bar: the website's pages are links at the bottom of
@@ -472,6 +501,18 @@ flowchart LR
   `tools/dev/check_prints.mjs` checks every frame keeps the print on the jersey.
 - **Recolouring:** the full-detail sheet has a `regions.png` like the builder bodies; `?jersey=...&number=`
   on the game URL tries a kit on Orson.
+- **Kits: jersey, shorts and trim.** The region map has one "team" region for the jersey's trim and the
+  shorts. `recolor()` splits it when a player has `shorts` of their own: team pixels within 4 pixels of the
+  jersey are the trim (and the number's ink), the rest the shorts (`shortsMask()`, once per sheet). No
+  `shorts` (players made before, the `players` table's null): the shorts are the team colour, as before.
+- **Shade ramps** (`players/shades.js`, used by `recolor()` for hair only): the hair's pixels are ranked by
+  lightness within each frame (worked out once per sheet, contrast-limited so flat areas don't go blotchy; a
+  frame showing little hair leans on the whole sheet's ranks), so hair that's lighter in some video frames
+  than others doesn't flicker.
+  A chosen colour becomes 6 shades in OKLCH (three shadows, the colour, two highlights; squeezed near black
+  or white rather than greyed), and a 256-entry table maps each pixel's lightness to its place on that ramp,
+  so black hair keeps its curls and blonde stays blonde. Skin, kit and shoes keep the plain scaling, which
+  leaves eyes and freckles drawn on the skin as they are.
 
 ### Layered players
 
@@ -536,6 +577,16 @@ flowchart LR
 - **Size:** `players/stretch.js` doubles or drops rows between the jersey's top and the feet and columns
   across the jersey (6% taller or shorter, 10% wider or slimmer at the ends), with the number, team name and
   held ball moved to match. Saved with the player on the device (`build` in `shared/save.js`).
+- **Gear** (`content/gear.json`: shoes, head, face, jersey, arms and legs items) is a layer over the kid,
+  never part of the body. Flow paints one item per pass onto grids of the kid's frames (greyed shoes and
+  shorts, the ball painted back in, from `gear_key.py grids`), its main part in shaded magenta and a second
+  colour in shaded bright blue; `gear_key.py build` turns that into `assets/characters/gear/<item>/<kid>`:
+  the item's pixels per frame (packed), a part map (gear1, gear2, recoloured from light and shade like
+  hair, in the player colours the item names) and the body pixels it hides (hair under a hat).
+  `players/gear.js` puts the worn items on the recoloured sheet before height and build, growing frames
+  where an item reaches outside them. Items behind the held ball are cut where the ball is; arm items go
+  over it; jersey prints go over stripes and under a hoodie. Saved with the player (`gear` in
+  `shared/save.js`); `?gear=beanie,stripes` tries items in the builder and the game.
 - **Moves:** their sheets add `start` (picking the dribble back up) and `recover` (arms down after a shot),
   which the game uses when a sheet has them (`hasMove()` in `play/players.js`).
 
