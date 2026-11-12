@@ -306,8 +306,6 @@ async function paintWear() {
       return b;
     }),
   );
-  // each item as worn in their first standing frame
-  const [fx, fy] = current.meta.frames.idle[0];
   const layers = await Promise.all(made[wearSlot].map((id) => loadGear(kid, [id]).then((l) => l[0]).catch(() => null)));
   if (token !== wearToken) return;
   const none = button({ className: "ball-card", ariaPressed: String(!gear[wearSlot]), ariaLabel: "Nothing" }, el("span", { className: "slot-empty" }), el("span", { className: "ball-name" }, "None"));
@@ -315,7 +313,7 @@ async function paintWear() {
   $("wear-items").replaceChildren(
     none,
     ...layers.filter(Boolean).map((layer) => {
-      const b = button({ className: "ball-card", ariaPressed: String(gear[wearSlot] === layer.id), ariaLabel: GEAR[layer.id].name }, itemArt(layer, `${fx},${fy}`, colours, 48), el("span", { className: "ball-name" }, GEAR[layer.id].name));
+      const b = button({ className: "ball-card", ariaPressed: String(gear[wearSlot] === layer.id), ariaLabel: GEAR[layer.id].name }, itemArt(layer, colours, 96, (rect) => recolor(current, colours, rect), current.meta), el("span", { className: "ball-name" }, GEAR[layer.id].name));
       b.addEventListener("click", () => wear(wearSlot, layer.id));
       return b;
     }),
