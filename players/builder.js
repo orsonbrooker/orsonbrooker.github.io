@@ -139,6 +139,26 @@ const CARD_H = 170;
 const cardKey = () => JSON.stringify([LOOK.map((p) => colours[p]), kitColours(currentKit()), colours.shoes, build.height, build.bulk]);
 let cardsKey = "";
 
+const HEIGHT_ROOM = 0.08; // how much taller the tallest setting makes a kid, roughly
+
+// How tall a body stands: the drawn rows of its first idle frame, feet to the top of the hair.
+function standingHeight(b) {
+  const [x, y, w, h] = b.meta.frames.idle[0];
+  const c = el("canvas", { width: w, height: h });
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(b.atlasImg, x, y, w, h, 0, 0, w, h);
+  const a = g.getImageData(0, 0, w, h).data;
+  const row = (r) => {
+    for (let i = r * w * 4 + 3; i < (r + 1) * w * 4; i += 4) if (a[i] > 32) return true;
+    return false;
+  };
+  let top = 0;
+  while (top < h - 1 && !row(top)) top++;
+  let bottom = h - 1;
+  while (bottom > top && !row(bottom)) bottom--;
+  return Math.max(1, bottom - top + 1);
+}
+
 function cardFrame(card, i) {
   if (card.frames.has(i)) return card.frames.get(i);
   const b = card.loaded;
@@ -152,7 +172,10 @@ function cardFrame(card, i) {
   g.imageSmoothingEnabled = true;
   g.imageSmoothingQuality = "high";
   // Room for the tallest player standing, feet on the card's floor.
-  const s = (CARD_H - 10) / 300;
+  // Every character the same standing height on its card (kids from video are drawn at a different
+  // scale from the hand-drawn bodies), with room above for the tallest size.
+  card.standing ??= standingHeight(b);
+  const s = (CARD_H - 12) / (1 + HEIGHT_ROOM) / card.standing;
   const at = [CARD_W / 2 + (ox - sized.dx) * s, CARD_H - 5 + (oy - sized.dy) * s];
   if (sized.ball) {
     const d = 2 * sized.ball[2] * s * 1.04;
