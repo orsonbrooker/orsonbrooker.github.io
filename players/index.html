@@ -92,8 +92,26 @@
         </section>
 
         <section id="pane-gear" role="tabpanel" aria-labelledby="tab-gear" data-pane="gear" hidden>
-          <p class="pane-title">Shoes</p>
-          <div class="swatch-row" data-part="shoes"></div>
+          <div id="gear-main">
+            <p class="pane-title">Shoes</p>
+            <div class="swatch-row" data-part="shoes"></div>
+            <div class="gear-head">
+              <p class="pane-title">Ball</p>
+              <span class="coins" id="coins"></span>
+            </div>
+            <div class="ball-grid" id="balls"></div>
+            <p class="fb-message" id="gear-message" role="status"></p>
+          </div>
+          <div class="buy-panel" id="ball-buy" hidden>
+            <canvas id="buy-art" width="96" height="96"></canvas>
+            <h2 id="buy-name"></h2>
+            <p class="buy-price" id="buy-price"></p>
+            <p class="fb-hint" id="buy-say"></p>
+            <div class="editor-actions">
+              <button type="button" class="fb-button" id="buy-cancel">Cancel</button>
+              <button type="button" class="fb-button fb-primary" id="buy-yes"></button>
+            </div>
+          </div>
         </section>
       </div>
     </main>

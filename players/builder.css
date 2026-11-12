@@ -640,6 +640,143 @@
   margin: 0;
 }
 
+/* ---------- Gear ---------- */
+
+.gear-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.gear-head .pane-title {
+  margin: 0;
+}
+
+.coins {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 16px;
+  background: var(--ink);
+  color: #f2cf3d;
+  font-family: var(--pixel);
+  font-size: 9px;
+}
+
+.coins .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.ball-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ball-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 10px 4px 8px;
+  border: 3px solid transparent;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  cursor: pointer;
+}
+
+.ball-card[aria-pressed="true"] {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.ball-card canvas {
+  width: 48px;
+  height: 48px;
+}
+
+.ball-name {
+  font-family: var(--pixel);
+  font-size: 7px;
+}
+
+.ball-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 14px;
+  color: #f2cf3d;
+  font-family: var(--pixel);
+  font-size: 7px;
+}
+
+.ball-price.owned {
+  color: #8fe0a3;
+}
+
+.ball-price .icon {
+  width: 14px;
+  height: 14px;
+}
+
+#gear-main[hidden],
+.buy-panel[hidden] {
+  display: none;
+}
+
+.buy-panel {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 22px 16px 18px;
+  border-radius: 10px;
+  background: var(--ink);
+  text-align: center;
+}
+
+.buy-panel canvas {
+  width: 96px;
+  height: 96px;
+}
+
+.buy-panel h2 {
+  margin: 0;
+  font-family: var(--pixel);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.buy-price {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: #f2cf3d;
+  font-family: var(--pixel);
+  font-size: 14px;
+}
+
+.buy-price .icon {
+  width: 22px;
+  height: 22px;
+}
+
+.buy-panel .editor-actions {
+  width: 100%;
+  max-width: 360px;
+}
+
+.buy-panel .fb-button:not(.fb-primary) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
 /* ---------- Body ---------- */
 
 /* Size: a pixel slider each for height and build, with five big steps. Hard edges, no rounding: a

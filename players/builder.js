@@ -13,7 +13,9 @@
 import { API } from "../api.js";
 import { markField, say } from "../ui/form.js";
 import { fillIcons, icon } from "../ui/icons.js";
-import { makeBallSprites } from "../engine/draw.js";
+import { makeBallFrames, makeBallSprites } from "../engine/draw.js";
+import { buyBall, hasProgress, onProgress, owns, progress, refreshProgress, useBall } from "../progress.js";
+import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../shared/shop.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
@@ -48,8 +50,16 @@ let bases = [];
 let current; // the loaded base
 // what the preview draws: { meta, img, prints }, the body's sheet in their colours (and size)
 let sheet;
-let ballSprites = null; // the held ball, made when first needed
-const ball = () => (ballSprites ??= makeBallSprites())[NORMAL][0];
+// The ball a kid from video holds: the one they're trying on in the Gear tab, else their ball from the
+// shop (the same one the game uses).
+let tryingBall = null;
+const ballId = () => tryingBall ?? ballStyle(progress.ball)?.id ?? DEFAULT_BALL;
+const ballSprites = new Map();
+const ball = () => {
+  const id = ballId();
+  if (!ballSprites.has(id)) ballSprites.set(id, makeBallSprites(ballStyle(id).look));
+  return ballSprites.get(id)[NORMAL][0];
+};
 const colours = {}; // skin, hair, jersey, shorts, team (the trim), shoes, number, teamName
 const build = { height: 0, bulk: 0 };
 const LOOK = ["skin", "hair"];
@@ -69,7 +79,10 @@ function showTab(name) {
   $("panel").scrollTop = 0;
 }
 for (const t of tabs) {
-  t.addEventListener("click", () => showTab(t.dataset.tab));
+  t.addEventListener("click", () => {
+    if (t.dataset.tab !== "gear") cancelBall();
+    showTab(t.dataset.tab);
+  });
   t.addEventListener("keydown", (e) => {
     const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
     if (!step) return;
@@ -136,7 +149,7 @@ const CARD_W = 120;
 const CARD_H = 170;
 
 // The look a card shows: colours and size, without the number and team name (too small to read).
-const cardKey = () => JSON.stringify([LOOK.map((p) => colours[p]), kitColours(currentKit()), colours.shoes, build.height, build.bulk]);
+const cardKey = () => JSON.stringify([LOOK.map((p) => colours[p]), kitColours(currentKit()), colours.shoes, build.height, build.bulk, ballId()]);
 let cardsKey = "";
 
 const HEIGHT_ROOM = 0.08; // how much taller the tallest setting makes a kid, roughly
@@ -240,6 +253,104 @@ async function chooseBase(base) {
   heightInput.disabled = bulkInput.disabled = !current.video;
   $("size-hint").hidden = !!current.video;
   repaint();
+}
+
+// ---------- Balls: the shop's ball styles, tried on here and bought with coins ----------
+
+const coinText = (n) => `${n} ${n === 1 ? "coin" : "coins"}`;
+const ballArt = (style, size) => {
+  const c = el("canvas", { width: size, height: size });
+  c.getContext("2d").drawImage(makeBallFrames(style.look)[0], 0, 0, size, size);
+  return c;
+};
+let ballBusy = false;
+
+function paintBalls() {
+  const coins = $("coins");
+  coins.innerHTML = icon("coins");
+  coins.append(String(progress.coins));
+  coins.setAttribute("aria-label", `You have ${coinText(progress.coins)}`);
+  $("balls").replaceChildren(
+    ...BALL_STYLES.map((style) => {
+      const using = ballStyle(progress.ball)?.id === style.id || (!ballStyle(progress.ball) && style.id === DEFAULT_BALL);
+      const tag = el("span", { className: owns(style.id) ? "ball-price owned" : "ball-price" });
+      if (owns(style.id)) tag.innerHTML = `${icon("check")}${using ? "Using" : "Yours"}`;
+      else tag.innerHTML = `${icon("coins")}${style.price}`;
+      const b = button({ className: "ball-card", ariaPressed: String(using), ariaLabel: style.name }, ballArt(style, 48), el("span", { className: "ball-name" }, style.name), tag);
+      b.addEventListener("click", () => pickBall(style));
+      return b;
+    }),
+  );
+}
+
+async function pickBall(style) {
+  if (ballBusy || ballId() === style.id) return;
+  say($("gear-message"), "");
+  if (!owns(style.id)) return tryBall(style);
+  ballBusy = true;
+  try {
+    await useBall(style.id);
+  } catch (err) {
+    say($("gear-message"), err.message, { error: true });
+  } finally {
+    ballBusy = false;
+  }
+}
+
+// Picking a ball they don't have: it goes in their hands, and the gear is covered until they buy or cancel.
+function tryBall(style) {
+  tryingBall = style.id;
+  const can = progress.coins >= style.price;
+  $("buy-art").getContext("2d").clearRect(0, 0, 96, 96);
+  $("buy-art").getContext("2d").drawImage(makeBallFrames(style.look)[0], 0, 0, 96, 96);
+  $("buy-name").textContent = `${style.name} ball`;
+  $("buy-price").innerHTML = `${icon("coins")}${style.price}`;
+  $("buy-say").textContent = can
+    ? `You have ${coinText(progress.coins)}. Buy it to keep it.`
+    : `You have ${coinText(progress.coins)}. Win ${style.price - progress.coins} more in the game to buy it.`;
+  const yes = $("buy-yes");
+  yes.innerHTML = `${icon("coins")}Buy for ${style.price}`;
+  yes.disabled = !can;
+  $("gear-main").hidden = true;
+  $("ball-buy").hidden = false;
+  repaint();
+}
+
+function cancelBall() {
+  if (!tryingBall) return;
+  tryingBall = null;
+  $("gear-main").hidden = false;
+  $("ball-buy").hidden = true;
+  repaint();
+}
+
+function setupBalls() {
+  $("buy-cancel").addEventListener("click", cancelBall);
+  $("buy-yes").addEventListener("click", async () => {
+    const style = ballStyle(tryingBall);
+    if (!style || ballBusy) return;
+    ballBusy = true;
+    $("buy-yes").disabled = true;
+    try {
+      await buyBall(style.id);
+      tryingBall = null;
+      $("gear-main").hidden = false;
+      $("ball-buy").hidden = true;
+      say($("gear-message"), `The ${style.name} ball is yours!`);
+      repaint();
+    } catch (err) {
+      $("buy-say").textContent = err.message;
+      $("buy-yes").disabled = false;
+    } finally {
+      ballBusy = false;
+    }
+  });
+  onProgress(() => {
+    paintBalls();
+    repaint();
+  });
+  paintBalls();
+  if (hasProgress()) refreshProgress(); // coins from games on another device
 }
 
 // ---------- Size ----------
@@ -560,7 +671,10 @@ function closeDone() {
   form.hidden = scrim.hidden = true;
   opener?.focus?.({ preventScroll: true });
 }
-$("done-open").addEventListener("click", openDone);
+$("done-open").addEventListener("click", () => {
+  cancelBall();
+  openDone();
+});
 $("done-close").addEventListener("click", closeDone);
 scrim.addEventListener("click", closeDone);
 form.addEventListener("keydown", (e) => {
@@ -735,6 +849,7 @@ async function setup() {
   setupWall();
   setupSize();
   setupTeams();
+  setupBalls();
   paintLook();
   mark(shoesRow, colours.shoes);
   showTab("character");
