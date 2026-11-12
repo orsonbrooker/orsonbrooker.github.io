@@ -728,11 +728,15 @@ function draw(now) {
     const d = 2 * held[2] * s * 1.04;
     ctx.drawImage(ball(held), at[0] + held[0] * s - d / 2, at[1] + held[1] * s - d / 2, d, d);
     lastHeld = { x: at[0] + held[0] * s, y: at[1] + held[1] * s, d, step, ox };
-  } else if (lastHeld && /^(jump|release)/.test(step.anim) && !reducedMotion.matches) {
-    // the ball just left their hands: a shot's arc toward where they face, with backspin
+  } else if (lastHeld && step.anim.startsWith("release") && !reducedMotion.matches) {
+    // The ball has left their hands: from where the game lets it go for this way they face
+    // (releaseOffsets, from the feet, in court pixels: times res for the sheet's; a right side is the
+    // left mirrored, so its offset is too), on a
+    // shot's arc that way, with backspin. A ball only hidden behind the head in a jump isn't let go.
     const side = step.anim.split("-")[1] ?? "";
+    const [offX, offY] = meta.releaseOffsets?.[side] ?? meta.releaseOffset ?? [0, -455];
     const [dx, dz] = SHOT_WAY[side] ?? SHOT_WAY[""];
-    flight = { x0: lastHeld.x, y0: lastHeld.y, d: lastHeld.d, s, dx, dz, t: now };
+    flight = { x0: groundX + offX * res * s, y0: groundY + offY * res * s, d: lastHeld.d, s, dx, dz, t: now };
     lastHeld = null;
     shotGone = true;
   } else if (!shooting) lastHeld = null;
