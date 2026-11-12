@@ -17,6 +17,10 @@ python .claude/skills/flow-images/flow.py queue <ref prefix> 0 13 <prompt file>
 python .claude/skills/flow-images/flow.py collect <newest N> <out dir> "BUNS BALL KEY \d\d"
 ```
 
+A second browser, "flow2" (`~/.agent-browser/flow2.json`, a copy of the signed-in profile), lets two
+sessions work at once: run `flow.py` with `FLOW_SESSION=flow2`, and open it with `--session flow2 --config
+~/.agent-browser/flow2.json`. Each browser has one driver; say which one you're taking.
+
 If Google asks to sign in, reopen with `--headed` and ask Luke to sign in in that window; never type his
 password. Shell commands with `eval` in them are refused in a worktree: put them in a script and run that.
 

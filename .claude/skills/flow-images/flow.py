@@ -9,6 +9,10 @@
         finds the newest N items, reads each one's own page for its prompt tag and image link, and
         downloads the ones whose tag matches as <out>/<kid>-<kind>-NN-k.img
 
+Two sessions can work in Flow at once, each in its own browser: FLOW_SESSION=flow2 uses the "flow2"
+agent-browser session and ~/.agent-browser/flow2.json (a copy of the signed-in profile); the default is
+"flow". Never drive one browser from two sessions.
+
 The tag is the prompt's first words, e.g. "BUNS BALL KEY 03". Always check downloads with
 tools/pixelart/match_grids.py before using them.
 """
@@ -19,12 +23,13 @@ import subprocess
 import sys
 import time
 
+SESSION = os.environ.get("FLOW_SESSION", "flow")
 PROJECT = "/project/f2807216-5509-4ff8-971f-9401cf3e82fc"
 URL = "https://flow.google.com" + PROJECT
 
 
 def ab(*args, timeout=180):
-    r = subprocess.run(["agent-browser", "--session", "flow", *args], capture_output=True, text=True, timeout=timeout)
+    r = subprocess.run(["agent-browser", "--session", SESSION, *args], capture_output=True, text=True, timeout=timeout)
     return (r.stdout + r.stderr).strip()
 
 
@@ -37,7 +42,7 @@ def ev(js):
 
 
 def open_project():
-    ab("--config", os.path.expanduser("~/.agent-browser/flow.json"), "open", URL)
+    ab("--config", os.path.expanduser(f"~/.agent-browser/{SESSION}.json"), "open", URL)
     time.sleep(8)
 
 
