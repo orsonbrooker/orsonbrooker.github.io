@@ -148,13 +148,102 @@ def build(kid, item, gdir, prefix):
         piece = cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, item_info.get("hides") == "hair")
         if piece is not None:
             pieces[f"{c['rect'][0]},{c['rect'][1]}"] = piece
+    borrowed = borrow(layout, pieces, sheet)
+    if item_info.get("hides") == "hair":
+        for c in layout:
+            key = f"{c['rect'][0]},{c['rect'][1]}"
+            if key in pieces:
+                pieces[key] = hide_hair_above(pieces[key], c["rect"], sheet, regions)
     write(kid, item, pieces, meta)
+    if borrowed:
+        print(f"{borrowed} frames with no painting borrowed the item from a matching frame")
     for n in notes:
         print(n)
     print(f"{len(odd)} frames far from the item's usual size")
     redo = sorted({int(o[5:7]) for o in odd})
     if redo:
         print("their grids (check them; redo with a finished grid as a second reference):", ",".join(f"{g:02d}" for g in redo))
+
+
+def hide_hair_above(p, rect, sheet, regions):
+    """A hat hides the frame's own hair above its bottom edge that it doesn't cover, and the outline round
+    that hair (after borrowing, the piece came from another frame and its mask from that frame's hair)."""
+    sx, sy, sw, sh = rect
+    ph, pw = p["rgba"].shape[:2]
+    # the piece and the frame on one canvas, the frame's corner at (fx, fy)
+    left, top = min(0, p["dx"]), min(0, p["dy"])
+    W, H = max(sw, p["dx"] + pw) - left, max(sh, p["dy"] + ph) - top
+    fx, fy, px, py = -left, -top, p["dx"] - left, p["dy"] - top
+    rgba = np.zeros((H, W, 4), np.uint8)
+    part = np.zeros((H, W, 4), np.uint8)
+    part[..., 3] = 255
+    rgba[py:py + ph, px:px + pw] = p["rgba"]
+    part[py:py + ph, px:px + pw] = p["part"]
+    body = np.zeros((H, W), bool)
+    body[fy:fy + sh, fx:fx + sw] = sheet[sy:sy + sh, sx:sx + sw, 3] > 0
+    reg = np.full((H, W), 255, np.uint8)
+    reg[fy:fy + sh, fx:fx + sw] = regions[sy:sy + sh, sx:sx + sw]
+    hat = (part[..., 0] > 0)
+    if not hat.any():
+        return p
+    rows = np.nonzero(hat.any(1))[0]
+    above = np.zeros((H, W), bool)
+    above[:rows.max() - max(2, (rows.max() - rows.min()) // 5)] = True
+    keep = rgba[..., 3] > 0
+    hair = body & (reg == HAIR) & above & ~keep
+    ring = ndimage.binary_dilation(hair, iterations=4) & body & (reg == 0) & above & ~keep
+    part[hair | ring, 1] = 255
+    m = keep | (part[..., 1] > 0)
+    ys, xs = np.nonzero(m)
+    t, b, l, r = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    return {"rgba": rgba[t:b, l:r], "part": part[t:b, l:r], "dx": int(l) + left, "dy": int(t) + top}
+
+
+def borrow(layout, pieces, sheet, reach=14):
+    """Frames Flow didn't paint take the item from the frame facing the same way whose body, where the
+    item sits, matches best (lined up by shifting a few pixels): a standing frame borrows from the first
+    frame of the turn, which is the same pose."""
+    def body(rect):
+        x, y, w, h = rect
+        return sheet[y:y + h, x:x + w].astype(float)
+
+    have = [c for c in layout if f"{c['rect'][0]},{c['rect'][1]}" in pieces]
+    n = 0
+    for c in layout:
+        key = f"{c['rect'][0]},{c['rect'][1]}"
+        if key in pieces:
+            continue
+        tgt = body(c["rect"])
+        th, tw = tgt.shape[:2]
+        best = None
+        for d in have:
+            if facing(d["anim"]) != facing(c["anim"]):
+                continue
+            p = pieces[f"{d['rect'][0]},{d['rect'][1]}"]
+            ph, pw = p["rgba"].shape[:2]
+            src = body(d["rect"])
+            sh, sw = src.shape[:2]
+            # the donor's body where the item is (inside its frame)
+            y0, x0 = max(0, p["dy"]), max(0, p["dx"])
+            y1, x1 = min(sh, p["dy"] + ph), min(sw, p["dx"] + pw)
+            if y1 - y0 < 6 or x1 - x0 < 6:
+                continue
+            patch = src[y0:y1, x0:x1]
+            for oy in range(-reach, reach + 1, 2):
+                for ox in range(-reach, reach + 1, 2):
+                    ty0, tx0 = y0 + oy, x0 + ox
+                    if ty0 < 0 or tx0 < 0 or ty0 + (y1 - y0) > th or tx0 + (x1 - x0) > tw:
+                        continue
+                    t = tgt[ty0:ty0 + y1 - y0, tx0:tx0 + x1 - x0]
+                    a = (patch[..., 3] > 0) | (t[..., 3] > 0)
+                    err = float(np.abs(patch[..., :3] - t[..., :3]).sum(-1)[a].mean() + 255 * np.mean((patch[..., 3] > 0) != (t[..., 3] > 0))) if a.any() else 1e9
+                    if best is None or err < best[0]:
+                        best = (err, p, oy, ox)
+        if best and best[0] < 90:
+            _, p, oy, ox = best
+            pieces[key] = {**p, "dx": p["dx"] + ox, "dy": p["dy"] + oy}
+            n += 1
+    return n
 
 
 def cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, hides_hair=False):

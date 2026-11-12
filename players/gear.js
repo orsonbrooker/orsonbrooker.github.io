@@ -24,6 +24,58 @@ export function wornItems(gear) {
   return [...bySlot.values()].sort((a, b) => ORDER.indexOf(GEAR[a].slot) - ORDER.indexOf(GEAR[b].slot));
 }
 
+// The slots in the order the builder shows them: shoes first (everyone has shoes), then top to bottom.
+export const SLOTS = [
+  ["shoes", "Shoes"],
+  ["head", "Head"],
+  ["face", "Face"],
+  ["jersey", "Jersey"],
+  ["arms", "Arms"],
+  ["legs", "Legs"],
+];
+
+/** The items made for a kid, by slot: { slot: [id, ...] }, in content/gear.json's order. */
+export async function madeFor(kid, root = "/") {
+  const made = await loadIndex(root);
+  const out = {};
+  for (const [id, info] of Object.entries(GEAR)) if (made[id]?.[kid]) (out[info.slot] ??= []).push(id);
+  return out;
+}
+
+/** A picture of an item as worn in one frame ("x,y" of the body sheet), in the player's colours. */
+export function itemArt(layer, frameKey, colours, size) {
+  const c = Object.assign(document.createElement("canvas"), { width: size, height: size });
+  const piece = layer.meta.frames[frameKey] ?? Object.values(layer.meta.frames)[0];
+  if (!piece) return c;
+  const [, , pw, ph] = piece;
+  const one = Object.assign(document.createElement("canvas"), { width: pw, height: ph });
+  const g1 = one.getContext("2d");
+  const data = g1.createImageData(pw, ph);
+  const tints = {};
+  layer.info.colours.forEach((name, i) => {
+    if (colours[name]) tints[i + 1] = { rgb: hex(colours[name]), ref: layer.meta.refs[`gear${i + 1}`] ?? 150 };
+  });
+  paint(layer, piece, tints, data.data, pw, ph, 0, 0);
+  g1.putImageData(data, 0, 0);
+  // just the item (the piece also covers what it hides)
+  let l = pw, t = ph, r = -1, b = -1;
+  for (let y = 0; y < ph; y++)
+    for (let x = 0; x < pw; x++)
+      if (data.data[(y * pw + x) * 4 + 3]) {
+        if (x < l) l = x;
+        if (x > r) r = x;
+        if (y < t) t = y;
+        if (y > b) b = y;
+      }
+  if (r < 0) return c;
+  const w = r - l + 1, h = b - t + 1;
+  const k = Math.min(size / w, size / h) * 0.92;
+  const g = c.getContext("2d");
+  g.imageSmoothingQuality = "high";
+  g.drawImage(one, l, t, w, h, (size - w * k) / 2, (size - h * k) / 2, w * k, h * k);
+  return c;
+}
+
 /** { slot: id } from a test link's "beanie,stripes". */
 export function gearParam(text) {
   const out = {};

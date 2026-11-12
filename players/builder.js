@@ -3,7 +3,7 @@
 //              so kids can compare them before picking one.
 //   Body:      height and build (kids made from video).
 //   Team:      a team from the list or one of your own, its home or away kit, and your number.
-//   Gear:      shoes, for now.
+//   Gear:      what a kid from video wears (one item per slot), shoe colour and the ball.
 // Done opens a sheet with the nickname, "Play as them now" and "Send to Orson".
 // Players wait for approval in /admin before they show up in the game's player picker.
 //
@@ -18,7 +18,7 @@ import { ballFrame, makeBallFrames, makeBallSprites } from "../engine/draw.js";
 import { buyBall, hasProgress, onProgress, owns, progress, refreshProgress, useBall } from "../progress.js";
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../shared/shop.js";
 import { paletteSwap } from "../players/pixelkit.js";
-import { gearParam, loadGear, wearGear } from "../players/gear.js";
+import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, wearGear } from "../players/gear.js";
 import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, recolor, saveMyPlayer } from "../players/recolor.js";
@@ -161,6 +161,7 @@ function setColours(change) {
   paintLook();
   mark(shoesRow, colours.shoes);
   repaint();
+  paintWear(); // the items show in the new colours
 }
 
 // ---------- Characters: every body, in your colours and size ----------
@@ -277,6 +278,56 @@ async function chooseBase(base) {
   $("size-hint").hidden = !!current.video;
   worn = current.video ? await loadGear(base.id, gear).catch(() => []) : [];
   repaint();
+  paintWear();
+}
+
+// ---------- What they wear (a kid from video): one item per slot, shown in their own colours ----------
+
+let wearSlot = null;
+let wearToken = 0;
+async function paintWear() {
+  const box = $("wear");
+  const token = ++wearToken;
+  const kid = current?.video ? current.id : null;
+  const made = kid ? await madeFor(kid).catch(() => ({})) : {};
+  if (token !== wearToken) return; // a newer paint started
+  const slots = SLOTS.filter(([id]) => made[id]?.length);
+  box.hidden = !slots.length;
+  if (!slots.length) return;
+  if (!slots.some(([id]) => id === wearSlot)) wearSlot = slots[0][0];
+  $("wear-slots").replaceChildren(
+    ...slots.map(([id, name]) => {
+      const b = button({ className: "slot-chip", role: "tab", ariaSelected: String(id === wearSlot) }, name);
+      if (gear[id]) b.insertAdjacentHTML("beforeend", `<span class="worn">${icon("check")}</span>`);
+      b.addEventListener("click", () => {
+        wearSlot = id;
+        paintWear();
+      });
+      return b;
+    }),
+  );
+  // each item as worn in their first standing frame
+  const [fx, fy] = current.meta.frames.idle[0];
+  const layers = await Promise.all(made[wearSlot].map((id) => loadGear(kid, [id]).then((l) => l[0]).catch(() => null)));
+  if (token !== wearToken) return;
+  const none = button({ className: "ball-card", ariaPressed: String(!gear[wearSlot]), ariaLabel: "Nothing" }, el("span", { className: "slot-empty" }), el("span", { className: "ball-name" }, "None"));
+  none.addEventListener("click", () => wear(wearSlot, null));
+  $("wear-items").replaceChildren(
+    none,
+    ...layers.filter(Boolean).map((layer) => {
+      const b = button({ className: "ball-card", ariaPressed: String(gear[wearSlot] === layer.id), ariaLabel: GEAR[layer.id].name }, itemArt(layer, `${fx},${fy}`, colours, 48), el("span", { className: "ball-name" }, GEAR[layer.id].name));
+      b.addEventListener("click", () => wear(wearSlot, layer.id));
+      return b;
+    }),
+  );
+}
+
+async function wear(slot, id) {
+  if (id) gear[slot] = id;
+  else delete gear[slot];
+  worn = await loadGear(current.id, gear).catch(() => []);
+  repaint();
+  paintWear();
 }
 
 // ---------- Balls: the shop's ball styles, tried on here and bought with coins ----------
@@ -453,6 +504,7 @@ function wearTeam(t, which = kit) {
   teamInput.value = team.name;
   paintTeams();
   repaint();
+  paintWear(); // gear takes the kit's colours
 }
 
 function keepMine() {
