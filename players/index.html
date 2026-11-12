@@ -39,7 +39,9 @@
 
     <main class="builder" id="builder" data-tab="character">
       <div class="builder-stage">
-        <canvas id="preview" width="200" height="256" aria-label="Your player"></canvas>
+        <canvas id="preview" width="400" height="512" aria-label="Your player"></canvas>
+        <button type="button" class="turn-button left" id="turn-left" aria-label="Turn them left" hidden><span data-icon="back"></span></button>
+        <button type="button" class="turn-button right" id="turn-right" aria-label="Turn them right" hidden><span data-icon="next"></span></button>
         <p class="builder-name"><span id="preview-name"></span></p>
       </div>
 
@@ -76,9 +78,11 @@
         <section id="pane-team" role="tabpanel" aria-labelledby="tab-team" data-pane="team" hidden>
           <div class="team-now">
             <div class="team-now-name"><span class="mini-label">Playing for</span><b id="team-now"></b></div>
+          </div>
+          <div class="kit-row">
+            <div class="kit-picker" role="radiogroup" aria-label="Kit" id="kit-picker"></div>
             <label class="number-field"><span class="mini-label">Number</span><input id="number" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" placeholder="0-99" /></label>
           </div>
-          <div class="kit-picker" role="radiogroup" aria-label="Kit" id="kit-picker"></div>
           <div id="team-list"></div>
           <div id="team-editor" hidden>
             <label class="field"><span class="mini-label">Team name</span><input id="team-name" type="text" maxlength="10" autocomplete="off" /></label>
@@ -92,8 +96,26 @@
         </section>
 
         <section id="pane-gear" role="tabpanel" aria-labelledby="tab-gear" data-pane="gear" hidden>
-          <p class="pane-title">Shoes</p>
-          <div class="swatch-row" data-part="shoes"></div>
+          <div id="gear-main">
+            <p class="pane-title">Shoes</p>
+            <div class="swatch-row" data-part="shoes"></div>
+            <div class="gear-head">
+              <p class="pane-title">Ball</p>
+              <span class="coins" id="coins"></span>
+            </div>
+            <div class="ball-grid" id="balls"></div>
+            <p class="fb-message" id="gear-message" role="status"></p>
+          </div>
+          <div class="buy-panel" id="ball-buy" hidden>
+            <canvas id="buy-art" width="96" height="96"></canvas>
+            <h2 id="buy-name"></h2>
+            <p class="buy-price" id="buy-price"></p>
+            <p class="fb-hint" id="buy-say"></p>
+            <div class="editor-actions">
+              <button type="button" class="fb-button" id="buy-cancel">Cancel</button>
+              <button type="button" class="fb-button fb-primary" id="buy-yes"></button>
+            </div>
+          </div>
         </section>
       </div>
     </main>

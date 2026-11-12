@@ -212,7 +212,9 @@ Terms used across the code:
   colour, with every body below as a card in those colours and size, so kids compare them before picking),
   *Body* (height and build, for kids made from video), *Team* (`players/teams.js`: the teams everyone has,
   Kings first, or your own, kept on the device as `orson-hoops-my-teams`; each has a home and an away kit of
-  jersey, shorts and trim; plus the player's number) and *Gear* (shoes for now). *Done* opens a sheet with
+  jersey, shorts and trim; plus the player's number) and *Gear* (shoe colour, and the shop's ball styles
+  through `progress.js`: owned ones are picked straight away, others are tried on in a kid from video's hands
+  with Buy or Cancel covering the gear). *Done* opens a sheet with
   the nickname, "Play as them now" and "Send to Orson". The cards load every body in the background.
 - **Pronoun:** whether a player is a "he" or a "she", for the announcer's lines. Built-in players have it in
   `index.json` ("he"); builder players get their body's (`pronoun` in `assets/characters/bases/index.json`:

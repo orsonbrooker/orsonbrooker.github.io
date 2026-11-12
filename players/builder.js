@@ -13,7 +13,9 @@
 import { API } from "../api.js";
 import { markField, say } from "../ui/form.js";
 import { fillIcons, icon } from "../ui/icons.js";
-import { makeBallSprites } from "../engine/draw.js";
+import { ballFrame, makeBallFrames, makeBallSprites } from "../engine/draw.js";
+import { buyBall, hasProgress, onProgress, owns, progress, refreshProgress, useBall } from "../progress.js";
+import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../shared/shop.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
@@ -48,8 +50,18 @@ let bases = [];
 let current; // the loaded base
 // what the preview draws: { meta, img, prints }, the body's sheet in their colours (and size)
 let sheet;
-let ballSprites = null; // the held ball, made when first needed
-const ball = () => (ballSprites ??= makeBallSprites())[NORMAL][0];
+// The ball a kid from video holds: the one they're trying on in the Gear tab, else their ball from the
+// shop (the same one the game uses).
+let tryingBall = null;
+const ballId = () => tryingBall ?? ballStyle(progress.ball)?.id ?? DEFAULT_BALL;
+const ballSprites = new Map();
+// `held` [x, y, r]: as in the game, it rolls a little as the dribble moves it up and down.
+const ballSet = () => {
+  const id = ballId();
+  if (!ballSprites.has(id)) ballSprites.set(id, makeBallSprites(ballStyle(id).look));
+  return ballSprites.get(id)[NORMAL];
+};
+const ball = (held) => ballFrame(ballSet(), held ? (held[1] / held[2]) * 0.6 : 0);
 const colours = {}; // skin, hair, jersey, shorts, team (the trim), shoes, number, teamName
 const build = { height: 0, bulk: 0 };
 const LOOK = ["skin", "hair"];
@@ -69,7 +81,10 @@ function showTab(name) {
   $("panel").scrollTop = 0;
 }
 for (const t of tabs) {
-  t.addEventListener("click", () => showTab(t.dataset.tab));
+  t.addEventListener("click", () => {
+    if (t.dataset.tab !== "gear") cancelBall();
+    showTab(t.dataset.tab);
+  });
   t.addEventListener("keydown", (e) => {
     const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
     if (!step) return;
@@ -136,8 +151,28 @@ const CARD_W = 120;
 const CARD_H = 170;
 
 // The look a card shows: colours and size, without the number and team name (too small to read).
-const cardKey = () => JSON.stringify([LOOK.map((p) => colours[p]), kitColours(currentKit()), colours.shoes, build.height, build.bulk]);
+const cardKey = () => JSON.stringify([LOOK.map((p) => colours[p]), kitColours(currentKit()), colours.shoes, build.height, build.bulk, ballId()]);
 let cardsKey = "";
+
+const HEIGHT_ROOM = 0.08; // how much taller the tallest setting makes a kid, roughly
+
+// How tall a body stands: the drawn rows of its first idle frame, feet to the top of the hair.
+function standingHeight(b) {
+  const [x, y, w, h] = b.meta.frames.idle[0];
+  const c = el("canvas", { width: w, height: h });
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(b.atlasImg, x, y, w, h, 0, 0, w, h);
+  const a = g.getImageData(0, 0, w, h).data;
+  const row = (r) => {
+    for (let i = r * w * 4 + 3; i < (r + 1) * w * 4; i += 4) if (a[i] > 32) return true;
+    return false;
+  };
+  let top = 0;
+  while (top < h - 1 && !row(top)) top++;
+  let bottom = h - 1;
+  while (bottom > top && !row(bottom)) bottom--;
+  return Math.max(1, bottom - top + 1);
+}
 
 function cardFrame(card, i) {
   if (card.frames.has(i)) return card.frames.get(i);
@@ -152,11 +187,14 @@ function cardFrame(card, i) {
   g.imageSmoothingEnabled = true;
   g.imageSmoothingQuality = "high";
   // Room for the tallest player standing, feet on the card's floor.
-  const s = (CARD_H - 10) / 300;
+  // Every character the same standing height on its card (kids from video are drawn at a different
+  // scale from the hand-drawn bodies), with room above for the tallest size.
+  card.standing ??= standingHeight(b);
+  const s = (CARD_H - 12) / (1 + HEIGHT_ROOM) / card.standing;
   const at = [CARD_W / 2 + (ox - sized.dx) * s, CARD_H - 5 + (oy - sized.dy) * s];
   if (sized.ball) {
     const d = 2 * sized.ball[2] * s * 1.04;
-    g.drawImage(ball(), at[0] + sized.ball[0] * s - d / 2, at[1] + sized.ball[1] * s - d / 2, d, d);
+    g.drawImage(ball(sized.ball), at[0] + sized.ball[0] * s - d / 2, at[1] + sized.ball[1] * s - d / 2, d, d);
   }
   g.drawImage(sized.canvas, 0, 0, sized.w, sized.h, at[0], at[1], sized.w * s, sized.h * s);
   card.frames.set(i, c);
@@ -215,8 +253,107 @@ async function chooseBase(base) {
   current = await loadBase(base);
   if (base.video && current.meta.printsFrom) current.twin ??= await loadTwin(current.meta.printsFrom).catch(() => null);
   heightInput.disabled = bulkInput.disabled = !current.video;
+  showTurning();
   $("size-hint").hidden = !!current.video;
   repaint();
+}
+
+// ---------- Balls: the shop's ball styles, tried on here and bought with coins ----------
+
+const coinText = (n) => `${n} ${n === 1 ? "coin" : "coins"}`;
+const ballArt = (style, size) => {
+  const c = el("canvas", { width: size, height: size });
+  c.getContext("2d").drawImage(makeBallFrames(style.look)[0], 0, 0, size, size);
+  return c;
+};
+let ballBusy = false;
+
+function paintBalls() {
+  const coins = $("coins");
+  coins.innerHTML = icon("coins");
+  coins.append(String(progress.coins));
+  coins.setAttribute("aria-label", `You have ${coinText(progress.coins)}`);
+  $("balls").replaceChildren(
+    ...BALL_STYLES.map((style) => {
+      const using = ballStyle(progress.ball)?.id === style.id || (!ballStyle(progress.ball) && style.id === DEFAULT_BALL);
+      const tag = el("span", { className: owns(style.id) ? "ball-price owned" : "ball-price" });
+      if (owns(style.id)) tag.innerHTML = `${icon("check")}${using ? "Using" : "Yours"}`;
+      else tag.innerHTML = `${icon("coins")}${style.price}`;
+      const b = button({ className: "ball-card", ariaPressed: String(using), ariaLabel: style.name }, ballArt(style, 48), el("span", { className: "ball-name" }, style.name), tag);
+      b.addEventListener("click", () => pickBall(style));
+      return b;
+    }),
+  );
+}
+
+async function pickBall(style) {
+  if (ballBusy || ballId() === style.id) return;
+  say($("gear-message"), "");
+  if (!owns(style.id)) return tryBall(style);
+  ballBusy = true;
+  try {
+    await useBall(style.id);
+  } catch (err) {
+    say($("gear-message"), err.message, { error: true });
+  } finally {
+    ballBusy = false;
+  }
+}
+
+// Picking a ball they don't have: it goes in their hands, and the gear is covered until they buy or cancel.
+function tryBall(style) {
+  tryingBall = style.id;
+  const can = progress.coins >= style.price;
+  $("buy-art").getContext("2d").clearRect(0, 0, 96, 96);
+  $("buy-art").getContext("2d").drawImage(makeBallFrames(style.look)[0], 0, 0, 96, 96);
+  $("buy-name").textContent = `${style.name} ball`;
+  $("buy-price").innerHTML = `${icon("coins")}${style.price}`;
+  $("buy-say").textContent = can
+    ? `You have ${coinText(progress.coins)}. Buy it to keep it.`
+    : `You have ${coinText(progress.coins)}. Win ${style.price - progress.coins} more in the game to buy it.`;
+  const yes = $("buy-yes");
+  yes.innerHTML = `${icon("coins")}Buy for ${style.price}`;
+  yes.disabled = !can;
+  $("gear-main").hidden = true;
+  $("ball-buy").hidden = false;
+  repaint();
+}
+
+function cancelBall() {
+  if (!tryingBall) return;
+  tryingBall = null;
+  $("gear-main").hidden = false;
+  $("ball-buy").hidden = true;
+  repaint();
+}
+
+function setupBalls() {
+  $("buy-cancel").addEventListener("click", cancelBall);
+  $("buy-yes").addEventListener("click", async () => {
+    const style = ballStyle(tryingBall);
+    if (!style || ballBusy) return;
+    ballBusy = true;
+    $("buy-yes").disabled = true;
+    try {
+      await buyBall(style.id);
+      tryingBall = null;
+      $("gear-main").hidden = false;
+      $("ball-buy").hidden = true;
+      say($("gear-message"), `The ${style.name} ball is yours!`);
+      repaint();
+    } catch (err) {
+      $("buy-say").textContent = err.message;
+      $("buy-yes").disabled = false;
+    } finally {
+      ballBusy = false;
+    }
+  });
+  onProgress(() => {
+    paintBalls();
+    repaint();
+  });
+  paintBalls();
+  if (hasProgress()) refreshProgress(); // coins from games on another device
 }
 
 // ---------- Size ----------
@@ -411,10 +548,11 @@ function setupTeams() {
 // The preview's loop: standing, then a dribble and a shot facing each way the sheet has (a hand-drawn
 // body has the front only; a kid from video turns all the way round), so every side can be checked.
 const SIDES = ["", "-fr", "-r", "-br", "-b", "-bl", "-l", "-fl"];
-function showSteps(frames) {
-  const steps = [["idle", 3, 2]];
-  for (const side of SIDES) {
-    if (!frames[`release${side}`]) continue;
+// Turned by hand (the arrows, or a swipe on the preview): that side's dribble and shot, over and over.
+function showSteps(frames, facing = null) {
+  const steps = facing === null ? [["idle", 3, 2]] : [];
+  for (const side of facing === null ? SIDES : [facing]) {
+    if (!frames[`release${side}`] && facing === null) continue;
     steps.push(
       [`dribble${side}`, 14, 2],
       [`gather${side}`, 24, 1],
@@ -424,8 +562,8 @@ function showSteps(frames) {
       [`recover${side}`, 14, 1],
     );
   }
-  return steps
-    .filter(([anim]) => frames[anim])
+  const kept = steps.filter(([anim]) => frames[anim]);
+  return (kept.length ? kept : [["idle", 3, 1]])
     .map(([anim, fps, repeats, how]) => {
       const list = how === "hold" ? [frames[anim].at(-1)] : frames[anim];
       return { anim, list, fps, length: (list.length / fps) * repeats };
@@ -475,13 +613,60 @@ function showName() {
   previewName.textContent = [name, n !== "" && n !== undefined ? `#${n}` : ""].filter(Boolean).join(" ");
 }
 
-const started = performance.now();
+let started = performance.now();
+let lastHeld = null; // where the held ball was last drawn, to send it off when they let go
+let flight = null; // a shot ball flying off: canvas position, size, velocity, spin
+
+// The canvas matches its size on screen, in device pixels, so the stage's whole area is drawn on
+// (checked as each frame is drawn).
+function fitCanvas() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+  const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+  if (canvas.width !== w || canvas.height !== h) Object.assign(canvas, { width: w, height: h });
+}
+
+// ---------- Turning the player round ----------
+
+let facing = null; // a side from SIDES once they've turned the player; null shows every side in turn
+const sidesOf = (frames) => SIDES.filter((side) => frames[`dribble${side}`]);
+const turnLeft = $("turn-left");
+const turnRight = $("turn-right");
+
+function turn(step) {
+  const sides = sidesOf(current.meta.frames);
+  if (sides.length < 2) return;
+  const at = facing === null ? 0 : Math.max(0, sides.indexOf(facing));
+  facing = sides[(at + step + sides.length) % sides.length];
+  started = performance.now();
+}
+
+function setupTurning() {
+  turnLeft.addEventListener("click", () => turn(-1));
+  turnRight.addEventListener("click", () => turn(1));
+  // a sideways swipe on the preview turns them too
+  let x0 = null;
+  canvas.addEventListener("pointerdown", (e) => (x0 = e.clientX));
+  canvas.addEventListener("pointerup", (e) => {
+    if (x0 !== null && Math.abs(e.clientX - x0) > 30) turn(e.clientX < x0 ? 1 : -1);
+    x0 = null;
+  });
+  canvas.addEventListener("pointercancel", () => (x0 = null));
+}
+
+// Only bodies drawn from every side can turn (kids from video); a new body starts by showing them all.
+function showTurning() {
+  facing = null;
+  started = performance.now();
+  turnLeft.hidden = turnRight.hidden = sidesOf(current.meta.frames).length < 2;
+}
 function draw(now) {
   requestAnimationFrame(draw);
   if (!sheet) return;
+  fitCanvas();
   const frames = sheet.meta.frames;
   // Find where we are in the show loop (standing still when motion is reduced).
-  if (sheet.steps?.frames !== frames) sheet.steps = Object.assign(showSteps(frames), { frames });
+  if (sheet.steps?.frames !== frames || sheet.steps.facing !== facing) sheet.steps = Object.assign(showSteps(frames, facing), { frames, facing });
   const steps = sheet.steps;
   const total = steps.reduce((t, s) => t + s.length, 0);
   let t = reducedMotion.matches ? 0 : ((now - started) / 1000) % total;
@@ -497,9 +682,14 @@ function draw(now) {
   const meta = sheet.meta;
   const res = meta.res;
 
+  // The canvas fills the stage. The player is drawn no bigger than about 1.3 screen pixels to each of
+  // the art's (so they stay crisp), and fits the tallest pose (ball overhead); with room to spare they
+  // stand in the middle, and a shot flies on up to the stage's edge.
+  const dpr = canvas.width / Math.max(1, canvas.clientWidth);
+  const tallest = 520 * res;
+  const s = Math.min((canvas.height - 26 * dpr) / tallest, 1.3 * dpr * (0.6 / res));
   const groundX = canvas.width / 2;
-  const groundY = canvas.height - 14;
-  const s = (groundY - 12) / (520 * res); // atlas px -> canvas px, so the tallest pose (ball overhead) fits
+  const groundY = Math.min(canvas.height - 14 * dpr, canvas.height / 2 + (tallest * s) / 2);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "rgba(45, 20, 35, 0.35)";
   ctx.beginPath();
@@ -512,7 +702,25 @@ function draw(now) {
   const held = meta.balls?.[`${x},${y}`];
   if (held) {
     const d = 2 * held[2] * s * 1.04;
-    ctx.drawImage(ball(), at[0] + held[0] * s - d / 2, at[1] + held[1] * s - d / 2, d, d);
+    ctx.drawImage(ball(held), at[0] + held[0] * s - d / 2, at[1] + held[1] * s - d / 2, d, d);
+    lastHeld = { x: at[0] + held[0] * s, y: at[1] + held[1] * s, d, step, ox };
+  } else if (lastHeld && /^(jump|release)/.test(step.anim) && !reducedMotion.matches) {
+    // the ball just left their hands: up and away, toward where they face, with backspin
+    const side = step.anim.split("-")[1] ?? "";
+    const lean = /l$/.test(side) ? -1 : /r$/.test(side) ? 1 : 0;
+    flight = { x: lastHeld.x, y: lastHeld.y, d: lastHeld.d, vx: lean * 160 * s, vy: -800 * s, t: now, last: now, turn: 0 };
+    lastHeld = null;
+  } else if (!/^(gather|jump|release)/.test(step.anim)) lastHeld = null;
+  if (flight) {
+    const dt = Math.min(0.05, (now - flight.last) / 1000);
+    flight.last = now;
+    flight.vy += 600 * s * dt; // gentler than real gravity, so you see it go
+    flight.x += flight.vx * dt;
+    flight.y += flight.vy * dt;
+    flight.turn += 9 * dt; // backspin: the face we see turns down as it rises
+    const r = flight.d / 2;
+    if (flight.y < -r || flight.y > canvas.height + r || flight.x < -r || flight.x > canvas.width + r || now - flight.t > 3000) flight = null;
+    else ctx.drawImage(ballFrame(ballSet(), flight.turn), flight.x - r, flight.y - r, flight.d, flight.d);
   }
   ctx.drawImage(sheet.img, x, y, w, h, at[0], at[1], w * s, h * s);
   // a kid from video: their number and team name, printed finer than the art (as in the game)
@@ -537,7 +745,10 @@ function closeDone() {
   form.hidden = scrim.hidden = true;
   opener?.focus?.({ preventScroll: true });
 }
-$("done-open").addEventListener("click", openDone);
+$("done-open").addEventListener("click", () => {
+  cancelBall();
+  openDone();
+});
 $("done-close").addEventListener("click", closeDone);
 scrim.addEventListener("click", closeDone);
 form.addEventListener("keydown", (e) => {
@@ -713,6 +924,8 @@ async function setup() {
   setupWall();
   setupSize();
   setupTeams();
+  setupBalls();
+  setupTurning();
   paintLook();
   mark(shoesRow, colours.shoes);
   showTab("character");

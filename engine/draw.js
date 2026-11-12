@@ -11,55 +11,117 @@ const FONT = '"Press Start 2P", monospace';
 // ---------- Ball sprite (drawn in code so it can spin) ----------
 
 // The seams turn while the light stays put, drawn fresh for each frame so the pixels stay crisp
-// (rotating one picture smears its pixels). The seam pattern repeats every half turn.
-export const BALL_FRAMES = 12;
+// (rotating one picture smears its pixels). Two sets of frames: rolling over (about the screen's
+// sideways axis, for a ball going up or down the screen) and turning side to side (about the upright
+// axis, for one going across). In each, a positive turn moves the face we see down (or right): the way
+// a ball rolling down (or right) turns. ballFrame() picks the frame.
+export const BALL_FRAMES = 16;
 
-// A colour a little darker, for the shaded side of a striped ball.
-function darker(hex, by = 0.78) {
-  const n = parseInt(hex.slice(1), 16);
-  const ch = (shift) => Math.round(((n >> shift) & 255) * by);
-  return `rgb(${ch(16)}, ${ch(8)}, ${ch(0)})`;
+export const BALL_PX = 24; // the sprite's size: enough pixels for round shading and thin seams
+
+const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+const mixRgb = (a, b, t) => a.map((v, i) => v + (b[i] - v) * t);
+const hsl = (h, s, l) => {
+  const k = (n) => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  return [0, 8, 4].map((n) => 255 * (l - a * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1))));
+};
+
+// A basketball's seams: one line round its middle, one over the top, and a curved seam on each side
+// (parallel to the one over the top). Seen turned a little, so those curve like ( and ), as in the art.
+const TURNED = 0.55; // radians about the upright axis
+const SIDE_SEAM = 0.68; // where the side seams sit, across the ball (0 middle, 1 edge)
+const LIGHT = (() => {
+  const l = [-0.4, -0.5, 0.77];
+  const n = Math.hypot(...l);
+  return l.map((v) => v / n);
+})();
+
+// Where a point we see (nx, ny on the disc, facing us) is on the ball's own surface: [across, down].
+function onBall(nx, ny, turn, sideways) {
+  const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+  let x = nx, y = ny, z = nz;
+  if (sideways) [x, z] = [x * Math.cos(turn) - z * Math.sin(turn), x * Math.sin(turn) + z * Math.cos(turn)];
+  else [y, z] = [y * Math.cos(turn) - z * Math.sin(turn), y * Math.sin(turn) + z * Math.cos(turn)];
+  return [x * Math.cos(TURNED) + z * Math.sin(TURNED), y];
 }
 
 // look: the ball's colours (BALL_LOOKS in content/looks.js, or a ball style from shared/shop.js).
-// With `panels`, three stripes that turn with the seams.
-function makeBallSprite(turn, look = BALL_LOOKS[NORMAL]) {
-  const size = 16;
+// With `panels`, three stripes that turn with the seams; `rainbow`, colours that run round it.
+// Shaded like a sphere lit from the top left, in a few flat tones (pixel art, no blur): the shine
+// colour toward the light, the main colour, the shade, and the edge colour round the dark side,
+// with a thin outline. The seams are drawn on the sphere, so they curve and turn as it spins.
+function makeBallSprite(turn, look = BALL_LOOKS[NORMAL], sideways = false) {
+  const size = BALL_PX;
   const c = document.createElement("canvas");
   c.width = c.height = size;
   const g = c.getContext("2d");
+  const img = g.createImageData(size, size);
   const mid = (size - 1) / 2;
-  const cos = Math.cos(turn), sin = Math.sin(turn);
+  const R = size / 2 - 0.5;
+  const edge = rgb(look.edge);
+  const seamC = rgb(look.seam);
+  // A seam crosses a pixel when its line falls between the pixel's corners: one pixel wide however
+  // it's turned. Lines: across = 0 (over the top), across = +-SIDE_SEAM (the sides), down = 0 (the middle).
+  const corner = (x, y) => onBall((x - 0.5 - mid) / R, (y - 0.5 - mid) / R, turn, sideways);
+  const crosses = (vals, at) => Math.min(...vals) < at && at <= Math.max(...vals);
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const d = Math.hypot(x - mid, y - mid);
-      if (d > 7.6) continue;
-      // the seams, in the ball's own turned frame
-      const rx = mid + (x - mid) * cos + (y - mid) * sin;
-      const ry = mid - (x - mid) * sin + (y - mid) * cos;
-      const shaded = x + y > 19;
-      const panel = look.panels?.[ry < 5 ? 0 : ry < 10 ? 1 : 2];
-      let color = look.rainbow
-        ? `hsl(${Math.round(((rx + ry) * 22) % 360)}, 90%, ${shaded ? 48 : 60}%)`
-        : panel ? (shaded ? darker(panel) : panel)
-        : shaded ? look.shade : look.main;
-      if (Math.hypot(x - 5, y - 4.5) < 2) color = look.shine;
-      const seam =
-        Math.abs(rx - mid) < 0.6 ||
-        Math.abs(ry - mid) < 0.6 ||
-        Math.abs(Math.hypot(rx + 4, ry - mid) - 9.5) < 0.6 ||
-        Math.abs(Math.hypot(rx - 19, ry - mid) - 9.5) < 0.6;
-      if (seam) color = look.seam;
-      if (d > 6.7) color = look.edge;
-      g.fillStyle = color;
-      g.fillRect(x, y, 1, 1);
+      const nx = (x - mid) / R, ny = (y - mid) / R;
+      const r2 = nx * nx + ny * ny;
+      if (r2 > 1) continue;
+      const nz = Math.sqrt(1 - r2);
+      // the light, flattened into four tones
+      const lit = Math.max(0, nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]);
+      const [px, py] = onBall(nx, ny, turn, sideways);
+      let base, light, dark;
+      if (look.rainbow) {
+        const hue = ((Math.atan2(py, px) / Math.PI) * 180 + 360) % 360;
+        base = hsl(hue, 0.85, 0.55);
+        light = hsl(hue, 0.9, 0.72);
+        dark = hsl(hue, 0.8, 0.38);
+      } else if (look.panels) {
+        base = rgb(look.panels[py < -0.33 ? 0 : py < 0.33 ? 1 : 2]);
+        light = mixRgb(base, [255, 255, 255], 0.35);
+        dark = mixRgb(base, [0, 0, 0], 0.3);
+      } else {
+        base = rgb(look.main);
+        light = rgb(look.shine);
+        dark = rgb(look.shade);
+      }
+      let col = lit > 0.86 ? mixRgb(base, light, 0.55) : lit > 0.42 ? base : lit > 0.16 ? dark : mixRgb(dark, edge, 0.4);
+      // a small highlight where the light hits straight on
+      if (lit > 0.985) col = rgb(look.shine);
+      const cs = [corner(x, y), corner(x + 1, y), corner(x, y + 1), corner(x + 1, y + 1)];
+      const across = cs.map((p) => p[0]);
+      const down = cs.map((p) => p[1]);
+      const seam = crosses(across, 0) || crosses(across, SIDE_SEAM) || crosses(across, -SIDE_SEAM) || crosses(down, 0);
+      if (seam) col = mixRgb(seamC, edge, lit > 0.42 ? 0 : 0.5);
+      // the outline
+      if (r2 > ((R - 1) / R) ** 2) col = edge;
+      const i = (y * size + x) * 4;
+      img.data[i] = col[0];
+      img.data[i + 1] = col[1];
+      img.data[i + 2] = col[2];
+      img.data[i + 3] = 255;
     }
   }
+  g.putImageData(img, 0, 0);
   return c;
 }
 
-// One spinning set of frames for a look.
-export const makeBallFrames = (look) => Array.from({ length: BALL_FRAMES }, (_, i) => makeBallSprite((i / BALL_FRAMES) * Math.PI, look));
+// One spinning set of frames for a look (a whole turn), rolling over; `.side`: turning side to side.
+export const makeBallFrames = (look) => {
+  const at = (i, side) => makeBallSprite((i / BALL_FRAMES) * Math.PI * 2, look, side);
+  return Object.assign(Array.from({ length: BALL_FRAMES }, (_, i) => at(i, false)), { side: Array.from({ length: BALL_FRAMES }, (_, i) => at(i, true)) });
+};
+
+/** The frame for a ball turned `turn` radians (see BALL_FRAMES), rolling over or `sideways`. */
+export function ballFrame(frames, turn, sideways = false) {
+  const set = sideways ? frames.side : frames;
+  const k = (((turn / (Math.PI * 2)) % 1) + 1) % 1;
+  return set[Math.floor(k * BALL_FRAMES) % BALL_FRAMES];
+}
 
 // One spinning set of frames for each kind of ball. `normal`: the look of an everyday ball (their ball
 // style from the shop); money and rainbow balls always look the same, so they stand out.
