@@ -661,6 +661,7 @@ form.addEventListener("submit", async (e) => {
         colours,
         number: numberInput.value,
         teamName: colours.teamName ?? DEFAULT_TEAM,
+        build: look().build,
         localId: same?.id,
         device,
         turnstileToken: token,
