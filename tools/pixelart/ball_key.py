@@ -85,7 +85,6 @@ def main(d, grids_dir, prefix):
     for sx, sy, sw, sh, cx, cy, r, m in found:
         if not 0.85 * usual <= r <= 1.15 * usual:
             r = usual
-        balls[f"{sx},{sy}"] = [round(cx, 1), round(cy, 1), round(r, 1)]
         # cut out: the magenta (grown a little, for the ball's outline) inside the circle
         mm = np.asarray(Image.fromarray((m * 255).astype(np.uint8)).resize((sw, sh), Image.BILINEAR)) > 100
         mm = ndimage.binary_dilation(mm, iterations=3)
@@ -93,6 +92,22 @@ def main(d, grids_dir, prefix):
         inside = (yy - cy) ** 2 + (xx - cx) ** 2 <= (r * 1.08) ** 2
         out = mm & inside
         sub = sheet[sy:sy + sh, sx:sx + sw]
+        # the ball recorded is the hole's own: a circle through the hole's edge where the old ball's dark
+        # outline is left round it (not where a hand is in front), reaching into that outline, so the game's
+        # ball fills the hole and the outline hugs it
+        hole = out | ((sub[..., 3] == 0) & inside)
+        edge = hole & ~ndimage.binary_erosion(hole)
+        lum = 0.299 * sub[..., 0] + 0.587 * sub[..., 1] + 0.114 * sub[..., 2]
+        dark_out = ndimage.binary_dilation((sub[..., 3] > 0) & ~hole & (lum < 90), iterations=1)
+        pts = edge & dark_out
+        if pts.sum() >= 12:
+            ys, xs = np.where(pts)
+            A = np.c_[2 * xs, 2 * ys, np.ones(len(xs))]
+            (fx, fy, c), *_ = np.linalg.lstsq(A, xs ** 2 + ys ** 2, rcond=None)
+            fr = np.sqrt(max(1e-6, c + fx ** 2 + fy ** 2))
+            if np.hypot(fx - cx, fy - cy) < 0.3 * r and 0.9 * r <= fr <= 1.35 * r:
+                cx, cy, r = float(fx), float(fy), float(fr) + 1.0
+        balls[f"{sx},{sy}"] = [round(cx, 1), round(cy, 1), round(r, 1)]
         cut += int((out & (sub[..., 3] > 0)).sum())
         sub[out, 3] = 0
         reg[sy:sy + sh, sx:sx + sw][out] = 0
