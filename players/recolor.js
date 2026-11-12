@@ -69,13 +69,15 @@ function pixels(img, rect = [0, 0, img.width, img.height]) {
 const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
 const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
-// The hair's lightness ranks over the whole sheet (every frame), worked out once per body.
-const rankCache = new WeakMap();
+// The hair's lightness ranks over the whole sheet (every frame), worked out once per sheet (by its
+// address, since the game loads a video kid's sheet afresh for each place it shows them).
+const rankCache = new Map();
 function hairRanks(loadedBase) {
-  const key = loadedBase.regionsData;
+  const { atlasImg, regionsData } = loadedBase;
+  const key = atlasImg.src || atlasImg;
   if (!rankCache.has(key)) {
-    const reg = key.data;
-    const px = pixels(loadedBase.atlasImg, [0, 0, key.width, key.height]).data;
+    const reg = regionsData.data;
+    const px = pixels(atlasImg, [0, 0, regionsData.width, regionsData.height]).data;
     rankCache.set(key, shadeRanks([{ px, region: (i) => (reg[i * 4] === HAIR ? HAIR : 0) }])[HAIR]);
   }
   return rankCache.get(key);
