@@ -504,7 +504,9 @@ flowchart LR
   jersey are the trim (and the number's ink), the rest the shorts (`shortsMask()`, once per sheet). No
   `shorts` (players made before, the `players` table's null): the shorts are the team colour, as before.
 - **Shade ramps** (`players/shades.js`, used by `recolor()` for hair only): the hair's pixels are ranked by
-  lightness over the whole sheet (worked out once per body, contrast-limited so flat areas don't go blotchy).
+  lightness within each frame (worked out once per sheet, contrast-limited so flat areas don't go blotchy; a
+  frame showing little hair leans on the whole sheet's ranks), so hair that's lighter in some video frames
+  than others doesn't flicker.
   A chosen colour becomes 6 shades in OKLCH (three shadows, the colour, two highlights; squeezed near black
   or white rather than greyed), and a 256-entry table maps each pixel's lightness to its place on that ramp,
   so black hair keeps its curls and blonde stays blonde. Skin, kit and shoes keep the plain scaling, which

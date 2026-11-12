@@ -7,12 +7,13 @@
 // Recolouring swaps a region's colour while keeping each pixel's light and shade relative to the
 // region's average, so a red jersey keeps its folds and eyes and freckles drawn on the skin stay as
 // they are. Hair instead gets a ramp of shades made from the chosen colour (shades.js), each pixel
-// taking the shade its lightness ranks at, so black hair keeps its curls and blonde stays blonde.
+// taking the shade its lightness ranks at within its frame, so black hair keeps its curls, blonde
+// stays blonde, and hair that's lighter in some frames than others (video) doesn't flicker.
 // The player's number (and their team name on the front, KINGS unless they pick another) is
 // printed onto jersey pixels only, tilted to follow the shoulders, so it looks printed on and arms
 // and the ball pass in front of it.
 
-import { shadeRanks, shadeTable, lightness } from "./shades.js";
+import { shadeRanks, shadeSamples, shadeTable, lightness } from "./shades.js";
 
 const REGIONS = { 1: "skin", 2: "hair", 3: "jersey", 4: "team", 5: "shoes" };
 const HAIR = 2;
@@ -73,16 +74,37 @@ function pixels(img, rect = [0, 0, img.width, img.height]) {
 const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
 const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 
-// The hair's lightness ranks over the whole sheet (every frame), worked out once per sheet (by its
-// address, since the game loads a video kid's sheet afresh for each place it shows them).
+// The hair's lightness ranks, worked out once per sheet (by its address, since the game loads a video
+// kid's sheet afresh for each place it shows them): over the whole sheet, and within each frame, so
+// every frame spreads its own hair over the whole ramp. A frame showing little hair leans on the
+// whole sheet's ranks, so a few pixels don't get stretched.
 const rankCache = new Map();
 function hairRanks(loadedBase) {
-  const { atlasImg, regionsData } = loadedBase;
+  const { atlasImg, regionsData, meta } = loadedBase;
   const key = atlasImg.src || atlasImg;
   if (!rankCache.has(key)) {
+    const W = regionsData.width;
     const reg = regionsData.data;
-    const px = pixels(atlasImg, [0, 0, regionsData.width, regionsData.height]).data;
-    rankCache.set(key, shadeRanks([{ px, region: (i) => (reg[i * 4] === HAIR ? HAIR : 0) }])[HAIR]);
+    const px = pixels(atlasImg, [0, 0, W, regionsData.height]).data;
+    const isHair = (i) => (reg[i * 4] === HAIR ? HAIR : 0);
+    const sheet = shadeRanks([{ px, region: isHair }])[HAIR];
+    const rects = new Map();
+    for (const list of Object.values(meta.frames ?? {})) for (const f of list) rects.set(`${f[0]},${f[1]},${f[2]},${f[3]}`, f.slice(0, 4));
+    const frames = [];
+    for (const [fx, fy, fw, fh] of rects.values()) {
+      if (fx + fw > W || fy + fh > regionsData.height) continue;
+      const part = new Uint8ClampedArray(fw * fh * 4);
+      for (let y = 0; y < fh; y++) part.set(px.subarray(((fy + y) * W + fx) * 4, ((fy + y) * W + fx + fw) * 4), y * fw * 4);
+      const rank = shadeRanks([{ px: part, region: (i) => isHair((fy + Math.floor(i / fw)) * W + fx + (i % fw)) }])[HAIR];
+      if (rank) frames.push({ rect: [fx, fy, fw, fh], rank });
+    }
+    const counts = frames.map((f) => f.rank.count).sort((a, b) => a - b);
+    const lean = 0.25 * (counts[counts.length >> 1] ?? 0);
+    for (const f of frames) {
+      const n = f.rank.count;
+      for (let l = 0; l < 256; l++) f.rank[l] = (n * f.rank[l] + lean * sheet[l]) / (n + lean);
+    }
+    rankCache.set(key, sheet && { sheet, frames });
   }
   return rankCache.get(key);
 }
@@ -134,7 +156,16 @@ export function recolor(loadedBase, colours, rect) {
     const own = loadedBase.meta.art?.[name] ?? loadedBase.colours[name];
     if (!target || !ref || target.toLowerCase() === own) continue;
     const hair = +id === HAIR && hairRanks(loadedBase);
-    plans[id] = hair ? { table: shadeTable(hair, target) } : { t: hex(target), refL: Math.max(1, luma(...ref)), dark: luma(...ref) < 70 };
+    if (hair) {
+      const samples = shadeSamples(target);
+      plans[id] = { table: shadeTable(hair.sheet, samples) };
+      // each frame in the rectangle in its own shades, before the rest
+      for (const { rect, rank } of hair.frames) {
+        const x0 = Math.max(x, rect[0]), y0 = Math.max(y, rect[1]);
+        const x1 = Math.min(x + w, rect[0] + rect[2]), y1 = Math.min(y + h, rect[1] + rect[3]);
+        if (x0 < x1 && y0 < y1) (plans[id].frames ??= []).push({ box: [x0 - x, y0 - y, x1 - x, y1 - y], table: shadeTable(rank, samples) });
+      }
+    } else plans[id] = { t: hex(target), refL: Math.max(1, luma(...ref)), dark: luma(...ref) < 70 };
   }
   // Shorts in a colour of their own: the team colour's plan, aimed at the shorts colour.
   const teamRef = loadedBase.meta.regions.team;
@@ -142,6 +173,20 @@ export function recolor(loadedBase, colours, rect) {
   const shortsPlan = shortsTarget && teamRef && { t: hex(shortsTarget), refL: Math.max(1, luma(...teamRef)), dark: luma(...teamRef) < 70 };
   const shorts = shortsPlan && shortsMask(loadedBase);
   const d = src.data;
+  const done = plans[HAIR]?.frames && new Uint8Array(w * h); // hair already in its frame's shades
+  for (const { box, table } of plans[HAIR]?.frames ?? []) {
+    for (let py = box[1]; py < box[3]; py++) {
+      for (let px = box[0]; px < box[2]; px++) {
+        const i = (py * w + px) * 4;
+        if (!d[i + 3] || regionPx[((py + y) * atlasW + px + x) * 4] !== HAIR) continue;
+        const l = lightness(d[i], d[i + 1], d[i + 2]) * 3;
+        d[i] = table[l];
+        d[i + 1] = table[l + 1];
+        d[i + 2] = table[l + 2];
+        done[py * w + px] = 1;
+      }
+    }
+  }
   const shade = new Float32Array(w * h); // each jersey pixel's light/shade, for printing the number
   const jerseyRef = Math.max(1, luma(...(loadedBase.meta.regions.jersey ?? [200, 200, 200])));
   for (let py = 0; py < h; py++) {
@@ -153,6 +198,7 @@ export function recolor(loadedBase, colours, rect) {
       const plan = shorts && region === TEAM && shorts[(py + y) * atlasW + px + x] ? shortsPlan : plans[region];
       if (!plan) continue;
       if (plan.table) {
+        if (done?.[py * w + px]) continue;
         const l = lightness(d[i], d[i + 1], d[i + 2]) * 3;
         d[i] = plan.table[l];
         d[i + 1] = plan.table[l + 1];
