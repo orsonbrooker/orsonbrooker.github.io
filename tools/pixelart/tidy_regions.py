@@ -155,7 +155,8 @@ def main(d):
     for x, y, w, h, *_ in {tuple(f) for fs in meta["frames"].values() for f in fs}:
         cell = reg[y:y + h, x:x + w, 0]
         in_ball += ball_in_frame(img[y:y + h, x:x + w], cell)
-        rows = np.where((cell == JERSEY).any(1))[0]
+        per_row = (cell == JERSEY).sum(1)
+        rows = np.where(per_row >= 0.3 * per_row.max())[0] if per_row.max() else per_row[:0]
         if not len(rows):
             continue
         low = cell[rows[0] + 3:] == HAIR

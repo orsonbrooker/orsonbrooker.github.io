@@ -63,14 +63,67 @@ def main(d, grids_dir, prefix):
             prev = reg[sy:sy + sh, sx:sx + sw, 0]
             inner = ndimage.binary_fill_holes(ndimage.binary_closing(m, iterations=3))
             m |= inner & on & ((prev == 0) | (prev == HAIR))
-            # and where the key skipped a patch, what the video build already took for hair, next to it
-            m |= on & (prev == HAIR) & ndimage.binary_dilation(m, iterations=10)
+            # holes right inside the hair are hair, whatever the video build called them (a light curl it took
+            # for skin)
+            m |= ndimage.binary_fill_holes(m) & on & (prev != 3) & (prev != 4)
+            # where the key skipped a patch, what the video build already took for hair, next to it; and where
+            # it barely painted the hair at all, all of that
+            prev_hair = on & (prev == HAIR)
+            if m.sum() < 0.6 * prev_hair.sum():
+                m |= prev_hair
+            m |= prev_hair & ndimage.binary_dilation(m, iterations=10)
             spots.append((sy, sx, m))
             lumas.append(np.asarray(cell_y)[m].astype(float))
-    # the keyed hair is the hair now: whatever was guessed before goes back to outline
-    reg[reg[..., 0] == HAIR, 0] = 0
     allL = np.concatenate([l for l in lumas if len(l)])
     lo, hi = np.percentile(allL, 2), np.percentile(allL, 98)
+    # a frame Flow left unpainted (or nearly): its hair found by colour instead, against the hair and skin
+    # colours of the frames it did paint, above the jersey; lightness from the frame itself
+    sizes = np.array([m.sum() for _, _, m in spots])
+    usual = np.median(sizes[sizes > 0])
+    rgb_of = lambda sy, sx, m: sheet[sy:sy + m.shape[0], sx:sx + m.shape[1], :3][m].astype(float)
+    good = [i for i, s in enumerate(sizes) if s >= 0.6 * usual][:: max(1, len(sizes) // 40)]
+    hair_cols = np.unique(np.concatenate([rgb_of(*spots[i]) for i in good]) // 8, axis=0) * 8 + 4
+    skin_cols = np.unique(sheet[..., :3][(reg[..., 0] == 1) & (sheet[..., 3] > 0)][::50] // 8, axis=0) * 8 + 4
+
+    def nearest(px, cols):
+        best = np.full(len(px), 1e9)
+        for i in range(0, len(cols), 256):
+            best = np.minimum(best, ((px[:, None, :] - cols[None, i:i + 256, :]) ** 2).sum(2).min(1))
+        return best
+
+    redone = 0
+    for i, (sy, sx, m) in enumerate(spots):
+        if sizes[i] >= 0.35 * usual:
+            continue
+        h, w = m.shape
+        sub, rg = sheet[sy:sy + h, sx:sx + w], reg[sy:sy + h, sx:sx + w, 0]
+        per_row = (rg == 3).sum(1)
+        rows = np.where(per_row >= 0.3 * per_row.max())[0] if per_row.max() else per_row[:0]
+        top = rows[0] if len(rows) else h // 2
+        cand = (sub[..., 3] > 0) & np.isin(rg, [0, 1, HAIR])
+        cand[top:] = False
+        ys, xs = np.where(cand)
+        px = sub[ys, xs, :3].astype(float)
+        lum = 0.299 * px[:, 0] + 0.587 * px[:, 1] + 0.114 * px[:, 2]
+        hairish = (nearest(px, hair_cols) < nearest(px, skin_cols)) & (lum > 25)
+        mm = np.zeros_like(m)
+        mm[ys[hairish], xs[hairish]] = True
+        mm = ndimage.binary_closing(mm, iterations=2) & cand
+        lab, n = ndimage.label(mm)
+        if n:
+            mm = lab == int(np.argmax(ndimage.sum(mm, lab, range(1, n + 1)))) + 1
+            mm = ndimage.binary_fill_holes(mm) & cand
+        if mm.sum() > m.sum():
+            L = 0.299 * sub[..., 0] + 0.587 * sub[..., 1] + 0.114 * sub[..., 2]
+            Lm = L[mm].astype(float)
+            a0, a1 = np.percentile(Lm, 2), np.percentile(Lm, 98)
+            spots[i] = (sy, sx, mm)
+            lumas[i] = lo + (Lm - a0) / max(1, a1 - a0) * (hi - lo)
+            redone += 1
+    if redone:
+        print(f"{redone} frames Flow missed: hair found by colour")
+    # the keyed hair is the hair now: whatever was guessed before goes back to outline
+    reg[reg[..., 0] == HAIR, 0] = 0
     n = 0
     for (sy, sx, m), L in zip(spots, lumas):
         if not m.any():
