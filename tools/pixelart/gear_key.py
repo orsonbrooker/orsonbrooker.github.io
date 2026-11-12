@@ -102,6 +102,7 @@ def build(kid, item, gdir, prefix):
     the usual size for that side (front, side or back), and frames where none is near are listed to redo."""
     d = f"{ROOT}/assets/characters/{kid}-detail"
     sheet = np.array(Image.open(f"{d}/sprites.webp").convert("RGBA"))
+    regions = np.array(Image.open(f"{d}/regions.png"))[..., 0]
     layout = json.load(open(f"{gdir}/grids.json"))
     meta = json.load(open(f"{d}/sprites.json"))
     item_info = json.load(open(f"{ROOT}/content/gear.json"))[item]
@@ -138,7 +139,7 @@ def build(kid, item, gdir, prefix):
         if off > 0.45:
             odd.append(f"grid {c['grid']:02d} cell {layout.index(c) - min(i for i, x in enumerate(layout) if x['grid'] == c['grid']):2d} ({c['anim']}): {off:.0%} off the usual size")
         _, gen, orig, k1, k2, lum, _ = cands[c["grid"]][j]
-        piece = cut(c, gen, orig, k1, k2, lum, sheet, meta, over_ball)
+        piece = cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, item_info.get("hides") == "hair")
         if piece is not None:
             pieces[f"{c['rect'][0]},{c['rect'][1]}"] = piece
     write(kid, item, pieces, meta)
@@ -150,7 +151,7 @@ def build(kid, item, gdir, prefix):
         print("their grids (check them; redo with a finished grid as a second reference):", ",".join(f"{g:02d}" for g in redo))
 
 
-def cut(c, gen, orig, k1, k2, lum, sheet, meta, over_ball):
+def cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, hides_hair=False):
     """One frame's piece: the item's pixels at the sheet's size, around the frame (pad on every side)."""
     bx, by, bw, bh = c["box"]
     sx, sy, sw, sh = c["rect"]
@@ -200,8 +201,27 @@ def cut(c, gen, orig, k1, k2, lum, sheet, meta, over_ball):
     edge = ndimage.binary_dilation(m1 | m2, iterations=1) & ~(m1 | m2) & ~body
     outline |= edge
     keep = m1 | m2 | outline
-    # what the item hides: body pixels Flow turned to background next to the item (hair under a hat)
-    hide = body & is_green(rgb) & ndimage.binary_dilation(m1 | m2, iterations=int(10 / max(s, 0.5))) & ~keep
+    # what the item hides: body pixels Flow turned to background next to the item, and any hair it took
+    # away (buns under a beanie), with the outline that went round that hair
+    gone = body & is_green(rgb) & ~keep
+    hair = np.zeros((oh, ow), bool)
+    hair[fy0:fy0 + sh, fx0:fx0 + sw] = regions[sy:sy + sh, sx:sx + sw] == HAIR
+    hide = gone & (ndimage.binary_dilation(m1 | m2, iterations=int(10 / max(s, 0.5))) | hair)
+    lone = ndimage.binary_dilation(hide & hair, iterations=3)
+    hide |= gone & lone
+    if hides_hair:
+        # a hat hides all the hair above its bottom edge that it doesn't cover (Buns' buns), whatever
+        # Flow drew there, and the outline round that hair
+        hat = m1 | m2
+        if hat.any():
+            rows = np.nonzero(hat.any(1))[0]
+            above = np.zeros((oh, ow), bool)
+            above[:rows.max() - max(2, (rows.max() - rows.min()) // 5)] = True
+            cut_hair = hair & above & ~keep & body
+            ring = ndimage.binary_dilation(cut_hair, iterations=4) & body & ~keep & above
+            reg0 = np.zeros((oh, ow), bool)
+            reg0[fy0:fy0 + sh, fx0:fx0 + sw] = regions[sy:sy + sh, sx:sx + sw] == 0
+            hide |= cut_hair | (ring & reg0)
     # behind the held ball (a jersey): none of it where the ball is
     ball = meta.get("balls", {}).get(f"{sx},{sy}")
     if ball and not over_ball:
