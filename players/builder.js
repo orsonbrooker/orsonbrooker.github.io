@@ -13,7 +13,7 @@
 import { API } from "../api.js";
 import { markField, say } from "../ui/form.js";
 import { fillIcons, icon } from "../ui/icons.js";
-import { makeBallFrames, makeBallSprites } from "../engine/draw.js";
+import { ballFrame, makeBallFrames, makeBallSprites } from "../engine/draw.js";
 import { buyBall, hasProgress, onProgress, owns, progress, refreshProgress, useBall } from "../progress.js";
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../shared/shop.js";
 import { paletteSwap } from "../players/pixelkit.js";
@@ -55,10 +55,11 @@ let sheet;
 let tryingBall = null;
 const ballId = () => tryingBall ?? ballStyle(progress.ball)?.id ?? DEFAULT_BALL;
 const ballSprites = new Map();
-const ball = () => {
+// `held` [x, y, r]: as in the game, it rolls a little as the dribble moves it up and down.
+const ball = (held) => {
   const id = ballId();
   if (!ballSprites.has(id)) ballSprites.set(id, makeBallSprites(ballStyle(id).look));
-  return ballSprites.get(id)[NORMAL][0];
+  return ballFrame(ballSprites.get(id)[NORMAL], held ? (held[1] / held[2]) * 0.6 : 0);
 };
 const colours = {}; // skin, hair, jersey, shorts, team (the trim), shoes, number, teamName
 const build = { height: 0, bulk: 0 };
@@ -192,7 +193,7 @@ function cardFrame(card, i) {
   const at = [CARD_W / 2 + (ox - sized.dx) * s, CARD_H - 5 + (oy - sized.dy) * s];
   if (sized.ball) {
     const d = 2 * sized.ball[2] * s * 1.04;
-    g.drawImage(ball(), at[0] + sized.ball[0] * s - d / 2, at[1] + sized.ball[1] * s - d / 2, d, d);
+    g.drawImage(ball(sized.ball), at[0] + sized.ball[0] * s - d / 2, at[1] + sized.ball[1] * s - d / 2, d, d);
   }
   g.drawImage(sized.canvas, 0, 0, sized.w, sized.h, at[0], at[1], sized.w * s, sized.h * s);
   card.frames.set(i, c);
@@ -646,7 +647,7 @@ function draw(now) {
   const held = meta.balls?.[`${x},${y}`];
   if (held) {
     const d = 2 * held[2] * s * 1.04;
-    ctx.drawImage(ball(), at[0] + held[0] * s - d / 2, at[1] + held[1] * s - d / 2, d, d);
+    ctx.drawImage(ball(held), at[0] + held[0] * s - d / 2, at[1] + held[1] * s - d / 2, d, d);
   }
   ctx.drawImage(sheet.img, x, y, w, h, at[0], at[1], w * s, h * s);
   // a kid from video: their number and team name, printed finer than the art (as in the game)

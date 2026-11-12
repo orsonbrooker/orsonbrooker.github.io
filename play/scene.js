@@ -4,7 +4,7 @@
 import { BOARD_ART } from "../content/looks.js";
 import { drawArtLab } from "../play/artlab.js";
 import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, project } from "../engine/court.js";
-import { BALL_FRAMES, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow } from "../engine/draw.js";
+import { ballFrame, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow } from "../engine/draw.js";
 import { currentFrame, frameCount, liftNow, sheet } from "../play/players.js";
 import { fireLevel, nextBallBadge, nextBallKind, pixelFx, timingWindow, zoneCenter } from "../play/react.js";
 import { drawReplay, replayGreen } from "../play/replay.js";
@@ -80,7 +80,8 @@ function drawPlayer() {
     const held = sheet.sprites.balls?.[`${sx},${sy}`];
     if (held) {
       const [cx, cy, r] = held;
-      const sprite = (art.ballSprites[nextBallKind()] ?? art.ballSprites[NORMAL])[0];
+      // it rolls a little as the dribble moves it up and down
+      const sprite = ballFrame(art.ballSprites[nextBallKind()] ?? art.ballSprites[NORMAL], (cy / r) * HELD_ROLL);
       const d = 2 * r * scale * 1.04; // the sprite's ball fills a little less than its square
       ctx.drawImage(sprite, p.x + (ox + cx) * scale - d / 2, p.y + (oy + cy) * scale - d / 2, d, d);
     }
@@ -93,12 +94,20 @@ function drawPlayer() {
   drawArtLab(ctx, p);
 }
 
+const HELD_ROLL = 0.6; // how far a held ball turns for each radius it moves down in a dribble
+
 function drawBall(b) {
   const p = project(b.u, b.v, b.z);
   const size = BALL_R * PX_PER_M * 2.6;
   const fade = b.age > 4.5 ? Math.max(0, (5 - b.age) / 0.5) : 1;
-  const turns = (((-b.spin / Math.PI) % 1) + 1) % 1;
-  const sprite = art.ballSprites[b.kind ?? NORMAL][Math.floor(turns * BALL_FRAMES) % BALL_FRAMES];
+  // Turning the way it travels on screen: rolling over for up or down the screen, side to side across
+  // it (kept while it's only going up and down). `spin` is forward positive, so backspin on a shot
+  // going up the screen turns the face we see down.
+  const ahead = project(b.u + b.vu * 0.05, b.v + b.vv * 0.05, b.z);
+  const dx = ahead.x - p.x, dy = ahead.y - p.y;
+  if (Math.abs(dx) + Math.abs(dy) > 0.5) b.drawAxis = Math.abs(dx) > Math.abs(dy) ? Math.sign(dx) * 2 : Math.sign(dy);
+  const axis = b.drawAxis ?? 1;
+  const sprite = ballFrame(art.ballSprites[b.kind ?? NORMAL], b.spin * Math.sign(axis), Math.abs(axis) === 2);
   // squashed flat for a moment after a floor bounce, sitting on the floor
   const sq = (b.squash ?? 0) * 0.35;
   const w = size * (1 + sq), h = size * (1 - sq);
