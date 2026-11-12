@@ -56,11 +56,12 @@ let tryingBall = null;
 const ballId = () => tryingBall ?? ballStyle(progress.ball)?.id ?? DEFAULT_BALL;
 const ballSprites = new Map();
 // `held` [x, y, r]: as in the game, it rolls a little as the dribble moves it up and down.
-const ball = (held) => {
+const ballSet = () => {
   const id = ballId();
   if (!ballSprites.has(id)) ballSprites.set(id, makeBallSprites(ballStyle(id).look));
-  return ballFrame(ballSprites.get(id)[NORMAL], held ? (held[1] / held[2]) * 0.6 : 0);
+  return ballSprites.get(id)[NORMAL];
 };
+const ball = (held) => ballFrame(ballSet(), held ? (held[1] / held[2]) * 0.6 : 0);
 const colours = {}; // skin, hair, jersey, shorts, team (the trim), shoes, number, teamName
 const build = { height: 0, bulk: 0 };
 const LOOK = ["skin", "hair"];
@@ -613,6 +614,17 @@ function showName() {
 }
 
 let started = performance.now();
+let lastHeld = null; // where the held ball was last drawn, to send it off when they let go
+let flight = null; // a shot ball flying off: canvas position, size, velocity, spin
+
+// The canvas matches its size on screen, in device pixels, so the stage's whole area is drawn on
+// (checked as each frame is drawn).
+function fitCanvas() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+  const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+  if (canvas.width !== w || canvas.height !== h) Object.assign(canvas, { width: w, height: h });
+}
 
 // ---------- Turning the player round ----------
 
@@ -651,6 +663,7 @@ function showTurning() {
 function draw(now) {
   requestAnimationFrame(draw);
   if (!sheet) return;
+  fitCanvas();
   const frames = sheet.meta.frames;
   // Find where we are in the show loop (standing still when motion is reduced).
   if (sheet.steps?.frames !== frames || sheet.steps.facing !== facing) sheet.steps = Object.assign(showSteps(frames, facing), { frames, facing });
@@ -669,9 +682,14 @@ function draw(now) {
   const meta = sheet.meta;
   const res = meta.res;
 
+  // The canvas fills the stage. The player is drawn no bigger than about 1.3 screen pixels to each of
+  // the art's (so they stay crisp), and fits the tallest pose (ball overhead); with room to spare they
+  // stand in the middle, and a shot flies on up to the stage's edge.
+  const dpr = canvas.width / Math.max(1, canvas.clientWidth);
+  const tallest = 520 * res;
+  const s = Math.min((canvas.height - 26 * dpr) / tallest, 1.3 * dpr * (0.6 / res));
   const groundX = canvas.width / 2;
-  const groundY = canvas.height - 14;
-  const s = (groundY - 12) / (520 * res); // atlas px -> canvas px, so the tallest pose (ball overhead) fits
+  const groundY = Math.min(canvas.height - 14 * dpr, canvas.height / 2 + (tallest * s) / 2);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "rgba(45, 20, 35, 0.35)";
   ctx.beginPath();
@@ -685,6 +703,24 @@ function draw(now) {
   if (held) {
     const d = 2 * held[2] * s * 1.04;
     ctx.drawImage(ball(held), at[0] + held[0] * s - d / 2, at[1] + held[1] * s - d / 2, d, d);
+    lastHeld = { x: at[0] + held[0] * s, y: at[1] + held[1] * s, d, step, ox };
+  } else if (lastHeld && /^(jump|release)/.test(step.anim) && !reducedMotion.matches) {
+    // the ball just left their hands: up and away, toward where they face, with backspin
+    const side = step.anim.split("-")[1] ?? "";
+    const lean = /l$/.test(side) ? -1 : /r$/.test(side) ? 1 : 0;
+    flight = { x: lastHeld.x, y: lastHeld.y, d: lastHeld.d, vx: lean * 160 * s, vy: -800 * s, t: now, last: now, turn: 0 };
+    lastHeld = null;
+  } else if (!/^(gather|jump|release)/.test(step.anim)) lastHeld = null;
+  if (flight) {
+    const dt = Math.min(0.05, (now - flight.last) / 1000);
+    flight.last = now;
+    flight.vy += 600 * s * dt; // gentler than real gravity, so you see it go
+    flight.x += flight.vx * dt;
+    flight.y += flight.vy * dt;
+    flight.turn += 9 * dt; // backspin: the face we see turns down as it rises
+    const r = flight.d / 2;
+    if (flight.y < -r || flight.y > canvas.height + r || flight.x < -r || flight.x > canvas.width + r || now - flight.t > 3000) flight = null;
+    else ctx.drawImage(ballFrame(ballSet(), flight.turn), flight.x - r, flight.y - r, flight.d, flight.d);
   }
   ctx.drawImage(sheet.img, x, y, w, h, at[0], at[1], w * s, h * s);
   // a kid from video: their number and team name, printed finer than the art (as in the game)

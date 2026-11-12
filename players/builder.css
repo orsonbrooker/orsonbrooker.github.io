@@ -86,14 +86,12 @@
   background: radial-gradient(ellipse 70% 40% at 50% 92%, rgba(240, 138, 60, 0.18), transparent 70%), var(--sheet);
 }
 
-/* The preview never grows past about 1.2 of the art's own pixels (the canvas fits the tallest pose,
-   ball overhead, so a player standing is about 60% of its height); big screens get space around it. */
+/* The preview fills the stage, so a shot can fly to its edge; builder.js keeps the player no bigger
+   than about 1.3 screen pixels to each of the art's, with calm space round them on big screens. */
 .builder-stage canvas {
   flex: 1;
   min-height: 0;
   width: 100%;
-  max-height: 420px;
-  object-fit: contain;
 }
 
 .builder-stage {
