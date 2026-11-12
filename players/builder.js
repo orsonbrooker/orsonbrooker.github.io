@@ -252,6 +252,7 @@ async function chooseBase(base) {
   current = await loadBase(base);
   if (base.video && current.meta.printsFrom) current.twin ??= await loadTwin(current.meta.printsFrom).catch(() => null);
   heightInput.disabled = bulkInput.disabled = !current.video;
+  showTurning();
   $("size-hint").hidden = !!current.video;
   repaint();
 }
@@ -546,10 +547,11 @@ function setupTeams() {
 // The preview's loop: standing, then a dribble and a shot facing each way the sheet has (a hand-drawn
 // body has the front only; a kid from video turns all the way round), so every side can be checked.
 const SIDES = ["", "-fr", "-r", "-br", "-b", "-bl", "-l", "-fl"];
-function showSteps(frames) {
-  const steps = [["idle", 3, 2]];
-  for (const side of SIDES) {
-    if (!frames[`release${side}`]) continue;
+// Turned by hand (the arrows, or a swipe on the preview): that side's dribble and shot, over and over.
+function showSteps(frames, facing = null) {
+  const steps = facing === null ? [["idle", 3, 2]] : [];
+  for (const side of facing === null ? SIDES : [facing]) {
+    if (!frames[`release${side}`] && facing === null) continue;
     steps.push(
       [`dribble${side}`, 14, 2],
       [`gather${side}`, 24, 1],
@@ -559,8 +561,8 @@ function showSteps(frames) {
       [`recover${side}`, 14, 1],
     );
   }
-  return steps
-    .filter(([anim]) => frames[anim])
+  const kept = steps.filter(([anim]) => frames[anim]);
+  return (kept.length ? kept : [["idle", 3, 1]])
     .map(([anim, fps, repeats, how]) => {
       const list = how === "hold" ? [frames[anim].at(-1)] : frames[anim];
       return { anim, list, fps, length: (list.length / fps) * repeats };
@@ -610,13 +612,48 @@ function showName() {
   previewName.textContent = [name, n !== "" && n !== undefined ? `#${n}` : ""].filter(Boolean).join(" ");
 }
 
-const started = performance.now();
+let started = performance.now();
+
+// ---------- Turning the player round ----------
+
+let facing = null; // a side from SIDES once they've turned the player; null shows every side in turn
+const sidesOf = (frames) => SIDES.filter((side) => frames[`dribble${side}`]);
+const turnLeft = $("turn-left");
+const turnRight = $("turn-right");
+
+function turn(step) {
+  const sides = sidesOf(current.meta.frames);
+  if (sides.length < 2) return;
+  const at = facing === null ? 0 : Math.max(0, sides.indexOf(facing));
+  facing = sides[(at + step + sides.length) % sides.length];
+  started = performance.now();
+}
+
+function setupTurning() {
+  turnLeft.addEventListener("click", () => turn(-1));
+  turnRight.addEventListener("click", () => turn(1));
+  // a sideways swipe on the preview turns them too
+  let x0 = null;
+  canvas.addEventListener("pointerdown", (e) => (x0 = e.clientX));
+  canvas.addEventListener("pointerup", (e) => {
+    if (x0 !== null && Math.abs(e.clientX - x0) > 30) turn(e.clientX < x0 ? 1 : -1);
+    x0 = null;
+  });
+  canvas.addEventListener("pointercancel", () => (x0 = null));
+}
+
+// Only bodies drawn from every side can turn (kids from video); a new body starts by showing them all.
+function showTurning() {
+  facing = null;
+  started = performance.now();
+  turnLeft.hidden = turnRight.hidden = sidesOf(current.meta.frames).length < 2;
+}
 function draw(now) {
   requestAnimationFrame(draw);
   if (!sheet) return;
   const frames = sheet.meta.frames;
   // Find where we are in the show loop (standing still when motion is reduced).
-  if (sheet.steps?.frames !== frames) sheet.steps = Object.assign(showSteps(frames), { frames });
+  if (sheet.steps?.frames !== frames || sheet.steps.facing !== facing) sheet.steps = Object.assign(showSteps(frames, facing), { frames, facing });
   const steps = sheet.steps;
   const total = steps.reduce((t, s) => t + s.length, 0);
   let t = reducedMotion.matches ? 0 : ((now - started) / 1000) % total;
@@ -851,6 +888,7 @@ async function setup() {
   setupSize();
   setupTeams();
   setupBalls();
+  setupTurning();
   paintLook();
   mark(shoesRow, colours.shoes);
   showTab("character");

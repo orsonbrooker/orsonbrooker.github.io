@@ -97,7 +97,49 @@
 }
 
 .builder-stage {
+  position: relative;
   justify-content: center;
+}
+
+.builder-stage canvas {
+  touch-action: pan-y; /* a sideways swipe turns the player (builder.js) */
+}
+
+/* Arrows to turn the player round, either side of them. */
+.turn-button {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 56px;
+  border: 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+}
+
+.turn-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.turn-button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.turn-button.left {
+  left: 8px;
+}
+
+.turn-button.right {
+  right: 8px;
+}
+
+.turn-button[hidden] {
+  display: none;
 }
 
 .builder-name {
