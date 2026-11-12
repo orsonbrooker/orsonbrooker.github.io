@@ -28,8 +28,11 @@ PROJECT = "/project/f2807216-5509-4ff8-971f-9401cf3e82fc"
 URL = "https://flow.google.com" + PROJECT
 
 
-def ab(*args, timeout=180):
-    r = subprocess.run(["agent-browser", "--session", SESSION, *args], capture_output=True, text=True, timeout=timeout)
+def ab(*args, timeout=60):
+    try:
+        r = subprocess.run(["agent-browser", "--session", SESSION, *args], capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return "timed out"
     return (r.stdout + r.stderr).strip()
 
 
@@ -71,6 +74,9 @@ inp.dispatchEvent(new Event('input', { bubbles: true })); await sleep(1500);
 const o = [...document.querySelectorAll('[role="listbox"] [role="option"]')].find((o) => o.textContent.replace(/^image/, '').startsWith(NAME));
 if (!o) return 'not found'; o.click(); await sleep(800); return 'added'; })()"""
 
+ONE = """(() => { const h = document.documentElement.outerHTML;
+return [(h.match(/[A-Z]+ [A-Z]+ KEY \\d\\d/) || [''])[0], ([...new Set(h.match(/https:\\/\\/flow-content\\.google\\/image\\/[^"'\\s<>]+/g) || [])].map((x) => x.replace(/&amp;/g, '&'))[0] || '')]; })()"""
+
 CREDITS = """(async () => { document.querySelector('[aria-label="Settings trigger"]').click(); await new Promise((r) => setTimeout(r, 800));
 return [...document.querySelectorAll('*')].filter((e) => e.children.length < 3 && /Generating will use/.test(e.textContent)).map((e) => e.textContent.trim()).pop() || 'none'; })()"""
 
@@ -107,43 +113,45 @@ def queue(ref, first, last, pfile, second=None):
         time.sleep(3)
 
 
-READ = """(async () => { const ids = IDS; document.querySelectorAll('iframe[data-id]').forEach((f) => f.remove());
-for (const id of ids) { const f = Object.assign(document.createElement('iframe'), { src: 'PROJ/edit/' + id, width: 800, height: 600 }); f.dataset.id = id; document.body.appendChild(f); }
-await new Promise((r) => setTimeout(r, 15000));
-const out = [...document.querySelectorAll('iframe[data-id]')].map((f) => { try { const h = f.contentDocument.documentElement.outerHTML;
-  return [f.dataset.id, (h.match(/[A-Z]+ [A-Z]+ KEY \\d\\d/) || [''])[0], ([...new Set(h.match(/https:\\/\\/flow-content\\.google\\/image\\/[^"'\\s<>]+/g) || [])].map((x) => x.replace(/&amp;/g, '&'))[0] || '')]; }
-  catch (e) { return [f.dataset.id, '', '']; } });
-document.querySelectorAll('iframe[data-id]').forEach((f) => f.remove()); return JSON.stringify(out); })()"""
-
-
 def collect(n, out, want):
     os.makedirs(out, exist_ok=True)
     open_project()
     ab("click", "flow-grid-tile-container")
     time.sleep(4)
     ids = []
+    here = lambda: str(ev("location.pathname.split('/edit/')[1] || ''"))
+    eid = here()
     for _ in range(n):  # page ids, newest first (an item's page only reads right when loaded on its own)
-        eid = ev("location.pathname.split('/edit/')[1] || ''")
         if eid and eid not in ids:
             ids.append(eid)
         ab("click", '[aria-label="Next media"]')
-        time.sleep(1.5)
-    open_project()
+        for _ in range(10):  # wait for the next item, not the same one again
+            time.sleep(0.8)
+            nxt = here()
+            if nxt and nxt != eid:
+                break
+        if nxt == eid:
+            print("stopped at item", len(ids), "(no next)", flush=True)
+            break
+        eid = nxt
+    print(len(ids), "items", flush=True)
     counts = {}
-    for k in range(0, len(ids), 5):  # small batches: more at once overloads the browser
-        try:
-            rows = json.loads(ev(READ.replace("IDS", json.dumps(ids[k:k + 5])).replace("PROJ", PROJECT)))
-        except (TypeError, ValueError):
-            print("batch", k, "failed")
+    for eid in ids:  # one at a time in the tab itself (hidden frames in batches could hang the browser)
+        tag = url = ""
+        ab("open", f"https://flow.google.com{PROJECT}/edit/{eid}")
+        for _ in range(8):
+            time.sleep(1.5)
+            row = ev(ONE)
+            if isinstance(row, list) and row[0] and row[1]:
+                tag, url = row
+                break
+        if not (tag and url and re.fullmatch(want, tag)):
             continue
-        for eid, tag, url in rows:
-            if not (tag and url and re.fullmatch(want, tag)):
-                continue
-            kid, kind, _, num = tag.split()
-            c = counts[(kid, kind, num)] = counts.get((kid, kind, num), 0) + 1
-            path = f"{out}/{kid.lower()}-{kind.lower()}-{num}-{c}.img"
-            subprocess.run(["curl", "-sS", "-o", path, url], check=False)
-            print(tag, "->", os.path.basename(path), flush=True)
+        kid, kind, _, num = tag.split()
+        c = counts[(kid, kind, num)] = counts.get((kid, kind, num), 0) + 1
+        path = f"{out}/{kid.lower()}-{kind.lower()}-{num}-{c}.img"
+        subprocess.run(["curl", "-sS", "-m", "60", "-o", path, url], check=False)
+        print(tag, "->", os.path.basename(path), flush=True)
 
 
 if __name__ == "__main__":
