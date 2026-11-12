@@ -26,6 +26,7 @@ const ICONS = {
   pause: "<path d=\"M6 4h4v16H6zm8 0h4v16h-4z\"/>",
   menu: "<path d=\"M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z\"/>",
   // Drawn for the player builder in the same 24-pixel style.
+  edit: "<path d=\"M16 2h2v2h-2zm2 2h2v2h-2zm2 2h2v2h-2zm-2 2h2v2h-2zM14 4h2v2h-2zm-2 2h2v2h-2zm-2 2h2v2h-2zm-2 2h2v2H8zm-2 2h2v2H6zm-2 2h2v2H4zm12-6h2v2h-2zm-2 2h2v2h-2zm-2 2h2v2h-2zm-2 2h2v2h-2zm-2 2h2v2H8zM4 16h2v4H4zm2 4h4v2H6zm-2 0h2v2H4z\"/>",
   player: "<path d=\"M10 2h4v2h-4zM8 4h2v4H8zm6 0h2v4h-2zM10 8h4v2h-4zM6 11h12v2H6zM4 13h2v6H4zm14 0h2v6h-2zM8 13h2v9H8zm6 0h2v9h-2z\"/>",
   size: "<path d=\"M11 3h2v18h-2zM9 5h2v2H9zm4 0h2v2h-2zM7 7h2v2H7zm8 0h2v2h-2zM9 17h2v2H9zm4 0h2v2h-2zM7 15h2v2H7zm8 0h2v2h-2z\"/>",
   jersey: "<path d=\"M7 3h2v4H7zm8 0h2v4h-2zM9 7h6v2H9zM5 7h2v2H5zm12 0h2v2h-2zM5 9h2v12H5zm12 0h2v12h-2zM7 19h10v2H7zm4-8h2v5h-2z\"/>",
