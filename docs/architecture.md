@@ -143,6 +143,7 @@ erDiagram
     text number "0-99 or none"
     text team_name "KINGS by default"
     text pronoun "he, she, or null (the body's)"
+    real height_bulk "size: -1, -0.5, 0, 0.5 or 1, or null"
     text status "new, approved, hidden"
   }
   scores {
@@ -203,6 +204,10 @@ Terms used across the code:
 - **Player:** who you play as. *Built-in* (Orson: `assets/characters/index.json`), *approved builder
   players* (`players` table, status `approved`, shown to everyone) and *own players* (made in the builder, kept
   in that browser only, ids like `me1793858104451`; their look travels with their scores as `base` + `colours`).
+- **Size (build):** a builder player's `{ height, bulk }` from the builder's sliders, each -1, -0.5, 0, 0.5
+  or 1 (0 is the body as drawn). Sent with the player (`build`), kept in the `players` table's `height` and
+  `bulk` (null when none was sent) and returned as `build` (or null) by `GET /api/players`, so an approved
+  player is the same size for everyone; own players keep it on the device.
 - **Pronoun:** whether a player is a "he" or a "she", for the announcer's lines. Built-in players have it in
   `index.json` ("he"); builder players get their body's (`pronoun` in `assets/characters/bases/index.json`:
   ponytail and buns are "she", the rest "he"), unless the admin sets one of their own (the `players` table's
