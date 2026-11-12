@@ -3,7 +3,7 @@ turns what it painted into a layer the game draws over the kid (players/gear.js)
 
   python tools/pixelart/gear_key.py grids <kid> <out dir>
       grids of the kid's frames for Flow (frame_grids.py layout), with the shoes and shorts greyed and the
-      held ball painted back in, so nothing on the kid is near a key colour; also <kid>-kit-NN.jpg copies
+      held ball painted back in, so nothing on the kid is near a key colour; also <kid>-mv-NN.jpg copies
       to upload under those names
   python tools/pixelart/gear_key.py build <kid> <item> <grids dir> <prefix>
       reads <prefix>-NN-k.img (named by match_grids.py), keeps the version of each grid that changed least
@@ -85,9 +85,10 @@ def grids(kid, out):
     os.makedirs(tmp, exist_ok=True)
     under.save(f"{tmp}/sprites.webp", lossless=True)
     shutil.copy(f"{d}/sprites.json", f"{tmp}/sprites.json")
-    subprocess.run([sys.executable, f"{HERE}/frame_grids.py", tmp, out], check=True)
+    # each move's frames together, so a whole move comes from one painting
+    subprocess.run([sys.executable, f"{HERE}/frame_grids.py", tmp, out, "--moves"], check=True)
     for f in sorted(glob.glob(f"{out}/grid-[0-9][0-9].jpg")):
-        shutil.copy(f, f"{out}/{kid}-kit-{os.path.basename(f)[5:7]}.jpg")
+        shutil.copy(f, f"{out}/{kid}-mv-{os.path.basename(f)[5:7]}.jpg")
 
 
 # ---------- build ----------
@@ -97,9 +98,9 @@ def facing(anim):
 
 
 def build(kid, item, gdir, prefix):
-    """Flow doesn't always draw an item the same way on every grid (a beanie over the buns on one, between
-    them on the next), so each frame takes, from the versions of its grid, the one whose item is nearest
-    the usual size for that side (front, side or back), and frames where none is near are listed to redo."""
+    """Each grid takes the one of its versions that changed least besides the item, whole, so every frame
+    of a move (one grid holds whole moves) comes from the same painting. Frames whose item is far from the
+    usual size for that side are listed: look at those grids."""
     d = f"{ROOT}/assets/characters/{kid}-detail"
     sheet = np.array(Image.open(f"{d}/sprites.webp").convert("RGBA"))
     regions = np.array(Image.open(f"{d}/regions.png"))[..., 0]
@@ -130,12 +131,17 @@ def build(kid, item, gdir, prefix):
     for side in "fsb":
         v = [r for (k, j), (r, _) in sizes.items() if facing(layout[k]["anim"]) == side and r > 0]
         usual[side] = float(np.median(v)) if v else 0
+    pick = {}
+    for gi, cs in cands.items():
+        pick[gi] = min(range(len(cs)), key=lambda j: int(cs[j][6].sum()))
     pieces, odd = {}, []
     for k, c in enumerate(layout):
-        opts = [(abs(r - usual[facing(c["anim"])]) / max(usual[facing(c["anim"])], 1e-3) + 2 * sp, j) for (kk, j), (r, sp) in sizes.items() if kk == k]
-        if not opts:
+        if c["grid"] not in pick:
             continue
-        off, j = min(opts)
+        j = pick[c["grid"]]
+        r, sp = sizes[k, j]
+        side = facing(c["anim"])
+        off = abs(r - usual[side]) / max(usual[side], 1e-3) + 2 * sp
         if off > 0.45:
             odd.append(f"grid {c['grid']:02d} cell {layout.index(c) - min(i for i, x in enumerate(layout) if x['grid'] == c['grid']):2d} ({c['anim']}): {off:.0%} off the usual size")
         _, gen, orig, k1, k2, lum, _ = cands[c["grid"]][j]
