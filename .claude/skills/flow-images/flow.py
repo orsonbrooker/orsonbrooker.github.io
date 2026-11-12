@@ -1,9 +1,10 @@
 """Drives Luke's Google Flow project (Shootaround) through agent-browser's "flow" session on this Mac.
 
   python flow.py upload <file>...                      add images to the project (names must be unique)
-  python flow.py queue <ref prefix> <first> <last> <prompt file>
-        for each NN: adds "<ref prefix>-NN" as the reference and sends the prompt ({n} becomes NN);
-        stops unless the settings say 0 credits
+  python flow.py queue <ref prefix> <first> <last> <prompt file> [<second reference>]
+        for each NN: adds "<ref prefix>-NN" as the reference (then the second one, if given: a finished
+        grid showing how an item looks, so every grid paints it the same) and sends the prompt ({n}
+        becomes NN); stops unless the settings say 0 credits
   python flow.py collect <newest N> <out dir> <tag regex>
         finds the newest N items, reads each one's own page for its prompt tag and image link, and
         downloads the ones whose tag matches as <out>/<kid>-<kind>-NN-k.img
@@ -69,7 +70,15 @@ CREDITS = """(async () => { document.querySelector('[aria-label="Settings trigge
 return [...document.querySelectorAll('*')].filter((e) => e.children.length < 3 && /Generating will use/.test(e.textContent)).map((e) => e.textContent.trim()).pop() || 'none'; })()"""
 
 
-def queue(ref, first, last, pfile):
+def add_ref(name):
+    ab("click", '[aria-label="Add ingredients to the prompt box"]')
+    time.sleep(1.5)
+    added = ev(ADD.replace("NAME", json.dumps(name)))
+    ab("press", "Escape")
+    return added
+
+
+def queue(ref, first, last, pfile, second=None):
     prompt = open(pfile).read().strip()
     open_project()
     cost = ev(CREDITS)
@@ -79,10 +88,9 @@ def queue(ref, first, last, pfile):
         sys.exit("not 0 credits: stopping (credits are Luke's call)")
     for g in range(first, last + 1):
         n = f"{g:02d}"
-        ab("click", '[aria-label="Add ingredients to the prompt box"]')
-        time.sleep(1.5)
-        added = ev(ADD.replace("NAME", json.dumps(f"{ref}-{n}")))
-        ab("press", "Escape")
+        added = add_ref(f"{ref}-{n}")
+        if added == "added" and second:
+            added = add_ref(second)
         if added != "added":
             print(n, "reference:", added)
             continue
@@ -138,7 +146,7 @@ if __name__ == "__main__":
     if cmd == "upload":
         upload(args)
     elif cmd == "queue":
-        queue(args[0], int(args[1]), int(args[2]), args[3])
+        queue(args[0], int(args[1]), int(args[2]), args[3], args[4] if len(args) > 4 else None)
     elif cmd == "collect":
         collect(int(args[0]), args[1], args[2])
     else:

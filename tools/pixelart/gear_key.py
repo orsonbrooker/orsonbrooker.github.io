@@ -1,0 +1,291 @@
+"""Gear for kids made from video: Flow paints one item onto grids of a kid's frames in key colours, and this
+turns what it painted into a layer the game draws over the kid (players/gear.js), never baked into the body.
+
+  python tools/pixelart/gear_key.py grids <kid> <out dir>
+      grids of the kid's frames for Flow (frame_grids.py layout), with the shoes and shorts greyed and the
+      held ball painted back in, so nothing on the kid is near a key colour; also <kid>-kit-NN.jpg copies
+      to upload under those names
+  python tools/pixelart/gear_key.py build <kid> <item> <grids dir> <prefix>
+      reads <prefix>-NN-k.img (named by match_grids.py), keeps the version of each grid that changed least
+      besides the item, and writes assets/characters/gear/<item>/<kid>.webp + .png + .json
+
+Key colours: the item's main colour is a shaded medium magenta (hue about 55 degrees in the Cb/Cr plane),
+a second colour (stripes, trim) a shaded bright cyan-blue (about 320 degrees, far more saturated than any
+kit colour). Each keeps its own light and shade. In the layer:
+- <kid>.webp: the item's own pixels for each frame, packed; key-coloured pixels stored grey (their
+  lightness), outlines and anything not key-coloured as Flow drew them.
+- <kid>.png: red channel the part (1 = gear1, 2 = gear2, 0 = keep as drawn), green 255 on a body pixel the
+  item hides (hair under a hat), at the same place in the same piece.
+- <kid>.json: for each frame of the body sheet ("x,y"), its piece [ax, ay, w, h, dx, dy]: where it is in
+  the webp, and where its corner sits from the frame's corner (it may reach outside the frame).
+The item's entry in content/gear.js says what zone it's in and whether it goes over the held ball.
+"""
+import glob
+import hashlib
+import json
+import os
+import shutil
+import subprocess
+import sys
+
+import numpy as np
+from PIL import Image, ImageDraw
+from scipy import ndimage
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+HERE = os.path.dirname(os.path.abspath(__file__))
+GREEN = np.array([0, 177, 64], float)
+SKIN, HAIR, JERSEY, TEAM, SHOES = 1, 2, 3, 4, 5
+
+
+def ycc(a):
+    r, g, b = a[..., 0], a[..., 1], a[..., 2]
+    y = 0.299 * r + 0.587 * g + 0.114 * b
+    cb, cr = b - y, r - y
+    return y, np.hypot(cb, cr), (np.degrees(np.arctan2(cr, cb)) + 360) % 360
+
+
+def keys(gen):
+    """The two key colours in a picture Flow painted: (magenta, cyan, lightness)."""
+    y, chroma, ang = ycc(gen)
+    k1 = (chroma > 30) & (ang > 30) & (ang < 85)
+    k2 = (chroma > 70) & (ang > 290) & (ang < 345)
+    return k1, k2, y
+
+
+def is_green(a):
+    return (a[..., 1] > a[..., 0] + 40) & (a[..., 1] > a[..., 2] + 40)
+
+
+# ---------- grids ----------
+
+def grids(kid, out):
+    d = f"{ROOT}/assets/characters/{kid}-detail"
+    sheet = np.array(Image.open(f"{d}/sprites.webp").convert("RGBA")).astype(float)
+    reg = np.array(Image.open(f"{d}/regions.png"))[..., 0]
+    meta = json.load(open(f"{d}/sprites.json"))
+    y = 0.299 * sheet[..., 0] + 0.587 * sheet[..., 1] + 0.114 * sheet[..., 2]
+    for part, grey in ((SHOES, 215), (TEAM, 110)):
+        m = reg == part
+        ref = max(1.0, float(np.median(y[m])))
+        k = (y[m] / ref)[:, None]
+        sheet[m, :3] = np.where(k <= 1, grey * k, grey + (255 - grey) * (k - 1) * 0.6)
+    im = Image.fromarray(sheet.clip(0, 255).astype(np.uint8))
+    # the held ball, behind the body, so Flow sees hands holding a ball (not a hole)
+    under = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    g = ImageDraw.Draw(under)
+    for key, (cx, cy, r) in meta.get("balls", {}).items():
+        x, y0 = map(int, key.split(","))
+        cx, cy = x + cx, y0 + cy
+        g.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(60, 30, 20, 255))
+        g.ellipse([cx - r + 1.5, cy - r + 1.5, cx + r - 1.5, cy + r - 1.5], fill=(214, 110, 40, 255))
+        g.ellipse([cx - r * 0.55, cy - r * 0.75, cx + r * 0.1, cy - r * 0.2], fill=(240, 150, 80, 255))
+    under.alpha_composite(im)
+    tmp = f"{out}/.sheet"
+    os.makedirs(tmp, exist_ok=True)
+    under.save(f"{tmp}/sprites.webp", lossless=True)
+    shutil.copy(f"{d}/sprites.json", f"{tmp}/sprites.json")
+    subprocess.run([sys.executable, f"{HERE}/frame_grids.py", tmp, out], check=True)
+    for f in sorted(glob.glob(f"{out}/grid-[0-9][0-9].jpg")):
+        shutil.copy(f, f"{out}/{kid}-kit-{os.path.basename(f)[5:7]}.jpg")
+
+
+# ---------- build ----------
+
+def facing(anim):
+    return "b" if anim.endswith(("-b", "-bl", "-br")) else "s" if anim.endswith(("-l", "-r")) else "f"
+
+
+def build(kid, item, gdir, prefix):
+    """Flow doesn't always draw an item the same way on every grid (a beanie over the buns on one, between
+    them on the next), so each frame takes, from the versions of its grid, the one whose item is nearest
+    the usual size for that side (front, side or back), and frames where none is near are listed to redo."""
+    d = f"{ROOT}/assets/characters/{kid}-detail"
+    sheet = np.array(Image.open(f"{d}/sprites.webp").convert("RGBA"))
+    layout = json.load(open(f"{gdir}/grids.json"))
+    meta = json.load(open(f"{d}/sprites.json"))
+    item_info = json.load(open(f"{ROOT}/content/gear.json"))[item]
+    over_ball = item_info.get("ball") == "over"
+    cands, notes = {}, []  # grid -> [(name, gen, k1, k2, lum, changed)]
+    for gi in sorted({c["grid"] for c in layout}):
+        orig = np.asarray(Image.open(f"{gdir}/grid-{gi:02d}.jpg").convert("RGB")).astype(float)
+        for f in sorted(glob.glob(f"{prefix}-{gi:02d}-*.img")):
+            gen = np.asarray(Image.open(f).convert("RGB").resize((orig.shape[1], orig.shape[0]), Image.LANCZOS)).astype(float)
+            k1, k2, lum = keys(gen)
+            spill = (np.abs(gen - orig).sum(-1) > 90) & ~ndimage.binary_dilation(k1 | k2, iterations=4)
+            cands.setdefault(gi, []).append((os.path.basename(f), gen, orig, k1, k2, lum, spill))
+        if gi not in cands:
+            notes.append(f"grid {gi}: no images")
+    # how big the item is in each frame, in each version (a share of the frame's body)
+    sizes = {}
+    for k, c in enumerate(layout):
+        bx, by, bw, bh = c["box"]
+        pad = 12
+        for j, (_, gen, orig, k1, k2, _, spill) in enumerate(cands.get(c["grid"], [])):
+            win = (slice(max(0, by - pad), by + bh + pad), slice(max(0, bx - pad), bx + bw + pad))
+            body = max(1, int((~is_green(orig[by:by + bh, bx:bx + bw])).sum()))
+            sizes[k, j] = (int((k1 | k2)[win].sum()) / body, int(spill[by:by + bh, bx:bx + bw].sum()) / body)
+    usual = {}
+    for side in "fsb":
+        v = [r for (k, j), (r, _) in sizes.items() if facing(layout[k]["anim"]) == side and r > 0]
+        usual[side] = float(np.median(v)) if v else 0
+    pieces, odd = {}, []
+    for k, c in enumerate(layout):
+        opts = [(abs(r - usual[facing(c["anim"])]) / max(usual[facing(c["anim"])], 1e-3) + 2 * sp, j) for (kk, j), (r, sp) in sizes.items() if kk == k]
+        if not opts:
+            continue
+        off, j = min(opts)
+        if off > 0.45:
+            odd.append(f"grid {c['grid']:02d} cell {layout.index(c) - min(i for i, x in enumerate(layout) if x['grid'] == c['grid']):2d} ({c['anim']}): {off:.0%} off the usual size")
+        _, gen, orig, k1, k2, lum, _ = cands[c["grid"]][j]
+        piece = cut(c, gen, orig, k1, k2, lum, sheet, meta, over_ball)
+        if piece is not None:
+            pieces[f"{c['rect'][0]},{c['rect'][1]}"] = piece
+    write(kid, item, pieces, meta)
+    for n in notes:
+        print(n)
+    print(f"{len(odd)} frames far from the item's usual size")
+    redo = sorted({int(o[5:7]) for o in odd})
+    if redo:
+        print("their grids (check them; redo with a finished grid as a second reference):", ",".join(f"{g:02d}" for g in redo))
+
+
+def cut(c, gen, orig, k1, k2, lum, sheet, meta, over_ball):
+    """One frame's piece: the item's pixels at the sheet's size, around the frame (pad on every side)."""
+    bx, by, bw, bh = c["box"]
+    sx, sy, sw, sh = c["rect"]
+    s = c["s"]
+    pad = int(round(14 * s))  # Flow may draw a hat a little above the frame
+    H, W = gen.shape[:2]
+    x0, y0, x1, y1 = max(0, bx - pad), max(0, by - pad), min(W, bx + bw + pad), min(H, by + bh + pad)
+    # the cell, scaled back to the sheet: (x0 - bx) / s sheet pixels from the frame's corner
+    ow, oh = round((x1 - x0) / s), round((y1 - y0) / s)
+    dx, dy = round((x0 - bx) / s), round((y0 - by) / s)
+
+    def up(a, mode=Image.BILINEAR):
+        return np.asarray(Image.fromarray(a).resize((ow, oh), mode))
+
+    g = gen[y0:y1, x0:x1]
+    m1 = up((k1[y0:y1, x0:x1] * 255).astype(np.uint8)) > 128
+    m2 = up((k2[y0:y1, x0:x1] * 255).astype(np.uint8)) > 128
+    m2 &= ~m1
+    if not (m1 | m2).any():
+        return None
+    # only pieces that touch this frame (not a neighbour's hat reaching into the margin), and no specks
+    fx0, fy0 = max(0, -dx), max(0, -dy)
+    inframe = np.zeros((oh, ow), bool)
+    inframe[fy0:fy0 + sh, fx0:fx0 + sw] = True
+    item = m1 | m2
+    lab, n = ndimage.label(item)
+    if n:
+        sizes = ndimage.sum(item, lab, range(1, n + 1))
+        touch = ndimage.maximum(inframe, lab, range(1, n + 1))
+        item = np.isin(lab, 1 + np.flatnonzero((sizes >= max(6, 0.03 * sizes.max())) & (touch > 0)))
+    m1 &= item
+    m2 &= item
+    if not item.any():
+        return None
+    rgb = up(g.clip(0, 255).astype(np.uint8), Image.LANCZOS).astype(float)
+    y_up = up(lum[y0:y1, x0:x1].clip(0, 255).astype(np.uint8))
+    # the body under the piece, at the same place
+    body = np.zeros((oh, ow), bool)
+    body[fy0:fy0 + sh, fx0:fx0 + sw] = sheet[sy:sy + sh, sx:sx + sw, 3] > 0
+    # Flow's own outline round the item: dark pixels next to it that weren't there before
+    o = up(orig[y0:y1, x0:x1].clip(0, 255).astype(np.uint8), Image.LANCZOS).astype(float)
+    dark = (0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2]) < 70
+    changed = np.abs(rgb - o).sum(-1) > 80
+    near = ndimage.binary_dilation(m1 | m2, iterations=2)
+    outline = near & dark & changed & ~(m1 | m2)
+    # off the body, a plain dark edge all round so a hat's brim reads against the court
+    edge = ndimage.binary_dilation(m1 | m2, iterations=1) & ~(m1 | m2) & ~body
+    outline |= edge
+    keep = m1 | m2 | outline
+    # what the item hides: body pixels Flow turned to background next to the item (hair under a hat)
+    hide = body & is_green(rgb) & ndimage.binary_dilation(m1 | m2, iterations=int(10 / max(s, 0.5))) & ~keep
+    # behind the held ball (a jersey): none of it where the ball is
+    ball = meta.get("balls", {}).get(f"{sx},{sy}")
+    if ball and not over_ball:
+        yy, xx = np.mgrid[0:oh, 0:ow]
+        inside = (xx - fx0 - ball[0]) ** 2 + (yy - fy0 - ball[1]) ** 2 <= (ball[2] - 0.5) ** 2
+        keep &= ~inside
+        hide &= ~inside
+        m1 &= keep
+        m2 &= keep
+    if not keep.any():
+        return None
+    # key pixels stored by lightness alone, stretched per key so the shading runs dark to light
+    out = np.zeros((oh, ow, 4), np.uint8)
+    out[keep, :3] = rgb[keep].clip(0, 255).astype(np.uint8)
+    out[keep, 3] = 255
+    out[outline] = [28, 20, 26, 255]
+    for m in (m1, m2):
+        if m.any():
+            out[m, :3] = y_up[m][:, None]
+    part = np.zeros((oh, ow, 4), np.uint8)
+    part[m1, 0] = 1
+    part[m2, 0] = 2
+    part[hide, 1] = 255
+    part[..., 3] = 255
+    ys, xs = np.nonzero(keep | hide)
+    t, b, l, r = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    return {"rgba": out[t:b, l:r], "part": part[t:b, l:r], "dx": dx + int(l), "dy": dy + int(t)}
+
+
+def write(kid, item, pieces, meta):
+    out = f"{ROOT}/assets/characters/gear/{item}"
+    os.makedirs(out, exist_ok=True)
+    # the key pixels' lightness, stretched over all frames so each key's shading is full range
+    W = 1024
+    px = py = shelf = 0
+    at = {}
+    for key, p in pieces.items():
+        h, w = p["rgba"].shape[:2]
+        if px + w > W:
+            px, py, shelf = 0, py + shelf + 1, 0
+        at[key] = (px, py)
+        px += w + 1
+        shelf = max(shelf, h)
+    H = py + shelf + 1
+    rgba = np.zeros((H, W, 4), np.uint8)
+    part = np.zeros((H, W, 4), np.uint8)
+    part[..., 3] = 255
+    for key, p in pieces.items():
+        x, y = at[key]
+        h, w = p["rgba"].shape[:2]
+        rgba[y:y + h, x:x + w] = p["rgba"]
+        part[y:y + h, x:x + w] = p["part"]
+    refs = {}
+    for k, name in ((1, "gear1"), (2, "gear2")):
+        m = part[..., 0] == k
+        if not m.any():
+            continue
+        L = rgba[m, 0].astype(float)
+        lo, hi = np.percentile(L, 2), np.percentile(L, 98)
+        t = ((L - lo) / max(1, hi - lo)).clip(0, 1)
+        kk = 0.35 + 1.0 * t
+        base = 150.0
+        v = np.where(kk <= 1, base * kk, base + (255 - base) * (kk - 1) * 0.6)
+        rgba[m, :3] = v.clip(0, 255).astype(np.uint8)[:, None]
+        refs[name] = int(base)
+    Image.fromarray(rgba).save(f"{out}/{kid}.webp", lossless=True, method=6)
+    Image.fromarray(part).save(f"{out}/{kid}.png", optimize=True)
+    frames = {key: [*at[key], *pieces[key]["rgba"].shape[1::-1], pieces[key]["dx"], pieces[key]["dy"]] for key in pieces}
+    json.dump({"refs": refs, "frames": frames}, open(f"{out}/{kid}.json", "w"))
+    # each layer's version, so a changed one is fetched afresh (players/gear.js)
+    h = hashlib.sha1(b"".join(open(f"{out}/{kid}.{e}", "rb").read() for e in ("webp", "png", "json"))).hexdigest()[:8]
+    ipath = f"{ROOT}/assets/characters/gear/index.json"
+    index = json.load(open(ipath)) if os.path.exists(ipath) else {}
+    index.setdefault(item, {})[kid] = h
+    json.dump(dict(sorted(index.items())), open(ipath, "w"), indent=1)
+    total = len({f"{f[0]},{f[1]}" for fr in meta["frames"].values() for f in fr})
+    print(f"{item} on {kid}: {len(pieces)} of {total} frames, sheet {W}x{H}")
+
+
+if __name__ == "__main__":
+    cmd = sys.argv[1]
+    if cmd == "grids":
+        grids(*sys.argv[2:4])
+    elif cmd == "build":
+        build(*sys.argv[2:6])
+    else:
+        sys.exit(__doc__)

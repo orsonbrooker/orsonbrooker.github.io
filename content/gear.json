@@ -1,0 +1,17 @@
+{
+  "hightops": { "slot": "shoes", "name": "High-tops", "colours": ["shoes", "team"] },
+  "flames": { "slot": "shoes", "name": "Flame shoes", "colours": ["shoes", "team"] },
+  "headband": { "slot": "head", "name": "Headband", "colours": ["jersey", "team"] },
+  "cap": { "slot": "head", "name": "Cap", "colours": ["jersey", "team"] },
+  "backcap": { "slot": "head", "name": "Cap, backwards", "colours": ["jersey", "team"] },
+  "beanie": { "slot": "head", "name": "Beanie", "colours": ["jersey", "team"] },
+  "shades": { "slot": "face", "name": "Sunglasses", "colours": ["team"] },
+  "goggles": { "slot": "face", "name": "Sports goggles", "colours": ["jersey", "team"] },
+  "paint": { "slot": "face", "name": "Face paint", "colours": ["team"] },
+  "stripes": { "slot": "jersey", "name": "Two stripes", "colours": ["team"], "print": "over" },
+  "bolt": { "slot": "jersey", "name": "Lightning bolt", "colours": ["team"], "print": "over" },
+  "hoodie": { "slot": "jersey", "name": "Hoodie", "colours": ["jersey", "team"] },
+  "wrist": { "slot": "arms", "name": "Wristbands", "colours": ["jersey", "team"], "ball": "over" },
+  "sleeve": { "slot": "arms", "name": "Arm sleeve", "colours": ["jersey", "team"], "ball": "over" },
+  "socks": { "slot": "legs", "name": "Long socks", "colours": ["jersey", "team"] }
+}

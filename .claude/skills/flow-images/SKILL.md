@@ -46,7 +46,14 @@ elsewhere). One key colour per pass: hair in one pass, the ball in another, each
 5. Build: `key_hair.py` (hair) or `ball_key.py` (the ball) on `<kid>-detail`, after `tidy_regions.py`;
    then look at the kid in clashing colours (blue hair, very light and very dark skin) from every side.
 
-Gear works the same way: one pass per item, in the item's key colour, laid over the frames as its own part.
+## Gear
+
+One pass per item per kid, on grids from `python tools/pixelart/gear_key.py grids <kid> <dir>` (shoes and
+shorts greyed, the held ball painted in; uploaded as `<kid>-kit-NN.jpg`). The prompt says what the item is
+and how it's worn, the main part in shaded magenta (#c040b0) and a second colour (cuff, peak, stripes) in
+shaded bright blue (#1e8cff): the two keys separate cleanly. Name arms by what they do ("the arm that
+shoots"). Tag it `<KID> <ITEM> KEY {n}` (one word for the item). Then `match_grids.py`, then
+`gear_key.py build <kid> <item> <dir> <prefix>`, then `node tools/dev/gear_sheet.mjs` for its contact sheet.
 
 ## New kids
 

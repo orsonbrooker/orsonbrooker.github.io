@@ -3,12 +3,14 @@
 // Open with ?base=curly&skin=c98c5f&hair=26222a&jersey=d63a3a&team=2b2b2f&shoes=f2f2ef&number=7&teamName=KINGS&name=Ace
 // to preload a look.
 // A kid made from their own videos (Curly, Buns) moves as in the game, all the way round, and their size
-// (height and build) can be set; &height=1&bulk=-0.5 starts at a size.
+// (height and build) can be set; &height=1&bulk=-0.5 starts at a size. &gear=beanie,stripes tries gear on
+// them (content/gear.json), saved with the player for the game.
 
 import { API } from "../api.js";
 import { markField, say } from "../ui/form.js";
 import { makeBallSprites } from "../engine/draw.js";
 import { paletteSwap } from "../players/pixelkit.js";
+import { gearParam, loadGear, wearGear } from "../players/gear.js";
 import { stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, recolor, saveMyPlayer, thumbnail } from "../players/recolor.js";
@@ -62,6 +64,8 @@ let ballSprites = null; // the held ball, made when first needed
 const colours = {};
 const picked = new Set(); // parts the player has chosen a colour for, kept when they switch bodies
 const build = { height: 0, bulk: 0 };
+const gear = gearParam(params.get("gear")); // { slot: item } (a test link, until the builder can pick gear)
+let worn = []; // the gear's layers for the current body
 
 
 function button(props, ...children) {
@@ -93,6 +97,7 @@ async function chooseBase(base, keepColours) {
   if (!keepColours) for (const part of PARTS) if (!picked.has(part)) colours[part] = base.colours[part];
   for (const part of PARTS) markSwatch(part);
   sizeBox.hidden = !current.video;
+  worn = current.video ? await loadGear(base.id, gear).catch(() => []) : [];
   repaint();
 }
 
@@ -118,9 +123,11 @@ function repaint() {
   repaintQueued = true;
   requestAnimationFrame(() => {
     repaintQueued = false;
-    sheet = current.video
-      ? stretchSheet({ meta: current.meta, img: recolor(current, colours), prints: twinPrints() }, current.regionsData, build)
-      : { meta: current.meta, img: recolor(current, colours), prints: null };
+    if (current.video) {
+      // their gear on, then their height and build
+      const dressed = wearGear({ meta: current.meta, img: recolor(current, colours), prints: twinPrints(), regions: current.regionsData }, worn, colours);
+      sheet = stretchSheet(dressed, dressed.regions, build);
+    } else sheet = { meta: current.meta, img: recolor(current, colours), prints: null };
     previewFace.src = thumbnail(current, colours, 48).toDataURL(); // the body's card picture, in their colours
   });
 }
@@ -352,8 +359,8 @@ async function setupTurnstile() {
   }
 }
 
-// A kid from video's size, saved with them on this device.
-const looks = () => ({ build: current.video ? { ...build } : undefined });
+// A kid from video's size and gear, saved with them on this device.
+const looks = () => ({ build: current.video ? { ...build } : undefined, gear: current.video && Object.keys(gear).length ? { ...gear } : undefined });
 
 // Play straight away: save to this device and jump into the game as them.
 play.addEventListener("click", () => {

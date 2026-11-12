@@ -1,0 +1,200 @@
+// Gear on a kid made from video (a hat, a hoodie, high-tops): a layer drawn over their frames, never part
+// of the body, so any item goes on any kid and comes off again. Each item is made per kid by
+// tools/pixelart/gear_key.py: its own pixels for each frame (assets/characters/gear/<item>/<kid>.webp), a
+// part map (gear1 and gear2, recoloured from their light and shade like hair) and which body pixels it
+// hides (hair under a hat). content/gear.json lists the items: their slot, which of the player's colours
+// gear1 and gear2 take, whether an item goes over the held ball (arms) and whether the number and team
+// name print over it (a striped jersey) or it covers them (a hoodie).
+//
+// wearGear() gives a new sheet with the items on: frames grow where an item reaches outside them (a
+// beanie's pom-pom), so the sheet is repacked, with the region map, the held balls and the frame offsets
+// moved to match, ready for stretchSheet() (height and build).
+
+import GEAR from "../content/gear.json";
+
+export { GEAR };
+// drawn bottom first: a hoodie under wristbands, a hat over goggles' strap
+const ORDER = ["jersey", "legs", "shoes", "arms", "face", "head"];
+const W = 4096; // the new sheet's width
+
+/** The items worn, one per slot, in drawing order: from { slot: id } or a list of ids. */
+export function wornItems(gear) {
+  const bySlot = new Map();
+  for (const id of Array.isArray(gear) ? gear : Object.values(gear ?? {})) if (GEAR[id]) bySlot.set(GEAR[id].slot, id);
+  return [...bySlot.values()].sort((a, b) => ORDER.indexOf(GEAR[a].slot) - ORDER.indexOf(GEAR[b].slot));
+}
+
+/** { slot: id } from a test link's "beanie,stripes". */
+export function gearParam(text) {
+  const out = {};
+  for (const id of (text ?? "").split(",")) if (GEAR[id.trim()]) out[GEAR[id.trim()].slot] = id.trim();
+  return out;
+}
+
+let index;
+const loadIndex = (root) => (index ??= fetch(`${root}assets/characters/gear/index.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+
+function image(src) {
+  return new Promise((resolve, reject) => {
+    const i = new Image();
+    i.crossOrigin = "anonymous";
+    i.onload = () => resolve(i);
+    i.onerror = reject;
+    i.src = src;
+  });
+}
+
+function pixels(img) {
+  const c = Object.assign(document.createElement("canvas"), { width: img.width, height: img.height });
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(img, 0, 0);
+  return g.getImageData(0, 0, img.width, img.height);
+}
+
+const layers = new Map();
+/** The layers for what a kid wears (only items made for that kid), loaded once each. */
+export async function loadGear(kid, gear, root = "/") {
+  const made = await loadIndex(root);
+  const items = wornItems(gear).filter((id) => made[id]?.[kid]);
+  return Promise.all(
+    items.map((id) => {
+      const key = `${id}/${kid}`;
+      if (!layers.has(key)) {
+        const at = `${root}assets/characters/gear/${id}/${kid}`;
+        const v = `?v=${made[id][kid]}`;
+        const p = Promise.all([image(`${at}.webp${v}`), image(`${at}.png${v}`), fetch(`${at}.json${v}`).then((r) => r.json())]).then(
+          ([art, part, meta]) => ({ id, info: GEAR[id], art: pixels(art), part: pixels(part), meta }),
+        );
+        p.catch(() => layers.delete(key));
+        layers.set(key, p);
+      }
+      return layers.get(key);
+    }),
+  );
+}
+
+const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
+
+// One item's piece onto a frame's pixels (d, w wide), its corner at (px, py): first the body pixels it
+// hides, then its own, the key parts in the player's colours.
+function hide(layer, piece, d, w, h, px, py) {
+  const [ax, ay, pw, ph] = piece;
+  const part = layer.part.data, pw0 = layer.part.width;
+  for (let y = 0; y < ph; y++)
+    for (let x = 0; x < pw; x++) {
+      if (part[((ay + y) * pw0 + ax + x) * 4 + 1] < 128) continue;
+      const tx = px + x, ty = py + y;
+      if (tx >= 0 && ty >= 0 && tx < w && ty < h) d[(ty * w + tx) * 4 + 3] = 0;
+    }
+}
+
+function paint(layer, piece, tints, d, w, h, px, py) {
+  const [ax, ay, pw, ph] = piece;
+  const art = layer.art.data, part = layer.part.data, aw = layer.art.width;
+  for (let y = 0; y < ph; y++)
+    for (let x = 0; x < pw; x++) {
+      const i = ((ay + y) * aw + ax + x) * 4;
+      if (art[i + 3] < 128) continue;
+      const tx = px + x, ty = py + y;
+      if (tx < 0 || ty < 0 || tx >= w || ty >= h) continue;
+      const o = (ty * w + tx) * 4;
+      const tint = tints[part[i]];
+      if (tint) {
+        // lighter or darker than the stored mid-tone: the colour scaled down, or blended toward white
+        const k = art[i] / tint.ref;
+        for (let c = 0; c < 3; c++) d[o + c] = k <= 1 ? tint.rgb[c] * k : Math.min(255, tint.rgb[c] + (255 - tint.rgb[c]) * (k - 1) * 0.6);
+      } else for (let c = 0; c < 3; c++) d[o + c] = art[i + c];
+      d[o + 3] = 255;
+    }
+}
+
+/**
+ * The sheet with the gear on. sheet: { meta, img, prints, regions } (regions: the region map's
+ * ImageData, at the sheet's places); worn: from loadGear(); colours: the player's (each item takes the
+ * ones its entry names). Returns the same shape, repacked, with the prints drawn in.
+ */
+export function wearGear({ meta, img, prints, regions }, worn, colours) {
+  if (!worn.length) return { meta, img, prints, regions };
+  const tintsOf = (layer) => {
+    const t = {};
+    layer.info.colours.forEach((name, i) => {
+      const c = colours[name];
+      if (c) t[i + 1] = { rgb: hex(c), ref: layer.meta.refs[`gear${i + 1}`] ?? 150 };
+    });
+    return t;
+  };
+  const tints = worn.map(tintsOf);
+  const regionCanvas = Object.assign(document.createElement("canvas"), { width: regions.width, height: regions.height });
+  regionCanvas.getContext("2d").putImageData(regions, 0, 0);
+
+  const rects = new Map();
+  for (const list of Object.values(meta.frames)) for (const f of list) rects.set(`${f[0]},${f[1]},${f[2]},${f[3]}`, f);
+  const made = new Map();
+  for (const [key, [x, y, w, h]] of rects) {
+    const pieces = worn.map((l) => l.meta.frames[`${x},${y}`]);
+    let left = 0, top = 0, right = w, bottom = h;
+    for (const p of pieces) {
+      if (!p) continue;
+      left = Math.min(left, p[4]);
+      top = Math.min(top, p[5]);
+      right = Math.max(right, p[4] + p[2]);
+      bottom = Math.max(bottom, p[5] + p[3]);
+    }
+    const fw = right - left, fh = bottom - top;
+    const c = Object.assign(document.createElement("canvas"), { width: fw, height: fh });
+    const g = c.getContext("2d", { willReadFrequently: true });
+    g.drawImage(img, x, y, w, h, -left, -top, w, h);
+    let data = g.getImageData(0, 0, fw, fh);
+    for (let i = 0; i < worn.length; i++) if (pieces[i]) hide(worn[i], pieces[i], data.data, fw, fh, pieces[i][4] - left, pieces[i][5] - top);
+    const print = prints?.get(`${x},${y}`);
+    const under = (i) => worn[i].info.print === "over"; // the number prints over it
+    for (let i = 0; i < worn.length; i++) if (pieces[i] && under(i)) paint(worn[i], pieces[i], tints[i], data.data, fw, fh, pieces[i][4] - left, pieces[i][5] - top);
+    if (print) {
+      g.putImageData(data, 0, 0);
+      g.drawImage(print, 0, 0, print.width, print.height, -left, -top, w, h);
+      data = g.getImageData(0, 0, fw, fh);
+    }
+    for (let i = 0; i < worn.length; i++) if (pieces[i] && !under(i)) paint(worn[i], pieces[i], tints[i], data.data, fw, fh, pieces[i][4] - left, pieces[i][5] - top);
+    g.putImageData(data, 0, 0);
+    made.set(key, { canvas: c, x, y, w, h, left, top, fw, fh });
+  }
+
+  let px = 0, py = 0, shelf = 0;
+  const at = new Map();
+  for (const [key, m] of made) {
+    if (px + m.fw > W) {
+      px = 0;
+      py += shelf + 1;
+      shelf = 0;
+    }
+    at.set(key, [px, py]);
+    px += m.fw + 1;
+    shelf = Math.max(shelf, m.fh);
+  }
+  const H = py + shelf + 1;
+  const sheet = Object.assign(document.createElement("canvas"), { width: W, height: H });
+  const gs = sheet.getContext("2d");
+  const regionOut = Object.assign(document.createElement("canvas"), { width: W, height: H });
+  const gr = regionOut.getContext("2d", { willReadFrequently: true });
+  const balls = {};
+  for (const [key, m] of made) {
+    const [ax, ay] = at.get(key);
+    gs.drawImage(m.canvas, ax, ay);
+    gr.drawImage(regionCanvas, m.x, m.y, m.w, m.h, ax - m.left, ay - m.top, m.w, m.h);
+    const ball = meta.balls?.[`${m.x},${m.y}`];
+    if (ball) balls[`${ax},${ay}`] = [ball[0] - m.left, ball[1] - m.top, ball[2]];
+  }
+  const frames = {};
+  for (const [anim, list] of Object.entries(meta.frames))
+    frames[anim] = list.map((f) => {
+      const key = `${f[0]},${f[1]},${f[2]},${f[3]}`;
+      const m = made.get(key);
+      return [...at.get(key), m.fw, m.fh, f[4] + m.left, f[5] + m.top];
+    });
+  return {
+    meta: { ...meta, frames, balls, printsFrom: undefined, numbers: undefined },
+    img: sheet,
+    prints: null,
+    regions: gr.getImageData(0, 0, W, H),
+  };
+}
