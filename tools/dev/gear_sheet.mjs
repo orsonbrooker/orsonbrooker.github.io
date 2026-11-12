@@ -4,7 +4,7 @@
 // a row at the size a phone shows it.
 //   (headless Chrome on a debugging port, as in play.mjs, and the site's Vite dev server running)
 //   node tools/dev/gear_sheet.mjs 9346 http://localhost:5186 beanie <out.png> [curly,buns]
-const [port, site, item, out, kidList = "curly,buns"] = process.argv.slice(2);
+const [port, site, item, out, kidList = "curly,buns", mode = ""] = process.argv.slice(2);
 import { writeFileSync } from "node:fs";
 
 const target = await (await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(site + "/404.html")}`, { method: "PUT" })).json();
@@ -39,6 +39,7 @@ const page = async (item, kids) => {
   ];
   const SIDES = ["", "-fr", "-r", "-br", "-b", "-bl", "-l", "-fl"];
   const rows = [];
+  const ALL = typeof location !== "undefined" && window.__allMoves;
   for (const kid of kids) {
     const base = bases.find((b) => b.id === kid);
     const loaded = await loadBase(base);
@@ -53,6 +54,16 @@ const page = async (item, kids) => {
       return list && { sheet, f: list[Math.min(list.length - 1, k < 0 ? list.length + k : k)] };
     };
     const a = make(CLASH);
+    if (ALL) {
+      // every frame of every move the builder's preview plays, side by side, to find glitches
+      for (const side of SIDES)
+        for (const move of ["idle", "dribble", "gather", "jump", "release", "recover", "jog", "start", "turn"]) {
+          const anim = move + side;
+          if (!a.meta.frames[anim] || (move === "idle" && side)) continue;
+          rows.push({ label: `${kid} ${anim}`, narrow: true, cells: a.meta.frames[anim].map((_, k) => frame(a, anim, k)).slice(0, 14) });
+        }
+      continue;
+    }
     rows.push({ label: `${kid}, clashing colours: every side, dribbling`, cells: SIDES.map((s) => frame(a, `dribble${s}`, 3)).filter(Boolean) });
     // every frame of one move, so a hat that changes from frame to frame shows
     for (const anim of ["dribble-l", "release-fr"])
@@ -98,7 +109,7 @@ const page = async (item, kids) => {
   return c.toDataURL("image/png");
 };
 
-const res = await send("Runtime.evaluate", { expression: `(${page})(${JSON.stringify(item)}, ${JSON.stringify(kidList.split(","))})`, awaitPromise: true, returnByValue: true });
+const res = await send("Runtime.evaluate", { expression: `window.__allMoves = ${mode === "all"}; (${page})(${JSON.stringify(item)}, ${JSON.stringify(kidList.split(","))})`, awaitPromise: true, returnByValue: true });
 if (res.result.exceptionDetails) {
   console.error(res.result.exceptionDetails.exception?.description ?? res.result.exceptionDetails.text);
   process.exit(1);
