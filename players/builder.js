@@ -562,8 +562,11 @@ function showSteps(frames, facing = null) {
       [`recover${side}`, 14, 1],
     );
   }
-  const kept = steps.filter(([anim]) => frames[anim]);
-  return (kept.length ? kept : [["idle", 3, 1]])
+  const has = (anim) => frames[anim]?.length > 0;
+  const kept = steps.filter(([anim]) => has(anim));
+  // nothing for that side (or no idle): whatever move the sheet has
+  const any = has("idle") ? "idle" : Object.keys(frames).find(has);
+  return (kept.length ? kept : any ? [[any, 3, 1]] : [])
     .map(([anim, fps, repeats, how]) => {
       const list = how === "hold" ? [frames[anim].at(-1)] : frames[anim];
       return { anim, list, fps, length: (list.length / fps) * repeats };
@@ -664,10 +667,12 @@ function draw(now) {
   requestAnimationFrame(draw);
   if (!sheet) return;
   fitCanvas();
+  if (canvas.height < 60 || canvas.width < 60) return; // not laid out yet (or squeezed): nothing to draw
   const frames = sheet.meta.frames;
   // Find where we are in the show loop (standing still when motion is reduced).
   if (sheet.steps?.frames !== frames || sheet.steps.facing !== facing) sheet.steps = Object.assign(showSteps(frames, facing), { frames, facing });
   const steps = sheet.steps;
+  if (!steps.length) return;
   const total = steps.reduce((t, s) => t + s.length, 0);
   let t = reducedMotion.matches ? 0 : ((now - started) / 1000) % total;
   let step = steps[0];
@@ -678,7 +683,9 @@ function draw(now) {
     }
     t -= s.length;
   }
-  const [x, y, w, h, ox, oy] = step.list[Math.floor(t * step.fps) % step.list.length];
+  const frame = step.list[Math.floor(t * step.fps) % step.list.length];
+  if (!frame) return;
+  const [x, y, w, h, ox, oy] = frame;
   const meta = sheet.meta;
   const res = meta.res;
 
@@ -687,7 +694,7 @@ function draw(now) {
   // stand in the middle, and a shot flies on up to the stage's edge.
   const dpr = canvas.width / Math.max(1, canvas.clientWidth);
   const tallest = 520 * res;
-  const s = Math.min((canvas.height - 26 * dpr) / tallest, 1.3 * dpr * (0.6 / res));
+  const s = Math.max(0.05, Math.min((canvas.height - 26 * dpr) / tallest, 1.3 * dpr * (0.6 / res)));
   const groundX = canvas.width / 2;
   const groundY = Math.min(canvas.height - 14 * dpr, canvas.height / 2 + (tallest * s) / 2);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
