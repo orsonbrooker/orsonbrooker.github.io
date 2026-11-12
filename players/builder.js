@@ -551,7 +551,7 @@ const SIDES = ["", "-fr", "-r", "-br", "-b", "-bl", "-l", "-fl"];
 // Turned by hand (the arrows, or a swipe on the preview): that side's dribble and shot, over and over.
 function showSteps(frames, facing = null) {
   const steps = facing === null ? [["idle", 3, 2]] : [];
-  for (const side of facing === null ? SIDES : [facing]) {
+  for (const side of facing === null ? sidesOf(frames) : [facing]) {
     if (!frames[`release${side}`] && facing === null) continue;
     steps.push(
       [`dribble${side}`, 14, 2],
@@ -618,6 +618,7 @@ function showName() {
 
 let started = performance.now();
 let lastHeld = null; // where the held ball was last drawn, to send it off when they let go
+let shotGone = false; // the ball has left their hands in this shot
 let flight = null; // a shot ball flying off: canvas position, size, velocity, spin
 
 // The canvas matches its size on screen, in device pixels, so the stage's whole area is drawn on
@@ -632,7 +633,20 @@ function fitCanvas() {
 // ---------- Turning the player round ----------
 
 let facing = null; // a side from SIDES once they've turned the player; null shows every side in turn
-const sidesOf = (frames) => SIDES.filter((side) => frames[`dribble${side}`]);
+// The sides a sheet really has: a side that reuses another's frames (a kid's front-left can be their
+// left until it's made) is left out, keeping the plainer name, so turning never shows the same twice.
+const PLAINEST = ["-b", "-bl", "-l", "-r", "-br", "-fl", "-fr", ""];
+function sidesOf(frames) {
+  const seen = new Set();
+  const kept = new Set();
+  for (const side of PLAINEST) {
+    const first = frames[`dribble${side}`]?.[0];
+    if (!first || seen.has(first.join())) continue;
+    seen.add(first.join());
+    kept.add(side);
+  }
+  return SIDES.filter((side) => kept.has(side));
+}
 const turnLeft = $("turn-left");
 const turnRight = $("turn-right");
 
@@ -706,7 +720,10 @@ function draw(now) {
   ctx.imageSmoothingQuality = "high";
   const at = [Math.round(groundX + ox * s), Math.round(groundY + oy * s)];
   // a kid from video holds the game's own ball, drawn behind them
-  const held = meta.balls?.[`${x},${y}`];
+  const shooting = /^(gather|jump|release)/.test(step.anim);
+  if (!shooting) shotGone = false;
+  // once it's left their hands, a later frame of the shot that still has it doesn't bring it back
+  const held = shotGone ? null : meta.balls?.[`${x},${y}`];
   if (held) {
     const d = 2 * held[2] * s * 1.04;
     ctx.drawImage(ball(held), at[0] + held[0] * s - d / 2, at[1] + held[1] * s - d / 2, d, d);
@@ -717,7 +734,8 @@ function draw(now) {
     const [dx, dz] = SHOT_WAY[side] ?? SHOT_WAY[""];
     flight = { x0: lastHeld.x, y0: lastHeld.y, d: lastHeld.d, s, dx, dz, t: now };
     lastHeld = null;
-  } else if (!/^(gather|jump|release)/.test(step.anim)) lastHeld = null;
+    shotGone = true;
+  } else if (!shooting) lastHeld = null;
   const flying = flight && flightAt(flight, now);
   if (flying && !flying.front) ctx.drawImage(flying.img, flying.x - flying.r, flying.y - flying.r, 2 * flying.r, 2 * flying.r);
   ctx.drawImage(sheet.img, x, y, w, h, at[0], at[1], w * s, h * s);
@@ -730,11 +748,12 @@ function draw(now) {
 
 // A shot in the preview: where it goes for each way they face, across the screen (right +) and into it
 // (away +). A kid's plain moves face up the court, away and to the left.
-const SHOT_WAY = { "": [-0.55, 0.85], b: [0, 1], bl: [-0.55, 0.85], br: [0.55, 0.85], l: [-1, 0], r: [1, 0], fl: [-0.55, -0.85], fr: [0.55, -0.85], f: [0, -1] };
-const SHOT_UP = 950; // art pixels a second, upward at the release
-const SHOT_ON = 520; // and along the ground, the way they face
-const SHOT_FALL = 1100; // gravity, gentle, so the arc is easy to see
-const DEPTH_RISE = 0.45; // on screen, further away is higher up
+// A kid's left (and right) shot is their front-left video (flipped for the right), so it comes out toward us.
+const SHOT_WAY = { "": [-0.55, 0.85], b: [0, 1], bl: [-0.55, 0.85], br: [0.55, 0.85], l: [-0.55, -0.85], r: [0.55, -0.85], fl: [-0.55, -0.85], fr: [0.55, -0.85], f: [0, -1] };
+const SHOT_UP = 520; // art pixels a second, upward at the release: a little over the head, then down
+const SHOT_ON = 620; // and along the ground, the way they face
+const SHOT_FALL = 1150; // gravity
+const DEPTH_RISE = 0.3; // on screen, further away is a little higher up
 const DEPTH_SHRINK = 0.0011; // and smaller
 
 // Where a shot is now (canvas position, radius, which frame), or null once it's gone from the stage.
@@ -748,7 +767,9 @@ function flightAt(f, now) {
   const x = f.x0 + across * f.s;
   const y = f.y0 - (up + away * DEPTH_RISE) * f.s;
   const r = (f.d / 2) * k;
-  if (t > 2.5 || y < -r || y > canvas.height + r || x < -r || x > canvas.width + r || (t > 0.3 && up < -150)) {
+  // a shot going away is gone (into a hoop in the distance) once it drops back to where it left the hands
+  const done = f.dz > 0 ? t > 0.3 && up < 0 : t > 0.3 && up < -150;
+  if (t > 2.5 || done || y < -r || y > canvas.height + r || x < -r || x > canvas.width + r) {
     flight = null;
     return null;
   }
