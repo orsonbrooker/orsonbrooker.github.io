@@ -130,7 +130,14 @@ def main(d, out, fix=False):
     print(f"{len(rects)} frames, {len(issues)} with issues: {totals}")
     for anim, at, bad in issues[:12]:
         print(" ", anim, at, bad)
+    return totals
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2], "--fix" in sys.argv)
+    fix = "--fix" in sys.argv
+    totals = main(sys.argv[1], sys.argv[2], fix)
+    # taking a loose bit off can leave another one loose (it was only joined through that bit): go again
+    for _ in range(3):
+        if not (fix and totals.get("ball leftovers")):
+            break
+        totals = main(sys.argv[1], sys.argv[2], fix)
