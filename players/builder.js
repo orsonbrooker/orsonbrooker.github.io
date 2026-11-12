@@ -705,27 +705,50 @@ function draw(now) {
     ctx.drawImage(ball(held), at[0] + held[0] * s - d / 2, at[1] + held[1] * s - d / 2, d, d);
     lastHeld = { x: at[0] + held[0] * s, y: at[1] + held[1] * s, d, step, ox };
   } else if (lastHeld && /^(jump|release)/.test(step.anim) && !reducedMotion.matches) {
-    // the ball just left their hands: up and away, toward where they face, with backspin
+    // the ball just left their hands: a shot's arc toward where they face, with backspin
     const side = step.anim.split("-")[1] ?? "";
-    const lean = /l$/.test(side) ? -1 : /r$/.test(side) ? 1 : 0;
-    flight = { x: lastHeld.x, y: lastHeld.y, d: lastHeld.d, vx: lean * 160 * s, vy: -800 * s, t: now, last: now, turn: 0 };
+    const [dx, dz] = SHOT_WAY[side] ?? SHOT_WAY[""];
+    flight = { x0: lastHeld.x, y0: lastHeld.y, d: lastHeld.d, s, dx, dz, t: now };
     lastHeld = null;
   } else if (!/^(gather|jump|release)/.test(step.anim)) lastHeld = null;
-  if (flight) {
-    const dt = Math.min(0.05, (now - flight.last) / 1000);
-    flight.last = now;
-    flight.vy += 600 * s * dt; // gentler than real gravity, so you see it go
-    flight.x += flight.vx * dt;
-    flight.y += flight.vy * dt;
-    flight.turn += 9 * dt; // backspin: the face we see turns down as it rises
-    const r = flight.d / 2;
-    if (flight.y < -r || flight.y > canvas.height + r || flight.x < -r || flight.x > canvas.width + r || now - flight.t > 3000) flight = null;
-    else ctx.drawImage(ballFrame(ballSet(), flight.turn), flight.x - r, flight.y - r, flight.d, flight.d);
-  }
+  const flying = flight && flightAt(flight, now);
+  if (flying && !flying.front) ctx.drawImage(flying.img, flying.x - flying.r, flying.y - flying.r, 2 * flying.r, 2 * flying.r);
   ctx.drawImage(sheet.img, x, y, w, h, at[0], at[1], w * s, h * s);
   // a kid from video: their number and team name, printed finer than the art (as in the game)
   const print = sheet.prints?.get(`${x},${y}`);
   if (print) ctx.drawImage(print, 0, 0, print.width, print.height, at[0], at[1], w * s, h * s);
+  // a shot coming toward us flies in front of them
+  if (flying?.front) ctx.drawImage(flying.img, flying.x - flying.r, flying.y - flying.r, 2 * flying.r, 2 * flying.r);
+}
+
+// A shot in the preview: where it goes for each way they face, across the screen (right +) and into it
+// (away +). A kid's plain moves face up the court, away and to the left.
+const SHOT_WAY = { "": [-0.55, 0.85], b: [0, 1], bl: [-0.55, 0.85], br: [0.55, 0.85], l: [-1, 0], r: [1, 0], fl: [-0.55, -0.85], fr: [0.55, -0.85], f: [0, -1] };
+const SHOT_UP = 950; // art pixels a second, upward at the release
+const SHOT_ON = 520; // and along the ground, the way they face
+const SHOT_FALL = 1100; // gravity, gentle, so the arc is easy to see
+const DEPTH_RISE = 0.45; // on screen, further away is higher up
+const DEPTH_SHRINK = 0.0011; // and smaller
+
+// Where a shot is now (canvas position, radius, which frame), or null once it's gone from the stage.
+function flightAt(f, now) {
+  const t = (now - f.t) / 1000;
+  const up = SHOT_UP * t - (SHOT_FALL * t * t) / 2;
+  const along = SHOT_ON * t;
+  const across = f.dx * along;
+  const away = f.dz * along;
+  const k = 1 / (1 + away * DEPTH_SHRINK);
+  const x = f.x0 + across * f.s;
+  const y = f.y0 - (up + away * DEPTH_RISE) * f.s;
+  const r = (f.d / 2) * k;
+  if (t > 2.5 || y < -r || y > canvas.height + r || x < -r || x > canvas.width + r || (t > 0.3 && up < -150)) {
+    flight = null;
+    return null;
+  }
+  // backspin: turning against the way it travels on screen
+  const sideways = Math.abs(f.dx) > Math.abs(f.dz);
+  const turn = -9 * t * (sideways ? Math.sign(f.dx) : -Math.sign(f.dz || 1));
+  return { x, y, r, front: f.dz < 0, img: ballFrame(ballSet(), turn, sideways) };
 }
 
 // ---------- Done: nickname, play or send ----------
