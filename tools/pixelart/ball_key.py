@@ -45,7 +45,7 @@ def main(d, grids_dir, prefix):
     reg = np.array(Image.open(f"{d}/regions.png").convert("RGBA"))
     layout = json.load(open(f"{grids_dir}/grids.json"))
     meta = json.load(open(f"{d}/sprites.json"))
-    balls, cut, found = {}, 0, []
+    balls, cut, found, kept = {}, 0, [], 0
     for g in sorted({c["grid"] for c in layout}):
         files = sorted(glob.glob(f"{prefix}-{g:02d}-*.img"))
         if not files:
@@ -92,6 +92,16 @@ def main(d, grids_dir, prefix):
         inside = (yy - cy) ** 2 + (xx - cx) ** 2 <= (r * 1.08) ** 2
         out = mm & inside
         sub = sheet[sy:sy + sh, sx:sx + sw]
+        # where Flow moved the ball when it repainted, the old ball would stay beside the new one: if much of
+        # the frame's own orange ball lies outside the cut, the frame keeps its ball as drawn
+        px = sub[..., :3].astype(int)
+        mx, mn = px.max(-1), px.min(-1)
+        orange = (sub[..., 3] > 0) & (px[..., 0] == mx) & (mx - mn > 0.6 * mx) & (px[..., 1] > px[..., 2] + 15) & (mx > 140)
+        orange &= np.isin(reg[sy:sy + sh, sx:sx + sw, 0], [0, 1])
+        near = (yy - cy) ** 2 + (xx - cx) ** 2 <= (r * 2.2) ** 2
+        if (orange & near & ~out).sum() > 0.15 * np.pi * r * r:
+            kept += 1
+            continue
         # the ball recorded is the hole's own: a circle through the hole's edge where the old ball's dark
         # outline is left round it (not where a hand is in front), reaching into that outline, so the game's
         # ball fills the hole and the outline hugs it
@@ -116,7 +126,7 @@ def main(d, grids_dir, prefix):
     Image.fromarray(reg).save(f"{d}/regions.png")
     json.dump(meta, open(f"{d}/sprites.json", "w"))
     rs = [b[2] for b in balls.values()]
-    print(f"balls in {len(balls)} frames (usual radius {usual:.1f} px), {cut} ball pixels cut out")
+    print(f"balls in {len(balls)} frames (usual radius {usual:.1f} px), {cut} ball pixels cut out; {kept} frames keep their own ball (Flow moved it)")
 
 
 if __name__ == "__main__":

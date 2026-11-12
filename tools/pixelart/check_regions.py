@@ -87,6 +87,16 @@ def main(d, out, fix=False):
                     piece = lab == i
                     if i != main and (piece & near).sum() >= 0.6 * piece.sum():
                         loose |= piece
+            # dark outline specks and lines left inside the hole (not fingers: those are skin, and joined to
+            # the hand outside the hole)
+            yy, xx = np.mgrid[:h, :w]
+            inner = (yy - b[1]) ** 2 + (xx - b[0]) ** 2 <= (b[2] * 0.92) ** 2
+            bits = on & (r == 0) & inner
+            lab, n = ndimage.label(bits, structure=np.ones((3, 3)))
+            for i in range(1, n + 1):
+                piece = lab == i
+                if piece.sum() < 80 and not (ndimage.binary_dilation(piece, iterations=2) & on & ~inner & (r == 1)).any():
+                    loose |= piece
         found["ball leftovers"] = int(loose.sum())
         if fix:
             wrong = stray | (on & hi & (r == 5)) | (on & below & (r == 2))
