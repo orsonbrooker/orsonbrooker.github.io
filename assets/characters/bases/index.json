@@ -39,7 +39,21 @@
    6,
    5,
    116
-  ]
+  ],
+  "small": {
+   "atlas": "assets/characters/curly-detail/sprites@small.webp?v=0f8b8fc8",
+   "meta": "assets/characters/curly-detail/sprites@small.json?v=5803e57c",
+   "regions": "assets/characters/curly-detail/regions@small.png?v=fc672bc5",
+   "card": [
+    724,
+    1132,
+    66,
+    176,
+    4,
+    3.333,
+    77.333
+   ]
+  }
  },
  {
   "id": "buzz",
@@ -97,7 +111,21 @@
    -10,
    6,
    132
-  ]
+  ],
+  "small": {
+   "atlas": "assets/characters/buns-detail/sprites@small.webp?v=76550047",
+   "meta": "assets/characters/buns-detail/sprites@small.json?v=b1670659",
+   "regions": "assets/characters/buns-detail/regions@small.png?v=5c4823fe",
+   "card": [
+    1540,
+    1618,
+    102,
+    200,
+    -6.667,
+    4,
+    88
+   ]
+  }
  },
  {
   "id": "headband",
