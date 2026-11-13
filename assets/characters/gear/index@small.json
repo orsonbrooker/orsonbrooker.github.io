@@ -1,34 +1,34 @@
 {
  "backcap": {
-  "buns": "ec49c057",
-  "curly": "af083238"
+  "buns": "b0ac1568",
+  "curly": "6023701a"
  },
  "beanie": {
-  "buns": "f2ea4e46",
-  "curly": "beba720a"
+  "buns": "83d4f22d",
+  "curly": "70774cbd"
  },
  "cap": {
-  "buns": "32d211c5",
-  "curly": "8c6e122f"
+  "buns": "b5ca77eb",
+  "curly": "7eb5fa13"
  },
  "flames": {
-  "buns": "1162716a",
-  "curly": "3d2c56ee"
+  "buns": "a85e89fd",
+  "curly": "e0af43fb"
  },
  "goggles": {
-  "curly": "3247893d"
+  "curly": "76e5bf0c"
  },
  "headband": {
-  "buns": "e095f03e",
-  "curly": "fe785dd1"
+  "buns": "e2c643ed",
+  "curly": "a384816d"
  },
  "hightops": {
-  "curly": "b8c7b3e8"
+  "curly": "1d1361cd"
  },
  "hoodie": {
-  "buns": "a373f02c"
+  "buns": "8869870b"
  },
  "wrist": {
-  "buns": "a22972d8"
+  "buns": "43b7e9ca"
  }
 }
