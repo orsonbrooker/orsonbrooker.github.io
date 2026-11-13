@@ -30,7 +30,8 @@ export function ramp(colour) {
 // then given that slot's new colour. No masks, no shading maths. With `kit` ({ number, team }), the
 // canvas also gets `printLayers`: the number (and the team name on the front) for each frame, drawn
 // like the builder's players (players/recolor.js), in the game's pixel font sized to fit, but on a
-// layer FINE times finer than the art, drawn over the frame. Load the font first.
+// layer FINE times finer than the art (`kit.fine`, for a smaller sheet's twin), drawn over the frame.
+// Load the font first.
 export function paletteSwap(img, meta, colours, kit) {
   const c = Object.assign(document.createElement("canvas"), { width: img.width, height: img.height });
   const g = c.getContext("2d", { willReadFrequently: true });
@@ -289,6 +290,7 @@ function homography(from, to) {
 // the face looks up its spot on the card through the face's perspective. Ink lands only on the
 // main patch of jersey, one shade darker than the jersey under it.
 function faceLayers(meta, slots, sheetW, pal, kit) {
+  const fine = kit.fine ?? FINE;
   const jerseyTone = new Map(meta.palette.jersey.map((s, t) => [s, t]));
   const ink = inkFor(meta, pal);
   const number = String(kit.number ?? "").replace(/\D/g, "").slice(0, 2);
@@ -332,11 +334,12 @@ function faceLayers(meta, slots, sheetW, pal, kit) {
     if (!f) continue;
     const [fx, fy, fw, fh] = f;
     const card = cards[rows];
-    const quad = [0, 1, 2, 3].map((i) => [(corners[2 * i] - fx) * FINE, (corners[2 * i + 1] - fy) * FINE]);
+    const quad = [0, 1, 2, 3].map((i) => [(corners[2 * i] - fx) * fine, (corners[2 * i + 1] - fy) * fine]);
     const toCard = homography(quad, [[0, 0], [card.w, 0], [card.w, card.h], [0, card.h]]);
     const main = jerseyPatches(slots, sheetW, jerseyTone, fx, fy, fw, fh, 15);
-    const layer = Object.assign(document.createElement("canvas"), { width: fw * FINE, height: fh * FINE });
-    const lg = layer.getContext("2d");
+    const layer = Object.assign(document.createElement("canvas"), { width: fw * fine, height: fh * fine });
+    // kept on the CPU: gear reads it back into its frames (players/gear.js)
+    const lg = layer.getContext("2d", { willReadFrequently: true });
     const img = lg.createImageData(layer.width, layer.height);
     const p = img.data;
     const xs = quad.map((q) => q[0]), ys = quad.map((q) => q[1]);
@@ -346,7 +349,7 @@ function faceLayers(meta, slots, sheetW, pal, kit) {
         const [u, v] = toCard(qx + 0.5, qy + 0.5);
         if (u < 0 || v < 0 || u >= card.w || v >= card.h) continue;
         if (card.data[(Math.floor(v) * card.w + Math.floor(u)) * 4 + 3] < 128) continue;
-        const ax = Math.floor(qx / FINE), ay = Math.floor(qy / FINE);
+        const ax = Math.floor(qx / fine), ay = Math.floor(qy / fine);
         if (!main[ay * fw + ax]) continue; // arms and the ball stay in front
         const t = jerseyTone.get(slots[(fy + ay) * sheetW + fx + ax]);
         const i = (qy * layer.width + qx) * 4;

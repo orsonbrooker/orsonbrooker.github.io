@@ -40,6 +40,8 @@ from scipy import ndimage
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from match_grids import sig  # noqa: E402
 
+import sheet_sizes  # noqa: E402
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.dirname(os.path.abspath(__file__))
 GREEN = np.array([0, 177, 64], float)
@@ -331,9 +333,9 @@ def cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, hides_hair=F
         item = np.isin(lab, 1 + np.flatnonzero((sizes >= max(6, 0.03 * sizes.max())) & (touch > 0)))
     m1 &= item
     m2 &= item
-    if feet:  # shoes and socks: only shapes down at the feet (not a stray bit beside the ball)
+    if feet:  # shoes and socks: only shapes on the kid's own shoes (not a stray bit beside the ball)
         low = np.zeros((oh, ow), bool)
-        low[fy0 + int(sh * 0.55):, :] = True
+        low[fy0:fy0 + sh, fx0:fx0 + sw] = ndimage.binary_dilation(regions[sy:sy + sh, sx:sx + sw] == SHOES, iterations=4)
         lab, n = ndimage.label(m1 | m2)
         if n:
             keep_ids = 1 + np.flatnonzero(ndimage.maximum(low, lab, range(1, n + 1)) > 0)
@@ -461,6 +463,8 @@ def write(kid, item, pieces, meta, stretch=True):
     json.dump(dict(sorted(index.items())), open(ipath, "w"), indent=1)
     total = len({f"{f[0]},{f[1]}" for fr in meta["frames"].values() for f in fr})
     print(f"{item} on {kid}: {len(pieces)} of {total} frames, sheet {W}x{H}")
+    # and its smaller sizes for phones and tablets, on the kid's smaller sheets
+    sheet_sizes.gear(item, kid)
 
 
 def rekey(kid, rev):

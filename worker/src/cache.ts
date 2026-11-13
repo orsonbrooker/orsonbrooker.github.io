@@ -1,4 +1,4 @@
-// Public answers that are the same for everyone (the boards, score cards, players, config and the
+// Public answers that are the same for everyone (the boards, score cards, players, config, flags and the
 // ideas list without a device) are kept in Cloudflare's edge cache for a short while, so a busy
 // moment, or someone calling a URL over and over, doesn't read the database every time. A Worker's
 // own Cache-Control doesn't do this; the Cache API does. Nothing personal or admin is ever cached.
@@ -19,7 +19,7 @@ export function cacheKey(request: Request, url: URL): Cached | null {
 	if (path === "/api/scores") return { key: boardKey(url.origin, modeOf(q.get("mode")), q.get("range") === "all"), ttl: 30 };
 	const id = path.match(/^\/api\/scores\/(\d{1,10})$/);
 	if (id) return { key: `${url.origin}/api/scores/${Number(id[1])}`, ttl: 60 };
-	if (path === "/api/players" || path === "/api/config") return { key: url.origin + path, ttl: 60 };
+	if (path === "/api/players" || path === "/api/config" || path === "/api/flags") return { key: url.origin + path, ttl: 60 };
 	// With a device (deviceOf in ideas.ts: the X-Device header, or ?device= from older pages), the
 	// answer marks that device's own votes: never cached.
 	if (path === "/api/ideas" && !deviceOf(request, url)) {
@@ -60,7 +60,7 @@ export async function cached(c: Cached, ctx: ExecutionContext, make: () => Promi
 /** Clears cached answers after a change, so it shows straight away (in this data centre). */
 export async function forget(
 	origin: string,
-	what: { boards?: Mode[]; score?: number; scores?: number[]; players?: boolean; ideas?: boolean },
+	what: { boards?: Mode[]; score?: number; scores?: number[]; players?: boolean; ideas?: boolean; flags?: boolean },
 ) {
 	const keys: string[] = [];
 	for (const mode of what.boards ?? []) keys.push(boardKey(origin, mode, false), boardKey(origin, mode, true));
@@ -68,5 +68,6 @@ export async function forget(
 	for (const id of what.scores ?? []) keys.push(`${origin}/api/scores/${id}`);
 	if (what.players) keys.push(`${origin}/api/players`);
 	if (what.ideas) keys.push(`${origin}/api/ideas`);
+	if (what.flags) keys.push(`${origin}/api/flags`);
 	await Promise.all(keys.map((k) => caches.default.delete(k)));
 }

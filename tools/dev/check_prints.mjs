@@ -1,32 +1,14 @@
 // Checks a pixel-art sheet's printed number and team name in every frame of every move: how much of
 // it lands off his jersey (anywhere but a real piece of jersey colour, 15 pixels or more), and saves a
 // picture of any frame where it does. Run it after rebuilding a sheet made from video.
-//   node tools/dev/check_prints.mjs <chrome debug port> <game url with ?pixel> <out.png>
-// e.g. node tools/dev/check_prints.mjs 9343 "http://localhost:5191/games/shootaround/?debug&pixel" /tmp/bad.png
-// Uses your own headless Chrome, as tools/dev/play.mjs describes, and the dev server (it imports
-// the game's modules).
+//   node tools/dev/check_prints.mjs <chrome debug port, or "new"> <game url with ?pixel> <out.png>
+// e.g. node tools/dev/check_prints.mjs new "http://localhost:5191/games/shootaround/?debug&pixel" /tmp/bad.png
+// Uses your own headless Chrome (tools/dev/cdp.mjs; "new" starts one), and the dev server (it imports
+// the game's modules). `node tools/dev/verify.mjs art orson` runs it too.
 import { writeFileSync } from "node:fs";
-const [port, url, out] = process.argv.slice(2);
-const target = await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" })).json();
-const ws = new WebSocket(target.webSocketDebuggerUrl);
-await new Promise((r) => ws.addEventListener("open", r, { once: true }));
-let id = 0;
-const pending = new Map();
-ws.addEventListener("message", (e) => {
-  const m = JSON.parse(e.data);
-  if (m.method === "Runtime.exceptionThrown") console.log("PAGE ERROR:", m.params.exceptionDetails.exception?.description?.split("\n")[0]);
-  if (pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
-});
-const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
-const run = async (expr) => {
-  const res = await send("Runtime.evaluate", { expression: `(async () => { ${expr} })()`, awaitPromise: true, returnByValue: true });
-  if (res.result.exceptionDetails) throw new Error(res.result.exceptionDetails.exception?.description ?? "eval failed");
-  return res.result.result.value;
-};
-await send("Runtime.enable");
-await send("Page.navigate", { url });
-await new Promise((r) => setTimeout(r, 3500));
-const res = await run(`
+import { launchChrome, openTab } from "./cdp.mjs";
+
+export const PRINTS_CHECK = `
   const players = await import("/play/players.js");
   await players.loadRoster();
   await players.useCharacter("orson");
@@ -86,13 +68,32 @@ const res = await run(`
     g.drawImage(p, 0, 0, p.width, p.height, bx, by, w * K, h * K);
     g.fillStyle = "#000"; g.font = "20px monospace"; g.fillText(anim + " " + i, bx, by + h * K + 22);
   });
-  return { report, bad: bad.map(([a, i, , , , , s]) => a + "#" + i + " " + s + "%"), png: c.toDataURL("image/png") };`);
-writeFileSync(out, Buffer.from(res.png.split(",")[1], "base64"));
-const byAnim = {};
-for (const [a, , ink, s] of res.report) (byAnim[a] ??= []).push(s);
-for (const [a, list] of Object.entries(byAnim)) console.log(a.padEnd(16), list.join(" "));
-console.log("frames off the jersey (>2% of ink):", res.bad.length ? res.bad.join(", ") : "none");
-ws.close();
-// close the tab, or the game keeps running in it and uses the CPU
-await fetch(`http://127.0.0.1:${port}/json/close/${target.id}`);
-process.exit(0);
+  return { report, bad: bad.map(([a, i, , , , , s]) => a + "#" + i + " " + s + "%"), png: c.toDataURL("image/png") };`;
+
+/** Runs the check in an open tab of the game (with ?pixel); returns { report, bad, png }. */
+export async function checkPrints(tab, url) {
+  await tab.goto(url, 3500);
+  return tab.run(PRINTS_CHECK);
+}
+
+/** Prints the per-move report, like the tool always has. */
+export function printReport(res, log = console.log) {
+  const byAnim = {};
+  for (const [a, , , s] of res.report) (byAnim[a] ??= []).push(s);
+  for (const [a, list] of Object.entries(byAnim)) log(a.padEnd(16), list.join(" "));
+  log("frames off the jersey (>2% of ink):", res.bad.length ? res.bad.join(", ") : "none");
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const [port, url, out] = process.argv.slice(2);
+  const chrome = await launchChrome({ port: port === "new" ? undefined : port });
+  const tab = await openTab(chrome.port, "about:blank", { network: false });
+  tab.on((m) => { if (m.method === "Runtime.exceptionThrown") console.log("PAGE ERROR:", m.params.exceptionDetails.exception?.description?.split("\n")[0]); });
+  const res = await checkPrints(tab, url);
+  writeFileSync(out, Buffer.from(res.png.split(",")[1], "base64"));
+  printReport(res);
+  // close the tab, or the game keeps running in it and uses the CPU
+  await tab.close();
+  chrome.stop();
+  process.exit(0);
+}

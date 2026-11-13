@@ -31,16 +31,84 @@ export const PALETTES = {
 };
 export const PARTS = ["skin", "hair", "jersey", "team", "shoes"];
 
+// Curly and Buns drawn by hand, as they were before they were made from video. While the kids from
+// video aren't out (the videokids flag, shared/flags.js), the builder and the game use these instead
+// (useDrawnKids). Their sheets are in assets/characters/bases/<id>/; the thumbs are the old ones.
+// Delete this, and thumb-drawn.webp, once the flag is retired.
+const DRAWN_KIDS = {
+  curly: {
+    atlas: "assets/characters/bases/curly/sprites.webp?v=639d5503",
+    meta: "assets/characters/bases/curly/sprites.json?v=92332630",
+    regions: "assets/characters/bases/curly/regions.png?v=86fd2c6a",
+    thumb: "assets/characters/bases/curly/thumb-drawn.webp?v=0d6e2d50",
+    colours: { skin: "#a06c5a", hair: "#67423a", jersey: "#cdd6da", team: "#35577c", shoes: "#403e4c" },
+  },
+  buns: {
+    atlas: "assets/characters/bases/buns/sprites.webp?v=e4ff7082",
+    meta: "assets/characters/bases/buns/sprites.json?v=b3bb8415",
+    regions: "assets/characters/bases/buns/regions.png?v=458b46ed",
+    thumb: "assets/characters/bases/buns/thumb-drawn.webp?v=1939de95",
+    colours: { skin: "#956353", hair: "#452f30", jersey: "#cbd5da", team: "#35567a", shoes: "#3f3d4b" },
+  },
+};
 let basesList;
+let drawnKids = false;
+/** The bodies list gives Curly and Buns their drawn bodies, not their video ones. Call before loadBases. */
+export function useDrawnKids() {
+  drawnKids = true;
+  basesList = null;
+}
+
 export function loadBases(root = "/") {
-  basesList ??= fetch(`${root}assets/characters/bases/index.json`).then((r) => r.json());
+  basesList ??= fetch(`${root}assets/characters/bases/index.json`)
+    .then((r) => r.json())
+    .then((list) => (drawnKids ? list.map((b) => (b.video && DRAWN_KIDS[b.id] ? { id: b.id, name: b.name, pronoun: b.pronoun, ...DRAWN_KIDS[b.id] } : b)) : list));
   return basesList;
 }
 
+// Sizes of a kid's sheet (tools/pixelart/sheet_sizes.py; the entry's `sizes`, e.g. small: 2/3 of full). A
+// size is used only where it loses nothing: where the full sheet would be drawn at `k` screen pixels per
+// pixel or fewer, the smallest size whose own pixels aren't drawn enlarged (scale >= k), else full. On
+// iOS a canvas can't hold more than 16.7 megapixels, so a sheet too big for that once gear and the
+// biggest build are on gets the largest size that fits. ?small / ?medium / ?full try a size anywhere.
+// `current`: the size in use, kept until clearly too small, so a size doesn't flip at the edge.
+const IOS = typeof navigator !== "undefined" && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+const IOS_LIMIT = 16_777_216;
+const GROWTH = 1.2; // a sheet with gear on and the tallest, broadest build, as tools/pixelart/sheet_sizes.py
+const forcedSize = (() => {
+  const q = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
+  return ["small", "medium", "full"].find((s) => q.has(s)) ?? null;
+})();
+export function pickSize(entry, k, current = undefined) {
+  const sizes = Object.entries(entry?.sizes ?? {})
+    .map(([name, s]) => ({ name, ...s }))
+    .sort((a, b) => a.scale - b.scale);
+  if (!sizes.length) return null;
+  if (forcedSize) return forcedSize === "full" ? null : sizes.some((s) => s.name === forcedSize) ? forcedSize : null;
+  let pick = sizes.find((s) => k <= s.scale * (s.name === current ? 1.06 : 1))?.name ?? null;
+  const fits = (pixels) => !IOS || !pixels || pixels * GROWTH <= IOS_LIMIT;
+  if (!fits(pick ? sizes.find((s) => s.name === pick).pixels : entry.pixels)) pick = [...sizes].reverse().find((s) => fits(s.pixels))?.name ?? sizes[0].name;
+  return pick;
+}
+
+/** An index entry with a size's files in place of the full ones (`size`: its name, or null for full). */
+export const sized = (entry, size) => (size && entry.sizes?.[size] ? { ...entry, ...entry.sizes[size], sizes: undefined, size } : { ...entry, size: null });
+
+/** Screen pixels per full-sheet pixel in the game: its court (2048 court pixels) is drawn into a canvas the
+ * stage's width in device pixels, at most 2 to a CSS pixel and 2048 across (play/scene.js), and a full sheet
+ * pixel is 1/0.6 court pixels. COURT_ZOOM: a court drawn bigger than that. */
+export const COURT_ZOOM = 1;
+export function gameScale(stageWidth) {
+  const courtPx = Math.min(2048, Math.round(stageWidth * Math.min(2, (typeof devicePixelRatio !== "undefined" && devicePixelRatio) || 1)));
+  return (courtPx / 2048 / 0.6) * COURT_ZOOM;
+}
+
 const loaded = new Map();
-// Loads a base's sprite sheet, colour map and frame info, once.
-export function loadBase(base, root = "/") {
-  if (!loaded.has(base.id)) {
+// Loads a base's sprite sheet, colour map and frame info at a size (pickSize; null for full), once.
+export function loadBase(full, root = "/", size = null) {
+  const base = sized(full, size);
+  const key = `${base.id}@${base.size ?? "full"}`;
+  if (!loaded.has(key)) {
     const img = (src) =>
       new Promise((resolve, reject) => {
         const i = new Image();
@@ -55,10 +123,10 @@ export function loadBase(base, root = "/") {
     const loading = Promise.all([img(base.atlas), img(base.regions), fetch(root + base.meta).then((r) => r.json()), font]).then(
       ([atlas, regions, meta]) => ({ ...base, atlasImg: atlas, regionsData: pixels(regions), meta }),
     );
-    loaded.set(base.id, loading);
-    loading.catch(() => loaded.delete(base.id));
+    loaded.set(key, loading);
+    loading.catch(() => loaded.delete(key));
   }
-  return loaded.get(base.id);
+  return loaded.get(key);
 }
 
 function pixels(img, rect = [0, 0, img.width, img.height]) {
@@ -220,6 +288,8 @@ export function recolor(loadedBase, colours, rect) {
   canvas.width = w;
   canvas.height = h;
   canvas.getContext("2d").putImageData(src, 0, 0);
+  // its pixels, for gear (players/gear.js) to work on without reading them back from the GPU
+  canvas.pixels = src;
   return canvas;
 }
 

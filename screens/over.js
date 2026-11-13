@@ -11,6 +11,7 @@ import { boardFace, characters } from "../play/players.js";
 import { announce, checkDaily } from "../play/react.js";
 import { bestShot } from "../play/replay.js";
 import { DEBUG, mode, setPhase, state } from "../play/state.js";
+import { modeReleased } from "../modes/index.js";
 import { $, showScreen } from "../screens/base.js";
 
 // The game's version (game.js's ?v= stamp), sent with scores.
@@ -61,7 +62,7 @@ async function showCoins() {
     box.append(text);
   };
   const plus = `+${earned} ${earned === 1 ? "coin" : "coins"}`;
-  if (DEBUG) return line(`${plus} (test mode, not saved)`);
+  if (DEBUG || !modeReleased(state.mode)) return line(`${plus} (test mode, not saved)`);
   if (!state.gameToken) return line(`${plus}, but no internet, so they couldn't be saved.`);
   line(`${plus}!`);
   const shown = state.overAt;
@@ -103,7 +104,7 @@ function showRound() {
     look,
     playerName: c?.name ?? "",
     ownPlayer: !!c?.mine,
-    canSend: !DEBUG && score > 0,
+    canSend: !DEBUG && modeReleased(state.mode) && score > 0, // (a mode tried with ?flags= has no board yet)
     faceFor: boardFace,
     payload: () =>
       state.gameToken && {

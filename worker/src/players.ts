@@ -1,8 +1,9 @@
 // Players made with the builder: a base body, five colours, a nickname, maybe a pronoun (for the
 // announcer's lines) and maybe a size (height and bulk, from the builder's sliders). They wait for approval in the admin inbox before they're in the game.
 
+import { requireBodyOut, requireFlag } from "./flags.ts";
 import { HttpError } from "./http.ts";
-import { checkTurnstile, clean, hash, ipKey, isUnfriendly, json, readJson, RUDE } from "./util.ts";
+import { checkTurnstile, clean, hash, ipKey, isUnfriendly, json, rateLimit, readJson, RUDE } from "./util.ts";
 import type { Env } from "./util.ts";
 
 export const MAX_PLAYER_NAME = 12;
@@ -18,6 +19,8 @@ export const lookJson = (colours: Record<string, unknown>) => {
 	return JSON.stringify({ ...Object.fromEntries(PLAYER_PARTS.map((p) => [p, String(colours[p]).toLowerCase()])), ...(shorts ? { shorts } : {}) });
 };
 const PLAYERS_PER_HOUR = 3;
+/** Sends a day from one IP, resends too (the hourly count skips a request being replaced). */
+const SENDS_PER_DAY = 20;
 
 /** A nickname starts with a letter or number, then letters, numbers, spaces, ' and -. */
 export const isNickname = (name: string) => /^[\p{L}\p{N}][\p{L}\p{N} '-]*$/u.test(name);
@@ -57,6 +60,7 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	if (!isNickname(name)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
 	const base = clean(body.base, 30);
 	if (!/^[a-z0-9-]+$/.test(base)) throw new HttpError(400, "Pick a body.");
+	await requireBodyOut(env, base); // a body that isn't out yet (flags.ts)
 	const colours = (body.colours ?? {}) as Record<string, unknown>;
 	for (const part of PLAYER_PARTS) {
 		if (typeof colours[part] !== "string" || !/^#[0-9a-f]{6}$/i.test(colours[part] as string)) throw new HttpError(400, "Pick all the colours.");
@@ -68,49 +72,49 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	const pronoun = parsePronoun(body.pronoun);
 	const build = parseBuild(body.build);
 	if (build === "bad") throw new HttpError(400, "Pick a height and build.");
+	if (build) await requireFlag(env, "videokids"); // sizes are for kids from video, not out yet (flags.ts)
 	if (await isUnfriendly(env, name, teamName)) throw new HttpError(400, RUDE);
 	await checkTurnstile(request, env, body.turnstileToken);
+	// Every send counts towards the day's, resends too, so replacing a waiting request can't go on forever.
+	await rateLimit(request, env, "player-send", SENDS_PER_DAY, "That's a lot of players! Try again tomorrow.");
 
 	// The same player sent again from the same device (the builder sends its id on this device) while
 	// the first is still waiting: this one replaces it, so the inbox has it once. One already approved
-	// (or hidden) stays, and this one waits as a new look.
-	const sentId = String(body.localId ?? "");
-	const sentDevice = clean(body.device, 64);
-	const localKey = /^me\d{1,15}$/.test(sentId) && sentDevice.length >= 16 ? await hash(env, `player:${sentDevice}:${sentId}`) : null;
-	if (localKey) await env.DB.prepare("DELETE FROM players WHERE local_key = ? AND status = 'new'").bind(localKey).run();
+	// (or hidden) stays, and this one waits as a new look. Every check comes first; then the old request
+	// goes and the new one comes in together, so a send that's turned away loses nothing.
+	const localId = String(body.localId ?? "");
+	const device = clean(body.device, 64);
+	const onDevice = /^me\d{1,15}$/.test(localId) && device.length >= 16;
+	const localKey = onDevice ? await hash(env, `player:${device}:${localId}`) : null;
 
+	// The hourly limit doesn't count the waiting request this one replaces.
 	const ipHash = await ipKey(request, env);
-	const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM players WHERE ip_hash = ? AND created_at > datetime('now', '-1 hour')")
-		.bind(ipHash)
+	const recent = await env.DB.prepare(
+		"SELECT COUNT(*) AS n FROM players WHERE ip_hash = ? AND created_at > datetime('now', '-1 hour') AND NOT COALESCE(local_key = ? AND status = 'new', 0)",
+	)
+		.bind(ipHash, localKey)
 		.first<{ n: number }>();
 	if ((recent?.n ?? 0) >= PLAYERS_PER_HOUR) throw new HttpError(429, "That's a lot of players! Try again in a bit.");
 
-	await env.DB.prepare(
-		"INSERT INTO players (name, base, skin, hair, jersey, team, shoes, shorts, number, team_name, pronoun, height, bulk, ip_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-	)
-		.bind(
-			name,
-			base,
-			...PLAYER_PARTS.map((p) => (colours[p] as string).toLowerCase()),
-			parseShorts(colours.shorts),
-			number,
-			teamName || "KINGS",
-			pronoun,
-			build?.height ?? null,
-			build?.bulk ?? null,
-			ipHash,
-		)
-		.run();
+	const insert = env.DB.prepare(
+		"INSERT INTO players (name, base, skin, hair, jersey, team, shoes, shorts, number, team_name, pronoun, height, bulk, ip_hash, local_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	).bind(
+		name,
+		base,
+		...PLAYER_PARTS.map((p) => (colours[p] as string).toLowerCase()),
+		parseShorts(colours.shorts),
+		number,
+		teamName || "KINGS",
+		pronoun,
+		build?.height ?? null,
+		build?.bulk ?? null,
+		ipHash,
+		localKey,
+	);
+	await env.DB.batch(localKey ? [env.DB.prepare("DELETE FROM players WHERE local_key = ? AND status = 'new'").bind(localKey), insert] : [insert]);
 
 	// If they've played as this player on their device, its leaderboard scores get this look.
-	const localId = String(body.localId ?? "");
-	const device = clean(body.device, 64);
-	if (/^me\d{1,15}$/.test(localId) && device.length >= 16) {
-		// the request just made, marked as this device's player (see above)
-		if (localKey)
-			await env.DB.prepare("UPDATE players SET local_key = ? WHERE id = (SELECT MAX(id) FROM players WHERE ip_hash = ? AND name = ?)")
-				.bind(localKey, ipHash, name)
-				.run();
+	if (onDevice) {
 		const look = lookJson(colours);
 		await env.DB.prepare("UPDATE scores SET colours = ?, base = ? WHERE device = ? AND player = ?")
 			.bind(look, base, await hash(env, `device:${device}`), localId)

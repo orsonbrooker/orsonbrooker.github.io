@@ -12,6 +12,7 @@
 // &gear=beanie,stripes tries gear on a kid from video (content/gear.json), saved with the player for the game.
 
 import { API } from "../api.js";
+import { flagOn } from "../flags.js";
 import { markField, say } from "../ui/form.js";
 import { fillIcons, icon } from "../ui/icons.js";
 import { ballFrame, makeBallFrames, makeBallSprites } from "../engine/draw.js";
@@ -21,7 +22,7 @@ import { paletteSwap } from "../players/pixelkit.js";
 import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, readyGear, wearGear } from "../players/gear.js";
 import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
-import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, recolor, saveMyPlayer } from "../players/recolor.js";
+import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer, useDrawnKids } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
 
 const $ = (id) => document.getElementById(id);
@@ -32,6 +33,13 @@ const el = (tag, props = {}, ...children) => {
 };
 const button = (props, ...children) => el("button", { type: "button", ...props }, ...children);
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+// Kids from video aren't out until their flag is on (shared/flags.js). Until then Curly and Buns are
+// their drawn bodies, and there's no Body tab (only kids from video change size).
+if (!flagOn("videokids")) {
+  useDrawnKids();
+  $("tab-body").remove();
+}
 
 const builder = $("builder");
 const canvas = $("preview");
@@ -118,6 +126,9 @@ for (const t of tabs) {
 // ---------- Swatches ----------
 
 function swatches(row, part, palette, onPick) {
+  // how many across: all in one row with room, else two rows (builder.css), so each is big enough to tap
+  row.style.setProperty("--n", String(palette.length));
+  row.style.setProperty("--half", String(Math.ceil(palette.length / 2)));
   row.replaceChildren(
     ...palette.map((colour) => {
       const b = button({ className: "swatch", ariaLabel: `${part} colour` });
@@ -171,6 +182,7 @@ const wall = $("bases");
 const cards = new Map(); // base id -> { base, button, canvas, loaded, frames: Map(frame -> canvas) }
 const CARD_W = 120;
 const CARD_H = 170;
+const CARD_SCALE = 0.6; // card pixels per full-sheet pixel, about (cardFrame)
 
 // The look a card shows: colours and size, without the number and team name (too small to read).
 const cardKey = () => JSON.stringify([LOOK.map((p) => colours[p]), kitColours(currentKit()), colours.shoes, build.height, build.bulk, ballId()]);
@@ -266,18 +278,52 @@ async function loadCards() {
   const order = [current.id, ...bases.map((b) => b.id).filter((id) => id !== current.id)];
   for (const id of order) {
     const card = cards.get(id);
-    card.loaded = await loadBase(card.base).catch(() => null);
+    // a card draws its body at about 0.6 card pixels per full-sheet pixel: the smallest size shows all of it
+    card.loaded = await loadBase(card.base, "/", pickSize(card.base, CARD_SCALE)).catch(() => null);
     paintCard(card, cardTick);
   }
 }
 
+// Screen pixels per full-sheet pixel in the preview, as draw() sizes them (null while it isn't laid out: a
+// phone's Character tab hides it).
+function previewScale() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const h = canvas.clientHeight * dpr;
+  if (h < 60 || canvas.clientWidth < 30) return null;
+  return Math.min((h - 26 * dpr) / (520 * 0.6), 1.3 * dpr);
+}
+
+// The size of their sheet the preview needs (players/recolor.js pickSize): the smallest that isn't drawn
+// enlarged, else full; while the preview is hidden, the size already in use (or the smallest, to start).
+function previewSize(base) {
+  const k = previewScale();
+  const using = current?.id === base.id ? current.size : undefined;
+  if (k === null) return using !== undefined ? using : pickSize(base, 0);
+  return pickSize(base, k, using);
+}
+
+// The preview was resized (or shown): their sheet again at another size, if it needs one.
+let rechecking = 0;
+function recheckPreview() {
+  clearTimeout(rechecking);
+  rechecking = setTimeout(() => {
+    const base = current && bases.find((b) => b.id === current.id);
+    if (base && previewScale() !== null && previewSize(base) !== current.size) chooseBase(base);
+  }, 300);
+}
+new ResizeObserver(recheckPreview).observe(canvas);
+
 async function chooseBase(base) {
-  current = await loadBase(base);
+  current = await loadBase(base, "/", previewSize(base));
   if (base.video && current.meta.printsFrom) current.twin ??= await loadTwin(current.meta.printsFrom).catch(() => null);
   heightInput.disabled = bulkInput.disabled = !current.video;
   showTurning();
   $("size-hint").hidden = !!current.video;
-  worn = current.video ? await loadGear(base.id, gear).catch(() => []) : [];
+  // Only a kid from video holds a ball of its own (a drawn body's ball is part of its art), so only
+  // they can try one on here. Kids from video only show with the videokids flag on.
+  $("ball-pick").hidden = !current.video;
+  if (!current.video) cancelBall();
+  worn = current.video ? await loadGear(base.id, gear, "/", current.size).catch(() => []) : [];
   repaint();
   paintWear();
 }
@@ -289,7 +335,7 @@ let wearToken = 0;
 async function paintWear() {
   const box = $("wear");
   const token = ++wearToken;
-  const kid = current?.video ? current.id : null;
+  const kid = current?.video && flagOn("gear") ? current.id : null;
   const made = kid ? await madeFor(kid, "/", gearTest).catch(() => ({})) : {}; // a ?gear= link shows every item made
   if (token !== wearToken) return; // a newer paint started
   const slots = SLOTS.filter(([id]) => made[id]?.length);
@@ -307,7 +353,7 @@ async function paintWear() {
       return b;
     }),
   );
-  const layers = await Promise.all(made[wearSlot].map((id) => loadGear(kid, [id]).then((l) => l[0]).catch(() => null)));
+  const layers = await Promise.all(made[wearSlot].map((id) => loadGear(kid, [id], "/", current.size).then((l) => l[0]).catch(() => null)));
   if (token !== wearToken) return;
   const none = button({ className: "ball-card", ariaPressed: String(!gear[wearSlot]), ariaLabel: "Nothing" }, el("span", { className: "slot-empty" }), el("span", { className: "ball-name" }, "None"));
   none.addEventListener("click", () => wear(wearSlot, null));
@@ -324,7 +370,7 @@ async function paintWear() {
 async function wear(slot, id) {
   if (id) gear[slot] = id;
   else delete gear[slot];
-  worn = await loadGear(current.id, gear).catch(() => []);
+  worn = await loadGear(current.id, gear, "/", current.size).catch(() => []);
   repaint();
   paintWear();
 }
@@ -661,7 +707,9 @@ function loadTwin({ atlas, meta }) {
 function twinPrints() {
   if (!current.twin) return null;
   const parts = Object.fromEntries(PARTS.filter((p) => colours[p]).map((p) => [p, colours[p]]));
-  const kitText = { number: colours.number ?? "", team: colours.teamName ?? DEFAULT_TEAM };
+  // (a smaller sheet's number is printed less finely: still at least as fine as its art)
+  const scale = current.meta.fullRes ? current.meta.res / current.meta.fullRes : 1;
+  const kitText = { number: colours.number ?? "", team: colours.teamName ?? DEFAULT_TEAM, fine: scale < 0.7 ? 2 : scale < 0.9 ? 3 : undefined };
   const layers = paletteSwap(current.twin.pimg, current.twin.pm, parts, kitText).printLayers ?? new Map();
   const prints = new Map();
   for (const [key, pixelKey] of Object.entries(current.meta.printsFrom.frames)) if (layers.has(pixelKey)) prints.set(key, layers.get(pixelKey));
@@ -677,9 +725,14 @@ function repaint() {
     if (!current) return; // the body is still loading: chooseBase() paints when it's in
     if (current.video) {
       // their gear on, then their height and build
-      const dressed = wearGear({ meta: current.meta, img: recolor(current, colours), prints: twinPrints(), regions: current.regionsData }, worn, colours);
+      const img = recolor(current, colours);
+      const dressed = wearGear({ meta: current.meta, img, prints: twinPrints(), regions: current.regionsData }, worn, colours);
+      img.pixels = null; // (only needed by wearGear)
       sheet = stretchSheet(dressed, dressed.regions, build);
-    } else sheet = { meta: current.meta, img: recolor(current, colours), prints: null };
+    } else {
+      sheet = { meta: current.meta, img: recolor(current, colours), prints: null };
+      sheet.img.pixels = null;
+    }
     showName();
     paintCards();
   });
@@ -954,7 +1007,7 @@ const look = () => ({
   base: current.id,
   colours: { ...colours, teamName: colours.teamName ?? DEFAULT_TEAM },
   build: current.video ? { ...build } : undefined,
-  gear: current.video && Object.keys(gear).length ? { ...gear } : undefined,
+  gear: current.video && flagOn("gear") && Object.keys(gear).length ? { ...gear } : undefined,
 });
 
 // Before the body has loaded there's nothing to save yet (a fast tap on a slow connection).
