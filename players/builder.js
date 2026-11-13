@@ -12,6 +12,7 @@
 // &gear=beanie,stripes tries gear on a kid from video (content/gear.json), saved with the player for the game.
 
 import { API } from "../api.js";
+import { flagOn } from "../flags.js";
 import { markField, say } from "../ui/form.js";
 import { fillIcons, icon } from "../ui/icons.js";
 import { ballFrame, makeBallFrames, makeBallSprites } from "../engine/draw.js";
@@ -21,7 +22,7 @@ import { paletteSwap } from "../players/pixelkit.js";
 import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, wearGear } from "../players/gear.js";
 import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
-import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer } from "../players/recolor.js";
+import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer, useDrawnKids } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
 
 const $ = (id) => document.getElementById(id);
@@ -32,6 +33,13 @@ const el = (tag, props = {}, ...children) => {
 };
 const button = (props, ...children) => el("button", { type: "button", ...props }, ...children);
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+// Kids from video aren't out until their flag is on (shared/flags.js). Until then Curly and Buns are
+// their drawn bodies, and there's no Body tab (only kids from video change size).
+if (!flagOn("videokids")) {
+  useDrawnKids();
+  $("tab-body").remove();
+}
 
 const builder = $("builder");
 const canvas = $("preview");
@@ -117,6 +125,9 @@ for (const t of tabs) {
 // ---------- Swatches ----------
 
 function swatches(row, part, palette, onPick) {
+  // how many across: all in one row with room, else two rows (builder.css), so each is big enough to tap
+  row.style.setProperty("--n", String(palette.length));
+  row.style.setProperty("--half", String(Math.ceil(palette.length / 2)));
   row.replaceChildren(
     ...palette.map((colour) => {
       const b = button({ className: "swatch", ariaLabel: `${part} colour` });
@@ -307,6 +318,10 @@ async function chooseBase(base) {
   heightInput.disabled = bulkInput.disabled = !current.video;
   showTurning();
   $("size-hint").hidden = !!current.video;
+  // Only a kid from video holds a ball of its own (a drawn body's ball is part of its art), so only
+  // they can try one on here. Kids from video only show with the videokids flag on.
+  $("ball-pick").hidden = !current.video;
+  if (!current.video) cancelBall();
   worn = current.video ? await loadGear(base.id, gear, "/", current.size).catch(() => []) : [];
   repaint();
   paintWear();
@@ -319,7 +334,7 @@ let wearToken = 0;
 async function paintWear() {
   const box = $("wear");
   const token = ++wearToken;
-  const kid = current?.video ? current.id : null;
+  const kid = current?.video && flagOn("gear") ? current.id : null;
   const made = kid ? await madeFor(kid).catch(() => ({})) : {};
   if (token !== wearToken) return; // a newer paint started
   const slots = SLOTS.filter(([id]) => made[id]?.length);
@@ -991,7 +1006,7 @@ const look = () => ({
   base: current.id,
   colours: { ...colours, teamName: colours.teamName ?? DEFAULT_TEAM },
   build: current.video ? { ...build } : undefined,
-  gear: current.video && Object.keys(gear).length ? { ...gear } : undefined,
+  gear: current.video && flagOn("gear") && Object.keys(gear).length ? { ...gear } : undefined,
 });
 
 // Before the body has loaded there's nothing to save yet (a fast tap on a slow connection).

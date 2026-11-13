@@ -17,6 +17,7 @@
 import { HORSE_MATCH, MODES, coinsFor, modeOf } from "../../shared/rules.js";
 import { mergeSaves, sameSave, tidySave } from "../../shared/save.js";
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../../shared/shop.js";
+import { requireModeOut } from "./flags.ts";
 import { HttpError } from "./http.ts";
 import { forget } from "./cache.ts";
 import { checkGameToken } from "./scores.ts";
@@ -176,6 +177,7 @@ export async function claimGame(request: Request, env: Env): Promise<Response> {
 		coins = HORSE_MATCH.coins;
 	} else {
 		mode = modeOf(body.mode);
+		await requireModeOut(env, mode); // a mode that isn't out yet (flags.ts) earns nothing
 		const game = checkGame(modeOf(body.mode), Number(body.score), body.shots, body.token);
 		await checkGameToken(env, body.token, game.minSeconds);
 		coins = coinsFor(game.shots);

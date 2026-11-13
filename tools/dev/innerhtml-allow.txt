@@ -1,0 +1,25 @@
+# innerHTML lines that were reviewed and only use constant text or icon(). tools/dev/check.mjs fails
+# on any other innerHTML line. Format: <file><TAB><the line, trimmed>. Plainly constant ones
+# (innerHTML = "..." or icon("name")) pass without being listed. User text only via textContent.
+feedback/widget.js	el("button", { type: "button", className: "fb-button fb-primary", innerHTML: `${icon("idea")}<span>Got an idea?</span>`, onclick: () => openForm(app, node.dataset.defaultApp) }),
+feedback/widget.js	if (!onBoard && !IN_APP) node.append(el("a", { className: "fb-button", href: "/ideas/", innerHTML: `<span>Ideas board</span>${icon("next")}` }));
+feedback/widget.js	innerHTML: voteLabel(idea.votes),
+feedback/widget.js	isTop ? el("span", { className: "fb-chip fb-top-chip", innerHTML: `${icon("trophy")}<span>Top pick</span>` }) : null,
+feedback/widget.js	idea.credit ? el("p", { className: "fb-credit", innerHTML: icon("star") }, el("span", { textContent: `Idea from ${idea.credit}` })) : null,
+feedback/widget.js	button.innerHTML = voteLabel(idea.votes);
+leaderboard.js	send.innerHTML = `${icon("trophy")}<span>Put it on the leaderboard</span>`;
+leaderboard.js	dialog.innerHTML = `
+leaderboard.js	.catch(() => (stats.innerHTML = '<p class="fb-hint">The stats can\'t be loaded right now.</p>'));
+players/builder.js	if (owns(style.id)) tag.innerHTML = `${icon("check")}${using ? "Using" : "Yours"}`;
+players/builder.js	else tag.innerHTML = `${icon("coins")}${style.price}`;
+players/builder.js	$("buy-price").innerHTML = `${icon("coins")}${style.price}`;
+players/builder.js	yes.innerHTML = `${icon("coins")}Buy for ${style.price}`;
+players/builder.js	make.innerHTML = `${icon("plus")}Make a team`;
+screens/base.js	muteBtn.innerHTML = icon(sound.muted ? "mute" : "sound");
+screens/base.js	menuSound.querySelector("[data-icon]").innerHTML = icon(sound.muted ? "mute" : "sound");
+screens/menus.js	...(IN_APP ? [] : [Object.assign(document.createElement("a"), { href: "/players/", className: "card make-player", innerHTML: `${icon("plus")}<span>Make your player</span>` })]),
+ui/confirm.js	dialog.innerHTML = `
+ui/form.js	message.innerHTML = error && text ? icon("close") : "";
+ui/icons.js	for (const el of root.querySelectorAll("[data-icon]")) el.innerHTML = icon(el.dataset.icon);
+ui/nav.js	nav.innerHTML = `
+ui/nav.js	link.innerHTML = `${icon("back")}<span>Back to the game</span>`;

@@ -31,9 +31,38 @@ export const PALETTES = {
 };
 export const PARTS = ["skin", "hair", "jersey", "team", "shoes"];
 
+// Curly and Buns drawn by hand, as they were before they were made from video. While the kids from
+// video aren't out (the videokids flag, shared/flags.js), the builder and the game use these instead
+// (useDrawnKids). Their sheets are in assets/characters/bases/<id>/; the thumbs are the old ones.
+// Delete this, and thumb-drawn.webp, once the flag is retired.
+const DRAWN_KIDS = {
+  curly: {
+    atlas: "assets/characters/bases/curly/sprites.webp?v=639d5503",
+    meta: "assets/characters/bases/curly/sprites.json?v=92332630",
+    regions: "assets/characters/bases/curly/regions.png?v=86fd2c6a",
+    thumb: "assets/characters/bases/curly/thumb-drawn.webp?v=0d6e2d50",
+    colours: { skin: "#a06c5a", hair: "#67423a", jersey: "#cdd6da", team: "#35577c", shoes: "#403e4c" },
+  },
+  buns: {
+    atlas: "assets/characters/bases/buns/sprites.webp?v=e4ff7082",
+    meta: "assets/characters/bases/buns/sprites.json?v=b3bb8415",
+    regions: "assets/characters/bases/buns/regions.png?v=458b46ed",
+    thumb: "assets/characters/bases/buns/thumb-drawn.webp?v=1939de95",
+    colours: { skin: "#956353", hair: "#452f30", jersey: "#cbd5da", team: "#35567a", shoes: "#3f3d4b" },
+  },
+};
 let basesList;
+let drawnKids = false;
+/** The bodies list gives Curly and Buns their drawn bodies, not their video ones. Call before loadBases. */
+export function useDrawnKids() {
+  drawnKids = true;
+  basesList = null;
+}
+
 export function loadBases(root = "/") {
-  basesList ??= fetch(`${root}assets/characters/bases/index.json`).then((r) => r.json());
+  basesList ??= fetch(`${root}assets/characters/bases/index.json`)
+    .then((r) => r.json())
+    .then((list) => (drawnKids ? list.map((b) => (b.video && DRAWN_KIDS[b.id] ? { id: b.id, name: b.name, pronoun: b.pronoun, ...DRAWN_KIDS[b.id] } : b)) : list));
   return basesList;
 }
 

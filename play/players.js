@@ -6,6 +6,7 @@
 // their chosen colours.
 
 import { API } from "../api.js";
+import { flagOn } from "../flags.js";
 import { attributesFor } from "../content/attributes.js";
 import { EU, EV, RIM, project } from "../engine/court.js";
 import { feetIn } from "../engine/draw.js";
@@ -15,7 +16,11 @@ import { gearParam, loadGear, wearGear } from "../players/gear.js";
 import { buildPlayer, loadHeads } from "../players/layered.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { stretchSheet } from "../players/stretch.js";
-import { DEFAULT_TEAM, gameScale, loadBase, loadBases, myPlayers, pickSize, recolor, sized, thumbnail } from "../players/recolor.js";
+import { DEFAULT_TEAM, gameScale, loadBase, loadBases, myPlayers, pickSize, recolor, sized, thumbnail, useDrawnKids } from "../players/recolor.js";
+
+// Kids from video and their gear aren't out until their flags are on (shared/flags.js): until then
+// Curly and Buns play with their drawn bodies.
+if (!flagOn("videokids")) useDrawnKids();
 
 const PLAYERS_API = `${API}/players`;
 export const characters = {
@@ -95,7 +100,7 @@ async function loadBuilt(entry, size) {
   const testGear = new URLSearchParams(location.search).get("gear");
   const [prints, worn] = await Promise.all([
     twinPrints(loaded.meta, entry.colours),
-    loadGear(base.id, testGear ? gearParam(testGear) : entry.gear, "/", loaded.size).catch(() => []),
+    loadGear(base.id, testGear ? gearParam(testGear) : flagOn("gear") ? entry.gear : {}, "/", loaded.size).catch(() => []),
   ]);
   const img = recolor(loaded, partsOf(entry.colours));
   const dressed = wearGear({ meta: loaded.meta, img, prints, regions: loaded.regionsData }, worn, { ...base.colours, ...entry.colours });
@@ -204,10 +209,11 @@ export async function loadRoster() {
   // &number=7&teamName=HAWKS recolours him the way the builder's players are, to try customising.
   const params = new URLSearchParams(location.search);
   const orson = characters.list.find((c) => c.id === "orson");
-  if (orson && params.has("old")) Object.assign(orson, { atlas: "assets/sprites.webp", meta: "assets/sprites.json", sizes: undefined });
+  // His art from video waits for the orsonvideo flag (shared/flags.js); until then, his current art.
+  if (orson && (params.has("old") || !flagOn("orsonvideo"))) Object.assign(orson, { atlas: "assets/sprites.webp", meta: "assets/sprites.json", sizes: undefined });
   if (orson && params.has("pixel")) Object.assign(orson, { atlas: "assets/characters/orson-pixel/sprites.png", meta: "assets/characters/orson-pixel/sprites.json", sizes: undefined });
   // ?head=orson&height=1&bulk=-1: him as a layered player (players/layered.js), with that head and build.
-  if (orson && /^[a-z-]+$/.test(params.get("head") ?? "")) orson.layered = { head: params.get("head"), build: { height: params.get("height"), bulk: params.get("bulk") } };
+  if (orson && flagOn("layered") && /^[a-z-]+$/.test(params.get("head") ?? "")) orson.layered = { head: params.get("head"), build: { height: params.get("height"), bulk: params.get("bulk") } };
   const custom = {};
   for (const k of ["skin", "hair", "jersey", "team", "shoes"]) if (/^[0-9a-f]{6}$/i.test(params.get(k) ?? "")) custom[k] = `#${params.get(k).toLowerCase()}`;
   if (/^\d{1,2}$/.test(params.get("number") ?? "")) custom.number = params.get("number");
@@ -224,7 +230,7 @@ export async function loadRoster() {
 // the others keep their hand-drawn sheet.
 // A kid made from their own videos (Curly, Buns) moves as themselves.
 const layeredOf = (heads, bases = []) => (p) =>
-  bases.find((b) => b.id === p.base)?.video ? {} : heads[p.base] ? { layered: { head: p.base, build: p.build ?? {} } } : {};
+  bases.find((b) => b.id === p.base)?.video ? {} : heads[p.base] && flagOn("layered") ? { layered: { head: p.base, build: p.build ?? {} } } : {};
 
 function minePlayers(bases, heads) {
   const layered = layeredOf(heads, bases);

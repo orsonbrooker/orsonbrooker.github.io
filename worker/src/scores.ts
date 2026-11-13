@@ -11,6 +11,7 @@
 import { AROUND_SPOTS, FIRE_RULES, MONEY, RAINBOW, THREE_POINT_CONTEST, lowWins, modeOf } from "../../shared/rules.js";
 import type { Mode, Shot } from "../../shared/rules.js";
 import { forget } from "./cache.ts";
+import { requireModeOut } from "./flags.ts";
 import { HttpError } from "./http.ts";
 import { MAX_PLAYER_NAME, PLAYER_PARTS, isNickname, lookJson } from "./players.ts";
 import { checkGame, oddFlags } from "./scoring.ts";
@@ -79,6 +80,7 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
 	if (body.debug) throw new HttpError(400, "Scores from test mode don't count.");
 	const mode = modeOf(body.mode);
+	await requireModeOut(env, mode); // a mode that isn't out yet (flags.ts) has no board
 	const nickname = await scoreNickname(env, body);
 	const device = clean(body.device, 64);
 	if (device.length < 16) throw new HttpError(400, "Bad request.");
@@ -284,6 +286,7 @@ export async function previewScore(request: Request, env: Env): Promise<Response
 	const score = Number(body.score);
 	const mode = modeOf(body.mode);
 	if (!Number.isInteger(score) || score < 0 || score > (mode === "around" ? 6 * 36000 : 1000)) throw new HttpError(400, "Bad request.");
+	await requireModeOut(env, mode);
 	const player = clean(body.player, 40) || "orson";
 	const deviceHash = await boardOf(env, device);
 	const [rows, sent] = await Promise.all([
