@@ -37,35 +37,49 @@ export function loadBases(root = "/") {
   return basesList;
 }
 
-// Where a full-detail sheet would be drawn shrunk, the smaller copy (2/3 size, the entry's `small`, made by
-// tools/pixelart/small_sheet.py) shows just as much and is much quicker to recolour, dress and stretch.
-// Chosen by how big the court is drawn: a sheet pixel is 1/res court pixels, and the court COURT_PX
-// (2048) wide is drawn at most `courtPx` device pixels across (the shorter side of the screen, at most 2
-// device pixels to a CSS pixel, as play/scene.js sizes it; COURT_ZOOM for a court drawn bigger than that).
-// The small copy is used when it lands at about one screen pixel per pixel or less. On iOS always: a canvas
-// there can't hold more than 16.7 megapixels, less than Buns' full sheet. ?small and ?full try either.
-export const COURT_ZOOM = 1;
-const SMALL_SCALE = 2 / 3;
-const FULL_RES = 0.6; // court pixels per sheet pixel, of the full-detail sheets
+// Sizes of a kid's sheet (tools/pixelart/sheet_sizes.py; the entry's `sizes`, e.g. small: 2/3 of full). A
+// size is used only where it loses nothing: where the full sheet would be drawn at `k` screen pixels per
+// pixel or fewer, the smallest size whose own pixels aren't drawn enlarged (scale >= k), else full. On
+// iOS a canvas can't hold more than 16.7 megapixels, so a sheet too big for that once gear and the
+// biggest build are on gets the largest size that fits. ?small / ?medium / ?full try a size anywhere.
+// `current`: the size in use, kept until clearly too small, so a size doesn't flip at the edge.
 const IOS = typeof navigator !== "undefined" && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
-export const SMALL = (() => {
+const IOS_LIMIT = 16_777_216;
+const GROWTH = 1.2; // a sheet with gear on and the tallest, broadest build, as tools/pixelart/sheet_sizes.py
+const forcedSize = (() => {
   const q = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
-  if (q.has("small")) return true;
-  if (q.has("full")) return false;
-  if (IOS) return true;
-  if (typeof innerWidth === "undefined") return false;
-  const courtPx = Math.min(2048, Math.min(innerWidth, innerHeight) * Math.min(2, devicePixelRatio || 1)) * COURT_ZOOM;
-  return (courtPx / 2048 / (FULL_RES * SMALL_SCALE)) <= 1.1; // screen pixels per small-sheet pixel
+  return ["small", "medium", "full"].find((s) => q.has(s)) ?? null;
 })();
+export function pickSize(entry, k, current = undefined) {
+  const sizes = Object.entries(entry?.sizes ?? {})
+    .map(([name, s]) => ({ name, ...s }))
+    .sort((a, b) => a.scale - b.scale);
+  if (!sizes.length) return null;
+  if (forcedSize) return forcedSize === "full" ? null : sizes.some((s) => s.name === forcedSize) ? forcedSize : null;
+  let pick = sizes.find((s) => k <= s.scale * (s.name === current ? 1.06 : 1))?.name ?? null;
+  const fits = (pixels) => !IOS || !pixels || pixels * GROWTH <= IOS_LIMIT;
+  if (!fits(pick ? sizes.find((s) => s.name === pick).pixels : entry.pixels)) pick = [...sizes].reverse().find((s) => fits(s.pixels))?.name ?? sizes[0].name;
+  return pick;
+}
 
-/** An index entry with its smaller files in place of the full ones, when this device uses them. */
-export const sized = (entry, small = SMALL) => (small && entry.small ? { ...entry, ...entry.small, small: undefined, isSmall: true } : entry);
+/** An index entry with a size's files in place of the full ones (`size`: its name, or null for full). */
+export const sized = (entry, size) => (size && entry.sizes?.[size] ? { ...entry, ...entry.sizes[size], sizes: undefined, size } : { ...entry, size: null });
+
+/** Screen pixels per full-sheet pixel in the game: its court (2048 court pixels) is drawn into a canvas the
+ * stage's width in device pixels, at most 2 to a CSS pixel and 2048 across (play/scene.js), and a full sheet
+ * pixel is 1/0.6 court pixels. COURT_ZOOM: a court drawn bigger than that. */
+export const COURT_ZOOM = 1;
+export function gameScale(stageWidth) {
+  const courtPx = Math.min(2048, Math.round(stageWidth * Math.min(2, (typeof devicePixelRatio !== "undefined" && devicePixelRatio) || 1)));
+  return (courtPx / 2048 / 0.6) * COURT_ZOOM;
+}
 
 const loaded = new Map();
-// Loads a base's sprite sheet, colour map and frame info, once (the smaller copy where it's drawn small).
-export function loadBase(full, root = "/") {
-  const base = sized(full);
-  if (!loaded.has(base.id)) {
+// Loads a base's sprite sheet, colour map and frame info at a size (pickSize; null for full), once.
+export function loadBase(full, root = "/", size = null) {
+  const base = sized(full, size);
+  const key = `${base.id}@${base.size ?? "full"}`;
+  if (!loaded.has(key)) {
     const img = (src) =>
       new Promise((resolve, reject) => {
         const i = new Image();
@@ -80,10 +94,10 @@ export function loadBase(full, root = "/") {
     const loading = Promise.all([img(base.atlas), img(base.regions), fetch(root + base.meta).then((r) => r.json()), font]).then(
       ([atlas, regions, meta]) => ({ ...base, atlasImg: atlas, regionsData: pixels(regions), meta }),
     );
-    loaded.set(base.id, loading);
-    loading.catch(() => loaded.delete(base.id));
+    loaded.set(key, loading);
+    loading.catch(() => loaded.delete(key));
   }
-  return loaded.get(base.id);
+  return loaded.get(key);
 }
 
 function pixels(img, rect = [0, 0, img.width, img.height]) {

@@ -125,8 +125,12 @@ export function gearParam(text) {
   return out;
 }
 
-let index;
-const loadIndex = (root) => (index ??= fetch(`${root}assets/characters/gear/index.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+const indexes = new Map(); // "" (full size) or a size's name -> { item: { kid: stamp } }
+const loadIndex = (root, size = null) => {
+  const file = `${root}assets/characters/gear/index${size ? `@${size}` : ""}.json`;
+  if (!indexes.has(file)) indexes.set(file, fetch(file).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
+  return indexes.get(file);
+};
 
 function image(src) {
   return new Promise((resolve, reject) => {
@@ -147,15 +151,15 @@ function pixels(img) {
 
 const layers = new Map();
 /** The layers for what a kid wears (only items made for that kid), loaded once each. */
-// `small`: the smaller layers (tools/pixelart/small_sheet.py), for a kid drawn from their smaller sheet.
-export async function loadGear(kid, gear, root = "/", small = false) {
-  const made = await loadIndex(root);
+// `size`: a smaller size's layers (tools/pixelart/sheet_sizes.py; null for full), for a kid drawn from that size of sheet.
+export async function loadGear(kid, gear, root = "/", size = null) {
+  const made = await loadIndex(root, size);
   const items = wornItems(gear).filter((id) => made[id]?.[kid]);
   return Promise.all(
     items.map((id) => {
-      const key = `${id}/${kid}${small ? "@small" : ""}`;
+      const key = `${id}/${kid}${size ? `@${size}` : ""}`;
       if (!layers.has(key)) {
-        const at = `${root}assets/characters/gear/${id}/${kid}${small ? "@small" : ""}`;
+        const at = `${root}assets/characters/gear/${id}/${kid}${size ? `@${size}` : ""}`;
         const v = `?v=${made[id][kid]}`;
         const p = Promise.all([image(`${at}.webp${v}`), image(`${at}.png${v}`), fetch(`${at}.json${v}`).then((r) => r.json())]).then(
           ([art, part, meta]) => ({ id, info: GEAR[id], art: pixels(art), part: pixels(part), meta }),

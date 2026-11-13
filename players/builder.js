@@ -21,7 +21,7 @@ import { paletteSwap } from "../players/pixelkit.js";
 import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, wearGear } from "../players/gear.js";
 import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
-import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, recolor, saveMyPlayer } from "../players/recolor.js";
+import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
 
 const $ = (id) => document.getElementById(id);
@@ -170,6 +170,7 @@ const wall = $("bases");
 const cards = new Map(); // base id -> { base, button, canvas, loaded, frames: Map(frame -> canvas) }
 const CARD_W = 120;
 const CARD_H = 170;
+const CARD_SCALE = 0.6; // card pixels per full-sheet pixel, about (cardFrame)
 
 // The look a card shows: colours and size, without the number and team name (too small to read).
 const cardKey = () => JSON.stringify([LOOK.map((p) => colours[p]), kitColours(currentKit()), colours.shoes, build.height, build.bulk, ballId()]);
@@ -265,18 +266,48 @@ async function loadCards() {
   const order = [current.id, ...bases.map((b) => b.id).filter((id) => id !== current.id)];
   for (const id of order) {
     const card = cards.get(id);
-    card.loaded = await loadBase(card.base).catch(() => null);
+    // a card draws its body at about 0.6 card pixels per full-sheet pixel: the smallest size shows all of it
+    card.loaded = await loadBase(card.base, "/", pickSize(card.base, CARD_SCALE)).catch(() => null);
     paintCard(card, cardTick);
   }
 }
 
+// Screen pixels per full-sheet pixel in the preview, as draw() sizes them (null while it isn't laid out: a
+// phone's Character tab hides it).
+function previewScale() {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const h = canvas.clientHeight * dpr;
+  if (h < 60 || canvas.clientWidth < 30) return null;
+  return Math.min((h - 26 * dpr) / (520 * 0.6), 1.3 * dpr);
+}
+
+// The size of their sheet the preview needs (players/recolor.js pickSize): the smallest that isn't drawn
+// enlarged, else full; while the preview is hidden, the size already in use (or the smallest, to start).
+function previewSize(base) {
+  const k = previewScale();
+  const using = current?.id === base.id ? current.size : undefined;
+  if (k === null) return using !== undefined ? using : pickSize(base, 0);
+  return pickSize(base, k, using);
+}
+
+// The preview was resized (or shown): their sheet again at another size, if it needs one.
+let rechecking = 0;
+function recheckPreview() {
+  clearTimeout(rechecking);
+  rechecking = setTimeout(() => {
+    const base = current && bases.find((b) => b.id === current.id);
+    if (base && previewScale() !== null && previewSize(base) !== current.size) chooseBase(base);
+  }, 300);
+}
+new ResizeObserver(recheckPreview).observe(canvas);
+
 async function chooseBase(base) {
-  current = await loadBase(base);
+  current = await loadBase(base, "/", previewSize(base));
   if (base.video && current.meta.printsFrom) current.twin ??= await loadTwin(current.meta.printsFrom).catch(() => null);
   heightInput.disabled = bulkInput.disabled = !current.video;
   showTurning();
   $("size-hint").hidden = !!current.video;
-  worn = current.video ? await loadGear(base.id, gear, "/", current.isSmall).catch(() => []) : [];
+  worn = current.video ? await loadGear(base.id, gear, "/", current.size).catch(() => []) : [];
   repaint();
   paintWear();
 }
@@ -306,7 +337,7 @@ async function paintWear() {
       return b;
     }),
   );
-  const layers = await Promise.all(made[wearSlot].map((id) => loadGear(kid, [id], "/", current.isSmall).then((l) => l[0]).catch(() => null)));
+  const layers = await Promise.all(made[wearSlot].map((id) => loadGear(kid, [id], "/", current.size).then((l) => l[0]).catch(() => null)));
   if (token !== wearToken) return;
   const none = button({ className: "ball-card", ariaPressed: String(!gear[wearSlot]), ariaLabel: "Nothing" }, el("span", { className: "slot-empty" }), el("span", { className: "ball-name" }, "None"));
   none.addEventListener("click", () => wear(wearSlot, null));
@@ -323,7 +354,7 @@ async function paintWear() {
 async function wear(slot, id) {
   if (id) gear[slot] = id;
   else delete gear[slot];
-  worn = await loadGear(current.id, gear, "/", current.isSmall).catch(() => []);
+  worn = await loadGear(current.id, gear, "/", current.size).catch(() => []);
   repaint();
   paintWear();
 }
@@ -660,7 +691,9 @@ function loadTwin({ atlas, meta }) {
 function twinPrints() {
   if (!current.twin) return null;
   const parts = Object.fromEntries(PARTS.filter((p) => colours[p]).map((p) => [p, colours[p]]));
-  const kitText = { number: colours.number ?? "", team: colours.teamName ?? DEFAULT_TEAM, fine: current.isSmall ? 2 : undefined };
+  // (a smaller sheet's number is printed less finely: still at least as fine as its art)
+  const scale = current.meta.fullRes ? current.meta.res / current.meta.fullRes : 1;
+  const kitText = { number: colours.number ?? "", team: colours.teamName ?? DEFAULT_TEAM, fine: scale < 0.7 ? 2 : scale < 0.9 ? 3 : undefined };
   const layers = paletteSwap(current.twin.pimg, current.twin.pm, parts, kitText).printLayers ?? new Map();
   const prints = new Map();
   for (const [key, pixelKey] of Object.entries(current.meta.printsFrom.frames)) if (layers.has(pixelKey)) prints.set(key, layers.get(pixelKey));

@@ -15,7 +15,7 @@ import { gearParam, loadGear, wearGear } from "../players/gear.js";
 import { buildPlayer, loadHeads } from "../players/layered.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { stretchSheet } from "../players/stretch.js";
-import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, sized, thumbnail } from "../players/recolor.js";
+import { DEFAULT_TEAM, gameScale, loadBase, loadBases, myPlayers, pickSize, recolor, sized, thumbnail } from "../players/recolor.js";
 
 const PLAYERS_API = `${API}/players`;
 export const characters = {
@@ -26,7 +26,17 @@ export const characters = {
 
 // The chosen player's sprite sheet: frame positions (sprites), the image (atlas), and for builder
 // players which pixels are shoes (shoeRegions).
-export const sheet = { sprites: null, atlas: null, shoeRegions: null, prints: null };
+export const sheet = { sprites: null, atlas: null, shoeRegions: null, prints: null, id: null, size: null };
+
+// Which size of a player's sheet the game draws (players/recolor.js pickSize): the smallest that isn't drawn
+// enlarged on this court, else full. Worked out again when the court's size changes (recheckSheet).
+const basesById = new Map(); // the builder bodies, once the roster is in
+const stageWidth = () => document.getElementById("stage")?.getBoundingClientRect().width || innerWidth;
+function sizeFor(entry, current) {
+  const sizing = entry.base ? basesById.get(entry.base) : entry;
+  return sizing ? pickSize(sizing, gameScale(stageWidth()), current) : null;
+}
+const keyOf = (id, size) => `${id}@${size ?? "full"}`;
 
 export function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -40,7 +50,12 @@ export function loadImage(src) {
 // The parts of a player's colours that recolour the body, and their number and team name.
 const PARTS = ["skin", "hair", "jersey", "team", "shoes"];
 const partsOf = (colours = {}) => Object.fromEntries(Object.entries(colours).filter(([k]) => PARTS.includes(k)));
-const kitOf = (colours = {}, meta = {}) => ({ number: colours.number ?? 28, team: colours.teamName ?? DEFAULT_TEAM, fine: meta.fullRes ? 2 : undefined });
+// (a smaller sheet's number is printed less finely: still at least as fine as its art)
+const fineFor = (meta = {}) => {
+  const scale = meta.fullRes ? meta.res / meta.fullRes : 1;
+  return scale < 0.7 ? 2 : scale < 0.9 ? 3 : undefined;
+};
+const kitOf = (colours = {}, meta = {}) => ({ number: colours.number ?? 28, team: colours.teamName ?? DEFAULT_TEAM, fine: fineFor(meta) });
 
 // A drawn copy of an image: kept by the GPU, where a big <img> can be thrown away and decoded again
 // (on a phone, close to a second for a full-detail sheet) in the middle of a game.
@@ -65,23 +80,22 @@ function loadTwin({ atlas, meta }) {
 // The number and team name for each frame of a full-detail sheet, from its twin's jersey faces.
 async function twinPrints(meta, colours, twin = loadTwin(meta.printsFrom)) {
   const [pm, pimg] = await twin;
-  // (a smaller sheet's number is printed half as fine: still as fine as its art)
   const layers = paletteSwap(pimg, pm, partsOf(colours), kitOf(colours, meta)).printLayers ?? new Map();
   const prints = new Map();
   for (const [key, pixelKey] of Object.entries(meta.printsFrom.frames)) if (layers.has(pixelKey)) prints.set(key, layers.get(pixelKey));
   return prints;
 }
 
-async function loadBuilt(entry) {
+async function loadBuilt(entry, size) {
   const base = (await loadBases()).find((b) => b.id === entry.base);
-  const loaded = await loadBase(base); // (the smaller sheet where it's drawn small)
+  const loaded = await loadBase(base, "/", size);
   if (!base.video) return { meta: loaded.meta, img: recolor(loaded, entry.colours), loaded };
   // a kid made from their own videos: their full-detail sheet in the player's colours, as for Orson;
   // their gear (saved with them; ?gear=beanie,stripes tries some on every kid from video)
   const testGear = new URLSearchParams(location.search).get("gear");
   const [prints, worn] = await Promise.all([
     twinPrints(loaded.meta, entry.colours),
-    loadGear(base.id, testGear ? gearParam(testGear) : entry.gear, "/", loaded.isSmall).catch(() => []),
+    loadGear(base.id, testGear ? gearParam(testGear) : entry.gear, "/", loaded.size).catch(() => []),
   ]);
   const img = recolor(loaded, partsOf(entry.colours));
   const dressed = wearGear({ meta: loaded.meta, img, prints, regions: loaded.regionsData }, worn, { ...base.colours, ...entry.colours });
@@ -119,25 +133,26 @@ async function withKit(meta, img, entry, colours = {}, twin) {
   return { meta, img };
 }
 
-async function loadCharacter(id) {
-  if (!characters.loaded.has(id)) {
+async function loadCharacter(id, size = null) {
+  const key = keyOf(id, size);
+  if (!characters.loaded.has(key)) {
     const entry = characters.list.find((c) => c.id === id) ?? characters.list[0];
     const font = document.fonts?.load('16px "Press Start 2P"').catch(() => {}); // for printing the number
     let loading;
     if (entry.layered) loading = Promise.all([buildPlayer(entry.layered), font]).then(([{ meta, img }]) => withKit(meta, img, entry, entry.colours));
-    else if (entry.base) loading = Promise.all([loadBuilt(entry), font]).then(([built]) => built);
+    else if (entry.base) loading = Promise.all([loadBuilt(entry, size), font]).then(([built]) => built);
     else {
       // the smaller sheet where it's drawn small; the number's twin starts loading with the sheet
-      const { meta: metaUrl, atlas } = sized(entry);
+      const { meta: metaUrl, atlas } = sized(entry, size);
       const meta = fetch(metaUrl).then((r) => r.json());
       const twin = meta.then((m) => (m.printsFrom ? loadTwin(m.printsFrom) : null));
       twin.catch(() => {});
       loading = Promise.all([meta, loadImage(atlas), font]).then(([m, img]) => withKit(m, img, entry, entry.colours, m.printsFrom ? twin : undefined));
     }
-    characters.loaded.set(id, loading);
-    loading.catch(() => characters.loaded.delete(id));
+    characters.loaded.set(key, loading);
+    loading.catch(() => characters.loaded.delete(key));
   }
-  return characters.loaded.get(id);
+  return characters.loaded.get(key);
 }
 
 // Plays as this player from now on (and remembers it, unless it's only for now: a turn in a pass and
@@ -145,8 +160,11 @@ async function loadCharacter(id) {
 let using = 0; // the latest player asked for: an earlier one still loading doesn't take over when it's in
 export async function useCharacter(id, { remember = true } = {}) {
   const ticket = ++using;
-  const { meta, img, loaded, regions } = await loadCharacter(id);
+  const entry = characters.list.find((c) => c.id === id) ?? characters.list[0];
+  const size = sizeFor(entry, sheet.id === id ? sheet.size : undefined);
+  const { meta, img, loaded, regions } = await loadCharacter(id, size);
   if (ticket !== using) return;
+  Object.assign(sheet, { id, size });
   sheet.sprites = meta;
   sheet.atlas = img;
   sheet.prints = img.prints ?? null; // a video sheet's number and team name, drawn over each frame
@@ -158,7 +176,18 @@ export async function useCharacter(id, { remember = true } = {}) {
 }
 
 // Starts loading a player's sprite sheet, so switching to them later is quick.
-export const preloadCharacter = (id) => loadCharacter(id).catch(() => {});
+export const preloadCharacter = (id) => loadCharacter(id, sizeFor(characters.list.find((c) => c.id === id) ?? characters.list[0])).catch(() => {});
+
+let recheck = 0;
+/** The court was drawn at a new size (play/scene.js resize): the player's sheet at the size that suits it now. */
+export function recheckSheet() {
+  clearTimeout(recheck);
+  recheck = setTimeout(() => {
+    if (!sheet.id) return;
+    const entry = characters.list.find((c) => c.id === sheet.id);
+    if (entry && sizeFor(entry, sheet.size) !== sheet.size) useCharacter(sheet.id, { remember: false }).catch(() => {});
+  }, 300);
+}
 
 // Built-in players that became builder players: a device that remembered the old one gets the new one.
 const MOVED = { jethro: "p25" };
@@ -175,8 +204,8 @@ export async function loadRoster() {
   // &number=7&teamName=HAWKS recolours him the way the builder's players are, to try customising.
   const params = new URLSearchParams(location.search);
   const orson = characters.list.find((c) => c.id === "orson");
-  if (orson && params.has("old")) Object.assign(orson, { atlas: "assets/sprites.webp", meta: "assets/sprites.json", small: undefined });
-  if (orson && params.has("pixel")) Object.assign(orson, { atlas: "assets/characters/orson-pixel/sprites.png", meta: "assets/characters/orson-pixel/sprites.json", small: undefined });
+  if (orson && params.has("old")) Object.assign(orson, { atlas: "assets/sprites.webp", meta: "assets/sprites.json", sizes: undefined });
+  if (orson && params.has("pixel")) Object.assign(orson, { atlas: "assets/characters/orson-pixel/sprites.png", meta: "assets/characters/orson-pixel/sprites.json", sizes: undefined });
   // ?head=orson&height=1&bulk=-1: him as a layered player (players/layered.js), with that head and build.
   if (orson && /^[a-z-]+$/.test(params.get("head") ?? "")) orson.layered = { head: params.get("head"), build: { height: params.get("height"), bulk: params.get("bulk") } };
   const custom = {};
@@ -217,17 +246,19 @@ export async function reloadMyPlayers() {
   const cut = at < 0 ? others.length : at;
   characters.list = [...others.slice(0, cut), ...minePlayers(bases, heads), ...others.slice(cut)];
   // a player whose look changed (on another device) is drawn afresh; the others stay as they are
-  for (const id of characters.loaded.keys()) {
+  for (const key of characters.loaded.keys()) {
+    const id = key.split("@")[0];
     const now = characters.list.find((c) => c.id === id);
-    if (/^me\d+$/.test(id) && (!now || lookOf(now) !== before.get(id))) characters.loaded.delete(id);
+    if (/^me\d+$/.test(id) && (!now || lookOf(now) !== before.get(id))) characters.loaded.delete(key);
   }
   const keep = characters.list.some((c) => c.id === characters.selected) ? characters.selected : characters.list[0].id;
-  if (keep !== characters.selected || !characters.loaded.has(keep)) await useCharacter(keep).catch(() => {});
+  if (keep !== characters.selected || !characters.loaded.has(keyOf(keep, sheet.size))) await useCharacter(keep).catch(() => {});
 }
 
 // Players made on this device (saved by the builder's "Play now"), then approved builder players.
 async function loadBuiltPlayers() {
   const [bases, heads] = await Promise.all([loadBases().catch(() => []), loadHeads()]);
+  for (const b of bases) basesById.set(b.id, b);
   const layered = layeredOf(heads, bases);
   characters.list.push(...minePlayers(bases, heads));
   try {
@@ -274,7 +305,10 @@ export function setFace(img, c) {
   // Show their own colours once their base body has loaded.
   if (!facing.has(key)) {
     const p = loadBases()
-      .then((list) => loadBase(list.find((b) => b.id === c.base)))
+      .then((list) => {
+        const base = list.find((b) => b.id === c.base);
+        return loadBase(base, "/", pickSize(base, gameScale(stageWidth()))); // (the size the game would use)
+      })
       .then((loaded) => {
         faces.set(key, thumbnail(loaded, c.colours).toDataURL());
         return faces.get(key);
@@ -300,14 +334,14 @@ export function boardFace(row, img) {
 // The whole player standing, for the card a leaderboard row opens.
 export async function boardBody(row) {
   const c = characters.list.find((p) => p.id === row.player);
-  let meta, img;
-  if (c) ({ meta, img } = await loadCharacter(c.id));
-  else if (row.base) {
+  if (!c && row.base) {
+    // only the one frame, recoloured (thumbnail-sized work, not the whole sheet)
     const base = (await loadBases()).find((b) => b.id === row.base);
-    const loaded = await loadBase(base);
-    ({ meta } = loaded);
-    img = recolor(loaded, row.colours ?? {});
-  } else ({ meta, img } = await loadCharacter(characters.list[0].id));
+    const loaded = await loadBase(base, "/", pickSize(base, gameScale(stageWidth())));
+    return recolor(loaded, row.colours ?? {}, loaded.meta.frames.idle[0].slice(0, 4));
+  }
+  const entry = c ?? characters.list[0];
+  const { meta, img } = await loadCharacter(entry.id, sizeFor(entry));
   const [x, y, w, h] = meta.frames.idle[0];
   const canvas = Object.assign(document.createElement("canvas"), { width: w, height: h });
   canvas.getContext("2d").drawImage(img, x, y, w, h, 0, 0, w, h);
