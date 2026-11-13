@@ -111,10 +111,10 @@
  {
   "id": "buns",
   "name": "Buns",
-  "atlas": "assets/characters/buns-detail/sprites.webp?v=9af93ea8",
-  "meta": "assets/characters/buns-detail/sprites.json?v=24f19b22",
-  "regions": "assets/characters/buns-detail/regions.png?v=d71bb448",
-  "thumb": "assets/characters/bases/buns/thumb.webp?v=237fb86a",
+  "atlas": "assets/characters/buns-detail/sprites.webp?v=39585433",
+  "meta": "assets/characters/buns-detail/sprites.json?v=917071be",
+  "regions": "assets/characters/buns-detail/regions.png?v=06fc8ecf",
+  "thumb": "assets/characters/bases/buns/thumb.webp?v=2c54177b",
   "colours": {
    "skin": "#7d4836",
    "hair": "#28292f",
@@ -138,9 +138,9 @@
    "small": {
     "scale": 0.6667,
     "pixels": 12645360,
-    "atlas": "assets/characters/buns-detail/sprites@small.webp?v=3fe1a6ed",
-    "meta": "assets/characters/buns-detail/sprites@small.json?v=a29780bc",
-    "regions": "assets/characters/buns-detail/regions@small.png?v=282d4c08",
+    "atlas": "assets/characters/buns-detail/sprites@small.webp?v=6473c48a",
+    "meta": "assets/characters/buns-detail/sprites@small.json?v=03191ff2",
+    "regions": "assets/characters/buns-detail/regions@small.png?v=9d316b64",
     "card": [
      2264,
      2408,
@@ -154,9 +154,9 @@
    "medium": {
     "scale": 0.8,
     "pixels": 19092528,
-    "atlas": "assets/characters/buns-detail/sprites@medium.webp?v=a84c003c",
-    "meta": "assets/characters/buns-detail/sprites@medium.json?v=66ede3c8",
-    "regions": "assets/characters/buns-detail/regions@medium.png?v=44c5ee96",
+    "atlas": "assets/characters/buns-detail/sprites@medium.webp?v=5d682ee4",
+    "meta": "assets/characters/buns-detail/sprites@medium.json?v=9263c9e3",
+    "regions": "assets/characters/buns-detail/regions@medium.png?v=b3c6f1f6",
     "card": [
      3146,
      2908,
