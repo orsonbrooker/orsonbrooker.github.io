@@ -183,8 +183,8 @@ main checkout.
   and again without `--fix`: it must say 0 frames with issues, and its contact sheet (every frame in clashing
   colours) must show nothing changing with the wrong part. Last, `video_bases.py curly buns` points the
   builder's bodies at the new sheets (`?v=` stamps, card picture from `recover-fl` frame 6, thumbs) and makes
-  their smaller (2/3) copies and gear for phones (`small_sheet.py`, also run by `gear_key.py`); if frame
-  picks move that frame, check the cards. `?small` / `?full` on the game or builder try either size. Videos and Flow references get names
+  their smaller sizes and gear for phones and tablets (`sheet_sizes.py`, also run by `gear_key.py`); if frame
+  picks move that frame, check the cards. `?small`, `?medium`, `?full` on the game or builder try a size. Videos and Flow references get names
   unique to the kid (Flow's project already holds older `grid-NN.jpg` files), and every downloaded repaint is
   matched to its grid by picture before it's used. Make kids' videos with mid-brown hair, so any colour
   recolours well.

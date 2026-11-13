@@ -563,17 +563,20 @@ flowchart LR
   G["grids of their frames<br/>repainted by Flow:<br/>hair, then ball, in magenta"] --> H["key_hair.py"] & K["ball_key.py"]
   T --> H --> K --> S["sheet: hair at a mid-tone (meta.art),<br/>held ball cut out (meta.balls)"]
   S --> C["check_regions.py --fix"] --> VB["video_bases.py<br/>bodies list: sheet, card, thumb"]
-  VB --> SM["small_sheet.py<br/>2/3-size sheet, regions, gear"]
+  VB --> SM["sheet_sizes.py<br/>smaller sizes: sheet, regions, gear"]
 ```
 
-- **Smaller sheets** (`<kid>-detail/sprites@small.*`, `gear/<item>/<kid>@small.*`, the index entry's
-  `small`): the same frames at 2/3 size, made by `small_sheet.py` at the end of `video_bases.py` (and of
-  `gear_key.py` for a layer), so they never go stale. A full sheet pixel is 1/0.6 court pixels; on a
-  phone's court (about 780 pixels across) the full sheet is drawn shrunk, and the small one at about one
-  screen pixel per pixel, so it looks the same and costs under half as much to load, recolour, dress and
-  stretch. `SMALL` in `players/recolor.js` picks it by how big the court is drawn (`COURT_ZOOM` for a court
-  drawn bigger), and always on iOS, where a canvas can't hold more than 16.7 megapixels (Buns' full sheet is
-  18.5). `loadBase()` and `loadGear(..., small)` load it; `meta.fullRes` keeps the full sheet's `res`.
+- **Sheet sizes** (`<kid>-detail/sprites@<size>.*`, `gear/<item>/<kid>@<size>.*` stamped in
+  `gear/index@<size>.json`, the index entry's `sizes` and `pixels`): the same frames at `small` (2/3) and,
+  for a sheet too big for an iOS canvas with gear and the biggest build (Buns), `medium` (4/5). Made by
+  `sheet_sizes.py` at the end of `video_bases.py` (and of `gear_key.py` for a layer), so they never go
+  stale. A size is only used where it loses nothing: `pickSize()` in `players/recolor.js` takes `k`, the
+  screen pixels per full-sheet pixel where it's drawn, and picks the smallest size whose pixels aren't drawn
+  enlarged (scale >= k), else full. The game works `k` out from its court's canvas (`gameScale()`; a full
+  sheet pixel is 1/0.6 court pixels; `COURT_ZOOM` for a court drawn bigger) and checks again when the court
+  is resized (`recheckSheet()`); the builder from its preview (`previewScale()`), its cards always small. On
+  iOS a canvas holds at most 16.7 megapixels, so there a sheet that can't fit takes the largest size that
+  can. `meta.fullRes` keeps the full sheet's `res`. `?small`, `?medium` and `?full` try a size.
 - **Building a player** (`loadBuilt()` in `play/players.js`, `repaint()` in the builder) works on pixels
   already on the CPU: `recolor()` leaves its `ImageData` on its canvas for `wearGear()`, and print layers
   and region canvases are `willReadFrequently`, because drawing a GPU canvas into a CPU one reads the whole
