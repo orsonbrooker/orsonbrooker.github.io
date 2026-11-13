@@ -574,6 +574,10 @@ flowchart LR
   cut goes on the frame's own ball instead (its colours learnt from the kid's other frames), and a frame
   Flow left unpainted beside one holding the ball is cut too, so the ball never switches between the drawn
   one and the game's.
+- **Number and team name** come from the pixel twin's jersey faces (`printsFrom`), placed per frame by
+  `video_body.py`: the back's number a set share of the way from shoulders to shorts (a config's
+  `face_rows`), a turned move's print moved onto the chest (`face_x`), and a frame whose chest the ball
+  hides takes its neighbour's face, so the print doesn't blink.
 - **Size:** `players/stretch.js` doubles or drops rows between the jersey's top and the feet and columns
   across the jersey (6% taller or shorter, 10% wider or slimmer at the ends), with the number, team name and
   held ball moved to match. Saved with the player on the device (`build` in `shared/save.js`).
