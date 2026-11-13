@@ -147,6 +147,7 @@ erDiagram
     text pronoun "he, she, or null (the body's)"
     real height_bulk "size: -1, -0.5, 0, 0.5 or 1, or null"
     text status "new, approved, hidden"
+    text local_key "keyed hash of device + own player id"
   }
   scores {
     int id PK
@@ -219,7 +220,10 @@ Terms used across the code:
   with Buy or Cancel covering the gear). *Done* opens a sheet with
   the nickname, "Play as them now" and "Send to Orson". The cards load every body in the background. Own players have an edit pencil in the game's picker:
   `/players/?edit=<id>` loads them (body, colours, team and kit, number, size) and saving keeps their id, even
-  under a new name; one already sent (`sent` in the save) is told that sending again sends the new look.
+  under a new name; one already sent (`sent` in the save) is told that sending again sends the new look. A send carries the own
+  player's id and the device id (as `local_key`, a keyed hash), so sending the same player again replaces its
+  request while it still waits (all checks first, then the swap in one batch); once approved, the new look waits
+  as a request of its own.
 - **Pronoun:** whether a player is a "he" or a "she", for the announcer's lines. Built-in players have it in
   `index.json` ("he"); builder players get their body's (`pronoun` in `assets/characters/bases/index.json`:
   ponytail and buns are "she", the rest "he"), unless the admin sets one of their own (the `players` table's

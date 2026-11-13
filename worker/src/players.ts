@@ -73,44 +73,41 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 
 	// The same player sent again from the same device (the builder sends its id on this device) while
 	// the first is still waiting: this one replaces it, so the inbox has it once. One already approved
-	// (or hidden) stays, and this one waits as a new look.
-	const sentId = String(body.localId ?? "");
-	const sentDevice = clean(body.device, 64);
-	const localKey = /^me\d{1,15}$/.test(sentId) && sentDevice.length >= 16 ? await hash(env, `player:${sentDevice}:${sentId}`) : null;
-	if (localKey) await env.DB.prepare("DELETE FROM players WHERE local_key = ? AND status = 'new'").bind(localKey).run();
+	// (or hidden) stays, and this one waits as a new look. Every check comes first; then the old request
+	// goes and the new one comes in together, so a send that's turned away loses nothing.
+	const localId = String(body.localId ?? "");
+	const device = clean(body.device, 64);
+	const onDevice = /^me\d{1,15}$/.test(localId) && device.length >= 16;
+	const localKey = onDevice ? await hash(env, `player:${device}:${localId}`) : null;
 
+	// The hourly limit doesn't count the waiting request this one replaces.
 	const ipHash = await ipKey(request, env);
-	const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM players WHERE ip_hash = ? AND created_at > datetime('now', '-1 hour')")
-		.bind(ipHash)
+	const recent = await env.DB.prepare(
+		"SELECT COUNT(*) AS n FROM players WHERE ip_hash = ? AND created_at > datetime('now', '-1 hour') AND NOT COALESCE(local_key = ? AND status = 'new', 0)",
+	)
+		.bind(ipHash, localKey)
 		.first<{ n: number }>();
 	if ((recent?.n ?? 0) >= PLAYERS_PER_HOUR) throw new HttpError(429, "That's a lot of players! Try again in a bit.");
 
-	await env.DB.prepare(
-		"INSERT INTO players (name, base, skin, hair, jersey, team, shoes, shorts, number, team_name, pronoun, height, bulk, ip_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-	)
-		.bind(
-			name,
-			base,
-			...PLAYER_PARTS.map((p) => (colours[p] as string).toLowerCase()),
-			parseShorts(colours.shorts),
-			number,
-			teamName || "KINGS",
-			pronoun,
-			build?.height ?? null,
-			build?.bulk ?? null,
-			ipHash,
-		)
-		.run();
+	const insert = env.DB.prepare(
+		"INSERT INTO players (name, base, skin, hair, jersey, team, shoes, shorts, number, team_name, pronoun, height, bulk, ip_hash, local_key) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+	).bind(
+		name,
+		base,
+		...PLAYER_PARTS.map((p) => (colours[p] as string).toLowerCase()),
+		parseShorts(colours.shorts),
+		number,
+		teamName || "KINGS",
+		pronoun,
+		build?.height ?? null,
+		build?.bulk ?? null,
+		ipHash,
+		localKey,
+	);
+	await env.DB.batch(localKey ? [env.DB.prepare("DELETE FROM players WHERE local_key = ? AND status = 'new'").bind(localKey), insert] : [insert]);
 
 	// If they've played as this player on their device, its leaderboard scores get this look.
-	const localId = String(body.localId ?? "");
-	const device = clean(body.device, 64);
-	if (/^me\d{1,15}$/.test(localId) && device.length >= 16) {
-		// the request just made, marked as this device's player (see above)
-		if (localKey)
-			await env.DB.prepare("UPDATE players SET local_key = ? WHERE id = (SELECT MAX(id) FROM players WHERE ip_hash = ? AND name = ?)")
-				.bind(localKey, ipHash, name)
-				.run();
+	if (onDevice) {
 		const look = lookJson(colours);
 		await env.DB.prepare("UPDATE scores SET colours = ?, base = ? WHERE device = ? AND player = ?")
 			.bind(look, base, await hash(env, `device:${device}`), localId)
