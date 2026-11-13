@@ -11,7 +11,7 @@ import { EU, EV, RIM, project } from "../engine/court.js";
 import { shoesIn } from "../engine/draw.js";
 import { load, save } from "../engine/storage.js";
 import { ANIM_FPS, JUMP_APEX, JUMP_FRAME_TIME, player } from "../play/state.js";
-import { gearParam, loadGear, wearGear } from "../players/gear.js";
+import { gearParam, loadGear, readyGear, wearGear } from "../players/gear.js";
 import { buildPlayer, loadHeads } from "../players/layered.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { stretchSheet } from "../players/stretch.js";
@@ -45,7 +45,7 @@ async function loadBuilt(entry) {
     const kit = await withKit(meta, img, entry, entry.colours);
     // their gear (saved with them; ?gear=beanie,stripes tries some on every kid from video)
     const testGear = new URLSearchParams(location.search).get("gear");
-    const worn = await loadGear(base.id, testGear ? gearParam(testGear) : entry.gear).catch(() => []);
+    const worn = await loadGear(base.id, testGear ? gearParam(testGear) : readyGear(base.id, entry.gear)).catch(() => []);
     if (!worn.length && !+entry.build?.height && !+entry.build?.bulk) return kit;
     const c = Object.assign(document.createElement("canvas"), { width: regions.width, height: regions.height });
     const g = c.getContext("2d", { willReadFrequently: true });

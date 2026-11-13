@@ -18,7 +18,7 @@ import { ballFrame, makeBallFrames, makeBallSprites } from "../engine/draw.js";
 import { buyBall, hasProgress, onProgress, owns, progress, refreshProgress, useBall } from "../progress.js";
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../shared/shop.js";
 import { paletteSwap } from "../players/pixelkit.js";
-import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, wearGear } from "../players/gear.js";
+import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, readyGear, wearGear } from "../players/gear.js";
 import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, recolor, saveMyPlayer } from "../players/recolor.js";
@@ -48,6 +48,7 @@ const heightInput = $("height");
 const bulkInput = $("bulk");
 
 const params = new URLSearchParams(location.search);
+const gearTest = params.has("gear"); // a ?gear= test link: every item made, ready or not
 // ?edit=<id>: change a player made on this device (from the game's player picker). Their look is
 // read in as if it were a link's, and saving keeps their id, so their scores stay theirs.
 const ownPlayer = myPlayers().find((p) => p.id === params.get("edit")) ?? null;
@@ -58,7 +59,7 @@ if (ownPlayer) {
   if (c.number !== undefined && c.number !== "") params.set("number", String(c.number));
   params.set("teamName", c.teamName ?? DEFAULT_TEAM);
   params.set("name", ownPlayer.name);
-  if (ownPlayer.gear) params.set("gear", Object.values(ownPlayer.gear).join(","));
+  if (ownPlayer.gear) params.set("gear", Object.values(readyGear(ownPlayer.base, ownPlayer.gear)).join(","));
   if (ownPlayer.build) {
     params.set("height", String(ownPlayer.build.height ?? 0));
     params.set("bulk", String(ownPlayer.build.bulk ?? 0));
@@ -289,7 +290,7 @@ async function paintWear() {
   const box = $("wear");
   const token = ++wearToken;
   const kid = current?.video ? current.id : null;
-  const made = kid ? await madeFor(kid).catch(() => ({})) : {};
+  const made = kid ? await madeFor(kid, "/", gearTest).catch(() => ({})) : {}; // a ?gear= link shows every item made
   if (token !== wearToken) return; // a newer paint started
   const slots = SLOTS.filter(([id]) => made[id]?.length);
   box.hidden = !slots.length;

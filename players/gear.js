@@ -35,11 +35,15 @@ export const SLOTS = [
   ["legs", "Legs"],
 ];
 
-/** The items made for a kid, by slot: { slot: [id, ...] }, in content/gear.json's order. */
-export async function madeFor(kid, root = "/") {
+/**
+ * The items made for a kid, by slot: { slot: [id, ...] }, in content/gear.json's order. Only items marked
+ * ready for that kid (checked frame by frame: tools/pixelart/gear_check.py) unless `all` (a test link).
+ */
+export async function madeFor(kid, root = "/", all = false) {
   const made = await loadIndex(root);
   const out = {};
-  for (const [id, info] of Object.entries(GEAR)) if (made[id]?.[kid]) (out[info.slot] ??= []).push(id);
+  for (const [id, info] of Object.entries(GEAR))
+    if (made[id]?.[kid] && (all || info.ready?.includes(kid))) (out[info.slot] ??= []).push(id);
   return out;
 }
 
@@ -117,6 +121,10 @@ function bestPiece(layer, meta) {
   pool.sort((a, b) => a.n - b.n);
   return pool[Math.floor(pool.length * 0.75)]?.p ?? null;
 }
+
+/** A player's saved gear without the items not yet ready for that kid (they come back once they are). */
+export const readyGear = (kid, gear) =>
+  Object.fromEntries(Object.entries(gear ?? {}).filter(([, id]) => GEAR[id]?.ready?.includes(kid)));
 
 /** { slot: id } from a test link's "beanie,stripes". */
 export function gearParam(text) {
