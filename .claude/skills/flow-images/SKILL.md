@@ -24,11 +24,11 @@ profile to make another: Google signed out both the copy and the original when w
 Several browsers share the one account, so Flow's per-account limits still apply.
 
 **Files** live in `/Users/lukebrooker/Documents/Work/Shootaround`, never in Downloads or a scratchpad:
-- `orson-basketball/`: the kids' source videos (`~/Downloads/orson-basketball` links here, as
-  `art/video/*.json` still use that path)
+- `videos/`: source videos: `orson/` (with `CHECKLIST.md`), `curly/`, `buns/`, `unused/` (what `art/video/*.json` read)
 - `gear/`: `grids/<kid>/` (grids uploaded to Flow and `grids.json`), `flow/<item>/<kid>/` (Flow's images),
   `refs/` (reference grids), `prompts/`, `sheets/` (contact sheets)
-- `flow-images/`: other Flow images; `reference/`: reference pictures
+- `flow-images/`: other Flow images: `start-frames/` (kids' video start frames), `early-sprite-sheets/`
+- `reference/`: reference pictures (Orson, court, hoop)
 - `downloads/`: where the browsers save files (flow3 and flow4 are set to it)
 
 If Google asks to sign in, reopen with `--headed` and ask Luke to sign in in that window; never type his

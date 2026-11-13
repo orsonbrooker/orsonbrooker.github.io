@@ -5,11 +5,11 @@
   "fixed": 12,
   "background": "green",
   "clips": {
-    "dribble-front": {"video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-front.mp4", "keep_ball": true},
-    "dribble-front-right": {"video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-front-right.mp4", "keep_ball": true},
-    "dribble-right": {"video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-right.mp4", "keep_ball": true},
-    "dribble-back-right": {"video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-back-right.mp4", "keep_ball": true},
-    "dribble-back": {"video": "/Users/lukebrooker/Downloads/orson-basketball/A-dribble-back.mp4", "keep_ball": true}
+    "dribble-front": {"video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/orson/A-dribble-front.mp4", "keep_ball": true},
+    "dribble-front-right": {"video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/orson/A-dribble-front-right.mp4", "keep_ball": true},
+    "dribble-right": {"video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/orson/A-dribble-right.mp4", "keep_ball": true},
+    "dribble-back-right": {"video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/orson/A-dribble-back-right.mp4", "keep_ball": true},
+    "dribble-back": {"video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/orson/A-dribble-back.mp4", "keep_ball": true}
   },
   "anims": {
     "idle": {"clip": "dribble-front", "frames": [0, 1, 2, 1], "fps": 4, "face": "front"},
