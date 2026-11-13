@@ -54,6 +54,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 44px; /* big enough to tap */
   padding: 8px 10px;
   border-radius: 6px;
   color: #fff;
@@ -851,6 +852,7 @@ header p {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 44px; /* big enough to tap */
   padding: 10px 14px;
   border: 0;
   border-radius: 6px;
@@ -930,6 +932,7 @@ header p {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 44px;
   margin: 4px 0 8px;
   padding: 8px 12px 8px 6px;
   border-radius: 6px;
@@ -1081,6 +1084,7 @@ header p {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 44px;
   margin-top: 4px;
   padding: 8px 14px 8px 8px;
   border-radius: 6px;
@@ -1872,6 +1876,7 @@ header p {
 }
 
 .lost-home {
+  min-height: 44px;
   background: var(--panel);
   color: #fff;
 }

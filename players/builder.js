@@ -117,6 +117,9 @@ for (const t of tabs) {
 // ---------- Swatches ----------
 
 function swatches(row, part, palette, onPick) {
+  // how many across: all in one row with room, else two rows (builder.css), so each is big enough to tap
+  row.style.setProperty("--n", String(palette.length));
+  row.style.setProperty("--half", String(Math.ceil(palette.length / 2)));
   row.replaceChildren(
     ...palette.map((colour) => {
       const b = button({ className: "swatch", ariaLabel: `${part} colour` });
