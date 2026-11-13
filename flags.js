@@ -3,8 +3,8 @@
 // the server if it answers quickly, else the copy this device kept last time (so it works offline),
 // else everything off, so nothing unreleased ever shows by accident.
 //
-// For testing: ?flags=threepoint,freeplay (or ?flags=all, or ?flags=none) shows exactly those for this
-// page, whatever the server has on, and ?debug turns them all on (unless it has a ?flags= of its own). Turned on that way, a flag is only for looking: what it sends (scores, players) is still
+// For testing: ?flags=threepoint,freeplay (or ?flags=all, or ?flags=none) shows exactly those in this
+// tab, whatever the server has on (?flags=server ends it), and ?debug turns them all on (unless it has a ?flags= of its own). Turned on that way, a flag is only for looking: what it sends (scores, players) is still
 // refused by the server until the flag is really on, so the game doesn't try (released()).
 
 import { API } from "./api.js";
@@ -15,8 +15,19 @@ const KEPT = "orson-flags";
 const WAIT = 1500; // ms to wait for the server before using the kept copy
 
 const params = new URLSearchParams(location.search);
+// A ?flags= list stays for the rest of this tab (the game's links to the builder and back drop the
+// query), until a page sets another one; ?flags=server goes back to what the server says.
+const PREVIEW = "orson-flags-preview";
+let preview = params.get("flags");
+try {
+  if (preview === "server") sessionStorage.removeItem(PREVIEW), (preview = null);
+  else if (preview !== null) sessionStorage.setItem(PREVIEW, preview);
+  else preview = sessionStorage.getItem(PREVIEW);
+} catch {
+  // No session storage: the list only applies to the page it's on.
+}
 // An explicit ?flags= wins over ?debug, so ?debug&flags=none plays test mode with everything off.
-const forced = params.has("flags") ? parseFlagList(params.get("flags")) : params.has("debug") ? [...FLAG_KEYS] : [];
+const forced = preview !== null ? parseFlagList(preview) : params.has("debug") ? [...FLAG_KEYS] : [];
 
 /** @returns {Promise<Record<string, boolean> | null>} */
 async function fetchFlags() {
@@ -40,4 +51,4 @@ export const released = (key) => server[key] === true;
 
 /** Whether to show what `key` hides: it's out, or turned on for testing with ?debug. A ?flags= list
  * shows exactly those flags, so ?flags=none previews the site with everything off. */
-export const flagOn = (key) => (params.has("flags") ? forced.includes(key) : released(key) || forced.includes(key));
+export const flagOn = (key) => (preview !== null ? forced.includes(key) : released(key) || forced.includes(key));

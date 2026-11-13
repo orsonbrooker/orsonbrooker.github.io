@@ -352,7 +352,8 @@ the ones switched on or off, and which idea each delivers. A flag with no row is
   on the device for offline (the service worker never caches `/api`), and falls back to that copy, else to
   everything off, so nothing unreleased leaks. `flagOn(key)` says whether to show it; `released(key)` whether
   it's really out (so what it sends will count). For testing, `?flags=threepoint,freeplay` (or `?flags=all`, or
-  `?flags=none`) shows exactly those on the page, whatever the server has on, and `?debug` turns on all of them unless it has a `?flags=` of its own
+  `?flags=none`) shows exactly those for the rest of the browser tab (kept in sessionStorage, as the
+  game's links drop the query; `?flags=server` ends it), whatever the server has on, and `?debug` turns on all of them unless it has a `?flags=` of its own
   (`?debug&flags=none` is test mode with everything off); the server still refuses what they'd send.
 - **Server:** the Worker refuses a score, a preview or coins for a mode whose flag is off
   (`requireModeOut`), a builder player with a hidden body (`requireBodyOut`), and a player with a size while
