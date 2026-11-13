@@ -76,3 +76,26 @@ test("other devices' and other players' requests are left alone", async () => {
 	await send(env, { device: "another-device-0123456789" });
 	assert.equal(rows(db).length, 3);
 });
+
+test("a resend that's turned away keeps the request that's waiting", async () => {
+	const { env, db } = fakeEnv();
+	await send(env, {});
+	db.prepare("UPDATE players SET created_at = datetime('now', '-2 hours')").run();
+	for (const n of ["1", "2", "3"]) await send(env, { name: `Other${n}`, localId: `me170000000000${n}` });
+	await assert.rejects(send(env, { number: "23" }), { status: 429 });
+	assert.deepEqual(
+		rows(db)
+			.filter((r) => r.name === "Edity")
+			.map((r) => [r.number, r.status]),
+		[["7", "new"]],
+	);
+});
+
+test("fixing the same player a few times in a row isn't turned away", async () => {
+	const { env, db } = fakeEnv();
+	for (const number of ["1", "2", "3", "4", "5"]) await send(env, { number });
+	assert.deepEqual(
+		rows(db).map((r) => r.number),
+		["5"],
+	);
+});

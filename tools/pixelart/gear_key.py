@@ -18,7 +18,12 @@ kit colour). Each keeps its own light and shade. In the layer:
   item hides (hair under a hat), at the same place in the same piece.
 - <kid>.json: for each frame of the body sheet ("x,y"), its piece [ax, ay, w, h, dx, dy]: where it is in
   the webp, and where its corner sits from the frame's corner (it may reach outside the frame).
-The item's entry in content/gear.js says what zone it's in and whether it goes over the held ball.
+  python tools/pixelart/gear_key.py rekey <kid> <git revision of the old sheet>
+      after the kid's sheet is rebuilt with a new layout (frames moved, frames added): every item made for
+      the kid follows each frame to its new place (found by the frame's own pixels), and new frames borrow
+      the item from the nearest frame facing the same way, so no Flow images are needed to keep gear working
+
+The item's entry in content/gear.json says what zone it's in and whether it goes over the held ball.
 """
 import glob
 import hashlib
@@ -31,6 +36,9 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw
 from scipy import ndimage
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from match_grids import sig  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -112,6 +120,10 @@ def build(kid, item, gdir, prefix):
     for gi in sorted({c["grid"] for c in layout}):
         orig = np.asarray(Image.open(f"{gdir}/grid-{gi:02d}.jpg").convert("RGB")).astype(float)
         for f in sorted(glob.glob(f"{prefix}-{gi:02d}-*.img")):
+            # Flow sometimes copies the reference grid instead of repainting this one: far from it, it's out
+            if float(np.abs(sig(Image.open(f)) - sig(Image.open(f"{gdir}/grid-{gi:02d}.jpg"))).mean()) > 0.11:
+                notes.append(f"grid {gi}: {os.path.basename(f)} isn't a painting of this grid (a copy of the reference?): left out")
+                continue
             gen = np.asarray(Image.open(f).convert("RGB").resize((orig.shape[1], orig.shape[0]), Image.LANCZOS)).astype(float)
             k1, k2, lum = keys(gen)
             spill = (np.abs(gen - orig).sum(-1) > 90) & ~ndimage.binary_dilation(k1 | k2, iterations=4)
@@ -370,7 +382,7 @@ def cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, hides_hair=F
     return {"rgba": out[t:b, l:r], "part": part[t:b, l:r], "dx": dx + int(l), "dy": dy + int(t)}
 
 
-def write(kid, item, pieces, meta):
+def write(kid, item, pieces, meta, stretch=True):
     out = f"{ROOT}/assets/characters/gear/{item}"
     os.makedirs(out, exist_ok=True)
     # the key pixels' lightness, stretched over all frames so each key's shading is full range
@@ -398,6 +410,9 @@ def write(kid, item, pieces, meta):
         m = part[..., 0] == k
         if not m.any():
             continue
+        if not stretch:  # already stored as lightness (rekey)
+            refs[name] = 150
+            continue
         L = rgba[m, 0].astype(float)
         lo, hi = np.percentile(L, 2), np.percentile(L, 98)
         t = ((L - lo) / max(1, hi - lo)).clip(0, 1)
@@ -420,11 +435,64 @@ def write(kid, item, pieces, meta):
     print(f"{item} on {kid}: {len(pieces)} of {total} frames, sheet {W}x{H}")
 
 
+def rekey(kid, rev):
+    """Moves every gear layer of a kid from the sheet at `rev` to the sheet on disk."""
+    import io
+    d = f"assets/characters/{kid}-detail"
+    show = lambda path: subprocess.run(["git", "-C", ROOT, "show", f"{rev}:{path}"], capture_output=True, check=True).stdout
+    old_meta = json.loads(show(f"{d}/sprites.json"))
+    old = np.array(Image.open(io.BytesIO(show(f"{d}/sprites.webp"))).convert("RGBA"))
+    meta = json.load(open(f"{ROOT}/{d}/sprites.json"))
+    sheet = np.array(Image.open(f"{ROOT}/{d}/sprites.webp").convert("RGBA"))
+    regions = np.array(Image.open(f"{ROOT}/{d}/regions.png"))[..., 0]
+    rects = lambda m: {(f[0], f[1]): (f, a) for a, fr in m["frames"].items() for f in fr}
+    olds, news = rects(old_meta), rects(meta)
+    # each new frame's drawing, by its feet (ox, oy) and its alpha: the same drawing has the same shape
+    def sig(img, f):
+        x, y, w, h = f[:4]
+        a = img[y:y + h, x:x + w, 3] > 0
+        return (w, h, a.tobytes())
+    by_sig = {}
+    for k, (f, a) in olds.items():
+        by_sig.setdefault(sig(old, f), k)
+    where = {}  # new key -> old key
+    for k, (f, a) in news.items():
+        o = by_sig.get(sig(sheet, f))
+        if o:
+            where[k] = o
+    index = json.load(open(f"{ROOT}/assets/characters/gear/index.json"))
+    layout = [{"rect": list(f[:4]), "anim": a} for (f, a) in news.values()]
+    for item, kids in index.items():
+        if kid not in kids:
+            continue
+        out = f"{ROOT}/assets/characters/gear/{item}"
+        g = json.load(open(f"{out}/{kid}.json"))
+        art = np.array(Image.open(f"{out}/{kid}.webp").convert("RGBA"))
+        part = np.array(Image.open(f"{out}/{kid}.png"))
+        pieces = {}
+        for k, o in where.items():
+            p = g["frames"].get(f"{o[0]},{o[1]}")
+            if p:
+                ax, ay, w, h, dx, dy = p
+                pieces[f"{k[0]},{k[1]}"] = {"rgba": art[ay:ay + h, ax:ax + w], "part": part[ay:ay + h, ax:ax + w], "dx": dx, "dy": dy}
+        n = borrow(layout, pieces, sheet)
+        info = json.load(open(f"{ROOT}/content/gear.json"))[item]
+        if info.get("hides") == "hair":
+            for c in layout:
+                key = f"{c['rect'][0]},{c['rect'][1]}"
+                if key in pieces:
+                    pieces[key] = hide_hair_above(pieces[key], c["rect"], sheet, regions)
+        write(kid, item, pieces, meta, stretch=False)
+        print(f"  {len(where)} frames followed to their new place, {n} new frames borrowed")
+
+
 if __name__ == "__main__":
     cmd = sys.argv[1]
     if cmd == "grids":
         grids(*sys.argv[2:4])
     elif cmd == "build":
         build(*sys.argv[2:6])
+    elif cmd == "rekey":
+        rekey(*sys.argv[2:4])
     else:
         sys.exit(__doc__)
