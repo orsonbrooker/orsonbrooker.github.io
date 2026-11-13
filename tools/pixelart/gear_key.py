@@ -3,7 +3,7 @@ turns what it painted into a layer the game draws over the kid (players/gear.js)
 
   python tools/pixelart/gear_key.py grids <kid> <out dir>
       grids of the kid's frames for Flow (frame_grids.py layout), with the shoes and shorts greyed and the
-      held ball painted back in, so nothing on the kid is near a key colour; also <kid>-mv-NN.jpg copies
+      held ball painted back in, so nothing on the kid is near a key colour; also <out dir name>-NN.jpg copies (name the dir after the kid)
       to upload under those names
   python tools/pixelart/gear_key.py build <kid> <item> <grids dir> <prefix>
       reads <prefix>-NN-k.img (named by match_grids.py), keeps the version of each grid that changed least
@@ -98,7 +98,7 @@ def grids(kid, out):
     # each move's frames together, so a whole move comes from one painting
     subprocess.run([sys.executable, f"{HERE}/frame_grids.py", tmp, out, "--moves"], check=True)
     for f in sorted(glob.glob(f"{out}/grid-[0-9][0-9].jpg")):
-        shutil.copy(f, f"{out}/{kid}-mv-{os.path.basename(f)[5:7]}.jpg")
+        shutil.copy(f, f"{out}/{os.path.basename(os.path.normpath(out))}-{os.path.basename(f)[5:7]}.jpg")
 
 
 # ---------- build ----------
@@ -243,8 +243,14 @@ def hide_hair_above(p, rect, sheet, regions):
     above = np.zeros((H, W), bool)
     above[:rows.max() - max(2, (rows.max() - rows.min()) // 5)] = True
     keep = rgba[..., 3] > 0
-    hair = body & (reg == HAIR) & above & ~keep
-    ring = ndimage.binary_dilation(hair, iterations=4) & body & (reg == 0) & above & ~keep
+    # hair below the hat's edge goes too where it hangs away from the face (buns, a bun at the back seen
+    # side-on); hair next to skin (sideburns, the hairline at the neck) stays
+    head = np.zeros((H, W), bool)
+    head[:rows.max() + (rows.max() - rows.min())] = True
+    skin = body & (reg == SKIN)
+    away = ~ndimage.binary_dilation(skin, iterations=6)
+    hair = body & (reg == HAIR) & ~keep & (above | (head & away))
+    ring = ndimage.binary_dilation(hair, iterations=4) & body & (reg == 0) & ~keep & (above | (head & away))
     part[hair | ring, 1] = 255
     m = keep | (part[..., 1] > 0)
     ys, xs = np.nonzero(m)
