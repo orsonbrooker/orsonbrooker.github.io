@@ -110,7 +110,7 @@ flowchart LR
 | Server address | `api.js` | Where the API is: this site's `/api`, the local Worker on localhost, or the live site from the iOS app. |
 | iOS app | `ios/`, `capacitor.config.json`, `tools/app/prepare.mjs` | The same pages bundled into an app with Capacitor, opening on the game. |
 | Haptics | `haptics.js` | A buzz on baskets and fire: Capacitor's Haptics in the app, the Vibration API on Android, and on iPhone Safari (no Vibration API) a hidden `<input switch>` flipped by clicking its label, which plays the system tick (iOS 18+). |
-| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `progress.ts`, `admin.ts`, `access.ts`, `cache.ts`, `flags.ts`, `notify.ts`, `digest.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); coins, buying and pairing (`progress.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); feature flags (`flags.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
+| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `progress.ts`, `admin.ts`, `access.ts`, `cache.ts`, `flags.ts`, `teams.ts`, `notify.ts`, `digest.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); Top teams (`teams.ts`); coins, buying and pairing (`progress.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); feature flags (`flags.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
 | Art and voice tools | `tools/` | Character sheets, region maps, announcer clips, icons, share images. |
 
 ## Domain model
@@ -184,6 +184,20 @@ erDiagram
     text status "shown, hidden"
     text token "start token, used once"
     text version "game.js version"
+    text team "the team it counts for (Top teams): an official name or c<id>, set when it's sent"
+  }
+  community_teams {
+    int id PK
+    text name "capitals, at most 10"
+    text home_away "kit JSON: jersey, shorts, trim"
+    text owner "the maker's board (like scores.device)"
+    text code_hash "join code, keyed hash only"
+    text listing "private, asked, listed, refused"
+    text status "ok, hidden"
+  }
+  team_members {
+    text board PK "a device's board (like scores.device)"
+    int team_id PK
   }
   reports {
     int score_id PK "the board row reported"
@@ -237,7 +251,7 @@ Terms used across the code:
   colour, with every body below as a card in those colours and size, so kids compare them before picking),
   *Body* (height and build, for kids made from video), *Team* (`players/teams.js`: the teams everyone has,
   Kings first, or your own, kept on the device as `orson-hoops-my-teams`; each has a home and an away kit of
-  jersey, shorts and trim; plus the player's number) and *Gear* (shoe colour, and the shop's ball styles
+  jersey, shorts and trim; plus the player's number. With the `teams` flag: community teams too, below) and *Gear* (shoe colour, and the shop's ball styles
   through `progress.js`: owned ones are picked straight away, others are tried on in a kid from video's hands
   with Buy or Cancel covering the gear). *Done* opens a sheet with
   the nickname, "Play as them now" and "Send to Orson". The cards load every body in the background. Own players have an edit pencil in the game's picker:
@@ -331,6 +345,28 @@ Terms used across the code:
   other's codes at once), nothing moves and the device is asked to get a new code (409), so no coins or
   devices end up in a progress that's gone.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
+- **Teams** (`worker/src/teams.ts`, `players/community.js`, flag `teams`; every route is refused while it's
+  off). Two kinds: the six official teams (`TEAMS` in `shared/teams.js`) and **community teams** kids make in
+  the builder (`community_teams`), clearly marked "Made by players". A community team is private from the
+  start: friends join with an 8-character code shared in person (only a keyed hash is stored, so the maker's
+  device keeps the code; a new code stops the old one), and there's no way to send one in the game. The maker
+  can ask to show it to everyone: Luke OKs the name in the admin inbox ("Teams to list"), and listed names are
+  unique among listed and official teams. A device (its board, so paired devices count as one, and pairing
+  moves its teams like its scores) makes at most 3, with Turnstile and a per-IP daily limit; joins are 15
+  tries a day per IP. Joining means wearing the team's kit and name (`colours.teamId` on the player, kept on
+  the device); a device is on a team in `team_members`. Luke can list, refuse a name, unlist, rename or hide a
+  team (Teams section); a hidden one is gone everywhere.
+- **Top teams:** per mode, this week and all time (`GET /api/teams`, edge-cached and cleared with the mode's
+  board). The team is saved with each game when it's sent (`scores.team`) and never moves: KINGS for Orson; for
+  a kid's own player, the community team they wear if their device is on it, else the official team they
+  wear; for someone else's approved player, their team if it's official. A team's score is its 3 best devices
+  added up (`TEAM_COUNTS`), each device once at its best game for that team, so a big team can't win by
+  numbers and one kid can't fill all 3; in Around the World the 3 best times add up and teams with all 3 come
+  first. It shows official and listed teams (never a blocked name), from shown games played from
+  `FEATURE_FROM.teams`; a private team's members get a "Your team" row with where it would be
+  (`POST /api/teams/players`, just for them). Rows show the top player's face; tapping one lists the team's
+  players (nicknames as on the players' boards) with the 3 that count marked. In the game a Players / Teams
+  switch on the leaderboard (`renderTeams` in `leaderboard.js`) appears with the flag.
 
 ## Courts
 

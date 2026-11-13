@@ -1516,6 +1516,93 @@ header p {
   margin: 8px 0 0;
 }
 
+/* Players or Top teams (while the teams flag is on). */
+.board-kinds button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.board-kinds .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* A Top teams row: rank, the top player's face, the team's name (with "Made by players" on a community
+   team), total. */
+.lb-team-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.lb-team-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.lb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(143, 224, 163, 0.18);
+  color: #8fe0a3;
+  font-family: system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.lb-badge .icon {
+  width: 12px;
+  height: 12px;
+}
+
+.board-list li.lb-team-gap {
+  display: block;
+  min-height: 0;
+  padding: 10px 4px 2px;
+  background: none;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.lb-team-head {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.lb-team-head h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.lb-team-players {
+  max-height: min(52vh, 520px);
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.lb-team-players li {
+  gap: 10px;
+  min-height: 48px;
+  padding: 4px 10px 4px 6px;
+  font-size: clamp(9px, 1.6vw, 12px);
+}
+
+.lb-team-players li.counts {
+  background: rgba(143, 224, 163, 0.16);
+}
+
 .lb-dialog .lb-score {
   margin: 0;
   font-family: var(--pixel);

@@ -43,13 +43,13 @@ function newKey(): string {
 	return [...crypto.getRandomValues(new Uint8Array(24))].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function newCode(): string {
+export function newCode(): string {
 	const bytes = crypto.getRandomValues(new Uint8Array(8));
 	return [...bytes].map((b) => CODE_LETTERS[b % CODE_LETTERS.length]).join(""); // 256 % 31 bias is tiny and harmless here
 }
 
 // A typed code: letters and numbers only, upper case (so "abcd-efgh" and "ABCDEFGH" both work).
-const tidyCode = (value: unknown) =>
+export const tidyCode = (value: unknown) =>
 	clean(value, 20)
 		.toUpperCase()
 		.replace(/[^0-9A-Z]/g, "");
@@ -88,8 +88,20 @@ async function linkDevice(env: Env, id: number, key: unknown, device: unknown): 
 		env.DB.prepare("UPDATE progress_devices SET device_hash = ?1 WHERE key_hash = ?2 AND device_hash IS NOT ?1").bind(d, kh),
 		env.DB.prepare("UPDATE progress SET board = ? WHERE id = ? AND board IS NULL").bind(d, id),
 		env.DB.prepare("UPDATE scores SET device = (SELECT board FROM progress WHERE id = ?2) WHERE device = ?1 AND device != (SELECT board FROM progress WHERE id = ?2)").bind(d, id),
+		...teamMoves.map((sql) =>
+			env.DB.prepare(sql.replaceAll("{FROM}", "device = ?1").replaceAll("{TO}", "(SELECT board FROM progress WHERE id = ?2)").replaceAll("{WHEN}", "?1 != (SELECT board FROM progress WHERE id = ?2)")).bind(d, id),
+		),
 	]);
 }
+
+// Moving a device's community teams (teams.ts) onto the board it now shares, like its scores: the teams
+// it's on and the ones it made. {FROM} picks the old boards (written for a `device` column), {TO} is the
+// new one and {WHEN} says when to move at all.
+const teamMoves = [
+	`INSERT OR IGNORE INTO team_members (board, team_id, joined_at) SELECT {TO}, team_id, joined_at FROM (SELECT board AS device, team_id, joined_at FROM team_members) WHERE {WHEN} AND {FROM} AND device != {TO}`,
+	`DELETE FROM team_members WHERE board IN (SELECT device FROM (SELECT board AS device FROM team_members) WHERE {WHEN} AND {FROM} AND device != {TO})`,
+	`UPDATE community_teams SET owner = {TO} WHERE id IN (SELECT id FROM (SELECT id, owner AS device FROM community_teams) WHERE {WHEN} AND {FROM} AND device != {TO})`,
+];
 
 type Save = ReturnType<typeof tidySave>;
 
@@ -284,6 +296,8 @@ export async function joinCode(request: Request, env: Env): Promise<Response> {
 			step(`UPDATE scores SET device = (SELECT board FROM progress WHERE id = ?1)
 			      WHERE ${both} AND (SELECT board FROM progress WHERE id = ?1) IS NOT NULL AND device != (SELECT board FROM progress WHERE id = ?1)
 			        AND (device = (SELECT board FROM progress WHERE id = ?2) OR device IN (SELECT device_hash FROM progress_devices WHERE progress_id = ?2 AND device_hash IS NOT NULL))`),
+			// Its community teams (teams.ts) too: the ones its devices are on, and the ones they made.
+			...teamMoves.map((sql) => step(sql.replaceAll("{FROM}", `(device = (SELECT board FROM progress WHERE id = ?2) OR device IN (SELECT device_hash FROM progress_devices WHERE progress_id = ?2 AND device_hash IS NOT NULL))`).replaceAll("{TO}", "(SELECT board FROM progress WHERE id = ?1)").replaceAll("{WHEN}", `${both} AND (SELECT board FROM progress WHERE id = ?1) IS NOT NULL`))),
 			// Its coins as they are now (not as read above: one of its devices may have just earned more).
 			step(`UPDATE progress SET coins = coins + (SELECT coins FROM progress WHERE id = ?2), earned = earned + (SELECT earned FROM progress WHERE id = ?2) WHERE id = ?1 AND ${both}`),
 			step(`INSERT OR IGNORE INTO progress_items (progress_id, item, created_at) SELECT ?1, item, created_at FROM progress_items WHERE progress_id = ?2 AND ${both}`),

@@ -15,6 +15,7 @@ import { requireModeOut } from "./flags.ts";
 import { HttpError } from "./http.ts";
 import { MAX_PLAYER_NAME, PLAYER_PARTS, isNickname, lookJson } from "./players.ts";
 import { checkGame, oddFlags } from "./scoring.ts";
+import { teamForScore } from "./teams.ts";
 import { checkTurnstile, clean, forgetBlockedNames, hash, ipKey, isUnfriendly, json, MIN_BLOCKED, rateLimit, readJson, RUDE, squash } from "./util.ts";
 import type { Env } from "./util.ts";
 
@@ -55,8 +56,11 @@ const FEATURE_FROM = {
 	movingGreen: "2026-11-07 00:53:00",
 	// The 3-point contest (racks of five, a money ball last in each).
 	threePointContest: "2026-11-07 00:53:00",
+	// Top teams (teams.ts): only games from here on count for a team. Set it to when it goes live.
+	teams: "2026-11-13 00:00:00",
 };
 export const hadFeature = (createdAt: unknown, feature: keyof typeof FEATURE_FROM) => String(createdAt) >= FEATURE_FROM[feature];
+export const featureFrom = (feature: keyof typeof FEATURE_FROM) => FEATURE_FROM[feature];
 
 // A start token says when the game started, signed so it can't be made up. The score must come
 // at least a game's length later (or, in sudden death, after its last shot), and each token only
@@ -102,6 +106,7 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 
 	const ipHash = await ipKey(request, env);
 	const deviceHash = await boardOf(env, device);
+	const team = await teamForScore(env, player, body.team, body.teamId, deviceHash); // for Top teams (teams.ts)
 	const [today, history, standing] = await env.DB.batch([
 		env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?").bind(ipHash),
 		env.DB.prepare(`SELECT ${lowWins(mode) ? "MIN" : "MAX"}(score) AS best FROM scores WHERE device = ? AND mode = ?`).bind(deviceHash, mode),
@@ -120,8 +125,8 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 	const status = "shown";
 
 	const inserted = await env.DB.prepare(
-		`INSERT OR IGNORE INTO scores (nickname, score, player, base, colours, shots, made, threes, real_seconds, input, hidden_tab, version, log, flags, status, token, device, ip_hash, mode)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		`INSERT OR IGNORE INTO scores (nickname, score, player, base, colours, shots, made, threes, real_seconds, input, hidden_tab, version, log, flags, status, token, device, ip_hash, mode, team)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 	)
 		.bind(
 			nickname,
@@ -143,6 +148,7 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 			deviceHash,
 			ipHash,
 			mode,
+			team,
 		)
 		.first<{ id: number }>();
 	if (!inserted) throw new HttpError(400, "That game's score is already in.");

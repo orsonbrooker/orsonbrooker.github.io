@@ -24,6 +24,8 @@ import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer, useDrawnKids } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
+import { changeTeam, joinTeam, keptTeam, keptTeams, leaveTeam, listedTeams, makeTeam, refreshTeams } from "../players/community.js";
+import { confirmDialog } from "../ui/confirm.js";
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...children) => {
@@ -529,23 +531,42 @@ function setupSize() {
 }
 
 // ---------- Teams ----------
+// The official teams (shared/teams.js) and, with the `teams` flag, community teams (players/community.js):
+// made by kids, joined with a code (or from the list once Luke has OKed showing one to everyone). Without
+// the flag, "your teams" are kept on this device only, as before. A device's own teams that aren't real
+// community teams yet ("drafts") can be made into one.
 
-let mine = myTeams();
+const COMMUNITY = flagOn("teams");
+let mine = myTeams(); // teams kept on this device (drafts, with the flag on)
+let community = COMMUNITY ? keptTeams() : []; // community teams this device is on or made
+let listed = []; // community teams shown to everyone
+let mostTeams = 3;
 let team; // the team being played for
 let kit = "home";
 let editing = false;
 let linkTeam = null; // a look from a link (the admin page's "open in builder"), kept only if edited
+let teamBusy = false;
 
-const allTeams = () => [...mine, ...(linkTeam ? [linkTeam] : []), ...TEAMS];
+const allTeams = () => [...community, ...mine, ...(linkTeam ? [linkTeam] : []), ...TEAMS];
 const currentKit = () => team[kit];
 const isMine = (t) => t === linkTeam || mine.includes(t);
+const isCommunity = (t) => !!t?.key;
 
 const kitSwatch = (k) => el("span", { className: "kit" }, ...KIT_PARTS.map((p) => el("span", { style: `background:${k[p]}` })));
+// Marks a community team, so it never looks like one of the game's own teams.
+const badge = () => {
+  const b = el("span", { className: "team-badge", title: "Made by players" });
+  b.innerHTML = icon("players");
+  b.append(el("span", {}, "Made by players"));
+  return b;
+};
 
 function wearTeam(t, which = kit) {
   team = t;
   kit = which;
   Object.assign(colours, kitColours(team[kit]), { teamName: team.name });
+  if (isCommunity(team)) colours.teamId = team.key;
+  else delete colours.teamId;
   teamInput.value = team.name;
   paintTeams();
   repaint();
@@ -553,6 +574,7 @@ function wearTeam(t, which = kit) {
 }
 
 function keepMine() {
+  if (isCommunity(team)) return; // changed on the server when they're done (saveCommunity)
   if (team === linkTeam) {
     mine = [...mine, linkTeam];
     linkTeam = null;
@@ -560,13 +582,16 @@ function keepMine() {
   saveMyTeams(mine);
 }
 
-function teamRow(t) {
-  const on = t === team;
-  const pick = button({ className: "team-pick", ariaPressed: String(on) }, el("span", { className: "kits" }, kitSwatch(t.home), kitSwatch(t.away)), el("b", {}, t.name));
+function teamRow(t, extra) {
+  const on = t === team || (isCommunity(t) && t.key === team?.key);
+  const label = el("span", { className: "team-label" }, el("b", {}, t.name));
+  if (isCommunity(t)) label.append(badge());
+  const pick = button({ className: "team-pick", ariaPressed: String(on) }, el("span", { className: "kits" }, kitSwatch(t.home), kitSwatch(t.away)), label);
   if (on) pick.insertAdjacentHTML("beforeend", `<span class="team-on">${icon("check")}</span>`);
-  pick.addEventListener("click", () => wearTeam(t));
+  pick.addEventListener("click", () => (extra?.onPick ? extra.onPick() : wearTeam(t)));
   const row = el("div", { className: "team-row" }, pick);
-  if (isMine(t)) {
+  if (extra?.side) row.append(extra.side);
+  else if (isMine(t) || t.maker) {
     const edit = button({ className: "fb-button team-edit" }, "Edit");
     edit.addEventListener("click", () => {
       wearTeam(t);
@@ -581,6 +606,7 @@ function teamRow(t) {
 
 function paintTeams() {
   $("team-now").textContent = team.name;
+  $("team-now-badge").replaceChildren(...(isCommunity(team) ? [badge()] : []));
   // Home and away.
   const picker = $("kit-picker");
   picker.replaceChildren(
@@ -592,24 +618,7 @@ function paintTeams() {
   );
   $("team-list").hidden = editing;
   $("team-editor").hidden = !editing;
-  if (editing) {
-    const box = $("kit-colours");
-    const label = kit === "home" ? "Home" : "Away";
-    box.replaceChildren(
-      ...KIT_PARTS.map((part) => {
-        const row = el("div", { className: "swatch-row" });
-        const palette = part === "trim" ? PALETTES.team : PALETTES.jersey;
-        swatches(row, part, palette, (c) => {
-          team[kit] = { ...team[kit], [part]: c };
-          keepMine();
-          wearTeam(team);
-        });
-        mark(row, team[kit][part]);
-        return el("div", { className: "colour-field" }, el("span", { className: "mini-label" }, `${label} ${part === "trim" ? "trim and number" : part}`), row);
-      }),
-    );
-    return;
-  }
+  if (editing) return paintEditor();
   const list = $("team-list");
   const make = button({ className: "make-team" });
   make.innerHTML = `${icon("plus")}Make a team`;
@@ -622,11 +631,216 @@ function paintTeams() {
     teamInput.focus({ preventScroll: true });
     teamInput.select();
   });
-  const yours = [...mine, ...(linkTeam ? [linkTeam] : [])];
-  list.replaceChildren(
-    el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Your teams"), ...yours.map(teamRow), make),
-    el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Teams"), ...TEAMS.map(teamRow)),
+  const drafts = [...mine, ...(linkTeam ? [linkTeam] : [])];
+  if (!COMMUNITY) {
+    list.replaceChildren(
+      el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Your teams"), ...drafts.map((t) => teamRow(t)), make),
+      el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Teams"), ...TEAMS.map((t) => teamRow(t))),
+    );
+    return;
+  }
+  const on = community.filter((t) => t.member !== false);
+  const yours = el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Your teams"));
+  for (const t of on) {
+    if (t.maker) yours.append(teamRow(t));
+    else {
+      const leave = button({ className: "fb-button team-edit" }, "Leave");
+      leave.addEventListener("click", () => leave_(t));
+      yours.append(teamRow(t, { side: leave }));
+    }
+  }
+  for (const t of drafts) yours.append(teamRow(t));
+  if (drafts.length) yours.append(el("p", { className: "fb-hint team-hint", textContent: "Teams with Edit but no badge are only on this device. Edit one and tap Make it a team so friends can join." }));
+  yours.append(make);
+
+  const joinBox = el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Join a team"));
+  const code = el("input", { type: "text", id: "team-code", maxLength: 9, autocomplete: "off", autocapitalize: "characters", spellcheck: false, placeholder: "ABCD-EFGH", ariaLabel: "Team code" });
+  code.addEventListener("input", () => {
+    const raw = code.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 8);
+    code.value = raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw;
+  });
+  const go = button({ className: "fb-button fb-primary", id: "team-join" }, "Join");
+  const join = () => runTeam(go, async () => wearTeam(await joinTeam({ code: code.value }), "home"), "Joined!");
+  go.addEventListener("click", join);
+  code.addEventListener("keydown", (e) => e.key === "Enter" && (e.preventDefault(), join()));
+  joinBox.append(
+    el("label", { className: "field" }, el("span", { className: "mini-label" }, "Got a code from a friend?"), el("div", { className: "code-row" }, code, go)),
   );
+  const open = listed.filter((t) => !on.some((o) => o.key === t.key));
+  if (open.length) {
+    joinBox.append(el("p", { className: "mini-label", textContent: "Or pick one" }));
+    for (const t of open) {
+      const count = el("span", { className: "team-count", textContent: `${t.members} ${t.members === 1 ? "player" : "players"}` });
+      joinBox.append(teamRow(t, { side: count, onPick: () => runTeam(null, async () => wearTeam(await joinTeam({ id: t.id }), "home"), "Joined!") }));
+    }
+  }
+  list.replaceChildren(yours, joinBox, el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Teams"), ...TEAMS.map((t) => teamRow(t))));
+}
+
+// The editor: name and kit colours. For a draft with the flag on, Make it a team; for a community team
+// its maker made, its code and showing it to everyone too.
+function paintEditor() {
+  const box = $("kit-colours");
+  const label = kit === "home" ? "Home" : "Away";
+  box.replaceChildren(
+    ...KIT_PARTS.map((part) => {
+      const row = el("div", { className: "swatch-row" });
+      const palette = part === "trim" ? PALETTES.team : PALETTES.jersey;
+      swatches(row, part, palette, (c) => {
+        team[kit] = { ...team[kit], [part]: c };
+        keepMine();
+        wearTeam(team);
+      });
+      mark(row, team[kit][part]);
+      return el("div", { className: "colour-field" }, el("span", { className: "mini-label" }, `${label} ${part === "trim" ? "trim and number" : part}`), row);
+    }),
+  );
+  const extra = $("team-extra");
+  $("team-delete").hidden = isCommunity(team);
+  $("team-done").innerHTML = icon("check");
+  $("team-done").append(isCommunity(team) ? "Save" : "Done");
+  if (!COMMUNITY) return extra.replaceChildren();
+  if (!isCommunity(team)) {
+    const real = button({ className: "fb-button fb-primary make-real", id: "team-make" }, "Make it a team");
+    real.addEventListener("click", () => makeReal(real));
+    const full = community.filter((t) => t.maker).length >= mostTeams;
+    extra.replaceChildren(
+      el("p", { className: "fb-hint", textContent: full ? `You've made ${mostTeams} teams on this device. Join a friend's team instead?` : "Make it a team so friends can join it with a code. Make up a name: not your school or club." }),
+      ...(full ? [] : [teamCheck(), real]),
+    );
+    return;
+  }
+  // Their own community team.
+  const codeText = el("b", { className: "team-code", textContent: team.code ?? "••••-••••" });
+  const fresh = button({ className: "fb-button" }, team.code ? "New code" : "Show a code");
+  fresh.addEventListener("click", () =>
+    runTeam(fresh, async () => Object.assign(team, await changeTeam(team, "code")), team.code ? "New code made. The old one won't work any more." : ""),
+  );
+  const STATE = {
+    private: "Only friends with the code can join.",
+    asked: "Waiting for Luke to OK the name.",
+    listed: "Everyone can find and join it.",
+    refused: "Try a different name to show it to everyone.",
+  };
+  const show = button({ className: "fb-button" }, team.listing === "listed" || team.listing === "asked" ? "Only with the code" : "Show it to everyone");
+  show.addEventListener("click", () => {
+    const listing = team.listing === "listed" || team.listing === "asked";
+    if (!listing && !teamToken) return say(message, "Please finish the robot check first.", { error: true });
+    runTeam(show, async () => {
+      Object.assign(team, await changeTeam(team, listing ? "unlist" : "list", listing ? {} : { turnstileToken: useTeamToken() }));
+      paintTeams();
+    });
+  });
+  extra.replaceChildren(
+    el("div", { className: "code-box" }, el("span", { className: "mini-label" }, "Team code"), codeText, fresh),
+    el("p", { className: "fb-hint", textContent: "Share the code in person with friends. They type it in Join a team." }),
+    el("div", { className: "code-box" }, el("span", { className: "mini-label" }, "Who can join"), el("span", { className: "team-state", textContent: STATE[team.listing] ?? STATE.private }), show),
+    teamCheck(),
+  );
+}
+
+// ---------- Talking to the server about teams ----------
+
+let teamToken = "";
+let teamWidget;
+const useTeamToken = () => {
+  const t = teamToken;
+  teamToken = "";
+  if (teamWidget !== undefined) window.turnstile?.reset(teamWidget);
+  return t;
+};
+// The robot check for making, renaming or showing a team: one widget, moved into the editor.
+const teamCheckBox = el("div", { className: "fb-check", id: "team-check" });
+function teamCheck() {
+  if (teamWidget === undefined) {
+    teamWidget = null;
+    loadTurnstile()
+      .then(({ turnstile, sitekey }) => {
+        teamWidget = turnstile.render(teamCheckBox, { sitekey, theme: "dark", callback: (t) => (teamToken = t), "expired-callback": () => (teamToken = "") });
+      })
+      .catch(() => (teamWidget = undefined));
+  }
+  return teamCheckBox;
+}
+
+// Runs a team change, showing what happened in the message line (and the button busy meanwhile).
+async function runTeam(btn, work, done = "") {
+  if (teamBusy) return;
+  teamBusy = true;
+  if (btn) btn.disabled = true;
+  try {
+    await work();
+    community = keptTeams();
+    if (done) say(message, done);
+  } catch (err) {
+    say(message, err.message || "That didn't work. Please try again.", { error: true });
+  } finally {
+    teamBusy = false;
+    if (btn) btn.disabled = false;
+    paintTeams();
+  }
+}
+
+function makeReal(btn) {
+  const name = teamInput.value.trim();
+  if (!name) return say(message, "Give your team a name.", { error: true });
+  if (!teamToken) return say(message, "Please finish the robot check first.", { error: true });
+  runTeam(
+    btn,
+    async () => {
+      const draft = team;
+      const made = await makeTeam({ name, home: draft.home, away: draft.away, turnstileToken: useTeamToken() });
+      mine = mine.filter((t) => t !== draft);
+      if (draft === linkTeam) linkTeam = null;
+      saveMyTeams(mine);
+      community = keptTeams();
+      wearTeam(made, kit); // and stays in the editor, showing the code
+    },
+    "Your team is ready! Share its code with friends.",
+  );
+}
+
+// Saves a maker's changes to their team's name and kits.
+async function saveCommunity() {
+  const saved = keptTeam(team.key);
+  const name = teamInput.value.trim() || saved?.name || team.name;
+  const kitChanged = JSON.stringify([saved?.home, saved?.away]) !== JSON.stringify([team.home, team.away]);
+  if (name !== saved?.name && !teamToken) {
+    say(message, "Please finish the robot check to change the name.", { error: true });
+    return false;
+  }
+  let ok = true;
+  await runTeam(null, async () => {
+    try {
+      if (kitChanged) Object.assign(team, await changeTeam(team, "kit", { home: team.home, away: team.away }));
+      if (name !== saved?.name) Object.assign(team, await changeTeam(team, "name", { name, turnstileToken: useTeamToken() }));
+    } catch (err) {
+      ok = false;
+      throw err;
+    }
+  });
+  return ok;
+}
+
+async function leave_(t) {
+  if (!(await confirmDialog(`Leave ${t.name}?`, { yes: "Leave", detail: "You can join again with the code." }))) return;
+  runTeam(null, async () => {
+    await leaveTeam(t);
+    community = keptTeams();
+    if (team?.key === t.key) wearTeam(TEAMS[0], "home");
+  });
+}
+
+async function loadCommunity() {
+  if (!COMMUNITY) return;
+  const [{ teams, most }, open] = await Promise.all([refreshTeams(), listedTeams()]);
+  community = teams;
+  mostTeams = most;
+  listed = open;
+  // The team they wear may have gone (hidden, or they left on another device): back to an official one.
+  if (isCommunity(team) && !community.some((t) => t.key === team.key && t.member !== false)) wearTeam(TEAMS[0], "home");
+  else if (isCommunity(team)) wearTeam(community.find((t) => t.key === team.key), kit);
+  else paintTeams();
 }
 
 function setupTeams() {
@@ -639,8 +853,9 @@ function setupTeams() {
     checkWords();
     repaint();
   });
-  $("team-done").addEventListener("click", () => {
+  $("team-done").addEventListener("click", async () => {
     if (!teamInput.value.trim()) teamInput.value = team.name;
+    if (isCommunity(team) && !(await saveCommunity())) return;
     editing = false;
     keepMine();
     paintTeams();
@@ -976,23 +1191,30 @@ nameInput.addEventListener("input", () => {
 let token = "";
 let widgetId;
 let turnstileStarted = false;
+// The Turnstile script and site key, loaded once (for sending a player, and for making a team).
+let turnstileLoad = null;
+function loadTurnstile() {
+  turnstileLoad ??= Promise.all([
+    fetch(`${API}/config`).then((r) => r.json()),
+    new Promise((resolve, reject) => {
+      const s = Object.assign(document.createElement("script"), {
+        src: "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit",
+        async: true,
+      });
+      s.onload = () => resolve(window.turnstile);
+      s.onerror = reject;
+      document.head.append(s);
+    }),
+  ]).then(([{ turnstileSiteKey }, turnstile]) => ({ turnstile, sitekey: turnstileSiteKey }));
+  turnstileLoad.catch(() => (turnstileLoad = null));
+  return turnstileLoad;
+}
 async function setupTurnstile() {
   turnstileStarted = true;
   try {
-    const [{ turnstileSiteKey }, turnstile] = await Promise.all([
-      fetch(`${API}/config`).then((r) => r.json()),
-      new Promise((resolve, reject) => {
-        const s = Object.assign(document.createElement("script"), {
-          src: "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit",
-          async: true,
-        });
-        s.onload = () => resolve(window.turnstile);
-        s.onerror = reject;
-        document.head.append(s);
-      }),
-    ]);
+    const { turnstile, sitekey } = await loadTurnstile();
     widgetId = turnstile.render($("check"), {
-      sitekey: turnstileSiteKey,
+      sitekey,
       theme: "dark",
       callback: (t) => (token = t),
       "expired-callback": () => (token = ""),
@@ -1108,7 +1330,12 @@ async function setup() {
   const teamName = (params.get("teamName") ?? "").toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, 10);
   const [jersey, trim] = [hexParam("jersey"), hexParam("team")];
   let startKit = "home";
-  if (jersey && trim) {
+  // Their own player on a community team: that team, in whichever kit they wear.
+  const joined = ownPlayer?.colours?.teamId ? community.find((t) => t.key === ownPlayer.colours.teamId) : null;
+  if (joined) {
+    team = joined;
+    if (jersey && jersey !== joined.home.jersey && jersey === joined.away.jersey) startKit = "away";
+  } else if (jersey && trim) {
     // the team it's from, in either of its kits; else a team of yours in that kit
     const worn = { jersey, shorts: hexParam("shorts") ?? trim, trim };
     const same = (k) => KIT_PARTS.every((p) => k[p] === worn[p]);
@@ -1139,6 +1366,7 @@ async function setup() {
   }
   requestAnimationFrame(draw);
   loadCards();
+  loadCommunity();
 }
 
 setup().catch(() => {

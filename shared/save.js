@@ -52,6 +52,7 @@ function tidyPlayer(raw) {
     const team = text(c.teamName, MAX_TEAM).toUpperCase();
     if (team === "" || /^[A-Z0-9 ]+$/.test(team)) colours.teamName = team;
   }
+  if (typeof c.teamId === "string" && /^c\d{1,10}$/.test(c.teamId)) colours.teamId = c.teamId; // a community team (worker/src/teams.ts)
   /** @type {SavedPlayer} */
   const player = { id, name, base, colours };
   if (p.pronoun === "he" || p.pronoun === "she") player.pronoun = p.pronoun;
