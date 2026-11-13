@@ -563,8 +563,25 @@ flowchart LR
   G["grids of their frames<br/>repainted by Flow:<br/>hair, then ball, in magenta"] --> H["key_hair.py"] & K["ball_key.py"]
   T --> H --> K --> S["sheet: hair at a mid-tone (meta.art),<br/>held ball cut out (meta.balls)"]
   S --> C["check_regions.py --fix"] --> VB["video_bases.py<br/>bodies list: sheet, card, thumb"]
+  VB --> SM["small_sheet.py<br/>2/3-size sheet, regions, gear"]
 ```
 
+- **Smaller sheets** (`<kid>-detail/sprites@small.*`, `gear/<item>/<kid>@small.*`, the index entry's
+  `small`): the same frames at 2/3 size, made by `small_sheet.py` at the end of `video_bases.py` (and of
+  `gear_key.py` for a layer), so they never go stale. A full sheet pixel is 1/0.6 court pixels; on a
+  phone's court (about 780 pixels across) the full sheet is drawn shrunk, and the small one at about one
+  screen pixel per pixel, so it looks the same and costs under half as much to load, recolour, dress and
+  stretch. `SMALL` in `players/recolor.js` picks it by how big the court is drawn (`COURT_ZOOM` for a court
+  drawn bigger), and always on iOS, where a canvas can't hold more than 16.7 megapixels (Buns' full sheet is
+  18.5). `loadBase()` and `loadGear(..., small)` load it; `meta.fullRes` keeps the full sheet's `res`.
+- **Building a player** (`loadBuilt()` in `play/players.js`, `repaint()` in the builder) works on pixels
+  already on the CPU: `recolor()` leaves its `ImageData` on its canvas for `wearGear()`, and print layers
+  and region canvases are `willReadFrequently`, because drawing a GPU canvas into a CPU one reads the whole
+  sheet back each time. Picker and leaderboard faces recolour only their card frame (`thumbnail()`), never
+  the whole sheet. The shoes for the fire are found per frame when first needed (`feetIn()` in
+  `engine/draw.js`), from the region map, or `meta.feet` on a stretched sheet.
+- **Boot** shows the title while the chosen player's sheet loads (`playerReady` in `game.js`); choosing a
+  player waits for it, and only the latest one asked for is used.
 - **Hair** is stored at a mid-tone with full light and shade, whatever colour the video drew it, so any
   hair colour recolours cleanly; `meta.art.hair` tells `recolor()` the stored colour differs from the kid's
   own. It comes from Flow repainting the hair in shaded magenta on 24-frame grids (free images).

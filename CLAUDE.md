@@ -169,7 +169,8 @@ main checkout.
   they're the backdrop colour itself; check rebuilt bodies recoloured on a green background so wrongly
   filled gaps and see-through holes both show. Orson's sheets are built from video with
   `tools/pixelart/video_body.py art/video/orson.json` (needs Luke's videos); after rebuilding, run
-  `tools/dev/check_prints.mjs` on `?pixel` and restamp his `?v=` in `assets/characters/index.json`.
+  `tools/dev/check_prints.mjs` on `?pixel`, restamp his `?v=` in `assets/characters/index.json`, then
+  `video_bases.py orson` (his smaller copy for phones; see below).
   `?old` plays his earlier art.
 - **Layered players** (builder bodies on Orson's moving body, `players/layered.js`): a new head is
   `art/heads/head-<style>.png` (16:9, two rows of five views; brief in `art/heads/README.md`), built with
@@ -181,8 +182,9 @@ main checkout.
   Flow's magenta hair and ball repaints of the kid's frame grids), then `check_regions.py <dir> <out.png> --fix`
   and again without `--fix`: it must say 0 frames with issues, and its contact sheet (every frame in clashing
   colours) must show nothing changing with the wrong part. Last, `video_bases.py curly buns` points the
-  builder's bodies at the new sheets (`?v=` stamps, card picture from `recover-fl` frame 6, thumbs); if frame
-  picks move that frame, check the cards. Videos and Flow references get names
+  builder's bodies at the new sheets (`?v=` stamps, card picture from `recover-fl` frame 6, thumbs) and makes
+  their smaller (2/3) copies and gear for phones (`small_sheet.py`, also run by `gear_key.py`); if frame
+  picks move that frame, check the cards. `?small` / `?full` on the game or builder try either size. Videos and Flow references get names
   unique to the kid (Flow's project already holds older `grid-NN.jpg` files), and every downloaded repaint is
   matched to its grid by picture before it's used. Make kids' videos with mid-brown hair, so any colour
   recolours well.
