@@ -8,6 +8,13 @@ const [port, site, item, out, kidList = "curly,buns", mode = ""] = process.argv.
 import { writeFileSync } from "node:fs";
 
 const target = await (await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(site + "/404.html")}`, { method: "PUT" })).json();
+// the tab is closed when the script ends, however it ends (open tabs slow every session on this Mac)
+const close = () => fetch(`http://127.0.0.1:${port}/json/close/${target.id}`).catch(() => {});
+process.on("uncaughtException", async (e) => {
+  console.error(e);
+  await close();
+  process.exit(1);
+});
 const ws = new WebSocket(target.webSocketDebuggerUrl);
 await new Promise((r) => ws.addEventListener("open", r, { once: true }));
 let id = 0;
@@ -112,9 +119,10 @@ const page = async (item, kids) => {
 const res = await send("Runtime.evaluate", { expression: `window.__allMoves = ${mode === "all"}; (${page})(${JSON.stringify(item)}, ${JSON.stringify(kidList.split(","))})`, awaitPromise: true, returnByValue: true });
 if (res.result.exceptionDetails) {
   console.error(res.result.exceptionDetails.exception?.description ?? res.result.exceptionDetails.text);
+  await close();
   process.exit(1);
 }
 writeFileSync(out, Buffer.from(res.result.result.value.split(",")[1], "base64"));
-ws.send(JSON.stringify({ id: ++id, method: "Page.close" }));
+await close();
 console.log("wrote", out);
 process.exit(0);
