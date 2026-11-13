@@ -36,7 +36,12 @@ password. Shell commands with `eval` in them are refused in a worktree: put them
 
 ## Credits
 
-Images (Nano Banana 2.1) are free; `queue` checks the settings say **0 credits** and stops otherwise.
+Images (Nano Banana 2.1 and Nano Banana Pro) are free; `queue` checks the settings say **0 credits** and
+stops otherwise. Each model has its own daily allowance: about 500 prompts at x2 used up 2.1's on 13 Nov
+2026 ("You've reached your usage limit"), while Pro still worked. Pro leaves the rest of the picture far
+more untouched (about 20k changed pixels outside the item against 150k), a little softer. `queue` sets the
+model (FLOW_MODEL) and images per prompt (FLOW_COUNT, default 1) every time: they're shared account
+settings. Send at x1 unless picking the better of two matters, and pace big batches.
 Videos cost about 15 credits each (Luke has 1000 a month): ask Luke before each one, and make one at a time.
 
 ## Repainting a kid's frames (hair, ball, gear)
