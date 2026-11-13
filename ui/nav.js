@@ -7,6 +7,7 @@
 //   <a class="back-link" data-back-link href="/games/shootaround/"></a>
 
 import { IN_APP } from "../api.js";
+import "./flag-preview.js"; // a ?flags= test preview on any page lasts for the tab
 import { fillIcons, icon } from "../ui/icons.js";
 
 const LINKS = [

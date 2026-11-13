@@ -10,22 +10,14 @@
 import { API } from "./api.js";
 import { load, save } from "./engine/storage.js";
 import { FLAG_KEYS, parseFlagList } from "./shared/flags.js";
+import { flagPreview } from "./ui/flag-preview.js";
 
 const KEPT = "orson-flags";
 const WAIT = 1500; // ms to wait for the server before using the kept copy
 
 const params = new URLSearchParams(location.search);
-// A ?flags= list stays for the rest of this tab (the game's links to the builder and back drop the
-// query), until a page sets another one; ?flags=server goes back to what the server says.
-const PREVIEW = "orson-flags-preview";
-let preview = params.get("flags");
-try {
-  if (preview === "server") sessionStorage.removeItem(PREVIEW), (preview = null);
-  else if (preview !== null) sessionStorage.setItem(PREVIEW, preview);
-  else preview = sessionStorage.getItem(PREVIEW);
-} catch {
-  // No session storage: the list only applies to the page it's on.
-}
+// A ?flags= list stays for the rest of this tab (ui/flag-preview.js).
+const preview = flagPreview();
 // An explicit ?flags= wins over ?debug, so ?debug&flags=none plays test mode with everything off.
 const forced = preview !== null ? parseFlagList(preview) : params.has("debug") ? [...FLAG_KEYS] : [];
 
