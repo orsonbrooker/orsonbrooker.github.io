@@ -241,6 +241,18 @@ if (!existsSync(join(ROOT, "worker/.cloudflare/types"))) {
     ]);
 }
 
+// Isometric art (courts, props) scored against docs/art/isometric.md: the eval's own tests, then every case
+// in art/iso/testset.json, failing only when one gets worse than art/iso/baseline.json.
+{
+  const uv = spawnSync("uv", ["--version"], { encoding: "utf8" });
+  if (uv.status !== 0) report("isometric art", "skip", ["uv isn't installed, so tools/pixelart/iso_eval.py wasn't run."]);
+  else {
+    const py = ["run", "--with", "pillow", "--with", "numpy", "python3"];
+    run("isometric art eval tests", "uv", [...py, "-m", "unittest", "tools/pixelart/test_iso_eval.py"]);
+    run("isometric art against the baseline", "uv", [...py, "tools/pixelart/iso_eval.py", "--testset"]);
+  }
+}
+
 const failed = results.filter((r) => r === "fail").length;
 const warned = results.filter((r) => r === "warn").length;
 console.log(failed ? `\n${failed} check(s) failed.` : `\nAll checks passed${warned ? ` (${warned} warning(s))` : ""}.`);

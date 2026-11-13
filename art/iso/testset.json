@@ -1,0 +1,13 @@
+{
+  "note": "The approved references for isometric art. iso_eval.py --testset scores every case and compares it with baseline.json. Add a case for each new court or prop once Luke has approved it.",
+  "cases": [
+    {"id": "gym", "image": "assets/court.webp", "court": "gym", "kind": "court",
+     "what": "The whole gym court"},
+    {"id": "gym-corner", "image": "assets/court.webp", "court": "gym", "kind": "court", "crop": [700, 500, 650, 650],
+     "what": "The back corner of the gym: where the two walls and the floor meet, the floor's edge trim and the brick"},
+    {"id": "gym-ball-rack", "image": "assets/court.webp", "kind": "court", "crop": [1650, 1050, 330, 350],
+     "what": "The ball rack drawn into the gym (a prop on its background)"},
+    {"id": "hoop-front", "image": "assets/hoop-front.webp", "kind": "prop",
+     "what": "The front of the rim and the net, drawn over the ball (a prop on its own)"}
+  ]
+}

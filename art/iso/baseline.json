@@ -1,0 +1,647 @@
+{
+ "gym": {
+  "checks": [
+   {
+    "name": "pixel size is a whole number",
+    "ok": false,
+    "value": 5.121
+   },
+   {
+    "name": "one pixel size everywhere",
+    "ok": false,
+    "value": 0.25
+   },
+   {
+    "name": "cells are flat colour",
+    "ok": true,
+    "value": 0.942
+   },
+   {
+    "name": "seams on the grid",
+    "ok": false,
+    "value": 0.125
+   },
+   {
+    "name": "lines match the camera",
+    "ok": false,
+    "value": {
+     "right": 0.548,
+     "left": 0.555
+    }
+   },
+   {
+    "name": "on the palette",
+    "ok": false,
+    "value": {
+     "mean": 2.93,
+     "p95": 9.04,
+     "far_share": 0.138
+    }
+   },
+   {
+    "name": "few colours",
+    "ok": false,
+    "value": 2201
+   },
+   {
+    "name": "ramps shift hue",
+    "ok": true,
+    "value": [
+     {
+      "colours": 10,
+      "hue": 88,
+      "dark_L": 4,
+      "light_L": 97,
+      "hue_shift": 84.9
+     },
+     {
+      "colours": 5,
+      "hue": 284,
+      "dark_L": 5,
+      "light_L": 68,
+      "hue_shift": -24.7
+     },
+     {
+      "colours": 11,
+      "hue": 62,
+      "dark_L": 4,
+      "light_L": 67,
+      "hue_shift": 87.0
+     },
+     {
+      "colours": 9,
+      "hue": 63,
+      "dark_L": 4,
+      "light_L": 65,
+      "hue_shift": 87.6
+     },
+     {
+      "colours": 6,
+      "hue": 350,
+      "dark_L": 4,
+      "light_L": 56,
+      "hue_shift": 15.0
+     },
+     {
+      "colours": 6,
+      "hue": 347,
+      "dark_L": 4,
+      "light_L": 56,
+      "hue_shift": 11.9
+     },
+     {
+      "colours": 6,
+      "hue": 43,
+      "dark_L": 4,
+      "light_L": 52,
+      "hue_shift": 67.9
+     },
+     {
+      "colours": 3,
+      "hue": 275,
+      "dark_L": 5,
+      "light_L": 40,
+      "hue_shift": -33.6
+     },
+     {
+      "colours": 3,
+      "hue": 284,
+      "dark_L": 5,
+      "light_L": 39,
+      "hue_shift": -25.1
+     }
+    ]
+   },
+   {
+    "name": "outlines one pixel wide",
+    "ok": false,
+    "value": 0.331
+   },
+   {
+    "name": "outlines take colour",
+    "ok": true,
+    "value": 0.203
+   },
+   {
+    "name": "no doubled corners",
+    "ok": false,
+    "value": 0.104
+   },
+   {
+    "name": "no stray pixels",
+    "ok": false,
+    "value": 3.43
+   },
+   {
+    "name": "one scale on every axis",
+    "ok": false,
+    "value": {
+     "eu": 132.0,
+     "ev": 132.0,
+     "pxPerM": 132,
+     "want_pxPerM": 144.6
+    }
+   },
+   {
+    "name": "court data matches the camera",
+    "ok": false,
+    "value": {
+     "eu": 0.557,
+     "ev": 0.575
+    }
+   },
+   {
+    "name": "overlays on the court's grid",
+    "ok": false,
+    "value": {
+     "hoopFront": [
+      0.47,
+      -0.4
+     ]
+    }
+   },
+   {
+    "name": "3-point line where courts.js says",
+    "ok": true,
+    "value": {
+     "mean_error_m": 0.007,
+     "found": 19,
+     "of": 19,
+     "line_width_m": 0.11
+    }
+   },
+   {
+    "name": "players' pixels match the court's",
+    "ok": false,
+    "value": {
+     "buns-pixel": 5.0,
+     "curly-pixel": 5.0,
+     "orson-pixel": 5.0
+    }
+   },
+   {
+    "name": "room beside the arc",
+    "ok": false,
+    "value": {
+     "wall_side_m": 1.53,
+     "open_side_m": 0.37
+    }
+   },
+   {
+    "name": "room behind the arc",
+    "ok": false,
+    "value": 2.38
+   },
+   {
+    "name": "racks fit on the floor",
+    "ok": false,
+    "value": {
+     "racks": 5,
+     "off": 2
+    }
+   },
+   {
+    "name": "made of panels",
+    "ok": false,
+    "value": null
+   },
+   {
+    "name": "light from the upper left",
+    "ok": false,
+    "value": {
+     "left_wall_L": 44.7,
+     "right_wall_L": 43.4,
+     "floor_L": 61.8
+    }
+   }
+  ],
+  "grid": {
+   "cell": 5.121,
+   "cell_x": 5.122,
+   "cell_y": 5.119,
+   "phase": [
+    4.712320824766283,
+    0.10122733724734535
+   ],
+   "strength": 0.506,
+   "square": true,
+   "native": false,
+   "native_size": [
+    399,
+    400
+   ]
+  }
+ },
+ "gym-corner": {
+  "checks": [
+   {
+    "name": "pixel size is a whole number",
+    "ok": false,
+    "value": 5.115
+   },
+   {
+    "name": "one pixel size everywhere",
+    "ok": false,
+    "value": 0.222
+   },
+   {
+    "name": "cells are flat colour",
+    "ok": false,
+    "value": 0.899
+   },
+   {
+    "name": "seams on the grid",
+    "ok": false,
+    "value": 0.222
+   },
+   {
+    "name": "lines match the camera",
+    "ok": false,
+    "value": {
+     "right": 0.54,
+     "left": 0.55
+    }
+   },
+   {
+    "name": "on the palette",
+    "ok": false,
+    "value": {
+     "mean": 4.51,
+     "p95": 9.87,
+     "far_share": 0.218
+    }
+   },
+   {
+    "name": "few colours",
+    "ok": false,
+    "value": 1403
+   },
+   {
+    "name": "ramps shift hue",
+    "ok": true,
+    "value": [
+     {
+      "colours": 16,
+      "hue": 94,
+      "dark_L": 3,
+      "light_L": 97,
+      "hue_shift": 123.6
+     },
+     {
+      "colours": 5,
+      "hue": 308,
+      "dark_L": 3,
+      "light_L": 73,
+      "hue_shift": -4.9
+     },
+     {
+      "colours": 13,
+      "hue": 60,
+      "dark_L": 3,
+      "light_L": 65,
+      "hue_shift": 107.5
+     },
+     {
+      "colours": 13,
+      "hue": 60,
+      "dark_L": 3,
+      "light_L": 63,
+      "hue_shift": 107.0
+     },
+     {
+      "colours": 13,
+      "hue": 58,
+      "dark_L": 3,
+      "light_L": 63,
+      "hue_shift": 104.9
+     },
+     {
+      "colours": 11,
+      "hue": 359,
+      "dark_L": 3,
+      "light_L": 55,
+      "hue_shift": 46.7
+     },
+     {
+      "colours": 4,
+      "hue": 278,
+      "dark_L": 3,
+      "light_L": 38,
+      "hue_shift": -34.8
+     },
+     {
+      "colours": 6,
+      "hue": 21,
+      "dark_L": 3,
+      "light_L": 36,
+      "hue_shift": 67.9
+     }
+    ]
+   },
+   {
+    "name": "outlines one pixel wide",
+    "ok": false,
+    "value": 0.404
+   },
+   {
+    "name": "outlines take colour",
+    "ok": true,
+    "value": 0.221
+   },
+   {
+    "name": "no doubled corners",
+    "ok": false,
+    "value": 0.054
+   },
+   {
+    "name": "no stray pixels",
+    "ok": false,
+    "value": 4.34
+   },
+   {
+    "name": "one scale on every axis",
+    "ok": false,
+    "value": {
+     "eu": 132.0,
+     "ev": 132.0,
+     "pxPerM": 132,
+     "want_pxPerM": 144.6
+    }
+   },
+   {
+    "name": "court data matches the camera",
+    "ok": false,
+    "value": {
+     "eu": 0.557,
+     "ev": 0.575
+    }
+   },
+   {
+    "name": "light from the upper left",
+    "ok": false,
+    "value": {
+     "left_wall_L": 44.7,
+     "right_wall_L": 43.4,
+     "floor_L": 58.5
+    }
+   }
+  ],
+  "grid": {
+   "cell": 5.115,
+   "cell_x": 5.115,
+   "cell_y": 5.115,
+   "phase": [
+    1.8729251323112635,
+    2.010688824263453
+   ],
+   "strength": 0.53,
+   "square": true,
+   "native": false,
+   "native_size": [
+    127,
+    127
+   ]
+  }
+ },
+ "gym-ball-rack": {
+  "checks": [
+   {
+    "name": "pixel size is a whole number",
+    "ok": false,
+    "value": 5.122
+   },
+   {
+    "name": "one pixel size everywhere",
+    "ok": true,
+    "value": 0.0
+   },
+   {
+    "name": "cells are flat colour",
+    "ok": false,
+    "value": 0.855
+   },
+   {
+    "name": "seams on the grid",
+    "ok": true,
+    "value": 0.0
+   },
+   {
+    "name": "lines match the camera",
+    "ok": false,
+    "value": {
+     "right": 0.513,
+     "left": 0.323
+    }
+   },
+   {
+    "name": "on the palette",
+    "ok": false,
+    "value": {
+     "mean": 6.04,
+     "p95": 11.88,
+     "far_share": 0.448
+    }
+   },
+   {
+    "name": "few colours",
+    "ok": false,
+    "value": 1114
+   },
+   {
+    "name": "ramps shift hue",
+    "ok": true,
+    "value": [
+     {
+      "colours": 9,
+      "hue": 108,
+      "dark_L": 2,
+      "light_L": 98,
+      "hue_shift": 2.9
+     },
+     {
+      "colours": 11,
+      "hue": 62,
+      "dark_L": 2,
+      "light_L": 67,
+      "hue_shift": 109.3
+     },
+     {
+      "colours": 11,
+      "hue": 50,
+      "dark_L": 2,
+      "light_L": 58,
+      "hue_shift": 96.9
+     },
+     {
+      "colours": 10,
+      "hue": 46,
+      "dark_L": 2,
+      "light_L": 55,
+      "hue_shift": 92.9
+     },
+     {
+      "colours": 8,
+      "hue": 37,
+      "dark_L": 2,
+      "light_L": 42,
+      "hue_shift": 84.5
+     },
+     {
+      "colours": 8,
+      "hue": 33,
+      "dark_L": 2,
+      "light_L": 40,
+      "hue_shift": 80.3
+     },
+     {
+      "colours": 5,
+      "hue": 278,
+      "dark_L": 2,
+      "light_L": 37,
+      "hue_shift": -35.3
+     },
+     {
+      "colours": 4,
+      "hue": 355,
+      "dark_L": 2,
+      "light_L": 22,
+      "hue_shift": 42.6
+     }
+    ]
+   },
+   {
+    "name": "outlines one pixel wide",
+    "ok": false,
+    "value": 0.424
+   },
+   {
+    "name": "outlines take colour",
+    "ok": true,
+    "value": 0.251
+   },
+   {
+    "name": "no doubled corners",
+    "ok": false,
+    "value": 0.073
+   },
+   {
+    "name": "no stray pixels",
+    "ok": false,
+    "value": 3.26
+   }
+  ],
+  "grid": {
+   "cell": 5.122,
+   "cell_x": 5.129,
+   "cell_y": 5.116,
+   "phase": [
+    3.3464369326636545,
+    4.784506558980111
+   ],
+   "strength": 0.624,
+   "square": true,
+   "native": false,
+   "native_size": [
+    64,
+    67
+   ]
+  }
+ },
+ "hoop-front": {
+  "checks": [
+   {
+    "name": "pixel size is a whole number",
+    "ok": false,
+    "value": 5.104
+   },
+   {
+    "name": "one pixel size everywhere",
+    "ok": true,
+    "value": 0.0
+   },
+   {
+    "name": "cells are flat colour",
+    "ok": false,
+    "value": 0.623
+   },
+   {
+    "name": "seams on the grid",
+    "ok": true,
+    "value": 0.0
+   },
+   {
+    "name": "lines match the camera",
+    "ok": true,
+    "value": null
+   },
+   {
+    "name": "on the palette",
+    "ok": false,
+    "value": {
+     "mean": 8.22,
+     "p95": 15.05,
+     "far_share": 0.679
+    }
+   },
+   {
+    "name": "few colours",
+    "ok": false,
+    "value": 134
+   },
+   {
+    "name": "ramps shift hue",
+    "ok": true,
+    "value": [
+     {
+      "colours": 3,
+      "hue": 21,
+      "dark_L": 7,
+      "light_L": 41,
+      "hue_shift": 39.3
+     }
+    ]
+   },
+   {
+    "name": "outlines one pixel wide",
+    "ok": false,
+    "value": 0.111
+   },
+   {
+    "name": "outlines take colour",
+    "ok": true,
+    "value": 0.0
+   },
+   {
+    "name": "no doubled corners",
+    "ok": true,
+    "value": 0.0
+   },
+   {
+    "name": "no stray pixels",
+    "ok": true,
+    "value": 0.0
+   },
+   {
+    "name": "hard edges",
+    "ok": true,
+    "value": 0.0
+   }
+  ],
+  "grid": {
+   "cell": 5.104,
+   "cell_x": 5.033,
+   "cell_y": 5.174,
+   "phase": [
+    4.194727784149747,
+    0.4198933891988732
+   ],
+   "strength": 0.407,
+   "square": true,
+   "native": false,
+   "native_size": [
+    37,
+    41
+   ]
+  }
+ }
+}
