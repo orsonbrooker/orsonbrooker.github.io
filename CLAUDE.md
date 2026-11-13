@@ -154,6 +154,10 @@ main checkout.
   after a deploy, purge it: `npx cf cache purge -z orsonbrooker.com --force --body '{"files":["<url>"]}'`
   (run from `worker/`). Check live only after `wait_pages.sh` says the deploy succeeded. Cloudflare blocks
   Python's default user agent; use `curl`.
+- **Service worker** (`sw.js`, `offline.js`): visitors keep `/build/*` and every `?v=`-stamped or
+  hash-named file forever, and other unstamped files (not JSON) until the next deploy. A changed art file
+  needs a new `?v=` stamp (or name) to reach phones that have it. Test it with `npm run build` and a server
+  on `localhost` (`npm run dev` doesn't register it); `chrome://serviceworker-internals` clears it.
 - **The old `?v=` stamps are gone** (and `tools/stamp_versions.py` and the pre-commit hook with them). The
   `?v=` left on icons, in manifests and on sprite URLs in `assets/characters/index.json` are those files'
   own cache versions: keep them.

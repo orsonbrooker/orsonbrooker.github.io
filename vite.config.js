@@ -3,7 +3,8 @@
 // copied across unchanged (STATIC below). GitHub Actions builds and publishes it on every push to main
 // (.github/workflows/pages.yml). A new page goes in PAGES; a new file fetched by URL goes in STATIC.
 import { execSync } from "node:child_process";
-import { cpSync, existsSync, readdirSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 
@@ -85,6 +86,41 @@ function gameVersion() {
   };
 }
 
+// The service worker (sw.js, offline play): written into dist/ with this build's /build/ files, its
+// commit and the time it was built, so each deploy is a new worker that knows its own files.
+// And the built players kept between visits (play/kept.js) are named with a hash of the code that
+// builds them, so a change to it builds them again.
+function offline() {
+  const playerCode = () => {
+    const files = [...readdirSync(resolve(ROOT, "players")).filter((f) => f.endsWith(".js")).map((f) => `players/${f}`), "play/players.js", "play/kept.js"];
+    const hash = createHash("sha256");
+    for (const f of files.sort()) hash.update(f).update(readFileSync(resolve(ROOT, f)));
+    return hash.digest("hex").slice(0, 12);
+  };
+  let outDir;
+  return {
+    name: "orson-offline",
+    apply: "build",
+    configResolved(config) {
+      outDir = resolve(config.root, config.build.outDir);
+    },
+    transform(code, id) {
+      if (id !== resolve(ROOT, "play/kept.js")) return null;
+      if (!code.includes("__PLAYER_CODE__")) this.error("play/kept.js no longer has __PLAYER_CODE__; update vite.config.js");
+      return code.replace("__PLAYER_CODE__", playerCode());
+    },
+    writeBundle() {
+      const build = readdirSync(resolve(outDir, "build")).map((f) => `/build/${f}`);
+      const sw = readFileSync(resolve(ROOT, "sw.js"), "utf8");
+      for (const token of ["__VERSION__", "__BUILT_AT__", "__BUILD__"]) if (!sw.includes(token)) this.error(`sw.js no longer has ${token}`);
+      writeFileSync(
+        resolve(outDir, "sw.js"),
+        sw.replace("__VERSION__", commit()).replace("__BUILT_AT__", String(Date.now())).replace("__BUILD__", JSON.stringify(build)),
+      );
+    },
+  };
+}
+
 // Copies STATIC into dist/ after the bundle is written.
 function copyStatic() {
   let outDir;
@@ -146,5 +182,5 @@ export default defineConfig({
       input: Object.fromEntries(Object.entries(PAGES).map(([name, page]) => [name, resolve(ROOT, page)])),
     },
   },
-  plugins: [pages(), gameVersion(), copyStatic(), adminFont()],
+  plugins: [pages(), gameVersion(), offline(), copyStatic(), adminFont()],
 });

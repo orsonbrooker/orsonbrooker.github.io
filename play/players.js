@@ -11,8 +11,9 @@ import { EU, EV, RIM, project } from "../engine/court.js";
 import { shoesIn } from "../engine/draw.js";
 import { load, save } from "../engine/storage.js";
 import { ANIM_FPS, JUMP_APEX, JUMP_FRAME_TIME, player } from "../play/state.js";
-import { gearParam, loadGear, wearGear } from "../players/gear.js";
+import { gearParam, gearStamps, loadGear, wearGear } from "../players/gear.js";
 import { buildPlayer, loadHeads } from "../players/layered.js";
+import { keepPlayer, keptPlayer } from "./kept.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { stretchSheet } from "../players/stretch.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, thumbnail } from "../players/recolor.js";
@@ -40,24 +41,36 @@ export function loadImage(src) {
 async function loadBuilt(entry) {
   const base = (await loadBases()).find((b) => b.id === entry.base);
   if (base.video) {
-    // a kid made from their own videos: their full-detail sheet in the player's colours, as for Orson
-    const [meta, img, regions] = await Promise.all([fetch("/" + base.meta).then((r) => r.json()), loadImage("/" + base.atlas), loadImage("/" + base.regions)]);
-    const kit = await withKit(meta, img, entry, entry.colours);
-    // their gear (saved with them; ?gear=beanie,stripes tries some on every kid from video)
+    // built on an earlier visit (play/kept.js), else built now and kept
     const testGear = new URLSearchParams(location.search).get("gear");
-    const worn = await loadGear(base.id, testGear ? gearParam(testGear) : entry.gear).catch(() => []);
-    if (!worn.length && !+entry.build?.height && !+entry.build?.bulk) return kit;
-    const c = Object.assign(document.createElement("canvas"), { width: regions.width, height: regions.height });
-    const g = c.getContext("2d", { willReadFrequently: true });
-    g.drawImage(regions, 0, 0);
-    let s = { meta: kit.meta, img: kit.img, prints: kit.img.prints, regions: g.getImageData(0, 0, c.width, c.height) };
-    s = wearGear(s, worn, { ...base.colours, ...entry.colours });
-    // their height and build: the frames stretched, the number and team name (and gear) with them
-    s = stretchSheet(s, s.regions, entry.build);
-    return { meta: s.meta, img: Object.assign(s.img, { prints: s.prints }) };
+    const gear = testGear ? gearParam(testGear) : entry.gear;
+    const key = { sheets: [base.atlas, base.meta, base.regions], base: base.colours, colours: entry.colours, build: entry.build, gear: await gearStamps(base.id, gear) };
+    const kept = await keptPlayer(key);
+    if (kept) return kept;
+    const built = await buildVideoKid(base, entry, gear);
+    keepPlayer(key, built);
+    return built;
   }
   const loaded = await loadBase(base);
   return { meta: loaded.meta, img: recolor(loaded, entry.colours), loaded };
+}
+
+// A kid made from their own videos: their full-detail sheet in the player's colours (as for Orson),
+// gear and size.
+async function buildVideoKid(base, entry, gear) {
+  const [meta, img, regions] = await Promise.all([fetch("/" + base.meta).then((r) => r.json()), loadImage("/" + base.atlas), loadImage("/" + base.regions)]);
+  const kit = await withKit(meta, img, entry, entry.colours);
+  // their gear (saved with them; ?gear=beanie,stripes tries some on every kid from video)
+  const worn = await loadGear(base.id, gear).catch(() => []);
+  if (!worn.length && !+entry.build?.height && !+entry.build?.bulk) return kit;
+  const c = Object.assign(document.createElement("canvas"), { width: regions.width, height: regions.height });
+  const g = c.getContext("2d", { willReadFrequently: true });
+  g.drawImage(regions, 0, 0);
+  let s = { meta: kit.meta, img: kit.img, prints: kit.img.prints, regions: g.getImageData(0, 0, c.width, c.height) };
+  s = wearGear(s, worn, { ...base.colours, ...entry.colours });
+  // their height and build: the frames stretched, the number and team name (and gear) with them
+  s = stretchSheet(s, s.regions, entry.build);
+  return { meta: s.meta, img: Object.assign(s.img, { prints: s.prints }) };
 }
 
 // A sheet made from video has a plain jersey: print his number and team name on it. A pixel-art
@@ -128,6 +141,17 @@ export async function useCharacter(id, { remember = true } = {}) {
   player.attrs = attributesFor(id);
   player.pronoun = (characters.list.find((c) => c.id === id) ?? characters.list[0]).pronoun ?? "";
   if (remember) save("orson-hoops-character", id);
+}
+
+// Every player's sheets (and their pixel-art twins, for the number and team name), and every builder
+// body's, to keep so any of them can be chosen offline (offline.js).
+export async function playerFiles() {
+  const strip = (u) => u.replace(/^\//, "");
+  const builtIn = characters.list.filter((c) => c.atlas && c.meta).map((c) => ({ atlas: c.atlas, meta: c.meta, thumb: c.thumb }));
+  const bases = await loadBases().catch(() => []);
+  const sheets = [...builtIn, ...bases];
+  const metas = await Promise.all(sheets.map((b) => fetch("/" + strip(b.meta)).then((r) => r.json()).catch(() => ({}))));
+  return sheets.flatMap((b, i) => [b.atlas, b.meta, b.regions, b.thumb, metas[i].printsFrom?.atlas, metas[i].printsFrom?.meta].filter(Boolean).map((u) => "/" + strip(u)));
 }
 
 // Starts loading a player's sprite sheet, so switching to them later is quick.

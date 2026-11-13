@@ -726,6 +726,9 @@ export async function loadVoiceClips() {
   if (sound.ctx) preloadClips();
 }
 
+// The announcer's and the sounds' files, to keep for playing offline (offline.js).
+export const clipFiles = () => [voice.file && `assets/voice/${voice.file}`, sfx.file && `assets/sfx/${sfx.file}`].filter(Boolean);
+
 // Download and decode the clip file once audio is unlocked.
 function preloadClips() {
   if (!voice.file || voice.loading) return voice.loading;

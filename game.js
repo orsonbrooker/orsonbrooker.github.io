@@ -8,7 +8,7 @@
 //   screens/  the title, choosing a game and a player, help, the leaderboard, game over
 // Scoring rules shared with the server are in shared/rules.js.
 
-import { loadSoundClips, loadVoiceClips, sound } from "./audio.js";
+import { clipFiles, loadSoundClips, loadVoiceClips, sound } from "./audio.js";
 import { isThreePointSpot, project, RIM } from "./engine/court.js";
 import { makeBallSprites } from "./engine/draw.js";
 import { listenForInput } from "./engine/input.js";
@@ -17,7 +17,7 @@ import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { setUpTouchControls } from "./play/controls.js";
 import { COURTS, court, useCourt } from "./play/court.js";
-import { characters, faceHoop, loadImage, loadRoster, reloadMyPlayers } from "./play/players.js";
+import { characters, faceHoop, loadImage, loadRoster, playerFiles, reloadMyPlayers } from "./play/players.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play/react.js";
 import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js";
 import { canDunk, checkDecided, shoot, startDunk, startGame, step, stepBall } from "./play/round.js";
@@ -31,6 +31,7 @@ import { closeMenu, wireMenu } from "./screens/menu.js";
 import { openPause, pauseOpen, resumeGame, wirePause } from "./screens/pause.js";
 import { closeShop, wireShop } from "./screens/shop.js";
 import { ballLook, onProgress, onSave, refreshProgress } from "./progress.js";
+import { keepForLater } from "./offline.js";
 import { confirmDialog } from "./ui/confirm.js";
 import { fillIcons } from "./ui/icons.js";
 
@@ -215,6 +216,8 @@ async function boot() {
     if (!state.paused) step(dt);
     render();
   });
+  // Once the title is up: every player's sheets and the announcer's clips, kept to play offline.
+  setTimeout(() => playerFiles().then((files) => keepForLater([...files, ...clipFiles()])), 3000);
 }
 
 boot();

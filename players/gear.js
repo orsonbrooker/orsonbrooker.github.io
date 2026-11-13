@@ -128,6 +128,13 @@ export function gearParam(text) {
 let index;
 const loadIndex = (root) => (index ??= fetch(`${root}assets/characters/gear/index.json`).then((r) => (r.ok ? r.json() : {})).catch(() => ({})));
 
+/** Which version of each gear layer a kid wears ({ id: stamp }), so a dressed sheet kept from an earlier
+ * visit (play/kept.js) is only used while its gear is the same. */
+export async function gearStamps(kid, gear, root = "/") {
+  const made = await loadIndex(root);
+  return Object.fromEntries(wornItems(gear).filter((id) => made[id]?.[kid]).map((id) => [id, made[id][kid]]));
+}
+
 function image(src) {
   return new Promise((resolve, reject) => {
     const i = new Image();
