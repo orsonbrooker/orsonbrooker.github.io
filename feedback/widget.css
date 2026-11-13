@@ -212,6 +212,12 @@
   color: var(--fb-ink);
 }
 
+.fb-chip.fb-soon-chip {
+  margin-right: 4px;
+  background: #7fd1ff;
+  color: var(--fb-ink);
+}
+
 .fb-top-chip .icon {
   width: 12px;
   height: 12px;

@@ -153,10 +153,11 @@ export async function loadRoster() {
   // &number=7&teamName=HAWKS recolours him the way the builder's players are, to try customising.
   const params = new URLSearchParams(location.search);
   const orson = characters.list.find((c) => c.id === "orson");
-  if (orson && params.has("old")) Object.assign(orson, { atlas: "assets/sprites.webp", meta: "assets/sprites.json" });
+  // His art from video waits for the orsonvideo flag (shared/flags.js); until then, his current art.
+  if (orson && (params.has("old") || !flagOn("orsonvideo"))) Object.assign(orson, { atlas: "assets/sprites.webp", meta: "assets/sprites.json" });
   if (orson && params.has("pixel")) Object.assign(orson, { atlas: "assets/characters/orson-pixel/sprites.png", meta: "assets/characters/orson-pixel/sprites.json" });
   // ?head=orson&height=1&bulk=-1: him as a layered player (players/layered.js), with that head and build.
-  if (orson && /^[a-z-]+$/.test(params.get("head") ?? "")) orson.layered = { head: params.get("head"), build: { height: params.get("height"), bulk: params.get("bulk") } };
+  if (orson && flagOn("layered") && /^[a-z-]+$/.test(params.get("head") ?? "")) orson.layered = { head: params.get("head"), build: { height: params.get("height"), bulk: params.get("bulk") } };
   const custom = {};
   for (const k of ["skin", "hair", "jersey", "team", "shoes"]) if (/^[0-9a-f]{6}$/i.test(params.get(k) ?? "")) custom[k] = `#${params.get(k).toLowerCase()}`;
   if (/^\d{1,2}$/.test(params.get("number") ?? "")) custom.number = params.get("number");
@@ -173,7 +174,7 @@ export async function loadRoster() {
 // the others keep their hand-drawn sheet.
 // A kid made from their own videos (Curly, Buns) moves as themselves.
 const layeredOf = (heads, bases = []) => (p) =>
-  bases.find((b) => b.id === p.base)?.video ? {} : heads[p.base] ? { layered: { head: p.base, build: p.build ?? {} } } : {};
+  bases.find((b) => b.id === p.base)?.video ? {} : heads[p.base] && flagOn("layered") ? { layered: { head: p.base, build: p.build ?? {} } } : {};
 
 function minePlayers(bases, heads) {
   const layered = layeredOf(heads, bases);

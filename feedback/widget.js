@@ -285,6 +285,8 @@ async function mountBoard(node) {
 				"div",
 				{ className: "fb-card-body" },
 				isTop ? el("span", { className: "fb-chip fb-top-chip", innerHTML: `${icon("trophy")}<span>Top pick</span>` }) : null,
+				// Built, and coming out soon (the server says so while its feature flag is off).
+				idea.coming_soon ? el("span", { className: "fb-chip fb-soon-chip", textContent: "Coming soon" }) : null,
 				filter === "all" ? el("span", { className: "fb-chip", textContent: appName(idea.app) }) : null,
 				el("h3", { textContent: idea.title }),
 				idea.description && idea.description !== idea.title ? el("p", { textContent: idea.description }) : null,

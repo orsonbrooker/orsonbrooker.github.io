@@ -50,9 +50,15 @@ export async function requireBodyOut(env: Env, base: string): Promise<void> {
 	if (key) await requireFlag(env, key);
 }
 
-/** GET /api/admin/flags: each flag with what it hides, whether it's on, and when it last changed. */
+/** The ideas whose flag is still off (linked on the admin page): the board says "Coming soon" on them. */
+export async function comingSoon(env: Env): Promise<Set<number>> {
+	const rows = await env.DB.prepare("SELECT key, idea_id FROM flags WHERE idea_id IS NOT NULL AND enabled = 0").all<{ key: string; idea_id: number }>();
+	return new Set(rows.results.filter((r) => FLAG_KEYS.includes(r.key)).map((r) => r.idea_id));
+}
+
+/** GET /api/admin/flags: each flag with what it hides, whether it's on, its idea, and when it last changed. */
 export async function adminFlags(env: Env): Promise<Response> {
-	const rows = await env.DB.prepare("SELECT key, enabled, updated_at FROM flags").all<{ key: string; enabled: number; updated_at: string }>();
+	const rows = await env.DB.prepare("SELECT key, enabled, idea_id, updated_at FROM flags").all<{ key: string; enabled: number; idea_id: number | null; updated_at: string }>();
 	const byKey = new Map(rows.results.map((r) => [r.key, r]));
 	return json(
 		{
@@ -61,6 +67,7 @@ export async function adminFlags(env: Env): Promise<Response> {
 				name: f.name,
 				hides: f.hides,
 				on: byKey.get(f.key)?.enabled === 1,
+				idea_id: byKey.get(f.key)?.idea_id ?? null,
 				updated_at: byKey.get(f.key)?.updated_at ?? null,
 			})),
 		},
@@ -69,16 +76,36 @@ export async function adminFlags(env: Env): Promise<Response> {
 	);
 }
 
-/** POST /api/admin/flags { key, on }: switches a flag on or off. */
+/**
+ * POST /api/admin/flags { key, on?, ideaId? }: switches a flag on or off, and/or links it to the idea it
+ * delivers (ideaId null unlinks it). Switching a linked flag on marks its idea done (once: an idea
+ * already done keeps its date), so it moves to Done on the board as the feature comes out.
+ */
 export async function setFlag(env: Env, body: Record<string, unknown>): Promise<Response> {
 	const key = String(body.key ?? "");
 	if (!FLAG_KEYS.includes(key)) throw new HttpError(400, "Unknown flag.");
-	if (typeof body.on !== "boolean") throw new HttpError(400, "Say on or off.");
-	await env.DB.prepare(
-		"INSERT INTO flags (key, enabled, updated_at) VALUES (?1, ?2, datetime('now')) ON CONFLICT (key) DO UPDATE SET enabled = ?2, updated_at = datetime('now')",
-	)
-		.bind(key, body.on ? 1 : 0)
-		.run();
+	const setOn = body.on !== undefined;
+	const setIdea = body.ideaId !== undefined;
+	if (setOn && typeof body.on !== "boolean") throw new HttpError(400, "Say on or off.");
+	if (!setOn && !setIdea) throw new HttpError(400, "Say on or off.");
+	const ideaId = body.ideaId === null ? null : Number(body.ideaId);
+	if (setIdea && ideaId !== null) {
+		if (!Number.isInteger(ideaId) || !(await env.DB.prepare("SELECT 1 FROM ideas WHERE id = ?").bind(ideaId).first())) throw new HttpError(400, "No such idea.");
+	}
+	const steps = [
+		env.DB.prepare(
+			`INSERT INTO flags (key, enabled, idea_id, updated_at) VALUES (?1, COALESCE(?2, 0), ?3, datetime('now'))
+			 ON CONFLICT (key) DO UPDATE SET enabled = COALESCE(?2, enabled), idea_id = CASE WHEN ?4 THEN ?3 ELSE idea_id END, updated_at = datetime('now')`,
+		).bind(key, setOn ? (body.on ? 1 : 0) : null, setIdea ? ideaId : null, setIdea ? 1 : 0),
+	];
+	if (body.on === true)
+		steps.push(
+			env.DB.prepare(
+				`UPDATE ideas SET status = CASE WHEN status = 'hidden' THEN status ELSE 'done' END, done_at = COALESCE(done_at, datetime('now')), updated_at = datetime('now')
+				 WHERE id = (SELECT idea_id FROM flags WHERE key = ?) AND (status != 'done' OR done_at IS NULL)`,
+			).bind(key),
+		);
+	await env.DB.batch(steps);
 	forgetFlags();
 	return json({ ok: true }, 200, 0);
 }

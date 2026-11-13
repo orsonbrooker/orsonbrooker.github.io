@@ -127,7 +127,7 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 		res = json({ ok: true }, 200, 0);
 	} else if (parts[2] === "flags" && parts.length === 3) {
 		res = await setFlag(env, await readJson(request));
-		await forget(url.origin, { flags: true });
+		await forget(url.origin, { flags: true, ideas: true }); // a linked idea may say Coming soon, or be done
 	} else if (parts[2] === "digests") {
 		// "Got it" on the weekly digest. Nothing public changes.
 		const body = await readJson(request);

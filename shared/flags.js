@@ -10,13 +10,23 @@
 
 /** @type {readonly Flag[]} */
 export const FLAGS = Object.freeze([
-  { key: "threes", name: "3-point contest", hides: "The 3-point contest: its card on Choose a game, its leaderboard tab and help.", modes: ["threes"] },
+  { key: "threepoint", name: "3-point contest", hides: "The 3-point contest: its card on Choose a game, its leaderboard tab and help.", modes: ["threes"] },
   {
     key: "videokids",
     name: "Curly and Buns from video",
     hides: "Curly and Buns made from video: they turn all the way round, change size (the builder's Body tab) and can wear gear. Off, the builder and the game use their old drawn bodies, and the server refuses a player with a size.",
   },
   { key: "gear", name: "Gear", hides: "Gear for kids from video (caps, beanies, headbands, flame shoes and more) in the builder's Gear tab, and on them in the game. Needs Curly and Buns from video on too." },
+  {
+    key: "orsonvideo",
+    name: "Orson's new art",
+    hides: "Orson drawn from his videos: turning to face the hoop from every side, jogging between shots, picking the dribble back up. Off, he plays with his current art and appears at each new spot as he does today.",
+  },
+  {
+    key: "layered",
+    name: "Layered players",
+    hides: "Builder players drawn on Orson's moving body with a head of their own (once a body has a head made for it). Off, they keep their hand-drawn sheet.",
+  },
   { key: "freeplay", name: "Free play", hides: "Free play (move around and shoot from anywhere): its card on Choose a game.", modes: ["free"] },
 ]);
 

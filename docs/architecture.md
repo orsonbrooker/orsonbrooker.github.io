@@ -337,24 +337,39 @@ green-zone widths.
 Things that are built but not out yet are hidden behind a feature flag until Luke switches them on, so
 `main` can ship while they're finished. No outside service: the list is `shared/flags.js` (a key, a name,
 what it hides, and the modes or builder bodies it covers), and the `flags` table (`0022_flags.sql`) holds
-the ones switched on or off. A flag with no row is off.
+the ones switched on or off, and which idea each delivers. A flag with no row is off.
 
-- **Admin:** the Flags section (`/admin/flags`) lists every flag with what it hides and a switch
-  (`GET` and `POST /api/admin/flags`, behind Access and the token check like every admin change).
+- **Admin:** the Flags section (`/admin/flags`) lists every flag with what it hides, its idea and a switch
+  (`GET` and `POST /api/admin/flags`, behind Access and the token check like every admin change). Each idea
+  on the Ideas section has the same link from its side.
+- **Ideas:** a flag can be linked to the idea it delivers (optional: many ideas won't map to one flag, and
+  flags like `orsonvideo` don't come from an idea). While the flag is off, `GET /api/ideas` marks the idea
+  `coming_soon` and the board shows "Coming soon" (never the flag's name). Switching the flag on marks the
+  idea done and sets its `done_at` if it has none, so there's no separate step; a hidden idea stays hidden.
 - **Public:** `GET /api/flags` answers `{ flags: { key: true/false } }`, edge-cached like the boards (a change
   clears it here; elsewhere it's up to a minute old).
 - **Game and builder:** `flags.js` loads them once as the page starts (waiting up to 1.5 s), keeps a copy
   on the device for offline (the service worker never caches `/api`), and falls back to that copy, else to
   everything off, so nothing unreleased leaks. `flagOn(key)` says whether to show it; `released(key)` whether
-  it's really out (so what it sends will count). For testing, `?flags=threes,freeplay` (or `?flags=all`) turns
-  those on for the page, and `?debug` turns on all of them; the server still refuses what they'd send.
+  it's really out (so what it sends will count). For testing, `?flags=threepoint,freeplay` (or `?flags=all`) turns
+  those on for the page, and `?debug` turns on all of them unless it has a `?flags=` of its own
+  (`?debug&flags=none` is test mode with everything off); the server still refuses what they'd send.
 - **Server:** the Worker refuses a score, a preview or coins for a mode whose flag is off
   (`requireModeOut`), a builder player with a hidden body (`requireBodyOut`), and a player with a size while
   `videokids` is off. It reads the table at most every 10 s per isolate.
 
-The flags now: `threes` (the 3-point contest), `freeplay` (Free play), `videokids` (Curly and Buns from
-video: off, `useDrawnKids()` in `players/recolor.js` gives them their old drawn bodies, and the builder has no
-Body tab) and `gear` (what kids from video wear). To retire a flag once something is out for good, take out
+The flags now:
+- `threepoint` (the 3-point contest) and `freeplay` (Free play): their cards, tabs and help.
+- `videokids` (Curly and Buns from video, with their sizes, shirt prints and jogging): off,
+  `useDrawnKids()` in `players/recolor.js` gives them their earlier drawn bodies and the builder has no Body tab.
+- `gear` (what kids from video wear; only shows with `videokids`).
+- `orsonvideo` (Orson from video, with turning, jogging between shots and picking the dribble back up): off,
+  `loadRoster()` in `play/players.js` gives him `assets/sprites.webp`, his earlier art.
+- `layered` (builder bodies on Orson's moving body, `players/layered.js`).
+
+Jogging between shots, facing the hoop from each side and the extra moves aren't flagged on their own: the
+game only does them when the player's sheet has those moves (`canJog()`, `hasMove()`), so with `videokids`
+and `orsonvideo` off every player moves as before. To retire a flag once something is out for good, take out
 its checks, then its entry. Anything a flag reveals that scores or shows on a card still follows
 `FEATURE_FROM` in `worker/src/scores.ts`: it counts from when it went live.
 

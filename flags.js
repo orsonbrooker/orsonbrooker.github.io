@@ -3,8 +3,8 @@
 // the server if it answers quickly, else the copy this device kept last time (so it works offline),
 // else everything off, so nothing unreleased ever shows by accident.
 //
-// For testing: ?flags=threes,freeplay (or ?flags=all) turns those on for this page, and ?debug turns
-// them all on. Turned on that way, a flag is only for looking: what it sends (scores, players) is still
+// For testing: ?flags=threepoint,freeplay (or ?flags=all) turns those on for this page, and ?debug turns
+// them all on (unless it has a ?flags= of its own). Turned on that way, a flag is only for looking: what it sends (scores, players) is still
 // refused by the server until the flag is really on, so the game doesn't try (released()).
 
 import { API } from "./api.js";
@@ -15,7 +15,8 @@ const KEPT = "orson-flags";
 const WAIT = 1500; // ms to wait for the server before using the kept copy
 
 const params = new URLSearchParams(location.search);
-const forced = params.has("debug") ? [...FLAG_KEYS] : parseFlagList(params.get("flags"));
+// An explicit ?flags= wins over ?debug, so ?debug&flags=none plays test mode with everything off.
+const forced = params.has("flags") ? parseFlagList(params.get("flags")) : params.has("debug") ? [...FLAG_KEYS] : [];
 
 /** @returns {Promise<Record<string, boolean> | null>} */
 async function fetchFlags() {
