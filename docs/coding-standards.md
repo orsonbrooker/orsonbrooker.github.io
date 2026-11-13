@@ -30,8 +30,9 @@ belongs in `npm run check` instead, not here. The hard rules are in `CLAUDE.md`:
   the same game (`window.game.setSeed`), or replays break and the server can't check scores.
 - New gameplay randomness gets its own stream. Adding draws to an existing stream changes every game
   after that point.
-- Nothing depends on frame rate: a 30 Hz phone and a 120 Hz iPad play the same game. Pixels appear only
-  when drawing.
+- Smooth frames matter (see Frame budget), but the *rules* never depend on the frame rate: a shot
+  released at the same moment lands the same way on a slow phone that drops frames and on a 120 Hz iPad.
+  Pixels appear only when drawing.
 - Phases change only through the `PHASES` table (`setPhase`, `canShoot`); see Gotchas in `CLAUDE.md`.
 - **Feel numbers are named, with units**, near the top of their file or in `content/`: never a bare
   `0.29` in the middle of a function. Changing one (a timing window, green size, gravity) changes how
