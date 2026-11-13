@@ -21,14 +21,23 @@ Nothing goes live: no push, no deploy, no live database.
 Write everything to `.verify/<branch>/` (gitignored).
 
 - `npm run check`. Every failure is a finding.
-- `npm run verify -- <sub>` for what changed:
+- `npm run verify -- <sub>` for what changed. Run every row that matches; a mixed diff runs them all:
 
   | Changed | Run |
   |---|---|
   | `assets/characters/`, `art/`, `players/` sheets, `tools/pixelart/` | `verify art <player or body>` |
   | pages, `screens/`, `ui/`, CSS, `players/` builder UI, `ideas/` | `verify pages` |
   | `play/`, `modes/`, `engine/`, `game.js`, `content/`, `shared/` | `verify play` and `verify perf` |
-  | `worker/` only | check is enough; also read the SQL and the rate limits |
+  | `worker/` | check, then read the SQL, the order of checks and writes, and the rate limits |
+
+- **Probes**: to prove a finding, write throwaway tests or scripts in `.verify/<branch>/probe/` (import the
+  repo by path; the Worker tests' fake D1 is the easiest way into server code). Never commit them. For a
+  page state that needs setup (a slow load, a full inbox), a short script over `tools/dev/cdp.mjs` is fine.
+- **Before and after**: to show a behaviour change, check out the merge base next to the branch
+  (`git worktree add --detach .verify/<branch>/base <merge-base>`), build it, run the same probe on both,
+  then `git worktree remove` it.
+- The local Worker is fixed at port 8787. If another session holds it, test the server through the Worker
+  tests and probes instead, and say so under "couldn't verify".
 
 - If `check` or `verify` doesn't exist yet on this branch, run the pieces by hand: `npm run build`,
   `npm --prefix worker test`, `cd worker` then `npx tsc --noEmit -p .`; for pages and play, serve `dist/`
@@ -60,7 +69,10 @@ are dropped. Try to disprove each finding before keeping it.
 
 - **Small and clear** (a missed rule, a typo, a missing `textContent`, a test that can't fail, an
   unused leftover): fix it yourself, rerun what proves it, and commit all fixes as **one** commit,
-  `Review: <what>`. Stage only the files you changed. On a dry run, don't commit: list the fix instead.
+  `Review: <what>`. Stage only the files you changed. On a dry run, don't commit: apply, test, save
+  `git diff` as `.verify/<branch>/proposed-fix.diff`, then revert.
+- A fix that settles only part of a finding leaves the rest open: say what's left.
+- A change that alters what `docs/architecture.md` describes without updating it is a small finding: fix it.
 - **Bigger, or a matter of taste or feel** (art choices, game feel, design, anything Luke and Orson
   decide): don't change it. It goes back to the implementer or to Luke.
 
