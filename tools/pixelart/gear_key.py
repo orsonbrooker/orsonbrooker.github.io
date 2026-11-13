@@ -37,6 +37,9 @@ import numpy as np
 from PIL import Image, ImageDraw
 from scipy import ndimage
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from match_grids import sig  # noqa: E402
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.dirname(os.path.abspath(__file__))
 GREEN = np.array([0, 177, 64], float)
@@ -117,6 +120,10 @@ def build(kid, item, gdir, prefix):
     for gi in sorted({c["grid"] for c in layout}):
         orig = np.asarray(Image.open(f"{gdir}/grid-{gi:02d}.jpg").convert("RGB")).astype(float)
         for f in sorted(glob.glob(f"{prefix}-{gi:02d}-*.img")):
+            # Flow sometimes copies the reference grid instead of repainting this one: far from it, it's out
+            if float(np.abs(sig(Image.open(f)) - sig(Image.open(f"{gdir}/grid-{gi:02d}.jpg"))).mean()) > 0.11:
+                notes.append(f"grid {gi}: {os.path.basename(f)} isn't a painting of this grid (a copy of the reference?): left out")
+                continue
             gen = np.asarray(Image.open(f).convert("RGB").resize((orig.shape[1], orig.shape[0]), Image.LANCZOS)).astype(float)
             k1, k2, lum = keys(gen)
             spill = (np.abs(gen - orig).sum(-1) > 90) & ~ndimage.binary_dilation(k1 | k2, iterations=4)
