@@ -5,7 +5,7 @@ import { BOARD_ART } from "../content/looks.js";
 import { drawArtLab } from "../play/artlab.js";
 import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, project } from "../engine/court.js";
 import { ballFrame, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow } from "../engine/draw.js";
-import { currentFrame, frameCount, liftNow, sheet } from "../play/players.js";
+import { currentFrame, frameCount, liftNow, recheckSheet, sheet } from "../play/players.js";
 import { fireLevel, nextBallBadge, nextBallKind, pixelFx, timingWindow, zoneCenter } from "../play/react.js";
 import { drawReplay, replayGreen } from "../play/replay.js";
 import { DEBUG, JUMP_APEX, JUMP_FRAME_TIME, hints, mode, player, state } from "../play/state.js";
@@ -27,6 +27,7 @@ export function resize() {
   meterScale = rect.width > 0 ? Math.min(2, Math.max(1, 700 / rect.width)) : 1;
   if (canvas.width !== size) {
     canvas.width = canvas.height = size;
+    recheckSheet(); // the player's sheet at the size that suits the court now
   }
 }
 

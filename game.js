@@ -17,7 +17,7 @@ import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { setUpTouchControls } from "./play/controls.js";
 import { COURTS, court, useCourt } from "./play/court.js";
-import { characters, faceHoop, loadImage, loadRoster, playerFiles, reloadMyPlayers } from "./play/players.js";
+import { characters, faceHoop, loadImage, loadRoster, playerFiles, reloadMyPlayers, sheet } from "./play/players.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play/react.js";
 import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js";
 import { canDunk, checkDecided, shoot, startDunk, startGame, step, stepBall } from "./play/round.js";
@@ -184,11 +184,15 @@ listenForInput({
 async function boot() {
   loadVoiceClips();
   loadSoundClips();
+  // The title shows as soon as the court is in; their player keeps loading behind it (a big sheet takes a
+  // while on a slow phone), and choosing a player waits for it.
+  let playerReady;
   try {
     await loadRoster();
+    playerReady = selectCharacter(characters.selected);
+    playerReady.catch((err) => console.error(err));
     await Promise.all([
       useCourt(), // the default court: its measurements, physics and art
-      selectCharacter(characters.selected),
       document.fonts?.load('48px "Press Start 2P"').catch(() => {}),
     ]);
     art.ballSprites = makeBallSprites(ballLook()); // their ball style from the shop
@@ -199,7 +203,7 @@ async function boot() {
   }
   if (DEBUG) {
     const pickSpot = () => mode().pickSpot();
-    window.game = { state, PHASES, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, get RIM() { return RIM; }, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed, setCourt: useCourt, courts: COURTS, get court() { return court; }, bestShot, checkReplays, zoneCenter };
+    window.game = { state, PHASES, player, shoot, stepBall, checkDecided, pickSpot, isThreePointSpot, project, get RIM() { return RIM; }, sound, selectCharacter, pixelFx, celebrateBuzzerBeater, SUDDEN_DEATH, setSeed, setCourt: useCourt, courts: COURTS, get court() { return court; }, bestShot, checkReplays, zoneCenter, playerReady };
   }
   resize();
   new ResizeObserver(resize).observe(stage);
@@ -213,6 +217,7 @@ async function boot() {
   if (location.hash === "#leaderboard") openBoard("week");
   updateHud();
   startLoop((dt) => {
+    if (!sheet.sprites) return; // their player is still loading (the title is up)
     if (!state.paused) step(dt);
     render();
   });

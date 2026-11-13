@@ -19,6 +19,7 @@
 }
 
 .fb-button {
+  min-height: 44px; /* big enough to tap */
   font-family: var(--fb-pixel);
   font-size: 11px;
   line-height: 1.4;
@@ -209,6 +210,12 @@
   gap: 4px;
   margin-right: 4px;
   background: #ffe066;
+  color: var(--fb-ink);
+}
+
+.fb-chip.fb-soon-chip {
+  margin-right: 4px;
+  background: #7fd1ff;
   color: var(--fb-ink);
 }
 

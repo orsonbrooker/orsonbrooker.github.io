@@ -45,14 +45,18 @@ import horse from "../modes/horse.js";
 import survival from "../modes/survival.js";
 import threes from "../modes/threes.js";
 import timed from "../modes/timed.js";
-import { DEBUG, modes } from "../play/state.js";
+import { flagOn, released } from "../flags.js";
+import { modes } from "../play/state.js";
+import { flagForMode } from "../shared/flags.js";
 
 Object.assign(modes, { timed, survival, around, horse, threes, free });
 
-// The 3-point contest waits for its rack art (art/three-point-contest.md). Until then it's only on
-// "Choose a game", the leaderboard tabs and help in ?debug. Set this to true once the art is in.
-const THREE_POINT_CONTEST_READY = false;
-// Whether players can choose this mode (and see its leaderboard and help).
-export const modeShown = (id) => id !== "threes" || THREE_POINT_CONTEST_READY || DEBUG;
+// Modes that aren't out yet have a feature flag (shared/flags.js: the 3-point contest waits for its
+// rack art, art/three-point-contest.md; Free play). Until Luke switches it on, the mode's card on
+// "Choose a game", its leaderboard tab and its help only show with ?flags= or ?debug.
+/** Whether players can choose this mode (and see its leaderboard and help). */
+export const modeShown = (id) => !flagForMode(id) || flagOn(flagForMode(id));
+/** Whether this mode's games count (scores and coins): false while it only shows for testing. */
+export const modeReleased = (id) => !flagForMode(id) || released(flagForMode(id));
 
 export { SUDDEN_DEATH } from "../modes/survival.js";

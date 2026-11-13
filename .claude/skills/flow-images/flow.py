@@ -13,6 +13,10 @@
         finds the newest N items, reads each one's own page for its prompt tag and image link, and
         downloads the ones whose tag matches as <out>/<kid>-<kind>-NN-k.img
 
+The model and how many images each prompt makes are shared settings across Luke's account: `queue` sets
+them every time, from FLOW_MODEL ("Nano Banana 2.1" by default, or "Nano Banana Pro", which has its own
+allowance) and FLOW_COUNT (1-4, default 1; use 2 when picking the better of two matters, like a first grid).
+
 Two sessions can work in Flow at once, each in its own browser: FLOW_SESSION=flow2 uses the "flow2"
 agent-browser session and ~/.agent-browser/flow2.json (a copy of the signed-in profile); the default is
 "flow". Never drive one browser from two sessions.
@@ -93,9 +97,29 @@ def add_ref(name):
     return added
 
 
+SET_MODEL = """(async () => { const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const btn = [...document.querySelectorAll('button, [role=button], [role=combobox]')].find((b) => /Nano Banana|Imagen/.test(b.textContent) && /arrow_drop_down/.test(b.textContent));
+if (!btn) return 'no model menu';
+if (!btn.textContent.includes(MODEL)) { btn.click(); await sleep(800);
+  const o = [...document.querySelectorAll('[role=option], [role=menuitem], li')].find((e) => e.textContent.includes(MODEL));
+  if (!o) return 'no ' + MODEL; o.click(); await sleep(800); }
+const n = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'x' + COUNT);
+if (!n) return 'no x' + COUNT; n.click(); await sleep(500);
+return [...document.querySelectorAll('button')].map((b) => b.textContent).find((t) => /Nano Banana|Imagen/.test(t) && /x[1-4]/.test(t)) || 'set'; })()"""
+
+
 def queue(ref, first, last, pfile, second=None):
     prompt = open(pfile).read().strip()
     open_project()
+    model = os.environ.get("FLOW_MODEL", "Nano Banana 2.1")
+    count = os.environ.get("FLOW_COUNT", "1")
+    ab("click", '[aria-label="Settings trigger"]')
+    time.sleep(1)
+    got = str(ev(SET_MODEL.replace("MODEL", json.dumps(model)).replace("COUNT", json.dumps(count))))
+    print("model:", got)
+    ab("press", "Escape")
+    if got.startswith("no ") or model not in got:
+        sys.exit(f"couldn't set {model} x{count}: stopping")
     cost = ev(CREDITS)
     ab("click", '[aria-label="Settings trigger"]')
     print("settings:", cost)

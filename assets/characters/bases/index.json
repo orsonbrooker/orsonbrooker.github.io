@@ -39,7 +39,26 @@
    6,
    5,
    116
-  ]
+  ],
+  "pixels": 12566528,
+  "sizes": {
+   "small": {
+    "scale": 0.6667,
+    "pixels": 5607420,
+    "atlas": "assets/characters/curly-detail/sprites@small.webp?v=0f8b8fc8",
+    "meta": "assets/characters/curly-detail/sprites@small.json?v=5803e57c",
+    "regions": "assets/characters/curly-detail/regions@small.png?v=fc672bc5",
+    "card": [
+     724,
+     1132,
+     66,
+     176,
+     4,
+     3.333,
+     77.333
+    ]
+   }
+  }
  },
  {
   "id": "buzz",
@@ -97,7 +116,42 @@
    -10,
    6,
    132
-  ]
+  ],
+  "pixels": 18509824,
+  "sizes": {
+   "small": {
+    "scale": 0.6667,
+    "pixels": 8277360,
+    "atlas": "assets/characters/buns-detail/sprites@small.webp?v=76550047",
+    "meta": "assets/characters/buns-detail/sprites@small.json?v=b1670659",
+    "regions": "assets/characters/buns-detail/regions@small.png?v=5c4823fe",
+    "card": [
+     1540,
+     1618,
+     102,
+     200,
+     -6.667,
+     4,
+     88
+    ]
+   },
+   "medium": {
+    "scale": 0.8,
+    "pixels": 11983608,
+    "atlas": "assets/characters/buns-detail/sprites@medium.webp?v=cb0de001",
+    "meta": "assets/characters/buns-detail/sprites@medium.json?v=8a43725c",
+    "regions": "assets/characters/buns-detail/regions@medium.png?v=2de08615",
+    "card": [
+     1860,
+     1956,
+     124,
+     240,
+     -8,
+     4.8,
+     105.6
+    ]
+   }
+  }
  },
  {
   "id": "headband",
