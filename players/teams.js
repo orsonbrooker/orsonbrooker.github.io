@@ -2,16 +2,11 @@
 // a shorts colour and a trim colour (the jersey's edges and the number). Kids pick one of the teams
 // everyone has, or make their own, kept on this device.
 //
-// The team names are made up (no real teams), except KINGS, the game's own team from the start.
+// The official teams are in shared/teams.js (the Worker's Top teams board knows them too).
 
-export const TEAMS = [
-  { id: "kings", name: "KINGS", home: { jersey: "#2c3e7a", shorts: "#2c3e7a", trim: "#f2f2ef" }, away: { jersey: "#f2f2ef", shorts: "#2c3e7a", trim: "#2c3e7a" } },
-  { id: "comets", name: "COMETS", home: { jersey: "#f2cf3d", shorts: "#2c3e7a", trim: "#2c3e7a" }, away: { jersey: "#2c3e7a", shorts: "#2c3e7a", trim: "#f2cf3d" } },
-  { id: "sharks", name: "SHARKS", home: { jersey: "#59b7e8", shorts: "#2b2b2f", trim: "#2b2b2f" }, away: { jersey: "#f2f2ef", shorts: "#59b7e8", trim: "#59b7e8" } },
-  { id: "dragons", name: "DRAGONS", home: { jersey: "#d63a3a", shorts: "#d63a3a", trim: "#f2cf3d" }, away: { jersey: "#2b2b2f", shorts: "#2b2b2f", trim: "#d63a3a" } },
-  { id: "foxes", name: "FOXES", home: { jersey: "#f08a3c", shorts: "#f2f2ef", trim: "#f2f2ef" }, away: { jersey: "#f2f2ef", shorts: "#f08a3c", trim: "#f08a3c" } },
-  { id: "robots", name: "ROBOTS", home: { jersey: "#2b2b2f", shorts: "#2b2b2f", trim: "#3fa65c" }, away: { jersey: "#3fa65c", shorts: "#2b2b2f", trim: "#2b2b2f" } },
-];
+import { TEAMS } from "../shared/teams.js";
+
+export { TEAMS };
 
 export const KIT_PARTS = ["jersey", "shorts", "trim"];
 const HEX = /^#[0-9a-f]{6}$/;

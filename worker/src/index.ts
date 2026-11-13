@@ -11,6 +11,7 @@
 //          POST /api/games          a signed start token for a new game of Shootaround     scores.ts
 //          GET  /api/scores         the leaderboard (?range=week or all, ?mode=timed, survival or around)
 //          GET  /api/scores/:id     one game's card
+//          GET  /api/teams          Top teams (?range=, ?mode=), while the teams flag is on  teams.ts
 //          POST /api/scores         a finished game's score, with its shot log (checked, see postScore)
 //          POST /api/scores/preview where a game would land, as it ends (nothing saved)
 //          POST /api/reports        report a leaderboard row's name as unfriendly (to the admin inbox)
@@ -47,6 +48,7 @@ import { notify } from "./notify.ts";
 import { createPlayer, listPlayers } from "./players.ts";
 import { buy, claimGame, getProgress, joinCode, pairCode, useBall } from "./progress.ts";
 import { gameToken, leaderboard, postScore, previewScore, reportScore, scoreDetail } from "./scores.ts";
+import { teamBoard } from "./teams.ts";
 import { cors, isAdminPage, isUnfriendly, json } from "./util.ts";
 import type { Env } from "./util.ts";
 
@@ -110,6 +112,8 @@ async function publicApi(request: Request, env: Env, url: URL): Promise<Response
 			return json({ token: await gameToken(env) });
 		case "GET /api/scores":
 			return leaderboard(env, url);
+		case "GET /api/teams":
+			return teamBoard(env, url);
 		case "POST /api/scores":
 			return postScore(request, env);
 		case "POST /api/scores/preview":

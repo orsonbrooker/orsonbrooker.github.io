@@ -113,6 +113,7 @@ function showRound() {
         score,
         shots,
         ...look,
+        team: c?.mine ? c.colours?.teamName : undefined, // their own player's team, for Top teams (the server knows the others')
         input: state.input,
         hiddenTab: state.hiddenTab,
         version: gameVersion,

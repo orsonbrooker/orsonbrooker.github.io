@@ -110,7 +110,7 @@ flowchart LR
 | Server address | `api.js` | Where the API is: this site's `/api`, the local Worker on localhost, or the live site from the iOS app. |
 | iOS app | `ios/`, `capacitor.config.json`, `tools/app/prepare.mjs` | The same pages bundled into an app with Capacitor, opening on the game. |
 | Haptics | `haptics.js` | A buzz on baskets and fire: Capacitor's Haptics in the app, the Vibration API on Android, and on iPhone Safari (no Vibration API) a hidden `<input switch>` flipped by clicking its label, which plays the system tick (iOS 18+). |
-| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `progress.ts`, `admin.ts`, `access.ts`, `cache.ts`, `flags.ts`, `notify.ts`, `digest.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); coins, buying and pairing (`progress.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); feature flags (`flags.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
+| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `progress.ts`, `admin.ts`, `access.ts`, `cache.ts`, `flags.ts`, `teams.ts`, `notify.ts`, `digest.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); Top teams (`teams.ts`); coins, buying and pairing (`progress.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); feature flags (`flags.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
 | Art and voice tools | `tools/` | Character sheets, region maps, announcer clips, icons, share images. |
 
 ## Domain model
@@ -184,6 +184,7 @@ erDiagram
     text status "shown, hidden"
     text token "start token, used once"
     text version "game.js version"
+    text team "the team it counts for (Top teams), set when it's sent"
   }
   reports {
     int score_id PK "the board row reported"
@@ -331,6 +332,15 @@ Terms used across the code:
   other's codes at once), nothing moves and the device is asked to get a new code (409), so no coins or
   devices end up in a progress that's gone.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
+- **Top teams** (`worker/src/teams.ts`, flag `teams`): a board of teams next to the players' boards, per mode,
+  this week and all time (`GET /api/teams`, edge-cached and cleared with the mode's board; refused while the
+  flag is off). The team is saved with each game when it's sent (`scores.team`): KINGS for Orson, an approved
+  player's team name, or the team a kid's own player wears (sent by the game, checked by the rude-word filter).
+  A team's score is its 3 best players added up (`TEAM_COUNTS` in `shared/teams.js`), each player once at
+  their best, so a big team can't win by numbers; in Around the World the 3 best times add up and teams with
+  all 3 come first. A team shows only if it's official (`TEAMS` in `shared/teams.js`) or an approved player
+  has it, never a blocked name, and only from shown games played from `FEATURE_FROM.teams`. In the game a
+  Players / Teams switch on the leaderboard (`renderTeams` in `leaderboard.js`) appears with the flag.
 
 ## Courts
 

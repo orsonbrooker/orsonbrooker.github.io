@@ -371,6 +371,68 @@ function drawBoard(list, note, range, mode, scores, faceFor, bodyFor) {
   );
 }
 
+// ---------- Top teams ----------
+
+// The Top teams board (only while the `teams` flag is on): each team's 3 best players add up
+// (worked out by the server, worker/src/teams.ts). A row: rank, the team's kit, its name, its 3 best
+// players' faces, and their total. Teams are made of players, so the rows have no nicknames to report.
+export async function renderTeams(list, note, range, mode, faceFor) {
+  const key = `teams ${mode} ${range}`;
+  showing = key;
+  const draw = (teams) => drawTeams(list, note, range, mode, teams, faceFor);
+  if (seen.has(key)) draw(seen.get(key));
+  else {
+    list.replaceChildren();
+    note.textContent = "Loading…";
+  }
+  let teams;
+  try {
+    const res = await fetch(`${API}/teams?range=${range}&mode=${mode}`);
+    if (!res.ok) throw new Error();
+    teams = (await res.json()).teams;
+  } catch (err) {
+    if (showing === key && !seen.has(key)) {
+      list.replaceChildren();
+      note.textContent = offline(err) ? "The leaderboard needs the internet." : UNREACHABLE;
+    }
+    return;
+  }
+  if (showing !== key) return; // they've switched tabs since
+  const before = seen.get(key);
+  seen.set(key, teams);
+  if (!before || JSON.stringify(before) !== JSON.stringify(teams)) draw(teams);
+}
+
+function drawTeams(list, note, range, mode, teams, faceFor) {
+  const how = lowWins(mode) ? "A team's 3 best times add up." : "A team's 3 best players add up.";
+  note.textContent = teams.length ? how : range === "week" ? `No teams this week yet. ${how}` : `No teams yet. ${how}`;
+  list.replaceChildren(
+    ...teams.map((team) => {
+      const li = el("li", { className: "lb-team" });
+      const kit = el("span", { className: "lb-kit" });
+      kit.innerHTML = icon("jersey");
+      if (team.kit) {
+        kit.style.color = team.kit.jersey;
+        kit.style.backgroundColor = team.kit.trim;
+      }
+      const faces = el("span", { className: "lb-faces" });
+      for (const p of team.players) {
+        const img = el("img", { alt: "", width: 28, height: 28 });
+        faceFor(p, img);
+        faces.append(img);
+      }
+      li.append(
+        el("span", { className: "lb-rank", textContent: team.rank }),
+        kit,
+        el("span", { className: "lb-name lb-team-name", textContent: team.name }), // may be typed by a kid: text only
+        faces,
+        el("span", { className: "lb-points", textContent: scoreText(mode, team.score) }),
+      );
+      return li;
+    }),
+  );
+}
+
 const DATE = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" });
 const SHORT_DATE = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
 const played = (createdAt) => new Date(createdAt.replace(" ", "T") + "Z");

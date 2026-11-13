@@ -27,6 +27,11 @@ export const FLAGS = Object.freeze([
     name: "Layered players",
     hides: "Builder players drawn on Orson's moving body with a head of their own (once a body has a head made for it). Off, they keep their hand-drawn sheet.",
   },
+  {
+    key: "teams",
+    name: "Top teams",
+    hides: "Top teams on the leaderboard: each team's 3 best players added up, per game, this week and all time. Off, the leaderboard shows only players and the server refuses the teams board. Games count from when it went live (FEATURE_FROM.teams).",
+  },
   { key: "freeplay", name: "Free play", hides: "Free play (move around and shoot from anywhere): its card on Choose a game.", modes: ["free"] },
 ]);
 

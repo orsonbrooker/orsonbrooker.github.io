@@ -1516,6 +1516,59 @@ header p {
   margin: 8px 0 0;
 }
 
+/* Players or Top teams (while the teams flag is on). */
+.board-kinds button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.board-kinds .icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* A Top teams row: rank, kit, name, its 3 best players' faces, total. */
+.board-list li.lb-team {
+  gap: 8px;
+  min-height: 48px;
+  padding: 6px 10px 6px 6px;
+  font-size: clamp(9px, 1.6vw, 12px);
+}
+
+.lb-kit {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.lb-kit .icon {
+  width: 24px;
+  height: 24px;
+}
+
+.lb-faces {
+  display: flex;
+  flex: none;
+}
+
+.board-list .lb-faces img {
+  width: 28px;
+  height: 28px;
+  margin-left: -6px;
+  border: 2px solid var(--sheet);
+}
+
+.board-list .lb-faces img:first-child {
+  margin-left: 0;
+}
+
 .lb-dialog .lb-score {
   margin: 0;
   font-family: var(--pixel);
