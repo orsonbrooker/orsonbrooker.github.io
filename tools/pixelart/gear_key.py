@@ -37,7 +37,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 from scipy import ndimage
 
-import small_sheet
+import sheet_sizes
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -428,8 +428,8 @@ def write(kid, item, pieces, meta, stretch=True):
     json.dump(dict(sorted(index.items())), open(ipath, "w"), indent=1)
     total = len({f"{f[0]},{f[1]}" for fr in meta["frames"].values() for f in fr})
     print(f"{item} on {kid}: {len(pieces)} of {total} frames, sheet {W}x{H}")
-    # and its smaller copy for phones and tablets, on the kid's smaller sheet
-    small_sheet.gear(item, kid)
+    # and its smaller sizes for phones and tablets, on the kid's smaller sheets
+    sheet_sizes.gear(item, kid)
 
 
 def rekey(kid, rev):

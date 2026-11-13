@@ -6,10 +6,15 @@
   "atlas": "assets/characters/orson-detail/sprites.webp?v=d3da2831",
   "meta": "assets/characters/orson-detail/sprites.json?v=a4943bd3",
   "thumb": "assets/characters/orson/thumb.webp?v=dedbdad0",
-  "small": {
-   "atlas": "assets/characters/orson-detail/sprites@small.webp?v=9ac400d8",
-   "meta": "assets/characters/orson-detail/sprites@small.json?v=551df775",
-   "regions": "assets/characters/orson-detail/regions@small.png?v=ef0ee60b"
+  "pixels": 13348864,
+  "sizes": {
+   "small": {
+    "scale": 0.6667,
+    "pixels": 5956860,
+    "atlas": "assets/characters/orson-detail/sprites@small.webp?v=9ac400d8",
+    "meta": "assets/characters/orson-detail/sprites@small.json?v=551df775",
+    "regions": "assets/characters/orson-detail/regions@small.png?v=ef0ee60b"
+   }
   }
  }
 ]
