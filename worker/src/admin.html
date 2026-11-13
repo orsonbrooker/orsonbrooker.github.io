@@ -81,6 +81,14 @@
 			.empty { background: var(--panel); border-radius: 8px; text-align: center; padding: 24px; font-family: var(--pixel); font-size: 11px; line-height: 1.8; }
 			.summary { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 6px; }
 			.summary span { background: var(--panel); border-radius: 999px; padding: 4px 10px; font-size: 13px; }
+			/* The weekly digest (worker/src/digest.ts): one item at the top of the inbox. */
+			.digest { background: var(--panel); border-left: 3px solid var(--yellow); border-radius: 8px; padding: 8px 10px; margin: 4px 0 10px; display: grid; gap: 6px; }
+			.digest .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+			.digest .title { font-weight: bold; font-size: 15px; }
+			.digest ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; }
+			.digest li { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+			.digest li.done { opacity: 0.5; }
+			.digest .what { font-size: 12px; opacity: 0.75; }
 
 			/* Inbox ideas: details on the left, actions on the right (stacked underneath on a phone). */
 			.sub {
@@ -335,7 +343,7 @@
 					byPlayer.set(key, [...(byPlayer.get(key) ?? []), s]);
 				}
 				const odd = [...byPlayer.values()];
-				const total = data.submissions.length + requests.length + odd.length + names.length;
+				const total = data.submissions.length + requests.length + odd.length + names.length + (data.digest ? 1 : 0);
 				document.getElementById("inbox-count").textContent = total ? `(${total})` : "";
 				box.replaceChildren();
 				if (!total) return box.append(el("div", { className: "empty", innerHTML: "All caught up!<br>Nothing needs a look." }));
@@ -349,6 +357,7 @@
 						names.length ? el("span", { textContent: `${names.length} reported names` }) : null,
 					),
 				);
+				if (data.digest) box.append(digestCard(data.digest));
 				if (names.length) box.append(el("h2", { textContent: `Reported names (${names.length})` }), ...names.map(scoreRow));
 				if (requests.length) box.append(el("h2", { textContent: `Player requests (${requests.length})` }), el("div", { className: "tiles" }, ...requests.map(playerTile)));
 				if (data.submissions.length) {
@@ -356,6 +365,39 @@
 					for (const [key, title, items] of ideaGroups()) box.append(group(`inbox ${key}`, title, items.length, true, ...items.map(submissionCard)));
 				}
 				if (odd.length) box.append(el("h2", { textContent: `Scores that look odd (${odd.length})` }), ...odd.map((list) => (list.length === 1 ? scoreRow(list[0]) : playerScoresRow(list))));
+			}
+
+			// The weekly digest: what was waiting on Monday (odd games, reported names). Each line says if it's
+			// been dealt with since; the games themselves, with their buttons, are further down the inbox.
+			function digestCard(d) {
+				const waiting = new Map(data.scores.filter((s) => suspicious(s) || reported(s)).map((s) => [s.id, s]));
+				const day = new Date(`${d.week}T00:00:00Z`).toLocaleDateString(undefined, { day: "numeric", month: "short", timeZone: "UTC" });
+				const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
+				const line = (item, what, chips) =>
+					el(
+						"li",
+						{ className: waiting.has(item.id) ? "" : "done" },
+						el("strong", { textContent: item.nickname }),
+						el("span", { className: "what", textContent: `${what} · ${item.day}` }),
+						...chips.map((c) => el("span", { className: "flag", textContent: c })),
+						waiting.has(item.id) ? null : el("span", { className: "what", textContent: "Done" }),
+					);
+				return el(
+					"div",
+					{ className: "digest" },
+					el(
+						"div",
+						{ className: "head" },
+						el("span", { className: "title", textContent: `This week's check (${day})` }),
+						el("button", { type: "button", className: "primary", textContent: "Got it", onclick: run(() => api(`digests/${d.id}`, { action: "seen" }), "Digest cleared") }),
+					),
+					el("div", {
+						className: "what",
+						textContent: `${plural(d.odd.length, "odd game")} (${d.newOdd} new this week) and ${plural(d.names.length, "reported name")} (${d.newNames} new this week) waiting.`,
+					}),
+					d.names.length ? el("ul", {}, ...d.names.map((n) => line(n, modeName(n), [`Name reported ${n.reports === 1 ? "once" : `${n.reports} times`}`]))) : null,
+					d.odd.length ? el("ul", {}, ...d.odd.map((o) => line(o, `${modeName(o)} ${scoreText(o)}`, o.flags))) : null,
+				);
 			}
 
 			// New ideas grouped by what to do with them: new for the board, each existing idea they'd join,

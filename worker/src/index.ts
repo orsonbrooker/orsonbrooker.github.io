@@ -32,10 +32,13 @@
 //          POST /api/admin/scores/:id        show or hide a leaderboard score, rename its player, or clear its reports
 //                                            (hiding a reported one blocks its name)
 //          POST /api/admin/blocked/remove    let a blocked name be used again
+//          POST /api/admin/digests/:id       mark the weekly digest seen (it leaves the inbox)   digest.ts
 // Cron:    weekly phone notification of things to check                                  notify.ts
+//          and the weekly digest of odd games and reported names, at the top of the inbox  digest.ts
 
 import { admin, adminHtml } from "./admin.ts";
 import { copyPageViews } from "./stats.ts";
+import { weeklyDigest } from "./digest.ts";
 import { cacheKey, cached } from "./cache.ts";
 import { HttpError } from "./http.ts";
 import { publicFlags } from "./flags.ts";
@@ -72,7 +75,11 @@ export default {
 		await env.DB.prepare("DELETE FROM rate_limits WHERE day < date('now', '-1 day')").run();
 		await env.DB.prepare("DELETE FROM pair_codes WHERE expires_at < datetime('now')").run();
 		if (controller.cron === DAILY) await copyPageViews(env);
-		else await notify(env); // the weekly one
+		else {
+			// The weekly one: the digest first (database only), then the phone notification.
+			await weeklyDigest(env);
+			await notify(env);
+		}
 	},
 } satisfies ExportedHandler<Env>;
 

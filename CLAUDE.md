@@ -9,6 +9,19 @@ model and the main flows, with mermaid diagrams. It's committed; when a change a
 describes, update it in the same commit. Plans, proposals and other short-lived notes go in `notes/`
 (gitignored, kept in the main checkout, so a worktree won't have it). `notes/growth-plan.md` is the current
 plan for growing the game and the iOS app; read it when working on structure.
+`docs/rules.md` lists every house rule and what enforces it (`check`, a test, `review`, `verify`, or
+nothing yet); a correction Luke gives twice becomes a row there. `docs/coding-standards.md` holds the
+judgement calls the reviewer applies.
+
+**Skills for the work loop** (`.claude/skills/`):
+- `verify`: screenshots at phone, iPad and desktop, play-throughs, frame times, art sheets, test links.
+- `review`: a fresh reviewer for a branch's diff; fixes small things, then writes the merge note.
+- `pr`: writes the merge note (`.verify/<branch>/merge-note.md`), also usable as a PR body.
+- `ready`: what a worker runs when it thinks it's done: sync with `test-all`, check, review, links.
+- `coordinate`: the coordinating session's playbook for fanning out, merging and status.
+- `retro`: weekly; turns corrections Luke repeated into checks, tests or standards, for him to tick.
+- `ideas-triage`: drafts categories, rewrites and kid-safety checks for new ideas; Luke confirms writes.
+- `dependabot`: runs check and verify on Dependabot PRs and writes a merge note; Luke merges.
 
 ## How it's built
 

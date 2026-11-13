@@ -5,6 +5,7 @@ import adminPage from "./admin.html?raw";
 import { modeOf } from "../../shared/rules.js";
 import type { Mode } from "../../shared/rules.js";
 import { verifyAccessToken } from "./access.ts";
+import { openDigest, seeDigest } from "./digest.ts";
 import { forget } from "./cache.ts";
 import { adminFlags, setFlag } from "./flags.ts";
 import { HttpError } from "./http.ts";
@@ -89,8 +90,10 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 			// Kind words: compliments kept off the board, newest first.
 			env.DB.prepare("SELECT id, app, text, nickname, created_at, kept_at FROM submissions WHERE kept_at IS NOT NULL ORDER BY kept_at DESC, id DESC"),
 		]);
+		// The weekly digest (digest.ts), if there's one not marked seen: one item at the top of the inbox.
+		const digest = await openDigest(env);
 		return json(
-			{ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results, scores: scores.results, blocked: blocked.results, words: words.results },
+			{ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results, scores: scores.results, blocked: blocked.results, words: words.results, digest },
 			200,
 			0,
 		);
@@ -125,6 +128,12 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 	} else if (parts[2] === "flags" && parts.length === 3) {
 		res = await setFlag(env, await readJson(request));
 		await forget(url.origin, { flags: true });
+	} else if (parts[2] === "digests") {
+		// "Got it" on the weekly digest. Nothing public changes.
+		const body = await readJson(request);
+		if (body.action !== "seen") throw new HttpError(400, "Unknown action.");
+		if (!(await seeDigest(env, id))) throw new HttpError(404, "No such digest.");
+		res = json({ ok: true }, 200, 0);
 	} else if (parts[2] === "blocked") {
 		// Takes a name off the blocked list (one hidden by mistake): people can use it again.
 		const body = await readJson(request);

@@ -33,11 +33,13 @@ flowchart LR
   Worker --> Turnstile
   Admin --> Access --> Worker
   Worker -. cron .-> Ntfy
+  Worker -. "cron: weekly digest" .-> D1
   Worker -. "cron: page views" .-> CFAnalytics["Cloudflare analytics<br/>GraphQL API"]
 ```
 
 - **Static site:** plain JS modules built with Vite. On every push to `main`, the Pages workflow
-  (`.github/workflows/pages.yml`) runs `npm run build` (`vite.config.js`) and publishes `dist/` to GitHub
+  (`.github/workflows/pages.yml`) runs `npm run build` (`vite.config.js`) and the Worker tests (a push that
+  breaks them doesn't publish; the rest of `npm run check` runs locally) and publishes `dist/` to GitHub
   Pages, cached by Cloudflare. Each page keeps its URL; scripts and stylesheets get hashed names in
   `dist/build/`, so new code always gets past the cache, and everything fetched by URL at runtime
   (`assets/`, `icons/`, manifests, `robots.txt`, `sitemap.xml`, `CNAME`) is copied unhashed. The pixel font is self-hosted (`@fontsource/press-start-2p`,
@@ -86,7 +88,7 @@ flowchart LR
 | Server address | `api.js` | Where the API is: this site's `/api`, the local Worker on localhost, or the live site from the iOS app. |
 | iOS app | `ios/`, `capacitor.config.json`, `tools/app/prepare.mjs` | The same pages bundled into an app with Capacitor, opening on the game. |
 | Haptics | `haptics.js` | A buzz on baskets and fire: Capacitor's Haptics in the app, the Vibration API on Android, and on iPhone Safari (no Vibration API) a hidden `<input switch>` flipped by clicking its label, which plays the system tick (iOS 18+). |
-| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `progress.ts`, `admin.ts`, `access.ts`, `cache.ts`, `flags.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); coins, buying and pairing (`progress.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); feature flags (`flags.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
+| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `progress.ts`, `admin.ts`, `access.ts`, `cache.ts`, `flags.ts`, `notify.ts`, `digest.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); coins, buying and pairing (`progress.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); feature flags (`flags.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
 | Art and voice tools | `tools/` | Character sheets, region maps, announcer clips, icons, share images. |
 
 ## Domain model
@@ -145,6 +147,7 @@ erDiagram
     text pronoun "he, she, or null (the body's)"
     real height_bulk "size: -1, -0.5, 0, 0.5 or 1, or null"
     text status "new, approved, hidden"
+    text local_key "keyed hash of device + own player id"
   }
   scores {
     int id PK
@@ -217,7 +220,10 @@ Terms used across the code:
   with Buy or Cancel covering the gear). *Done* opens a sheet with
   the nickname, "Play as them now" and "Send to Orson". The cards load every body in the background. Own players have an edit pencil in the game's picker:
   `/players/?edit=<id>` loads them (body, colours, team and kit, number, size) and saving keeps their id, even
-  under a new name; one already sent (`sent` in the save) is told that sending again sends the new look.
+  under a new name; one already sent (`sent` in the save) is told that sending again sends the new look. A send carries the own
+  player's id and the device id (as `local_key`, a keyed hash), so sending the same player again replaces its
+  request while it still waits (all checks first, then the swap in one batch); once approved, the new look waits
+  as a request of its own.
 - **Pronoun:** whether a player is a "he" or a "she", for the announcer's lines. Built-in players have it in
   `index.json` ("he"); builder players get their body's (`pronoun` in `assets/characters/bases/index.json`:
   ponytail and buns are "she", the rest "he"), unless the admin sets one of their own (the `players` table's
@@ -330,7 +336,7 @@ green-zone widths.
 
 Things that are built but not out yet are hidden behind a feature flag until Luke switches them on, so
 `main` can ship while they're finished. No outside service: the list is `shared/flags.js` (a key, a name,
-what it hides, and the modes or builder bodies it covers), and the `flags` table (`0021_flags.sql`) holds
+what it hides, and the modes or builder bodies it covers), and the `flags` table (`0022_flags.sql`) holds
 the ones switched on or off. A flag with no row is off.
 
 - **Admin:** the Flags section (`/admin/flags`) lists every flag with what it hides and a switch
@@ -626,6 +632,29 @@ flowchart LR
   (`"hides": "hair"`), so Buns' buns go under a cap or beanie.
 - **Moves:** their sheets add `start` (picking the dribble back up) and `recover` (arms down after a shot),
   which the game uses when a sheet has them (`hasMove()` in `play/players.js`).
+
+## How work gets from a session to live
+
+```mermaid
+flowchart LR
+  W["Worker session<br/>(own worktree)"] -- ready --> R["check, review<br/>(fresh reviewer),<br/>merge note, links"]
+  R --> C["Coordinator merges<br/>into test-all,<br/>npm run check"]
+  C --> L["Luke looks"]
+  L -- "go live" --> G["go-live skill"]
+```
+
+- **`npm run check`** (`tools/dev/check.mjs`): build, Worker tests and types, and house-rule greps (no emoji,
+  no native dialogs, new `innerHTML` only with constant text, card stats in `FEATURE_FROM`, a clip for every
+  announcer line, no secrets files). `docs/rules.md` pairs each house rule with what enforces it.
+- **Skills** (`.claude/skills/`): `verify` (the agent's eyes), `review` (a reviewer that isn't the implementer,
+  using `docs/coding-standards.md`), `pr` (the merge note: door, blast radius, before/after; facts from
+  `tools/dev/blast_radius.mjs`), `ready`, `coordinate`, `retro` (repeated corrections become checks).
+- **Outer loop:** triggers make lists and Luke decides. The weekly digest (`worker/src/digest.ts`, Monday
+  cron, before the ntfy nudge) snapshots odd games still unchecked and names with open reports into `digests`;
+  the newest unseen one is a card at the top of the admin inbox until "Got it" (`POST /api/admin/digests/:id`).
+  It never changes the board. The `ideas-triage` skill writes to the live inbox only on Luke's yes per item;
+  the `dependabot` skill checks a Dependabot PR locally and writes a merge note, and Luke merges.
+- A `SessionStart` hook (`tools/dev/behind.sh`) says how far a worktree is behind `main` and `test-all`.
 
 ## Going live
 
