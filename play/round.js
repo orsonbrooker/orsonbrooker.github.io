@@ -193,7 +193,7 @@ export function startDunk() {
   const d = Math.hypot(du, dv) || 1;
   const toward = (r) => ({ u: RIM.u + (du / d) * r, v: RIM.v + (dv / d) * r });
   // How high he has to leap for his hands (where the ball leaves them in his shot) to be over the rim.
-  const hands = (-releaseOffset()[1] / sheet.sprites.res) / PX_PER_M;
+  const hands = (-releaseOffset()[1] / (sheet.sprites.fullRes ?? sheet.sprites.res)) / PX_PER_M; // (as worked out for the full-detail sheet)
   player.dunk = { from: { u: player.u, v: player.v }, peak: toward(DUNK_REACH), land: toward(DUNK_LAND), lift: Math.max(0.4, RIM.z + 0.25 - hands) };
 }
 

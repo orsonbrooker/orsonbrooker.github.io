@@ -147,14 +147,15 @@ function pixels(img) {
 
 const layers = new Map();
 /** The layers for what a kid wears (only items made for that kid), loaded once each. */
-export async function loadGear(kid, gear, root = "/") {
+// `small`: the smaller layers (tools/pixelart/small_sheet.py), for a kid drawn from their smaller sheet.
+export async function loadGear(kid, gear, root = "/", small = false) {
   const made = await loadIndex(root);
   const items = wornItems(gear).filter((id) => made[id]?.[kid]);
   return Promise.all(
     items.map((id) => {
-      const key = `${id}/${kid}`;
+      const key = `${id}/${kid}${small ? "@small" : ""}`;
       if (!layers.has(key)) {
-        const at = `${root}assets/characters/gear/${id}/${kid}`;
+        const at = `${root}assets/characters/gear/${id}/${kid}${small ? "@small" : ""}`;
         const v = `?v=${made[id][kid]}`;
         const p = Promise.all([image(`${at}.webp${v}`), image(`${at}.png${v}`), fetch(`${at}.json${v}`).then((r) => r.json())]).then(
           ([art, part, meta]) => ({ id, info: GEAR[id], art: pixels(art), part: pixels(part), meta }),
@@ -226,7 +227,8 @@ export function wearGear({ meta, img, prints, regions }, worn, colours) {
   if (!worn.length) return { meta, img, prints, regions };
   const tints = worn.map((layer) => tintsOf(layer, colours));
   const regionCanvas = Object.assign(document.createElement("canvas"), { width: regions.width, height: regions.height });
-  regionCanvas.getContext("2d").putImageData(regions, 0, 0);
+  // read back into a CPU canvas below, so kept on the CPU too (else every frame drawn is a GPU readback)
+  regionCanvas.getContext("2d", { willReadFrequently: true }).putImageData(regions, 0, 0);
 
   const rects = new Map();
   for (const list of Object.values(meta.frames)) for (const f of list) rects.set(`${f[0]},${f[1]},${f[2]},${f[3]}`, f);
@@ -244,8 +246,17 @@ export function wearGear({ meta, img, prints, regions }, worn, colours) {
     const fw = right - left, fh = bottom - top;
     const c = Object.assign(document.createElement("canvas"), { width: fw, height: fh });
     const g = c.getContext("2d", { willReadFrequently: true });
-    g.drawImage(img, x, y, w, h, -left, -top, w, h);
-    let data = g.getImageData(0, 0, fw, fh);
+    let data;
+    if (img.pixels) {
+      // the sheet's own pixels, when recolor() left them on it: copied row by row (drawing a GPU canvas into
+      // this one would read the whole sheet back from the GPU, for every frame)
+      data = new ImageData(fw, fh);
+      const src = img.pixels;
+      for (let yy = 0; yy < h; yy++) data.data.set(src.data.subarray(((y + yy) * src.width + x) * 4, ((y + yy) * src.width + x + w) * 4), ((yy - top) * fw - left) * 4);
+    } else {
+      g.drawImage(img, x, y, w, h, -left, -top, w, h);
+      data = g.getImageData(0, 0, fw, fh);
+    }
     for (let i = 0; i < worn.length; i++) if (pieces[i]) hide(worn[i], pieces[i], data.data, fw, fh, pieces[i][4] - left, pieces[i][5] - top);
     const print = prints?.get(`${x},${y}`);
     const under = (i) => worn[i].info.print === "over"; // the number prints over it

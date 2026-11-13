@@ -276,7 +276,7 @@ async function chooseBase(base) {
   heightInput.disabled = bulkInput.disabled = !current.video;
   showTurning();
   $("size-hint").hidden = !!current.video;
-  worn = current.video ? await loadGear(base.id, gear).catch(() => []) : [];
+  worn = current.video ? await loadGear(base.id, gear, "/", current.isSmall).catch(() => []) : [];
   repaint();
   paintWear();
 }
@@ -306,7 +306,7 @@ async function paintWear() {
       return b;
     }),
   );
-  const layers = await Promise.all(made[wearSlot].map((id) => loadGear(kid, [id]).then((l) => l[0]).catch(() => null)));
+  const layers = await Promise.all(made[wearSlot].map((id) => loadGear(kid, [id], "/", current.isSmall).then((l) => l[0]).catch(() => null)));
   if (token !== wearToken) return;
   const none = button({ className: "ball-card", ariaPressed: String(!gear[wearSlot]), ariaLabel: "Nothing" }, el("span", { className: "slot-empty" }), el("span", { className: "ball-name" }, "None"));
   none.addEventListener("click", () => wear(wearSlot, null));
@@ -323,7 +323,7 @@ async function paintWear() {
 async function wear(slot, id) {
   if (id) gear[slot] = id;
   else delete gear[slot];
-  worn = await loadGear(current.id, gear).catch(() => []);
+  worn = await loadGear(current.id, gear, "/", current.isSmall).catch(() => []);
   repaint();
   paintWear();
 }
@@ -660,7 +660,7 @@ function loadTwin({ atlas, meta }) {
 function twinPrints() {
   if (!current.twin) return null;
   const parts = Object.fromEntries(PARTS.filter((p) => colours[p]).map((p) => [p, colours[p]]));
-  const kitText = { number: colours.number ?? "", team: colours.teamName ?? DEFAULT_TEAM };
+  const kitText = { number: colours.number ?? "", team: colours.teamName ?? DEFAULT_TEAM, fine: current.isSmall ? 2 : undefined };
   const layers = paletteSwap(current.twin.pimg, current.twin.pm, parts, kitText).printLayers ?? new Map();
   const prints = new Map();
   for (const [key, pixelKey] of Object.entries(current.meta.printsFrom.frames)) if (layers.has(pixelKey)) prints.set(key, layers.get(pixelKey));
@@ -676,9 +676,14 @@ function repaint() {
     if (!current) return; // the body is still loading: chooseBase() paints when it's in
     if (current.video) {
       // their gear on, then their height and build
-      const dressed = wearGear({ meta: current.meta, img: recolor(current, colours), prints: twinPrints(), regions: current.regionsData }, worn, colours);
+      const img = recolor(current, colours);
+      const dressed = wearGear({ meta: current.meta, img, prints: twinPrints(), regions: current.regionsData }, worn, colours);
+      img.pixels = null; // (only needed by wearGear)
       sheet = stretchSheet(dressed, dressed.regions, build);
-    } else sheet = { meta: current.meta, img: recolor(current, colours), prints: null };
+    } else {
+      sheet = { meta: current.meta, img: recolor(current, colours), prints: null };
+      sheet.img.pixels = null;
+    }
     showName();
     paintCards();
   });

@@ -37,9 +37,34 @@ export function loadBases(root = "/") {
   return basesList;
 }
 
+// Where a full-detail sheet would be drawn shrunk, the smaller copy (2/3 size, the entry's `small`, made by
+// tools/pixelart/small_sheet.py) shows just as much and is much quicker to recolour, dress and stretch.
+// Chosen by how big the court is drawn: a sheet pixel is 1/res court pixels, and the court COURT_PX
+// (2048) wide is drawn at most `courtPx` device pixels across (the shorter side of the screen, at most 2
+// device pixels to a CSS pixel, as play/scene.js sizes it; COURT_ZOOM for a court drawn bigger than that).
+// The small copy is used when it lands at about one screen pixel per pixel or less. On iOS always: a canvas
+// there can't hold more than 16.7 megapixels, less than Buns' full sheet. ?small and ?full try either.
+export const COURT_ZOOM = 1;
+const SMALL_SCALE = 2 / 3;
+const FULL_RES = 0.6; // court pixels per sheet pixel, of the full-detail sheets
+const IOS = typeof navigator !== "undefined" && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+export const SMALL = (() => {
+  const q = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
+  if (q.has("small")) return true;
+  if (q.has("full")) return false;
+  if (IOS) return true;
+  if (typeof innerWidth === "undefined") return false;
+  const courtPx = Math.min(2048, Math.min(innerWidth, innerHeight) * Math.min(2, devicePixelRatio || 1)) * COURT_ZOOM;
+  return (courtPx / 2048 / (FULL_RES * SMALL_SCALE)) <= 1.1; // screen pixels per small-sheet pixel
+})();
+
+/** An index entry with its smaller files in place of the full ones, when this device uses them. */
+export const sized = (entry, small = SMALL) => (small && entry.small ? { ...entry, ...entry.small, small: undefined, isSmall: true } : entry);
+
 const loaded = new Map();
-// Loads a base's sprite sheet, colour map and frame info, once.
-export function loadBase(base, root = "/") {
+// Loads a base's sprite sheet, colour map and frame info, once (the smaller copy where it's drawn small).
+export function loadBase(full, root = "/") {
+  const base = sized(full);
   if (!loaded.has(base.id)) {
     const img = (src) =>
       new Promise((resolve, reject) => {
@@ -220,6 +245,8 @@ export function recolor(loadedBase, colours, rect) {
   canvas.width = w;
   canvas.height = h;
   canvas.getContext("2d").putImageData(src, 0, 0);
+  // its pixels, for gear (players/gear.js) to work on without reading them back from the GPU
+  canvas.pixels = src;
   return canvas;
 }
 
