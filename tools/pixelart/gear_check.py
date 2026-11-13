@@ -188,8 +188,10 @@ def likeness(a, b):
     oy, ox = abs(dy), abs(dx)
     A[oy:oy + ha, ox:ox + wa] = a["map"]
     B[oy - dy:oy - dy + hb, ox - dx:ox - dx + wb] = b["map"]
-    both = (A > 0) | (B > 0)
-    return float(((A == B) & both).sum()) / max(1, int(both.sum()))
+    # skin and hair matched separately: a head from the front and from behind have the same outline,
+    # but one shows a face (skin) where the other shows hair
+    iou = lambda v: float(((A == v) & (B == v)).sum()) / max(1, int(((A == v) | (B == v)).sum()))
+    return 0.6 * iou(SKIN_) + 0.4 * iou(HAIR_)
 
 
 def behind(p, rect, sheet, h):
