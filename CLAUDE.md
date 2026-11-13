@@ -86,7 +86,7 @@ judgement calls the reviewer applies.
 - **Unfinished features go behind a feature flag** (`shared/flags.js`, switched on in admin's Flags
   section; `docs/architecture.md` has how), so `main` can ship without them. Hide them with `flagOn()`
   from `flags.js`, and have the Worker refuse anything they send while the flag is off. Try them with
-  `?flags=<key>` (or `?flags=all`, or `?debug`). Switching a flag on in the live admin is going live too.
+  `?flags=<key>` (or `?flags=all`, or `?debug`); `?flags=none` previews everything off. Switching a flag on in the live admin is going live too.
 - **Be lenient on cheating:** reject only the impossible; flag the odd ones for the admin and keep them
   on the board.
 

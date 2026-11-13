@@ -3,8 +3,8 @@
 // the server if it answers quickly, else the copy this device kept last time (so it works offline),
 // else everything off, so nothing unreleased ever shows by accident.
 //
-// For testing: ?flags=threepoint,freeplay (or ?flags=all) turns those on for this page, and ?debug turns
-// them all on (unless it has a ?flags= of its own). Turned on that way, a flag is only for looking: what it sends (scores, players) is still
+// For testing: ?flags=threepoint,freeplay (or ?flags=all, or ?flags=none) shows exactly those for this
+// page, whatever the server has on, and ?debug turns them all on (unless it has a ?flags= of its own). Turned on that way, a flag is only for looking: what it sends (scores, players) is still
 // refused by the server until the flag is really on, so the game doesn't try (released()).
 
 import { API } from "./api.js";
@@ -38,5 +38,6 @@ const server = fresh ?? load(KEPT, {}) ?? {};
 /** Whether `key` is out for everyone (switched on on the admin page). */
 export const released = (key) => server[key] === true;
 
-/** Whether to show what `key` hides: it's out, or turned on for testing with ?flags= or ?debug. */
-export const flagOn = (key) => released(key) || forced.includes(key);
+/** Whether to show what `key` hides: it's out, or turned on for testing with ?debug. A ?flags= list
+ * shows exactly those flags, so ?flags=none previews the site with everything off. */
+export const flagOn = (key) => (params.has("flags") ? forced.includes(key) : released(key) || forced.includes(key));
