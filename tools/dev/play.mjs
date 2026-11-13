@@ -1,38 +1,15 @@
 // Plays Shootaround automatically in a headless Chrome and sends each game's score to the local Worker,
-// to check the game end to end. Start Chrome first (in the background), e.g. Puppeteer's copy:
-//   ~/.cache/puppeteer/chrome-headless-shell/*/chrome-headless-shell-mac-arm64/chrome-headless-shell \
-//     --remote-debugging-port=9333 --user-data-dir=/tmp/shootaround-chrome about:blank
-// then, with the site and the local Worker (port 8787) running:
+// to check the game end to end. With the site and the local Worker (port 8787) running:
 //   node tools/dev/play.mjs 9333 "http://localhost:5175/games/shootaround/?debug" timed,survival,around,threes
-// (the modes are the "Choose a game" cards' data-mode; the 3-point contest's only shows in ?debug for now).
+// The first argument is the port of a headless Chrome you started (see tools/dev/cdp.mjs), or "new" to start
+// one for this run. The modes are the "Choose a game" cards' data-mode; the 3-point contest's only shows in
+// ?debug for now. `node tools/dev/verify.mjs play` does the same and also saves screenshots.
 // It presses Space like a player, lets go in the middle of the green (every few shots a little late, to
 // miss), and prints each game: score, shots, bonus balls, whether it was seeded from its start token, and
 // the server's answers: first to a made-up copy of the game (must be turned down), then the real one.
-// Uses only Node's built-in WebSocket (Node 22+).
-const [port, url, modes] = process.argv.slice(2);
-const target = await (await fetch(`http://127.0.0.1:${port}/json/new?${encodeURIComponent(url)}`, { method: "PUT" })).json();
-const ws = new WebSocket(target.webSocketDebuggerUrl);
-await new Promise((r) => ws.addEventListener("open", r, { once: true }));
-let id = 0;
-const pending = new Map();
-ws.addEventListener("message", (e) => {
-  const m = JSON.parse(e.data);
-  if (m.method === "Runtime.exceptionThrown") console.log("PAGE ERROR:", m.params.exceptionDetails.exception?.description?.split("\n")[0]);
-  if (m.method === "Runtime.consoleAPICalled" && m.params.type === "error") console.log("CONSOLE ERROR:", m.params.args.map((a) => a.value ?? a.description).join(" "));
-  if (pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); }
-});
-const send = (method, params = {}) => new Promise((r) => { const i = ++id; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
-const run = async (expr) => {
-  const res = await send("Runtime.evaluate", { expression: `(async () => { ${expr} })()`, awaitPromise: true, returnByValue: true });
-  if (res.result.exceptionDetails) throw new Error(res.result.exceptionDetails.exception?.description ?? "eval failed");
-  return res.result.result.value;
-};
-await send("Runtime.enable");
-await send("Page.enable");
-await new Promise((r) => setTimeout(r, 3000));
-const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+import { launchChrome, openTab, wait } from "./cdp.mjs";
 
-const helpers = `
+export const HELPERS = `
 window.__wait = (ms) => new Promise(r => setTimeout(r, ms));
 window.__play = async (mode, missEvery) => {
   document.getElementById("stage").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
@@ -77,18 +54,38 @@ window.__send = async () => {
 };
 return typeof window.game;`;
 
-for (const mode of modes.split(",")) {
-  await send("Page.reload", { ignoreCache: true });
-  await wait(3000);
-  console.log("game loaded:", await run(helpers));
-  await run(`window.__play("${mode}", ${mode === "survival" ? 9 : mode === "threes" ? 7 : 5}); return 1;`);
+/** How often each mode misses on purpose (a late release every n shots). */
+export const missEvery = (mode) => (mode === "survival" ? 9 : mode === "threes" ? 7 : 5);
+
+/**
+ * Plays one game of `mode` in `tab` (on the game page) and sends it. `onTick(seconds)` is called once a
+ * second while it plays (for mid-game screenshots); returns the server's answers as text.
+ */
+export async function playGame(tab, mode, { onTick, log = console.log } = {}) {
+  await tab.reload(3000);
+  log("game loaded:", await tab.run(HELPERS));
+  await tab.run(`window.__play("${mode}", ${missEvery(mode)}); return 1;`);
   for (let i = 0; i < 120; i++) {
     await wait(1000);
-    if ((await run(`return window.game.state.phase`)) === "over") break;
+    if ((await tab.run(`return window.game.state.phase`)) === "over") break;
+    if (onTick) await onTick(i + 1);
   }
   // The server wants the game to have lasted as long as it claims (Time attack: 59 s since the token).
   await wait(1500);
-  console.log(await run(`return await window.__send()`));
+  return tab.run(`return await window.__send()`);
 }
-ws.close();
-process.exit(0);
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  const [port, url, modes] = process.argv.slice(2);
+  const chrome = await launchChrome({ port: port === "new" ? undefined : port });
+  const tab = await openTab(chrome.port, url, { network: false });
+  tab.on((m) => {
+    if (m.method === "Runtime.exceptionThrown") console.log("PAGE ERROR:", m.params.exceptionDetails.exception?.description?.split("\n")[0]);
+    if (m.method === "Runtime.consoleAPICalled" && m.params.type === "error") console.log("CONSOLE ERROR:", m.params.args.map((a) => a.value ?? a.description).join(" "));
+  });
+  await wait(3000);
+  for (const mode of modes.split(",")) console.log(await playGame(tab, mode));
+  await tab.close();
+  chrome.stop();
+  process.exit(0);
+}

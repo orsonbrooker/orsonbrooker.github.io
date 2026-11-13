@@ -1,0 +1,71 @@
+{
+  "note": "Limits for `node tools/dev/verify.mjs perf`: frame work in ms at 4x slower CPU on a 390x844 phone screen, sizes in KB gzipped, first-load KB in the first 6 s. Seeded from the numbers on 2026-11-13 plus headroom; lower them as things get faster, never raise them without saying why. The goal (not checked yet) is play p95 under 12 ms.",
+  "frames": {
+    "play": {
+      "p50": 8.7,
+      "p95": 23.3,
+      "worst": 899.2,
+      "longGaps": 7
+    },
+    "builder": {
+      "p50": 1.6,
+      "p95": 9.4,
+      "worst": 63,
+      "longGaps": 5
+    }
+  },
+  "builderChange": 2951,
+  "builderStep": 2433,
+  "size": {
+    "/": {
+      "js": 3.9,
+      "css": 7.6
+    },
+    "/games/shootaround/": {
+      "js": 93.4,
+      "css": 8.9
+    },
+    "/players/": {
+      "js": 39.3,
+      "css": 12.2
+    },
+    "/ideas/": {
+      "js": 6.5,
+      "css": 8.9
+    },
+    "/lab/": {
+      "js": 24.5,
+      "css": 1
+    },
+    "/404.html": {
+      "js": 5.2,
+      "css": 7.6
+    }
+  },
+  "firstLoad": {
+    "/": {
+      "all": 637,
+      "images": 578
+    },
+    "/games/shootaround/": {
+      "all": 3309,
+      "images": 2911
+    },
+    "/players/": {
+      "all": 9126,
+      "images": 8843
+    },
+    "/ideas/": {
+      "all": 82,
+      "images": 20
+    },
+    "/lab/": {
+      "all": 447,
+      "images": 387
+    },
+    "/404.html": {
+      "all": 503,
+      "images": 444
+    }
+  }
+}
