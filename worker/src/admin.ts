@@ -6,6 +6,7 @@ import { modeOf } from "../../shared/rules.js";
 import type { Mode } from "../../shared/rules.js";
 import { verifyAccessToken } from "./access.ts";
 import { forget } from "./cache.ts";
+import { adminFlags, setFlag } from "./flags.ts";
 import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
 import { MAX_PLAYER_NAME, MAX_TEAM_NAME, parsePronoun, parseShorts, PLAYER_PARTS } from "./players.ts";
@@ -68,6 +69,7 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 	if (request.method !== "GET") requireSameOriginJson(request, env);
 	const parts = url.pathname.split("/").filter(Boolean); // api, admin, ...
 	if (request.method === "GET" && parts[2] === "stats") return json(await stats(env), 200, 0);
+	if (request.method === "GET" && parts[2] === "flags") return adminFlags(env);
 	if (request.method === "GET" && parts[2] === "inbox") {
 		const [submissions, ideas, apps, players, scores, blocked, words] = await env.DB.batch([
 			env.DB.prepare("SELECT id, app, text, nickname, created_at, title, description, note, merge_into FROM submissions WHERE status = 'new' ORDER BY id"),
@@ -120,6 +122,9 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 			await forget(url.origin, { boards: [mode], score: id });
 		}
 		res = json({ ok: true }, 200, 0);
+	} else if (parts[2] === "flags" && parts.length === 3) {
+		res = await setFlag(env, await readJson(request));
+		await forget(url.origin, { flags: true });
 	} else if (parts[2] === "blocked") {
 		// Takes a name off the blocked list (one hidden by mistake): people can use it again.
 		const body = await readJson(request);

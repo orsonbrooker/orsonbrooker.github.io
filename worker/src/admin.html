@@ -138,6 +138,14 @@
 			}
 			.score .points { font-family: var(--pixel); font-size: 12px; color: var(--yellow); }
 			.score .flags { display: flex; gap: 4px; flex-wrap: wrap; }
+			.features { display: grid; gap: 8px; max-width: 760px; }
+			.feature { background: var(--panel); border-radius: 8px; padding: 10px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }
+			.feature h3 { font-size: 16px; margin: 0; }
+			.feature p { margin: 0; font-size: 13px; opacity: 0.8; grid-column: 1; }
+			.feature .state { font-family: var(--pixel); font-size: 10px; border-radius: 4px; padding: 3px 6px; margin-left: 6px; vertical-align: 2px; }
+			.feature .state.on { background: var(--accent); color: var(--ink); }
+			.feature .state.off { background: rgba(255, 255, 255, 0.15); }
+			.feature button { grid-column: 2; grid-row: 1 / span 3; min-width: 120px; }
 			.flag { background: var(--bad); color: var(--ink); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
 			.score .buttons { display: flex; gap: 4px; justify-content: end; white-space: nowrap; }
 			.score > details, .score .more { grid-column: 1 / -1; }
@@ -200,6 +208,7 @@
 					<a href="/admin/scores" id="tab-scores">Scores</a>
 					<a href="/admin/words" id="tab-words">Kind words</a>
 					<a href="/admin/stats" id="tab-stats">Stats</a>
+					<a href="/admin/flags" id="tab-flags">Flags</a>
 				</nav>
 			</header>
 			<section id="inbox"></section>
@@ -208,6 +217,7 @@
 			<section id="scores" hidden></section>
 			<section id="words" hidden></section>
 			<section id="stats" hidden></section>
+			<section id="flags" hidden></section>
 			<div id="toast" hidden></div>
 		</main>
 
@@ -1025,9 +1035,55 @@
 				);
 			}
 
+			// Feature flags (worker/src/flags.ts): things that are built but not out yet. Each is off (hidden
+			// from everyone) until switched on here. The game picks a change up within a minute or two.
+			async function loadFlags() {
+				const box = document.getElementById("flags");
+				if (!box.childElementCount) box.append(el("div", { className: "empty", textContent: "Loading..." }));
+				try {
+					renderFlags((await api("flags")).flags);
+				} catch (err) {
+					box.replaceChildren(el("div", { className: "empty", textContent: err.message }));
+				}
+			}
+
+			function renderFlags(flags) {
+				const box = document.getElementById("flags");
+				const card = (f) => {
+					const button = el("button", { type: "button", className: f.on ? "" : "primary", textContent: f.on ? "Switch off" : "Switch on" });
+					button.addEventListener("click", async () => {
+						button.disabled = true;
+						try {
+							await api("flags", { key: f.key, on: !f.on });
+							toast(`${f.name} is ${f.on ? "off" : "on"}.`);
+							await loadFlags();
+						} catch (err) {
+							toast(err.message);
+							button.disabled = false;
+						}
+					});
+					return el(
+						"div",
+						{ className: "feature" },
+						el("h3", {}, f.name, el("span", { className: `state ${f.on ? "on" : "off"}`, textContent: f.on ? "ON" : "OFF" })),
+						el("p", { textContent: `${f.on ? "Shows" : "Hides"}: ${f.hides}` }),
+						el("p", { className: "meta", textContent: `${f.updated_at ? `Changed ${f.updated_at.slice(0, 10)}` : "Never switched on"}. Try it: ?flags=${f.key}` }),
+						button,
+					);
+				};
+				box.replaceChildren(
+					el("h2", { textContent: "Flags" }),
+					el("p", {
+						className: "meta",
+						textContent: "Things that are built but not out yet. Off hides them from everyone. To try one without switching it on, add ?flags= and its name (or ?flags=all, or ?debug) to the game's address.",
+					}),
+					el("div", { className: "features" }, ...flags.map(card)),
+				);
+			}
+
 			// Each section has its own address (/admin is the inbox, then /admin/ideas and so on), so a
 			// link or a reload opens it and Back goes to the one before. The Worker serves this page for all.
-			const TABS = ["inbox", "ideas", "players", "scores", "words", "stats"];
+			const TABS = ["inbox", "ideas", "players", "scores", "words", "stats", "flags"];
 			const sectionOf = (path) => TABS.find((t) => t !== "inbox" && new RegExp(`^/admin/${t}/?$`).test(path)) ?? "inbox";
 			function show(section) {
 				for (const t of TABS) {
@@ -1037,6 +1093,7 @@
 					document.getElementById(t).hidden = t !== section;
 				}
 				if (section === "stats") loadStats();
+				if (section === "flags") loadFlags();
 				const name = section === "words" ? "Kind words" : `${section[0].toUpperCase()}${section.slice(1)}`;
 				document.title = `${section === "inbox" ? "Admin" : `${name} | Admin`} | Orson Brooker`;
 			}

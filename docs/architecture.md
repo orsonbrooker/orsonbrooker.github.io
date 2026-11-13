@@ -54,10 +54,10 @@ flowchart LR
 - **Worker** (`worker/src/index.ts`, admin UI in `worker/src/admin.html`): the only server. It answers the API
   and the admin page on the same domain as the site, so there's no cross-site setup in production. The admin
   page has one address per section (`/admin` is the inbox, then `/admin/ideas`, `/admin/players`,
-  `/admin/scores`, `/admin/words`, `/admin/stats`), all the same page behind the same sign-in check. It draws players front and back with
+  `/admin/scores`, `/admin/words`, `/admin/stats`, `/admin/flags`), all the same page behind the same sign-in check. It draws players front and back with
   the site's own `players/recolor.js`, which the build copies to a fixed address for it.
 - **Edge cache** (`worker/src/cache.ts`): public answers that are the same for everyone (the boards, score
-  cards, approved players, config, the ideas list without a device) are kept in Cloudflare's cache for 30-60 s,
+  cards, approved players, config, feature flags, the ideas list without a device) are kept in Cloudflare's cache for 30-60 s,
   keyed by the URL with only the parameters the handler reads. A new score or an admin change clears what it
   changed in that data centre; elsewhere it can be up to a minute old. Nothing personal or admin is cached.
 - **D1:** one SQLite database, changed only through numbered files in `worker/migrations/`.
@@ -69,7 +69,7 @@ flowchart LR
 | Game entry | `game.js` | Starts the game and wires the pieces below together: the one button (press, release), the screens' buttons, boot, `window.game` in `?debug`. |
 | Engine | `engine/` | `court.js` the court being played (from `content/courts.js`) in metres and `project()` onto the isometric art, 3-point line, random spots; `physics.js` fixed-step ball physics (`PHYSICS_STEP`) with the court's gravity and wind, rim and backboard collisions, reported through callbacks; `loop.js` the frame loop; `input.js` tap/Space/hold, Escape, arrow keys in pickers, arrow keys and WASD steering the player in Free play; `draw.js` canvas helpers (ball sprites, banner, popups, wall scoreboard digits, shoe finder); `storage.js`. |
 | Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness, which way Free play is being steered (`steering()`); `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update (jogging between spots, and in Free play `steerPlayer()`: the screen direction turned into a court direction, kept on the floor in front of the backboard); `controls.js` Free play's touch joystick and shoot button (pixel circles, only on `pointer: coarse` screens, keeping their touches from the tap-anywhere button); `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces, a higher jump; `court.js` switching courts (measurements, physics, art); `replay.js` instant replays (recording each release, picking the best shot, playing it again). |
-| Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, `horse.js`, `threes.js`, `free.js`, shared `points.js`) | Time attack, Sudden death, Around the World, 3-point contest, HORSE (pass and play, no leaderboard), Free play, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. The 3-point contest is hidden (except in `?debug`) until its rack art is in: `THREE_POINT_CONTEST_READY` in `modes/index.js`, brief in `art/three-point-contest.md`. Free play (`ranked: false`) has no clock, no score sent, no daily challenge and no game over; the player moves himself (`freeMove`) and shoots from wherever he stands (within 2 m of the hoop a shot is a dunk: `startDunk()` in `round.js` leaps him up to the rim, slams the ball through and drops him in front of it), and it ends only when they leave (Escape or the back button, to choosing a game). |
+| Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, `horse.js`, `threes.js`, `free.js`, shared `points.js`) | Time attack, Sudden death, Around the World, 3-point contest, HORSE (pass and play, no leaderboard), Free play, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. A mode with a feature flag (see Feature flags) only shows once it's switched on, or with `?flags=` or `?debug`: `modeShown()` in `modes/index.js` hides its card, leaderboard tab and help, and `modeReleased()` keeps a game only tried that way from being sent. The 3-point contest waits for its rack art (brief in `art/three-point-contest.md`); Free play is new. Free play (`ranked: false`) has no clock, no score sent, no daily challenge and no game over; the player moves himself (`freeMove`) and shoots from wherever he stands (within 2 m of the hoop a shot is a dunk: `startDunk()` in `round.js` leaps him up to the rim, slams the ball through and drops him in front of it), and it ends only when they leave (Escape or the back button, to choosing a game). |
 | Moving green zone | `play/zone.js`, `zoneCenter()` in `play/react.js` | A mechanic a mode switches on with `zoneShift()`: the green part of the timing bar moves to a new place each shot (from the seeded "zone" stream), and a release is timed from the green's middle. On in Sudden death (from 5 in a row, further as the run grows), Around the World (gently) and the 3-point contest. |
 | Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menu.js` the one menu (the game, then the website's pages, left out in the iOS app); `pause.js` pausing a game (keep playing, start again, quit); `menus.js` title, choose a game, choose a player (or several, for pass and play); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `shop.js` the shop (ball styles, pairing another device); `over.js` game over (the Replay button, the coins a game earned). |
 | Game content | `content/` | Tables: the courts (`courts.js`), what each player is good at (`attributes.js`), how each fire level and ball looks, the wall scoreboard art, the Around the World spots, the 3-point contest's racks (`threes.js`, with where its art goes), the HORSE spots and spot map, Sudden death run calls and end-of-game calls. |
@@ -86,7 +86,7 @@ flowchart LR
 | Server address | `api.js` | Where the API is: this site's `/api`, the local Worker on localhost, or the live site from the iOS app. |
 | iOS app | `ios/`, `capacitor.config.json`, `tools/app/prepare.mjs` | The same pages bundled into an app with Capacitor, opening on the game. |
 | Haptics | `haptics.js` | A buzz on baskets and fire: Capacitor's Haptics in the app, the Vibration API on Android, and on iPhone Safari (no Vibration API) a hidden `<input switch>` flipped by clicking its label, which plays the system tick (iOS 18+). |
-| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `progress.ts`, `admin.ts`, `access.ts`, `cache.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); coins, buying and pairing (`progress.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
+| Server | `worker/src/`: `index.ts` (entry point and router), `ideas.ts`, `players.ts`, `scores.ts`, `scoring.ts`, `progress.ts`, `admin.ts`, `access.ts`, `cache.ts`, `flags.ts`, `notify.ts`, `util.ts` | Ideas, votes and submissions; players; start tokens, scores, the boards and score cards (`scores.ts`); coins, buying and pairing (`progress.ts`); the admin page and API; checking the Access sign-in token (`access.ts`); the edge cache for public reads (`cache.ts`); feature flags (`flags.ts`); the weekly ntfy; shared helpers (JSON, CORS, hashing, rate limits, Turnstile, rude-word filter). `scoring.ts` checks a sent game against the rules, with no database; it and the small rules pulled out of the handlers are tested on their own (`worker/test/`). |
 | Art and voice tools | `tools/` | Character sheets, region maps, announcer clips, icons, share images. |
 
 ## Domain model
@@ -326,6 +326,32 @@ a device are always neutral. The picker shows a player's skills only when they h
 change: it checks scores from the shot log, and the release timing in the log is measured in that player's own
 green-zone widths.
 
+## Feature flags
+
+Things that are built but not out yet are hidden behind a feature flag until Luke switches them on, so
+`main` can ship while they're finished. No outside service: the list is `shared/flags.js` (a key, a name,
+what it hides, and the modes or builder bodies it covers), and the `flags` table (`0021_flags.sql`) holds
+the ones switched on or off. A flag with no row is off.
+
+- **Admin:** the Flags section (`/admin/flags`) lists every flag with what it hides and a switch
+  (`GET` and `POST /api/admin/flags`, behind Access and the token check like every admin change).
+- **Public:** `GET /api/flags` answers `{ flags: { key: true/false } }`, edge-cached like the boards (a change
+  clears it here; elsewhere it's up to a minute old).
+- **Game and builder:** `flags.js` loads them once as the page starts (waiting up to 1.5 s), keeps a copy
+  on the device for offline (the service worker never caches `/api`), and falls back to that copy, else to
+  everything off, so nothing unreleased leaks. `flagOn(key)` says whether to show it; `released(key)` whether
+  it's really out (so what it sends will count). For testing, `?flags=threes,freeplay` (or `?flags=all`) turns
+  those on for the page, and `?debug` turns on all of them; the server still refuses what they'd send.
+- **Server:** the Worker refuses a score, a preview or coins for a mode whose flag is off
+  (`requireModeOut`), a builder player with a hidden body (`requireBodyOut`), and a player with a size while
+  `videokids` is off. It reads the table at most every 10 s per isolate.
+
+The flags now: `threes` (the 3-point contest), `freeplay` (Free play), `videokids` (Curly and Buns from
+video: off, `useDrawnKids()` in `players/recolor.js` gives them their old drawn bodies, and the builder has no
+Body tab) and `gear` (what kids from video wear). To retire a flag once something is out for good, take out
+its checks, then its entry. Anything a flag reveals that scores or shows on a card still follows
+`FEATURE_FROM` in `worker/src/scores.ts`: it counts from when it went live.
+
 ## Admin stats
 
 The admin's Stats tab (`/admin/stats`, `worker/src/stats.ts`) shows the last 30 days of use and feature
@@ -555,7 +581,8 @@ flowchart LR
 The builder's Curly and Buns bodies are kids made from their own videos, like Orson (`art/video/curly.json`,
 `buns.json`; `curly-detail/`, `buns-detail/`). Their entry in `assets/characters/bases/index.json` has
 `video: true` and a `card` (the frame and square for their card picture). The other bodies stay hand-drawn
-until each has its videos.
+until each has its videos. Until the `videokids` flag is on (see Feature flags), the builder and the game use
+Curly's and Buns' earlier drawn bodies instead (`assets/characters/bases/curly/`, `buns/`).
 
 ```mermaid
 flowchart LR

@@ -12,6 +12,7 @@
 // &gear=beanie,stripes tries gear on a kid from video (content/gear.json), saved with the player for the game.
 
 import { API } from "../api.js";
+import { flagOn } from "../flags.js";
 import { markField, say } from "../ui/form.js";
 import { fillIcons, icon } from "../ui/icons.js";
 import { ballFrame, makeBallFrames, makeBallSprites } from "../engine/draw.js";
@@ -21,7 +22,7 @@ import { paletteSwap } from "../players/pixelkit.js";
 import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, wearGear } from "../players/gear.js";
 import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
-import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, recolor, saveMyPlayer } from "../players/recolor.js";
+import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, recolor, saveMyPlayer, useDrawnKids } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
 
 const $ = (id) => document.getElementById(id);
@@ -32,6 +33,13 @@ const el = (tag, props = {}, ...children) => {
 };
 const button = (props, ...children) => el("button", { type: "button", ...props }, ...children);
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+// Kids from video aren't out until their flag is on (shared/flags.js). Until then Curly and Buns are
+// their drawn bodies, and there's no Body tab (only kids from video change size).
+if (!flagOn("videokids")) {
+  useDrawnKids();
+  $("tab-body").remove();
+}
 
 const builder = $("builder");
 const canvas = $("preview");
@@ -288,7 +296,7 @@ let wearToken = 0;
 async function paintWear() {
   const box = $("wear");
   const token = ++wearToken;
-  const kid = current?.video ? current.id : null;
+  const kid = current?.video && flagOn("gear") ? current.id : null;
   const made = kid ? await madeFor(kid).catch(() => ({})) : {};
   if (token !== wearToken) return; // a newer paint started
   const slots = SLOTS.filter(([id]) => made[id]?.length);
@@ -953,7 +961,7 @@ const look = () => ({
   base: current.id,
   colours: { ...colours, teamName: colours.teamName ?? DEFAULT_TEAM },
   build: current.video ? { ...build } : undefined,
-  gear: current.video && Object.keys(gear).length ? { ...gear } : undefined,
+  gear: current.video && flagOn("gear") && Object.keys(gear).length ? { ...gear } : undefined,
 });
 
 // Before the body has loaded there's nothing to save yet (a fast tap on a slow connection).

@@ -6,6 +6,7 @@
 // their chosen colours.
 
 import { API } from "../api.js";
+import { flagOn } from "../flags.js";
 import { attributesFor } from "../content/attributes.js";
 import { EU, EV, RIM, project } from "../engine/court.js";
 import { shoesIn } from "../engine/draw.js";
@@ -15,7 +16,11 @@ import { gearParam, loadGear, wearGear } from "../players/gear.js";
 import { buildPlayer, loadHeads } from "../players/layered.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { stretchSheet } from "../players/stretch.js";
-import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, thumbnail } from "../players/recolor.js";
+import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, recolor, thumbnail, useDrawnKids } from "../players/recolor.js";
+
+// Kids from video and their gear aren't out until their flags are on (shared/flags.js): until then
+// Curly and Buns play with their drawn bodies.
+if (!flagOn("videokids")) useDrawnKids();
 
 const PLAYERS_API = `${API}/players`;
 export const characters = {
@@ -45,7 +50,7 @@ async function loadBuilt(entry) {
     const kit = await withKit(meta, img, entry, entry.colours);
     // their gear (saved with them; ?gear=beanie,stripes tries some on every kid from video)
     const testGear = new URLSearchParams(location.search).get("gear");
-    const worn = await loadGear(base.id, testGear ? gearParam(testGear) : entry.gear).catch(() => []);
+    const worn = await loadGear(base.id, testGear ? gearParam(testGear) : flagOn("gear") ? entry.gear : {}).catch(() => []);
     if (!worn.length && !+entry.build?.height && !+entry.build?.bulk) return kit;
     const c = Object.assign(document.createElement("canvas"), { width: regions.width, height: regions.height });
     const g = c.getContext("2d", { willReadFrequently: true });

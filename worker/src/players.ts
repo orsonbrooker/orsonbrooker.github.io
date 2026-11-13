@@ -1,6 +1,7 @@
 // Players made with the builder: a base body, five colours, a nickname, maybe a pronoun (for the
 // announcer's lines) and maybe a size (height and bulk, from the builder's sliders). They wait for approval in the admin inbox before they're in the game.
 
+import { requireBodyOut, requireFlag } from "./flags.ts";
 import { HttpError } from "./http.ts";
 import { checkTurnstile, clean, hash, ipKey, isUnfriendly, json, readJson, RUDE } from "./util.ts";
 import type { Env } from "./util.ts";
@@ -57,6 +58,7 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	if (!isNickname(name)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
 	const base = clean(body.base, 30);
 	if (!/^[a-z0-9-]+$/.test(base)) throw new HttpError(400, "Pick a body.");
+	await requireBodyOut(env, base); // a body that isn't out yet (flags.ts)
 	const colours = (body.colours ?? {}) as Record<string, unknown>;
 	for (const part of PLAYER_PARTS) {
 		if (typeof colours[part] !== "string" || !/^#[0-9a-f]{6}$/i.test(colours[part] as string)) throw new HttpError(400, "Pick all the colours.");
@@ -68,6 +70,7 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	const pronoun = parsePronoun(body.pronoun);
 	const build = parseBuild(body.build);
 	if (build === "bad") throw new HttpError(400, "Pick a height and build.");
+	if (build) await requireFlag(env, "videokids"); // sizes are for kids from video, not out yet (flags.ts)
 	if (await isUnfriendly(env, name, teamName)) throw new HttpError(400, RUDE);
 	await checkTurnstile(request, env, body.turnstileToken);
 
