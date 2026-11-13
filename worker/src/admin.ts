@@ -12,6 +12,7 @@ import { HttpError } from "./http.ts";
 import { MAX_CREDIT, MAX_TEXT, STATUSES, mergeCredit, recount } from "./ideas.ts";
 import { MAX_PLAYER_NAME, MAX_TEAM_NAME, parsePronoun, parseShorts, PLAYER_PARTS } from "./players.ts";
 import { stats } from "./stats.ts";
+import { adminTeams, editTeam } from "./teams.ts";
 import { blockReportedName, clearReports, ODD_UNCHECKED, REPORTED, renameScores } from "./scores.ts";
 import { clean, forgetBlockedNames, isLocalHost, json, readJson, requireSameOriginJson } from "./util.ts";
 import type { Env } from "./util.ts";
@@ -92,8 +93,10 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 		]);
 		// The weekly digest (digest.ts), if there's one not marked seen: one item at the top of the inbox.
 		const digest = await openDigest(env);
+		// Community teams (teams.ts): ones waiting to be listed are inbox items, all of them are in Teams.
+		const teams = await adminTeams(env);
 		return json(
-			{ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results, scores: scores.results, blocked: blocked.results, words: words.results, digest },
+			{ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results, scores: scores.results, blocked: blocked.results, words: words.results, digest, teams },
 			200,
 			0,
 		);
@@ -125,6 +128,8 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 			await forget(url.origin, { boards: [mode], score: id });
 		}
 		res = json({ ok: true }, 200, 0);
+	} else if (parts[2] === "teams") {
+		res = await editTeam(env, id, await readJson(request), url.origin);
 	} else if (parts[2] === "flags" && parts.length === 3) {
 		res = await setFlag(env, await readJson(request));
 		await forget(url.origin, { flags: true, ideas: true }); // a linked idea may say Coming soon, or be done

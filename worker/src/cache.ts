@@ -6,9 +6,10 @@
 // The key is the URL with only the parameters the handler reads, tidied the same way it tidies
 // them, so made-up extra parameters can't skip the cache. Writes that change a board clear it.
 
-import { modeOf } from "../../shared/rules.js";
+import { MODES, modeOf } from "../../shared/rules.js";
 import type { Mode } from "../../shared/rules.js";
 import { deviceOf } from "./ideas.ts";
+import { teamKeyOf } from "./teams.ts";
 
 type Cached = { key: string; ttl: number };
 
@@ -18,6 +19,10 @@ export function cacheKey(request: Request, url: URL): Cached | null {
 	const q = url.searchParams;
 	if (path === "/api/scores") return { key: boardKey(url.origin, modeOf(q.get("mode")), q.get("range") === "all"), ttl: 30 };
 	if (path === "/api/teams") return { key: teamsKey(url.origin, modeOf(q.get("mode")), q.get("range") === "all"), ttl: 30 };
+	if (path === "/api/teams/list") return { key: url.origin + path, ttl: 60 };
+	const team = path.match(/^\/api\/teams\/([^/]{1,40})\/players$/);
+	const teamKey = team ? teamKeyOf(team[1]) : null;
+	if (teamKey) return { key: `${url.origin}/api/teams/${teamKey}/players?mode=${modeOf(q.get("mode"))}&range=${q.get("range") === "all" ? "all" : "week"}`, ttl: 30 };
 	const id = path.match(/^\/api\/scores\/(\d{1,10})$/);
 	if (id) return { key: `${url.origin}/api/scores/${Number(id[1])}`, ttl: 60 };
 	if (path === "/api/players" || path === "/api/config" || path === "/api/flags") return { key: url.origin + path, ttl: 60 };
@@ -62,7 +67,7 @@ export async function cached(c: Cached, ctx: ExecutionContext, make: () => Promi
 /** Clears cached answers after a change, so it shows straight away (in this data centre). */
 export async function forget(
 	origin: string,
-	what: { boards?: Mode[]; score?: number; scores?: number[]; players?: boolean; ideas?: boolean; flags?: boolean },
+	what: { boards?: Mode[]; score?: number; scores?: number[]; players?: boolean; ideas?: boolean; flags?: boolean; teams?: boolean },
 ) {
 	const keys: string[] = [];
 	// A mode's board and its Top teams (teams.ts) change together.
@@ -73,5 +78,10 @@ export async function forget(
 	if (what.players) keys.push(`${origin}/api/players`);
 	if (what.ideas) keys.push(`${origin}/api/ideas`);
 	if (what.flags) keys.push(`${origin}/api/flags`);
+	// A community team listed, renamed or hidden: every mode's Top teams, and the builder's list.
+	if (what.teams) {
+		keys.push(`${origin}/api/teams/list`);
+		for (const mode of MODES) keys.push(teamsKey(origin, mode, false), teamsKey(origin, mode, true));
+	}
 	await Promise.all(keys.map((k) => caches.default.delete(k)));
 }

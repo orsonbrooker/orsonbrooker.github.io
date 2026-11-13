@@ -11,6 +11,7 @@ import { confirmDialog } from "./ui/confirm.js";
 import { API } from "./api.js";
 import { offline } from "./offline.js";
 import { lowWins } from "./shared/rules.js";
+import { keptTeams, teamStanding } from "./players/community.js";
 
 const NICKNAME = "orson-hoops-nickname";
 const NICKNAME_AT = "orson-hoops-nickname-at"; // when it was typed: the latest wins across their devices
@@ -373,14 +374,16 @@ function drawBoard(list, note, range, mode, scores, faceFor, bodyFor) {
 
 // ---------- Top teams ----------
 
-// The Top teams board (only while the `teams` flag is on): each team's 3 best players add up
-// (worked out by the server, worker/src/teams.ts). A row: rank, the team's kit, its name, its 3 best
-// players' faces, and their total. Teams are made of players, so the rows have no nicknames to report.
+// The Top teams board (only while the `teams` flag is on): each team's 3 best players add up, each
+// device once (worked out by the server, worker/src/teams.ts). It shows the official teams and community
+// teams Luke has OKed showing to everyone; a private team this device is on gets a "Your team" row with
+// where it would be, just here. A row: rank, the top player's face, the team's name (community teams
+// marked "Made by players"), and the total. Tapping one opens its players, the 3 that count marked.
 export async function renderTeams(list, note, range, mode, faceFor) {
   const key = `teams ${mode} ${range}`;
   showing = key;
-  const draw = (teams) => drawTeams(list, note, range, mode, teams, faceFor);
-  if (seen.has(key)) draw(seen.get(key));
+  const draw = (teams, own) => drawTeams(list, note, range, mode, teams, own, faceFor);
+  if (seen.has(key)) draw(...seen.get(key));
   else {
     list.replaceChildren();
     note.textContent = "Loading…";
@@ -397,40 +400,102 @@ export async function renderTeams(list, note, range, mode, faceFor) {
     }
     return;
   }
+  // Their own private teams, where they'd be (asked only for teams not already on the board).
+  const own = [];
+  for (const t of keptTeams().filter((k) => k.member !== false && !teams.some((s) => s.key === k.key))) {
+    try {
+      const { rank, team } = await teamStanding(t.key, mode, range);
+      if (team) own.push({ ...team, rank, mine: true });
+    } catch {
+      // Gone, or offline: no row.
+    }
+  }
   if (showing !== key) return; // they've switched tabs since
   const before = seen.get(key);
-  seen.set(key, teams);
-  if (!before || JSON.stringify(before) !== JSON.stringify(teams)) draw(teams);
+  seen.set(key, [teams, own]);
+  if (!before || JSON.stringify(before) !== JSON.stringify([teams, own])) draw(teams, own);
 }
 
-function drawTeams(list, note, range, mode, teams, faceFor) {
+const madeByPlayers = () => {
+  const b = el("span", { className: "lb-badge", title: "Made by players" });
+  b.innerHTML = icon("players");
+  b.append(el("span", { className: "lb-badge-text", textContent: "Made by players" }));
+  return b;
+};
+
+function teamRowParts(team, faceFor, mode) {
+  const img = el("img", { alt: "", width: 40, height: 40 });
+  faceFor(team.top, img);
+  const name = el("span", { className: "lb-name lb-team-name" });
+  name.append(el("span", { className: "lb-team-text", textContent: team.name })); // may be typed by a kid: text only
+  if (team.kind === "community") name.append(madeByPlayers());
+  return [el("span", { className: "lb-rank", textContent: team.rank }), img, name, el("span", { className: "lb-points", textContent: scoreText(mode, team.score) })];
+}
+
+function drawTeams(list, note, range, mode, teams, own, faceFor) {
   const how = lowWins(mode) ? "A team's 3 best times add up." : "A team's 3 best players add up.";
-  note.textContent = teams.length ? how : range === "week" ? `No teams this week yet. ${how}` : `No teams yet. ${how}`;
-  list.replaceChildren(
-    ...teams.map((team) => {
-      const li = el("li", { className: "lb-team" });
-      const kit = el("span", { className: "lb-kit" });
-      kit.innerHTML = icon("jersey");
-      if (team.kit) {
-        kit.style.color = team.kit.jersey;
-        kit.style.backgroundColor = team.kit.trim;
-      }
-      const faces = el("span", { className: "lb-faces" });
-      for (const p of team.players) {
-        const img = el("img", { alt: "", width: 28, height: 28 });
-        faceFor(p, img);
-        faces.append(img);
-      }
-      li.append(
-        el("span", { className: "lb-rank", textContent: team.rank }),
-        kit,
-        el("span", { className: "lb-name lb-team-name", textContent: team.name }), // may be typed by a kid: text only
-        faces,
-        el("span", { className: "lb-points", textContent: scoreText(mode, team.score) }),
-      );
-      return li;
-    }),
+  note.textContent = teams.length || own.length ? how : range === "week" ? `No teams this week yet. ${how}` : `No teams yet. ${how}`;
+  const mine = new Set(keptTeams().map((t) => t.key));
+  const row = (team, extra = "") => {
+    const li = el("li", { className: `lb-team${mine.has(team.key) ? " mine" : ""}${extra}` });
+    const button = el("button", { type: "button", className: "lb-row" });
+    button.append(...teamRowParts(team, faceFor, mode));
+    button.addEventListener("click", () => showTeamCard(team, range, mode, faceFor));
+    li.append(button);
+    return li;
+  };
+  list.replaceChildren(...teams.map((t) => row(t)));
+  for (const t of own) {
+    list.append(el("li", { className: "lb-team-gap", textContent: "Your team (only you can see this)" }));
+    list.append(row(t, " lb-own"));
+  }
+}
+
+// A team's players: each device once at its best, the 3 that count marked.
+function showTeamCard(team, range, mode, faceFor) {
+  const dialog = el("dialog", { className: "fb-dialog lb-dialog lb-card lb-team-card" });
+  const form = el("form", { method: "dialog" });
+  const head = el("div", { className: "lb-team-head" });
+  const where = { survival: " in sudden death", around: " around the world", threes: " in the 3-point contest" }[mode] ?? "";
+  const title = el("h2");
+  title.append(el("span", { textContent: team.name })); // text only
+  if (team.kind === "community") title.append(madeByPlayers());
+  head.append(
+    el("p", { className: "lb-card-rank", textContent: `#${team.rank} ${range === "week" ? "this week" : "all time"}${where}${team.mine ? " (only you can see this)" : ""}` }),
+    title,
+    el("p", { className: "lb-score", textContent: `${scoreText(mode, team.score)} ${lowWins(mode) ? "seconds" : "points"}` }),
   );
+  const list = el("ol", { className: "board-list lb-team-players" });
+  const hint = el("p", { className: "fb-hint", textContent: "Loading…" });
+  const close = el("button", { type: "submit", className: "fb-button fb-primary", textContent: "Close" });
+  const row = el("div", { className: "fb-row" });
+  row.append(close);
+  form.append(head, hint, list, row);
+  dialog.append(form);
+  const load = team.mine || team.kind === "community" ? teamStanding(team.key, mode, range) : fetch(`${API}/teams/${encodeURIComponent(team.key)}/players?range=${range}&mode=${mode}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error())));
+  load
+    .then(({ players }) => {
+      hint.textContent = lowWins(mode) ? "The 3 best times add up." : "The 3 best players add up.";
+      list.replaceChildren(
+        ...players.map((p) => {
+          const li = el("li", { className: p.counts ? "counts" : "" });
+          const img = el("img", { alt: "", width: 40, height: 40 });
+          faceFor(p, img);
+          li.append(
+            el("span", { className: "lb-rank", textContent: p.rank }),
+            img,
+            el("span", { className: "lb-name", textContent: p.nickname }), // typed by visitors: text only
+            ...(p.counts ? [el("span", { className: "lb-best-tag", textContent: "Counts" })] : []),
+            el("span", { className: "lb-points", textContent: scoreText(mode, p.score) }),
+          );
+          return li;
+        }),
+      );
+    })
+    .catch(() => (hint.textContent = "The players can't be loaded right now."));
+  dialog.addEventListener("close", () => dialog.remove());
+  document.body.append(dialog);
+  dialog.showModal();
 }
 
 const DATE = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" });

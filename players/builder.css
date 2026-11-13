@@ -521,6 +521,7 @@
   flex: 1;
   min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   min-height: 56px;
@@ -536,6 +537,15 @@
 .team-pick[aria-pressed="true"] {
   border-color: #fff;
   background: rgba(255, 255, 255, 0.2);
+}
+
+/* The name (and a community team's badge) drops under the kits when there isn't room beside them. */
+.team-label {
+  flex: 1;
+  min-width: 112px;
+  display: grid;
+  justify-items: start;
+  gap: 6px;
 }
 
 .team-pick b {
@@ -1018,4 +1028,126 @@
 .pixel-slider input:disabled {
   cursor: default;
   opacity: 0.4;
+}
+
+/* ---------- Community teams (the teams flag) ---------- */
+
+/* "Made by players": a community team is never mistaken for one of the game's own teams. */
+.team-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  max-width: 100%;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: rgba(143, 224, 163, 0.18);
+  color: #8fe0a3;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.team-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.team-now-name .team-badge {
+  justify-self: start;
+}
+
+.team-count {
+  display: grid;
+  place-items: center;
+  flex: none;
+  min-width: 72px;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.team-hint {
+  margin: 2px 0 4px;
+}
+
+.code-row {
+  display: flex;
+  gap: 8px;
+}
+
+.builder-page .code-row input {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  font-family: var(--pixel);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.code-row .fb-button {
+  flex: none;
+  min-height: 52px;
+}
+
+.team-extra {
+  display: grid;
+  gap: 10px;
+}
+
+.team-extra:empty {
+  display: none;
+}
+
+.code-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.code-box .mini-label {
+  flex-basis: 100%;
+}
+
+.team-code {
+  flex: 1;
+  font-family: var(--pixel);
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+}
+
+.team-state {
+  flex: 1;
+  min-width: 160px;
+}
+
+.code-box .fb-button {
+  min-height: 48px;
+}
+
+.make-real {
+  min-height: 52px;
+}
+
+/* The tick on the team being worn stays at the row's right, even when the name has dropped under the kits. */
+.team-pick:has(.team-on) {
+  position: relative;
+  padding-right: 40px;
+}
+
+.team-pick .team-on {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Edit, Leave and a listed team's count line up. */
+.team-row > .team-edit,
+.team-row > .team-count {
+  width: 92px;
 }

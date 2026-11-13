@@ -77,7 +77,7 @@
 
         <section id="pane-team" role="tabpanel" aria-labelledby="tab-team" data-pane="team" hidden>
           <div class="team-now">
-            <div class="team-now-name"><span class="mini-label">Playing for</span><b id="team-now"></b></div>
+            <div class="team-now-name"><span class="mini-label">Playing for</span><b id="team-now"></b><span id="team-now-badge"></span></div>
           </div>
           <div class="kit-row">
             <div class="kit-picker" role="radiogroup" aria-label="Kit" id="kit-picker"></div>
@@ -87,6 +87,7 @@
           <div id="team-editor" hidden>
             <label class="field"><span class="mini-label">Team name</span><input id="team-name" type="text" maxlength="10" autocomplete="off" /></label>
             <div class="kit-colours" id="kit-colours"></div>
+            <div class="team-extra" id="team-extra"></div>
             <div class="editor-actions">
               <button type="button" class="fb-button" id="team-delete">Delete team</button>
               <button type="button" class="fb-button fb-primary" id="team-done"><span data-icon="check"></span>Done</button>

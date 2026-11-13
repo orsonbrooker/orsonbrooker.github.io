@@ -12,6 +12,14 @@
 //          GET  /api/scores         the leaderboard (?range=week or all, ?mode=timed, survival or around)
 //          GET  /api/scores/:id     one game's card
 //          GET  /api/teams          Top teams (?range=, ?mode=), while the teams flag is on  teams.ts
+//          GET  /api/teams/list     listed community teams (for the builder)
+//          GET  /api/teams/:key/players  an official or listed team's players
+//          POST /api/teams          make a community team (private, joined with a code)
+//          POST /api/teams/mine     a device's own teams
+//          POST /api/teams/players  a team's rank and players (a private one: for its members only)
+//          POST /api/teams/join     join a team with its code
+//          POST /api/teams/leave    leave a team
+//          POST /api/teams/:id      the maker's changes: new code, list or unlist, kit, name
 //          POST /api/scores         a finished game's score, with its shot log (checked, see postScore)
 //          POST /api/scores/preview where a game would land, as it ends (nothing saved)
 //          POST /api/reports        report a leaderboard row's name as unfriendly (to the admin inbox)
@@ -48,7 +56,7 @@ import { notify } from "./notify.ts";
 import { createPlayer, listPlayers } from "./players.ts";
 import { buy, claimGame, getProgress, joinCode, pairCode, useBall } from "./progress.ts";
 import { gameToken, leaderboard, postScore, previewScore, reportScore, scoreDetail } from "./scores.ts";
-import { teamBoard } from "./teams.ts";
+import { teamRoute } from "./teams.ts";
 import { cors, isAdminPage, isUnfriendly, json } from "./util.ts";
 import type { Env } from "./util.ts";
 
@@ -88,6 +96,10 @@ export default {
 async function publicApi(request: Request, env: Env, url: URL): Promise<Response> {
 	const route = `${request.method} ${url.pathname}`;
 	const scoreId = route.match(/^GET \/api\/scores\/(\d{1,10})$/);
+	if (url.pathname.startsWith("/api/teams")) {
+		const teams = teamRoute(request, env, url);
+		if (teams) return teams;
+	}
 	if (scoreId) return scoreDetail(env, Number(scoreId[1]));
 	switch (route) {
 		case "GET /api/config":
@@ -112,8 +124,6 @@ async function publicApi(request: Request, env: Env, url: URL): Promise<Response
 			return json({ token: await gameToken(env) });
 		case "GET /api/scores":
 			return leaderboard(env, url);
-		case "GET /api/teams":
-			return teamBoard(env, url);
 		case "POST /api/scores":
 			return postScore(request, env);
 		case "POST /api/scores/preview":

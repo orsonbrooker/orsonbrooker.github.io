@@ -110,7 +110,7 @@ export function requireSameOriginJson(request: Request, env: Env): void {
 
 // The admin page's own addresses: /admin (the inbox) and one per section (admin.html opens the section
 // from its address). Every one gets the same page, behind the same sign-in check (admin.ts).
-export const ADMIN_SECTIONS = ["ideas", "players", "scores", "words", "stats", "flags"];
+export const ADMIN_SECTIONS = ["ideas", "players", "scores", "teams", "words", "stats", "flags"];
 const ADMIN_PAGE = new RegExp(`^/admin(/(${ADMIN_SECTIONS.join("|")}))?/?$`);
 export const isAdminPage = (path: string) => ADMIN_PAGE.test(path);
 

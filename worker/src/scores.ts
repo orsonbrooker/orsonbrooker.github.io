@@ -106,7 +106,7 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 
 	const ipHash = await ipKey(request, env);
 	const deviceHash = await boardOf(env, device);
-	const team = await teamForScore(env, player, body.team); // for Top teams (teams.ts)
+	const team = await teamForScore(env, player, body.team, body.teamId, deviceHash); // for Top teams (teams.ts)
 	const [today, history, standing] = await env.DB.batch([
 		env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?").bind(ipHash),
 		env.DB.prepare(`SELECT ${lowWins(mode) ? "MIN" : "MAX"}(score) AS best FROM scores WHERE device = ? AND mode = ?`).bind(deviceHash, mode),

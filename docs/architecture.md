@@ -184,7 +184,20 @@ erDiagram
     text status "shown, hidden"
     text token "start token, used once"
     text version "game.js version"
-    text team "the team it counts for (Top teams), set when it's sent"
+    text team "the team it counts for (Top teams): an official name or c<id>, set when it's sent"
+  }
+  community_teams {
+    int id PK
+    text name "capitals, at most 10"
+    text home_away "kit JSON: jersey, shorts, trim"
+    text owner "the maker's board (like scores.device)"
+    text code_hash "join code, keyed hash only"
+    text listing "private, asked, listed, refused"
+    text status "ok, hidden"
+  }
+  team_members {
+    text board PK "a device's board (like scores.device)"
+    int team_id PK
   }
   reports {
     int score_id PK "the board row reported"
@@ -238,7 +251,7 @@ Terms used across the code:
   colour, with every body below as a card in those colours and size, so kids compare them before picking),
   *Body* (height and build, for kids made from video), *Team* (`players/teams.js`: the teams everyone has,
   Kings first, or your own, kept on the device as `orson-hoops-my-teams`; each has a home and an away kit of
-  jersey, shorts and trim; plus the player's number) and *Gear* (shoe colour, and the shop's ball styles
+  jersey, shorts and trim; plus the player's number. With the `teams` flag: community teams too, below) and *Gear* (shoe colour, and the shop's ball styles
   through `progress.js`: owned ones are picked straight away, others are tried on in a kid from video's hands
   with Buy or Cancel covering the gear). *Done* opens a sheet with
   the nickname, "Play as them now" and "Send to Orson". The cards load every body in the background. Own players have an edit pencil in the game's picker:
@@ -332,15 +345,28 @@ Terms used across the code:
   other's codes at once), nothing moves and the device is asked to get a new code (409), so no coins or
   devices end up in a progress that's gone.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
-- **Top teams** (`worker/src/teams.ts`, flag `teams`): a board of teams next to the players' boards, per mode,
-  this week and all time (`GET /api/teams`, edge-cached and cleared with the mode's board; refused while the
-  flag is off). The team is saved with each game when it's sent (`scores.team`): KINGS for Orson, an approved
-  player's team name, or the team a kid's own player wears (sent by the game, checked by the rude-word filter).
-  A team's score is its 3 best players added up (`TEAM_COUNTS` in `shared/teams.js`), each player once at
-  their best, so a big team can't win by numbers; in Around the World the 3 best times add up and teams with
-  all 3 come first. A team shows only if it's official (`TEAMS` in `shared/teams.js`) or an approved player
-  has it, never a blocked name, and only from shown games played from `FEATURE_FROM.teams`. In the game a
-  Players / Teams switch on the leaderboard (`renderTeams` in `leaderboard.js`) appears with the flag.
+- **Teams** (`worker/src/teams.ts`, `players/community.js`, flag `teams`; every route is refused while it's
+  off). Two kinds: the six official teams (`TEAMS` in `shared/teams.js`) and **community teams** kids make in
+  the builder (`community_teams`), clearly marked "Made by players". A community team is private from the
+  start: friends join with an 8-character code shared in person (only a keyed hash is stored, so the maker's
+  device keeps the code; a new code stops the old one), and there's no way to send one in the game. The maker
+  can ask to show it to everyone: Luke OKs the name in the admin inbox ("Teams to list"), and listed names are
+  unique among listed and official teams. A device (its board, so paired devices count as one, and pairing
+  moves its teams like its scores) makes at most 3, with Turnstile and a per-IP daily limit; joins are 15
+  tries a day per IP. Joining means wearing the team's kit and name (`colours.teamId` on the player, kept on
+  the device); a device is on a team in `team_members`. Luke can list, refuse a name, unlist, rename or hide a
+  team (Teams section); a hidden one is gone everywhere.
+- **Top teams:** per mode, this week and all time (`GET /api/teams`, edge-cached and cleared with the mode's
+  board). The team is saved with each game when it's sent (`scores.team`) and never moves: KINGS for Orson; for
+  a kid's own player, the community team they wear if their device is on it, else the official team they
+  wear; for someone else's approved player, their team if it's official. A team's score is its 3 best devices
+  added up (`TEAM_COUNTS`), each device once at its best game for that team, so a big team can't win by
+  numbers and one kid can't fill all 3; in Around the World the 3 best times add up and teams with all 3 come
+  first. It shows official and listed teams (never a blocked name), from shown games played from
+  `FEATURE_FROM.teams`; a private team's members get a "Your team" row with where it would be
+  (`POST /api/teams/players`, just for them). Rows show the top player's face; tapping one lists the team's
+  players (nicknames as on the players' boards) with the 3 that count marked. In the game a Players / Teams
+  switch on the leaderboard (`renderTeams` in `leaderboard.js`) appears with the flag.
 
 ## Courts
 

@@ -113,7 +113,10 @@ function showRound() {
         score,
         shots,
         ...look,
-        team: c?.mine ? c.colours?.teamName : undefined, // their own player's team, for Top teams (the server knows the others')
+        // Their own player's team, for Top teams (the server knows the others'): an official team's name, or the
+        // community team they wear (it only counts if this device is on it).
+        team: c?.mine ? c.colours?.teamName : undefined,
+        teamId: c?.mine ? c.colours?.teamId : undefined,
         input: state.input,
         hiddenTab: state.hiddenTab,
         version: gameVersion,

@@ -104,6 +104,14 @@
 			.sub .actions .danger { margin-top: auto; }
 			.sub .actions .keep { margin-top: auto; }
 			.sub .actions .keep + .danger { margin-top: 0; }
+			/* Community teams (worker/src/teams.ts): a card each, with its kits. */
+			.teams { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+			.team-card { background: var(--panel); border-radius: 8px; padding: 10px; display: grid; gap: 8px; }
+			.team-card .name { font-weight: bold; font-size: 16px; overflow-wrap: anywhere; }
+			.team-card .kits { display: flex; gap: 10px; align-items: center; font-size: 12px; }
+			.team-card .kit { display: inline-flex; gap: 2px; }
+			.team-card .kit span { width: 12px; height: 20px; border: 2px solid #111; border-radius: 3px; }
+			.team-card .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 			/* Kind words: compliments kept off the board. */
 			.words { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
 			.word { background: var(--panel); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
@@ -218,6 +226,7 @@
 					<a href="/admin/ideas" id="tab-ideas">Ideas</a>
 					<a href="/admin/players" id="tab-players">Players</a>
 					<a href="/admin/scores" id="tab-scores">Scores</a>
+					<a href="/admin/teams" id="tab-teams">Teams</a>
 					<a href="/admin/words" id="tab-words">Kind words</a>
 					<a href="/admin/stats" id="tab-stats">Stats</a>
 					<a href="/admin/flags" id="tab-flags">Flags</a>
@@ -227,6 +236,7 @@
 			<section id="ideas" hidden></section>
 			<section id="players" hidden></section>
 			<section id="scores" hidden></section>
+			<section id="teams" hidden></section>
 			<section id="words" hidden></section>
 			<section id="stats" hidden></section>
 			<section id="flags" hidden></section>
@@ -325,6 +335,7 @@
 				renderPlayers();
 				renderScores();
 				renderWords();
+				renderTeams();
 				scrollTo(0, y);
 			}
 
@@ -349,7 +360,8 @@
 					byPlayer.set(key, [...(byPlayer.get(key) ?? []), s]);
 				}
 				const odd = [...byPlayer.values()];
-				const total = data.submissions.length + requests.length + odd.length + names.length + (data.digest ? 1 : 0);
+				const asked = (data.teams ?? []).filter((t) => t.listing === "asked" && t.status === "ok");
+				const total = data.submissions.length + requests.length + odd.length + names.length + asked.length + (data.digest ? 1 : 0);
 				document.getElementById("inbox-count").textContent = total ? `(${total})` : "";
 				box.replaceChildren();
 				if (!total) return box.append(el("div", { className: "empty", innerHTML: "All caught up!<br>Nothing needs a look." }));
@@ -361,11 +373,13 @@
 						requests.length ? el("span", { textContent: `${requests.length} player requests` }) : null,
 						odd.length ? el("span", { textContent: `${odd.length} odd scores` }) : null,
 						names.length ? el("span", { textContent: `${names.length} reported names` }) : null,
+						asked.length ? el("span", { textContent: `${asked.length} teams to list` }) : null,
 					),
 				);
 				if (data.digest) box.append(digestCard(data.digest));
 				if (names.length) box.append(el("h2", { textContent: `Reported names (${names.length})` }), ...names.map(scoreRow));
 				if (requests.length) box.append(el("h2", { textContent: `Player requests (${requests.length})` }), el("div", { className: "tiles" }, ...requests.map(playerTile)));
+				if (asked.length) box.append(el("h2", { textContent: `Teams to list (${asked.length})` }), el("p", { className: "meta", textContent: "A kid asked to show their team to everyone. Check the name isn't a real school, club or person." }), el("div", { className: "teams" }, ...asked.map(teamCard)));
 				if (data.submissions.length) {
 					box.append(el("h2", { textContent: `New ideas (${data.submissions.length})` }));
 					for (const [key, title, items] of ideaGroups()) box.append(group(`inbox ${key}`, title, items.length, true, ...items.map(submissionCard)));
@@ -777,6 +791,50 @@
 				);
 			}
 
+			// ---------- Teams ----------
+
+			// Community teams kids made (the teams flag). Private ones work straight away after the word filter;
+			// listing one for everyone needs Luke's OK on its name. Hiding one takes it off every board, and
+			// its members go back to an official team.
+			const LISTING = { private: "Private (code only)", asked: "Wants to be listed", listed: "Listed for everyone", refused: "Name not OKed: private" };
+			const kitSwatch = (k) => el("span", { className: "kit" }, ...["jersey", "shorts", "trim"].map((p) => el("span", { style: `background:${k?.[p] ?? "#000"}` })));
+			function teamCard(t) {
+				const act = (action, extra, done) => run(() => api(`teams/${t.id}`, { action, ...extra }), done);
+				const name = el("input", { type: "text", value: t.name, maxLength: 10 });
+				return el(
+					"div",
+					{ className: "team-card" },
+					el("div", { className: "name", textContent: t.name }),
+					el("div", { className: "kits" }, kitSwatch(t.home), "Home", kitSwatch(t.away), "Away"),
+					el("div", { className: "meta", textContent: `${t.status === "hidden" ? "Hidden · " : ""}${LISTING[t.listing]} · ${t.members} ${t.members === 1 ? "device" : "devices"} · made ${t.created_at.slice(0, 10)}` }),
+					el(
+						"div",
+						{ className: "row" },
+						t.status === "ok" && t.listing === "asked" ? el("button", { type: "button", className: "primary", textContent: "List it", onclick: act("list", {}, "Listed") }) : null,
+						t.status === "ok" && t.listing === "asked" ? el("button", { type: "button", textContent: "Not this name", onclick: act("refuse", {}, "Kept private") }) : null,
+						t.status === "ok" && t.listing === "listed" ? el("button", { type: "button", textContent: "Unlist", onclick: act("unlist", {}, "Unlisted") }) : null,
+						t.status === "ok"
+							? el("button", { type: "button", className: "danger", textContent: "Hide team", onclick: act("hide", {}, "Hidden") })
+							: el("button", { type: "button", textContent: "Show again", onclick: act("show", {}, "Shown again") }),
+					),
+					el("div", { className: "row" }, name, el("button", { type: "button", textContent: "Rename", onclick: () => act("rename", { name: name.value }, "Renamed")() })),
+				);
+			}
+			function renderTeams() {
+				const box = document.getElementById("teams");
+				const teams = data.teams ?? [];
+				box.replaceChildren();
+				if (!teams.length) return box.append(el("div", { className: "empty", innerHTML: "No community teams yet.<br>Kids make them in the player builder (teams flag)." }));
+				box.append(el("h2", { textContent: `Community teams (${teams.length})` }));
+				for (const [key, title, list, open] of [
+					["asked", "Wants to be listed", teams.filter((t) => t.status === "ok" && t.listing === "asked"), true],
+					["listed", "Listed", teams.filter((t) => t.status === "ok" && t.listing === "listed"), true],
+					["private", "Private", teams.filter((t) => t.status === "ok" && (t.listing === "private" || t.listing === "refused")), false],
+					["hidden", "Hidden", teams.filter((t) => t.status === "hidden"), false],
+				])
+					if (list.length) box.append(group(`teams ${key}`, title, list.length, open, el("div", { className: "teams" }, ...list.map(teamCard))));
+			}
+
 			// ---------- Kind words ----------
 
 			// Compliments sent through the ideas form, kept off the board to read (and maybe quote one day).
@@ -1173,7 +1231,7 @@
 
 			// Each section has its own address (/admin is the inbox, then /admin/ideas and so on), so a
 			// link or a reload opens it and Back goes to the one before. The Worker serves this page for all.
-			const TABS = ["inbox", "ideas", "players", "scores", "words", "stats", "flags"];
+			const TABS = ["inbox", "ideas", "players", "scores", "teams", "words", "stats", "flags"];
 			const sectionOf = (path) => TABS.find((t) => t !== "inbox" && new RegExp(`^/admin/${t}/?$`).test(path)) ?? "inbox";
 			function show(section) {
 				for (const t of TABS) {
