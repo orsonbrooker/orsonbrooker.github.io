@@ -248,7 +248,12 @@ def hide_hair_above(p, rect, sheet, regions):
     head = np.zeros((H, W), bool)
     head[:rows.max() + (rows.max() - rows.min())] = True
     skin = body & (reg == SKIN)
-    away = ~ndimage.binary_dilation(skin, iterations=6)
+    # ...and only out past the hat's sides: the back of the head under a hat seen from behind is all
+    # hair, away from any skin, and stays
+    cols = np.nonzero(hat.any(0))[0]
+    beside = np.ones((H, W), bool)
+    beside[:, cols.min():cols.max() + 1] = False
+    away = ~ndimage.binary_dilation(skin, iterations=6) & beside
     hair = body & (reg == HAIR) & ~keep & (above | (head & away))
     ring = ndimage.binary_dilation(hair, iterations=4) & body & (reg == 0) & ~keep & (above | (head & away))
     part[hair | ring, 1] = 255
