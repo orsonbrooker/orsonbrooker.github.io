@@ -1,7 +1,10 @@
 // Height and build for a kid made from their own videos: each frame gets rows doubled (or taken out)
 // between the top of the jersey and the feet, and columns across the jersey. The number and team name are
 // drawn on first, so they stretch with the jersey; the held ball moves with the hands but keeps its size.
-// Returns a new sheet: { meta, img } with no prints.
+// Returns a new sheet: { meta, img } with no prints, and `meta.feet`: where the shoes are in each frame (from
+// the region map, moved with the stretch), since the stretched sheet has no region map of its own.
+
+import { regionFeet } from "../engine/draw.js";
 
 // How far each goes at 1 (or -1): a share of the height, and of the jersey's width.
 const HEIGHT_STEP = 0.06;
@@ -70,6 +73,7 @@ export function stretchFrame(src, [sx, sy], regions, [x, y, w, h, ox], build = {
   g1.drawImage(src, sx, sy, w, h, 0, 0, w, h);
   if (print) g1.drawImage(print, 0, 0, print.width, print.height, 0, 0, w, h);
   const j = jerseyBox(regions, x, y, w, h);
+  const feet = regions && regionFeet(regions, [x, y, w, h]);
   const top = j ? j.top : Math.round(h * 0.36);
   const rowFit = stretch(h, Math.round(height * HEIGHT_STEP * h), top, h - 6);
   const rows = rowFit.map;
@@ -90,6 +94,7 @@ export function stretchFrame(src, [sx, sy], regions, [x, y, w, h, ox], build = {
     dx: colFit.fwd(-ox) + ox,
     dy: rows.length - h,
     ball: ball && [colFit.fwd(ball[0]), rowFit.fwd(ball[1]), ball[2]],
+    feet: feet && feet.map(([fx, fy]) => [colFit.fwd(fx), rowFit.fwd(fy)]),
   };
 }
 
@@ -125,7 +130,11 @@ export function stretchSheet({ meta, img, prints }, regions, build = {}) {
   for (const [key, m] of made) gs.drawImage(m.canvas, ...at.get(key));
 
   const balls = {};
-  for (const [key, m] of made) if (m.ball) balls[at.get(key).join(",")] = m.ball;
+  const feet = {};
+  for (const [key, m] of made) {
+    if (m.ball) balls[at.get(key).join(",")] = m.ball;
+    if (m.feet) feet[at.get(key).join(",")] = m.feet;
+  }
   const frames = {};
   for (const [anim, list] of Object.entries(meta.frames))
     frames[anim] = list.map((f) => {
@@ -138,5 +147,5 @@ export function stretchSheet({ meta, img, prints }, regions, build = {}) {
   const move = ([x, y]) => [Math.round(x * kx), Math.round(y * ky)];
   const releaseOffsets = meta.releaseOffsets && Object.fromEntries(Object.entries(meta.releaseOffsets).map(([k, v]) => [k, move(v)]));
   const releaseOffset = meta.releaseOffset && move(meta.releaseOffset);
-  return { meta: { ...meta, frames, balls, releaseOffsets, releaseOffset, printsFrom: undefined }, img: sheet, prints: null };
+  return { meta: { ...meta, frames, balls, feet, releaseOffsets, releaseOffset, printsFrom: undefined }, img: sheet, prints: null };
 }

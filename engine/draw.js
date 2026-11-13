@@ -334,58 +334,67 @@ export function createWallScoreboard() {
 
 // ---------- Sprite sheets ----------
 
-// Where the shoes are in each frame of a sprite sheet: for every frame, two [x, y] points (sprite pixels from the
-// frame's corner) at the bottom middle of each shoe. Builder players have a colour map marking their shoe pixels
-// (region 5), which is exact whatever colour the shoes are. Hand-made players don't, so their shoes are found by
-// the lowest pixels in each column of the bottom of the frame, skipping warm colours so the ball and skin aren't
-// mistaken for shoes. Cached per sheet.
+// Where the shoes are in a frame of a sprite sheet: two [x, y] points (sprite pixels from the frame's corner)
+// at the bottom middle of each shoe. Sheets with a colour map (builder players, kids from video) mark their
+// shoe pixels (region 5), which is exact whatever colour the shoes are. Others don't, so their shoes are found
+// by the lowest pixels in each column of the bottom of the frame, skipping warm colours so the ball and skin
+// aren't mistaken for shoes. Worked out for each frame the first time it's drawn on fire, then kept.
 const SHOES = 5;
-const feetCache = new WeakMap();
-export function shoesIn(sheet, meta, regions) {
-  if (feetCache.has(sheet)) return feetCache.get(sheet);
-  const c = document.createElement("canvas");
-  c.width = sheet.width;
-  c.height = sheet.height;
-  const g = c.getContext("2d", { willReadFrequently: true });
-  g.drawImage(sheet, 0, 0);
-  const result = {};
-  for (const [anim, frames] of Object.entries(meta.frames)) {
-    result[anim] = frames.map(([sx, sy, w, h]) => {
-      const px = g.getImageData(sx, sy, w, h).data;
-      const isShoe = regions
-        ? (x, y) => regions.data[((sy + y) * regions.width + sx + x) * 4] === SHOES
-        : (x, y) => {
-            const i = (y * w + x) * 4;
-            const [r, gg, b, a] = [px[i], px[i + 1], px[i + 2], px[i + 3]];
-            return a >= 128 && !(r - b > 40 && r >= gg); // skip warm colours: ball, skin
-          };
-      const bottom = new Array(w).fill(-1);
-      for (let x = 0; x < w; x++) {
-        for (let y = h - 1; y >= h * 0.6; y--) {
-          if (!isShoe(x, y)) continue;
-          bottom[x] = y;
-          break;
-        }
-      }
-      // runs of columns that reach the bottom fifth of the frame
-      const runs = [];
-      for (let x = 0; x < w; x++) {
-        if (bottom[x] < (regions ? 0 : h * 0.8)) continue;
-        const run = runs.at(-1);
-        if (run && x - run.x1 <= 2) run.x1 = x;
-        else runs.push({ x0: x, x1: x });
-      }
-      let feet = runs.filter((r) => r.x1 - r.x0 >= 3).sort((a, b) => b.x1 - b.x0 - (a.x1 - a.x0)).slice(0, 2);
-      if (feet.length === 1) {
-        const { x0, x1 } = feet[0], m = (x0 + x1) >> 1;
-        feet = [{ x0, x1: m }, { x0: m + 1, x1 }];
-      }
-      if (!feet.length) return [[w * 0.35, h], [w * 0.65, h]];
-      return feet
-        .map(({ x0, x1 }) => [(x0 + x1) / 2, Math.max(...bottom.slice(x0, x1 + 1))])
-        .sort((a, b) => a[0] - b[0]);
-    });
+
+/** The feet in a w x h frame, from isShoe(x, y); `exact`: from a colour map (any shoe pixel counts). */
+export function feetOf(isShoe, w, h, exact) {
+  const bottom = new Array(w).fill(-1);
+  for (let x = 0; x < w; x++) {
+    for (let y = h - 1; y >= h * 0.6; y--) {
+      if (!isShoe(x, y)) continue;
+      bottom[x] = y;
+      break;
+    }
   }
-  feetCache.set(sheet, result);
-  return result;
+  // runs of columns that reach the bottom fifth of the frame
+  const runs = [];
+  for (let x = 0; x < w; x++) {
+    if (bottom[x] < (exact ? 0 : h * 0.8)) continue;
+    const run = runs.at(-1);
+    if (run && x - run.x1 <= 2) run.x1 = x;
+    else runs.push({ x0: x, x1: x });
+  }
+  let feet = runs.filter((r) => r.x1 - r.x0 >= 3).sort((a, b) => b.x1 - b.x0 - (a.x1 - a.x0)).slice(0, 2);
+  if (feet.length === 1) {
+    const { x0, x1 } = feet[0], m = (x0 + x1) >> 1;
+    feet = [{ x0, x1: m }, { x0: m + 1, x1 }];
+  }
+  if (!feet.length) return [[w * 0.35, h], [w * 0.65, h]];
+  return feet.map(({ x0, x1 }) => [(x0 + x1) / 2, Math.max(...bottom.slice(x0, x1 + 1))]).sort((a, b) => a[0] - b[0]);
+}
+
+/** The feet in the frame [x, y, w, h] of a colour map (ImageData at the sheet's places). */
+export const regionFeet = (regions, [sx, sy, w, h]) => feetOf((x, y) => regions.data[((sy + y) * regions.width + sx + x) * 4] === SHOES, w, h, true);
+
+const feetCache = new WeakMap(); // sheet -> Map(frame's place -> feet)
+let scratch = null;
+export function feetIn(sheet, frame, regions) {
+  const [sx, sy, w, h] = frame;
+  let known = feetCache.get(sheet);
+  if (!known) feetCache.set(sheet, (known = new Map()));
+  const key = `${sx},${sy}`;
+  if (known.has(key)) return known.get(key);
+  let out;
+  if (regions) out = regionFeet(regions, frame);
+  else {
+    // just this frame's pixels (a GPU canvas, like the sheet, so only the frame is read back)
+    scratch ??= document.createElement("canvas").getContext("2d");
+    const c = scratch.canvas;
+    if (c.width < w || c.height < h) Object.assign(c, { width: Math.max(c.width, w), height: Math.max(c.height, h) });
+    scratch.clearRect(0, 0, w, h);
+    scratch.drawImage(sheet, sx, sy, w, h, 0, 0, w, h);
+    const px = scratch.getImageData(0, 0, w, h).data;
+    out = feetOf((x, y) => {
+      const i = (y * w + x) * 4;
+      const [r, gg, b, a] = [px[i], px[i + 1], px[i + 2], px[i + 3]];
+      return a >= 128 && !(r - b > 40 && r >= gg); // skip warm colours: ball, skin
+    }, w, h, false);
+  }
+  known.set(key, out);
+  return out;
 }
