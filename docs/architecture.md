@@ -60,8 +60,11 @@ flowchart LR
   stamp replaces the older one. Pages and unstamped JSON lists go to the network first and use the cached
   copy only when offline, so a deploy shows on the next online visit even if the worker itself is stale.
   Other unstamped files (the court, the hoop) are kept until the next deploy. `/api/*`, `/admin` and other
-  sites are never touched. After the title screen the game asks it to keep every player's and builder
-  body's sheets and the announcer's and sounds' clips, so any player can be chosen offline. A score from an offline game says
+  sites are never touched (so feature flags, `/api/flags`, always come from the server, or the copy
+  `flags.js` kept). After the title screen the game asks it to keep every player's and builder body's
+  sheets, at the size this device draws them, and the announcer's and sounds' clips, so any player can be
+  chosen offline. Only what's out is kept ahead: the lists already follow the flags (drawn Curly and Buns
+  until `videokids`, Orson's old art until `orsonvideo`), and gear and heads are only fetched when worn. A score from an offline game says
   "Scores need the internet." instead of sending.
 
 ```mermaid
@@ -687,9 +690,11 @@ flowchart LR
   (`"hides": "hair"`), so Buns' buns go under a cap or beanie.
 - **Kept between visits** (`play/kept.js`): building a kid from video in a player's colours, gear and size
   takes 3-8 s on a phone, so the finished sheet (number and team name drawn in) and its frame list go in
-  Cache Storage (`built-players`, the newest 6), named by a hash of the sheet size and the sheets' stamps, the colours, build,
-  gear (with each layer's stamp) and the code that builds players (filled in by `vite.config.js`). A later
-  visit decodes that one image off the main thread instead of building.
+  Cache Storage (`built-players`, the newest 6), named by a hash of the sheet size and that size's sheets'
+  stamps, the colours, build, gear (with each layer's stamp, from that size's gear index) and the code that
+  builds players (filled in by `vite.config.js`). The frame list carries where the feet are in every frame
+  (from the region map, if not stretched), so a kept player needs no region map. A later visit decodes that
+  one image off the main thread instead of downloading and building.
 - **Moves:** their sheets add `start` (picking the dribble back up) and `recover` (arms down after a shot),
   which the game uses when a sheet has them (`hasMove()` in `play/players.js`).
 
