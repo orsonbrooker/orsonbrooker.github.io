@@ -6,28 +6,42 @@
  "background": "green",
  "clips": {
   "turn": {
-   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-turn.mp4"
+   "video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/buns/buns-turn.mp4"
   },
   "shot-back-left": {
-   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-shot-back-left.mp4"
+   "video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/buns/buns-shot-back-left.mp4"
   },
   "shot-back": {
-   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-shot-back.mp4"
+   "video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/buns/buns-shot-back.mp4"
   },
   "dribble-back": {
-   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-dribble-back.mp4",
+   "video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/buns/buns-dribble-back.mp4",
    "keep_ball": true
   },
   "dribble-back-left": {
-   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-dribble-back-left.mp4",
+   "video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/buns/buns-dribble-back-left.mp4",
    "keep_ball": true
   },
   "dribble-left": {
-   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-dribble-left.mp4",
+   "video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/buns/buns-dribble-left.mp4",
    "keep_ball": true
   },
   "shot-front-left": {
-   "video": "/Users/lukebrooker/Downloads/orson-basketball/buns/buns-shot-fl.mp4"
+   "video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/buns/buns-shot-fl.mp4"
+  },
+  "dribble-front-left": {
+   "video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/buns/buns-dribble-front-left.mp4",
+   "keep_ball": true
+  },
+  "shot-left": {
+   "video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/buns/buns-shot-left.mp4"
+  },
+  "dribble-front": {
+   "video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/buns/buns-dribble-front.mp4",
+   "keep_ball": true
+  },
+  "shot-front": {
+   "video": "/Users/lukebrooker/Documents/Work/Shootaround/videos/buns/buns-shot-front.mp4"
   }
  },
  "anims": {
@@ -284,58 +298,58 @@
    "anchor": "dribble-l"
   },
   "gather-l": {
-   "clip": "shot-front-left",
+   "clip": "shot-left",
    "frames": [
-    4,
-    7,
-    10,
-    13,
-    16,
-    19,
-    22
+    24,
+    27,
+    30,
+    33,
+    36,
+    38,
+    40
    ],
    "face": "side"
   },
   "jump-l": {
-   "clip": "shot-front-left",
+   "clip": "shot-left",
    "frames": [
-    24,
-    26,
-    28,
-    30,
-    32,
-    34,
-    36
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47
    ],
-   "face": "front",
+   "face": "side",
    "anchor": "gather-l"
   },
   "release-l": {
-   "clip": "shot-front-left",
+   "clip": "shot-left",
    "frames": [
-    38,
-    41,
-    44,
-    47,
+    48,
     50,
-    53,
-    56
+    52,
+    55,
+    58,
+    62,
+    66
    ],
-   "face": "front",
+   "face": "side",
    "anchor": "gather-l"
   },
   "recover-l": {
-   "clip": "shot-front-left",
+   "clip": "shot-left",
    "frames": [
-    58,
-    64,
     70,
     76,
     82,
-    88,
-    94
+    86,
+    90,
+    94,
+    98
    ],
-   "face": "front",
+   "face": "side",
    "anchor": "gather-l"
   },
   "jog-b": {
@@ -403,9 +417,8 @@
    "face": "side"
   },
   "jog-f": {
-   "clip": "dribble-left",
+   "clip": "dribble-front",
    "frames": [
-    62,
     64,
     66,
     68,
@@ -418,65 +431,70 @@
     82,
     84,
     86,
-    88
+    88,
+    90
    ],
    "fps": 12,
-   "face": "side"
+   "face": "front"
   },
   "jog-fl": {
-   "clip": "dribble-left",
+   "clip": "dribble-front-left",
    "frames": [
-    62,
-    64,
-    66,
-    68,
-    70,
-    72,
-    74,
-    76,
-    78,
-    80,
-    82,
-    84,
-    86,
-    88
+    77,
+    79,
+    81,
+    83,
+    85,
+    87,
+    89,
+    91,
+    93,
+    95,
+    97,
+    99
    ],
    "fps": 12,
-   "face": "side"
+   "face": "front",
+   "face_x": -0.15
   },
   "dribble-fl": {
-   "clip": "dribble-left",
+   "clip": "dribble-front-left",
    "frames": [
-    14,
-    15,
-    16,
-    17,
-    18,
-    19,
-    20,
-    21,
-    22,
-    23,
-    24,
-    25
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39
    ],
    "fps": 24,
-   "face": "side"
+   "face": "front",
+   "face_x": -0.15
   },
   "start-fl": {
-   "clip": "dribble-left",
+   "clip": "dribble-front-left",
    "frames": [
     0,
-    2,
-    4,
+    3,
     6,
-    8,
-    10,
-    12
+    9,
+    12,
+    15,
+    18,
+    21,
+    24
    ],
    "fps": 12,
-   "face": "side",
-   "anchor": "dribble-fl"
+   "face": "front",
+   "anchor": "dribble-fl",
+   "face_x": -0.15
   },
   "gather-fl": {
    "clip": "shot-front-left",
@@ -532,6 +550,96 @@
    ],
    "face": "front",
    "anchor": "gather-fl"
+  },
+  "gather-f": {
+   "clip": "shot-front",
+   "frames": [
+    10,
+    13,
+    16,
+    19,
+    22,
+    25,
+    28
+   ],
+   "face": "front"
+  },
+  "jump-f": {
+   "clip": "shot-front",
+   "frames": [
+    29,
+    31,
+    33,
+    35,
+    37,
+    39,
+    42
+   ],
+   "face": "front",
+   "anchor": "gather-f"
+  },
+  "release-f": {
+   "clip": "shot-front",
+   "frames": [
+    44,
+    46,
+    48,
+    51,
+    54,
+    57,
+    60
+   ],
+   "face": "front",
+   "anchor": "gather-f"
+  },
+  "recover-f": {
+   "clip": "shot-front",
+   "frames": [
+    66,
+    74,
+    82,
+    88,
+    92,
+    96,
+    100
+   ],
+   "face": "front",
+   "anchor": "gather-f"
+  },
+  "dribble-f": {
+   "clip": "dribble-front",
+   "frames": [
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46
+   ],
+   "fps": 24,
+   "face": "front"
+  },
+  "start-f": {
+   "clip": "dribble-front",
+   "frames": [
+    0,
+    4,
+    8,
+    12,
+    16,
+    20,
+    24,
+    28,
+    32
+   ],
+   "fps": 12,
+   "face": "front",
+   "anchor": "dribble-f"
   }
  },
  "spin": {
@@ -1265,64 +1373,48 @@
   "dribble": {
    "from": [
     [
-     "dribble-bl",
+     "dribble-f",
      0
     ],
     [
-     "dribble-bl",
+     "dribble-f",
      1
     ],
     [
-     "dribble-bl",
+     "dribble-f",
      2
     ],
     [
-     "dribble-bl",
+     "dribble-f",
      3
     ],
     [
-     "dribble-bl",
+     "dribble-f",
      4
     ],
     [
-     "dribble-bl",
+     "dribble-f",
      5
     ],
     [
-     "dribble-bl",
+     "dribble-f",
      6
     ],
     [
-     "dribble-bl",
+     "dribble-f",
      7
     ],
     [
-     "dribble-bl",
+     "dribble-f",
      8
     ],
     [
-     "dribble-bl",
+     "dribble-f",
      9
     ],
     [
-     "dribble-bl",
+     "dribble-f",
      10
-    ],
-    [
-     "dribble-bl",
-     11
-    ],
-    [
-     "dribble-bl",
-     12
-    ],
-    [
-     "dribble-bl",
-     13
-    ],
-    [
-     "dribble-bl",
-     14
     ]
    ],
    "fps": 24
@@ -1330,31 +1422,31 @@
   "gather": {
    "from": [
     [
-     "gather-bl",
+     "gather-f",
      0
     ],
     [
-     "gather-bl",
+     "gather-f",
      1
     ],
     [
-     "gather-bl",
+     "gather-f",
      2
     ],
     [
-     "gather-bl",
+     "gather-f",
      3
     ],
     [
-     "gather-bl",
+     "gather-f",
      4
     ],
     [
-     "gather-bl",
+     "gather-f",
      5
     ],
     [
-     "gather-bl",
+     "gather-f",
      6
     ]
    ]
@@ -1362,31 +1454,31 @@
   "jump": {
    "from": [
     [
-     "jump-bl",
+     "jump-f",
      0
     ],
     [
-     "jump-bl",
+     "jump-f",
      1
     ],
     [
-     "jump-bl",
+     "jump-f",
      2
     ],
     [
-     "jump-bl",
+     "jump-f",
      3
     ],
     [
-     "jump-bl",
+     "jump-f",
      4
     ],
     [
-     "jump-bl",
+     "jump-f",
      5
     ],
     [
-     "jump-bl",
+     "jump-f",
      6
     ]
    ]
@@ -1394,31 +1486,31 @@
   "release": {
    "from": [
     [
-     "release-bl",
+     "release-f",
      0
     ],
     [
-     "release-bl",
+     "release-f",
      1
     ],
     [
-     "release-bl",
+     "release-f",
      2
     ],
     [
-     "release-bl",
+     "release-f",
      3
     ],
     [
-     "release-bl",
+     "release-f",
      4
     ],
     [
-     "release-bl",
+     "release-f",
      5
     ],
     [
-     "release-bl",
+     "release-f",
      6
     ]
    ]
@@ -1544,16 +1636,6 @@
     [
      "jog-fl",
      11,
-     "flip"
-    ],
-    [
-     "jog-fl",
-     12,
-     "flip"
-    ],
-    [
-     "jog-fl",
-     13,
      "flip"
     ]
    ],
@@ -1950,14 +2032,6 @@
     [
      "jog-fl",
      11
-    ],
-    [
-     "jog-fl",
-     12
-    ],
-    [
-     "jog-fl",
-     13
     ]
    ],
    "fps": 12
@@ -2468,6 +2542,10 @@
     [
      "dribble-fl",
      11
+    ],
+    [
+     "dribble-fl",
+     12
     ]
    ],
    "fps": 24
@@ -2532,6 +2610,11 @@
     [
      "dribble-fl",
      11,
+     "flip"
+    ],
+    [
+     "dribble-fl",
+     12,
      "flip"
     ]
    ],
@@ -2942,6 +3025,16 @@
      "start-fl",
      6,
      "flip"
+    ],
+    [
+     "start-fl",
+     7,
+     "flip"
+    ],
+    [
+     "start-fl",
+     8,
+     "flip"
     ]
    ],
    "fps": 12
@@ -3162,16 +3255,79 @@
      "jog-fl",
      11,
      "flip"
+    ]
+   ],
+   "fps": 12
+  },
+  "recover": {
+   "from": [
+    [
+     "recover-f",
+     0
     ],
     [
-     "jog-fl",
-     12,
-     "flip"
+     "recover-f",
+     1
     ],
     [
-     "jog-fl",
-     13,
-     "flip"
+     "recover-f",
+     2
+    ],
+    [
+     "recover-f",
+     3
+    ],
+    [
+     "recover-f",
+     4
+    ],
+    [
+     "recover-f",
+     5
+    ],
+    [
+     "recover-f",
+     6
+    ]
+   ]
+  },
+  "start": {
+   "from": [
+    [
+     "start-f",
+     0
+    ],
+    [
+     "start-f",
+     1
+    ],
+    [
+     "start-f",
+     2
+    ],
+    [
+     "start-f",
+     3
+    ],
+    [
+     "start-f",
+     4
+    ],
+    [
+     "start-f",
+     5
+    ],
+    [
+     "start-f",
+     6
+    ],
+    [
+     "start-f",
+     7
+    ],
+    [
+     "start-f",
+     8
     ]
    ],
    "fps": 12
@@ -3208,6 +3364,10 @@
    "jump-fl",
    6,
    "flip"
+  ],
+  "f": [
+   "jump-f",
+   6
   ]
  },
  "release_from": [
