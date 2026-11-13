@@ -306,17 +306,24 @@
   border: 2px solid var(--ink);
 }
 
-/* One row of colours that shrinks to fit rather than wrapping. */
+/* Colours: big enough to tap (44px across at least). In one row where there's room (desktop), else
+   in two rows of equal swatches. */
 .swatch-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(var(--half, 5), minmax(44px, 56px));
   gap: 6px;
   padding: 8px 2px 2px;
 }
 
+@media (min-width: 1000px) {
+  .swatch-row {
+    grid-template-columns: repeat(var(--n, 10), minmax(44px, 52px));
+  }
+}
+
 .swatch {
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: 52px;
+  width: 100%;
+  min-width: 44px;
   height: 44px;
   padding: 0;
   border: 3px solid rgba(0, 0, 0, 0.25);
