@@ -631,29 +631,34 @@ function paintTeams() {
     teamInput.focus({ preventScroll: true });
     teamInput.select();
   });
+  // The teams first (theirs, then ones made by players they can join, then the official ones), then
+  // making a team and joining one with a code at the end.
   const drafts = [...mine, ...(linkTeam ? [linkTeam] : [])];
+  const section = (title, ...rows) => el("section", { className: "team-list" }, el("p", { className: "pane-title" }, title), ...rows);
+  const official = section("Teams", ...TEAMS.map((t) => teamRow(t)));
   if (!COMMUNITY) {
-    list.replaceChildren(
-      el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Your teams"), ...drafts.map((t) => teamRow(t)), make),
-      el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Teams"), ...TEAMS.map((t) => teamRow(t))),
-    );
+    list.replaceChildren(...(drafts.length ? [section("Your teams", ...drafts.map((t) => teamRow(t)))] : []), official, section("New team", make));
     return;
   }
   const on = community.filter((t) => t.member !== false);
-  const yours = el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Your teams"));
+  const yours = [];
   for (const t of on) {
-    if (t.maker) yours.append(teamRow(t));
+    if (t.maker) yours.push(teamRow(t));
     else {
       const leave = button({ className: "fb-button team-edit" }, "Leave");
       leave.addEventListener("click", () => leave_(t));
-      yours.append(teamRow(t, { side: leave }));
+      yours.push(teamRow(t, { side: leave }));
     }
   }
-  for (const t of drafts) yours.append(teamRow(t));
-  if (drafts.length) yours.append(el("p", { className: "fb-hint team-hint", textContent: "Teams with Edit but no badge are only on this device. Edit one and tap Make it a team so friends can join." }));
-  yours.append(make);
+  for (const t of drafts) yours.push(teamRow(t));
+  if (drafts.length) yours.push(el("p", { className: "fb-hint team-hint", textContent: "Teams with Edit but no badge are only on this device. Edit one and tap Make it a team so friends can join." }));
 
-  const joinBox = el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Join a team"));
+  const open = listed.filter((t) => !on.some((o) => o.key === t.key));
+  const openRows = open.map((t) => {
+    const count = el("span", { className: "team-count", textContent: `${t.members} ${t.members === 1 ? "player" : "players"}` });
+    return teamRow(t, { side: count, onPick: () => runTeam(null, async () => wearTeam(await joinTeam({ id: t.id }), "home"), "Joined!") });
+  });
+
   const code = el("input", { type: "text", id: "team-code", maxLength: 9, autocomplete: "off", autocapitalize: "characters", spellcheck: false, placeholder: "ABCD-EFGH", ariaLabel: "Team code" });
   code.addEventListener("input", () => {
     const raw = code.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 8);
@@ -663,18 +668,16 @@ function paintTeams() {
   const join = () => runTeam(go, async () => wearTeam(await joinTeam({ code: code.value }), "home"), "Joined!");
   go.addEventListener("click", join);
   code.addEventListener("keydown", (e) => e.key === "Enter" && (e.preventDefault(), join()));
-  joinBox.append(
-    el("label", { className: "field" }, el("span", { className: "mini-label" }, "Got a code from a friend?"), el("div", { className: "code-row" }, code, go)),
+  list.replaceChildren(
+    ...(yours.length ? [section("Your teams", ...yours)] : []),
+    ...(openRows.length ? [section("Teams made by players", ...openRows)] : []),
+    official,
+    section("New team", make),
+    section(
+      "Join a team",
+      el("label", { className: "field" }, el("span", { className: "mini-label" }, "Got a code from a friend?"), el("div", { className: "code-row" }, code, go)),
+    ),
   );
-  const open = listed.filter((t) => !on.some((o) => o.key === t.key));
-  if (open.length) {
-    joinBox.append(el("p", { className: "mini-label", textContent: "Or pick one" }));
-    for (const t of open) {
-      const count = el("span", { className: "team-count", textContent: `${t.members} ${t.members === 1 ? "player" : "players"}` });
-      joinBox.append(teamRow(t, { side: count, onPick: () => runTeam(null, async () => wearTeam(await joinTeam({ id: t.id }), "home"), "Joined!") }));
-    }
-  }
-  list.replaceChildren(yours, joinBox, el("section", { className: "team-list" }, el("p", { className: "pane-title" }, "Teams"), ...TEAMS.map((t) => teamRow(t))));
 }
 
 // The editor: name and kit colours. For a draft with the flag on, Make it a team; for a community team
