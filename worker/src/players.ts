@@ -1,8 +1,9 @@
 // Players made with the builder: a base body, five colours, a nickname, maybe a pronoun (for the
 // announcer's lines) and maybe a size (height and bulk, from the builder's sliders). They wait for approval in the admin inbox before they're in the game.
 
+import { requireBodyOut, requireFlag } from "./flags.ts";
 import { HttpError } from "./http.ts";
-import { checkTurnstile, clean, hash, ipKey, isUnfriendly, json, readJson, RUDE } from "./util.ts";
+import { checkTurnstile, clean, hash, ipKey, isUnfriendly, json, rateLimit, readJson, RUDE } from "./util.ts";
 import type { Env } from "./util.ts";
 
 export const MAX_PLAYER_NAME = 12;
@@ -18,6 +19,8 @@ export const lookJson = (colours: Record<string, unknown>) => {
 	return JSON.stringify({ ...Object.fromEntries(PLAYER_PARTS.map((p) => [p, String(colours[p]).toLowerCase()])), ...(shorts ? { shorts } : {}) });
 };
 const PLAYERS_PER_HOUR = 3;
+/** Sends a day from one IP, resends too (the hourly count skips a request being replaced). */
+const SENDS_PER_DAY = 20;
 
 /** A nickname starts with a letter or number, then letters, numbers, spaces, ' and -. */
 export const isNickname = (name: string) => /^[\p{L}\p{N}][\p{L}\p{N} '-]*$/u.test(name);
@@ -57,6 +60,7 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	if (!isNickname(name)) throw new HttpError(400, "Pick a nickname with letters and numbers.");
 	const base = clean(body.base, 30);
 	if (!/^[a-z0-9-]+$/.test(base)) throw new HttpError(400, "Pick a body.");
+	await requireBodyOut(env, base); // a body that isn't out yet (flags.ts)
 	const colours = (body.colours ?? {}) as Record<string, unknown>;
 	for (const part of PLAYER_PARTS) {
 		if (typeof colours[part] !== "string" || !/^#[0-9a-f]{6}$/i.test(colours[part] as string)) throw new HttpError(400, "Pick all the colours.");
@@ -68,8 +72,11 @@ export async function createPlayer(request: Request, env: Env): Promise<Response
 	const pronoun = parsePronoun(body.pronoun);
 	const build = parseBuild(body.build);
 	if (build === "bad") throw new HttpError(400, "Pick a height and build.");
+	if (build) await requireFlag(env, "videokids"); // sizes are for kids from video, not out yet (flags.ts)
 	if (await isUnfriendly(env, name, teamName)) throw new HttpError(400, RUDE);
 	await checkTurnstile(request, env, body.turnstileToken);
+	// Every send counts towards the day's, resends too, so replacing a waiting request can't go on forever.
+	await rateLimit(request, env, "player-send", SENDS_PER_DAY, "That's a lot of players! Try again tomorrow.");
 
 	// The same player sent again from the same device (the builder sends its id on this device) while
 	// the first is still waiting: this one replaces it, so the inbox has it once. One already approved

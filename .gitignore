@@ -16,3 +16,4 @@ notes/
 # Vite build output (npm run build)
 dist/
 dist-app/
+.verify/

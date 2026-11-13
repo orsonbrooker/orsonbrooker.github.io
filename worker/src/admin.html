@@ -115,6 +115,10 @@
 			.sub .merge-head { font-weight: bold; font-size: 13px; }
 
 			/* Ideas on the board: one line each. */
+			.idea .flag-link { grid-column: 2 / -1; display: flex; gap: 6px; align-items: center; font-size: 12px; }
+			.idea .flag-link select { width: auto; max-width: 320px; padding: 2px 4px; font-size: 12px; }
+			.feature .idea-link { grid-column: 1; display: flex; gap: 6px; align-items: center; font-size: 13px; }
+			.feature .idea-link select { width: auto; max-width: 100%; min-width: 0; }
 			.idea {
 				display: grid; grid-template-columns: 44px minmax(0, 1fr) 130px 110px 120px 60px; gap: 6px; align-items: center;
 				background: var(--panel); border-radius: 6px; padding: 6px 8px; margin-bottom: 4px;
@@ -146,6 +150,14 @@
 			}
 			.score .points { font-family: var(--pixel); font-size: 12px; color: var(--yellow); }
 			.score .flags { display: flex; gap: 4px; flex-wrap: wrap; }
+			.features { display: grid; gap: 8px; max-width: 760px; }
+			.feature { background: var(--panel); border-radius: 8px; padding: 10px 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }
+			.feature h3 { font-size: 16px; margin: 0; }
+			.feature p { margin: 0; font-size: 13px; opacity: 0.8; grid-column: 1; }
+			.feature .state { font-family: var(--pixel); font-size: 10px; border-radius: 4px; padding: 3px 6px; margin-left: 6px; vertical-align: 2px; }
+			.feature .state.on { background: var(--accent); color: var(--ink); }
+			.feature .state.off { background: rgba(255, 255, 255, 0.15); }
+			.feature button { grid-column: 2; grid-row: 1 / span 4; min-width: 120px; }
 			.flag { background: var(--bad); color: var(--ink); border-radius: 4px; padding: 1px 6px; font-size: 12px; }
 			.score .buttons { display: flex; gap: 4px; justify-content: end; white-space: nowrap; }
 			.score > details, .score .more { grid-column: 1 / -1; }
@@ -208,6 +220,7 @@
 					<a href="/admin/scores" id="tab-scores">Scores</a>
 					<a href="/admin/words" id="tab-words">Kind words</a>
 					<a href="/admin/stats" id="tab-stats">Stats</a>
+					<a href="/admin/flags" id="tab-flags">Flags</a>
 				</nav>
 			</header>
 			<section id="inbox"></section>
@@ -216,6 +229,7 @@
 			<section id="scores" hidden></section>
 			<section id="words" hidden></section>
 			<section id="stats" hidden></section>
+			<section id="flags" hidden></section>
 			<div id="toast" hidden></div>
 		</main>
 
@@ -232,6 +246,7 @@
 			// "team" is the trim (and number); shorts of their own, or the team colour when not set
 			const PARTS = ["skin", "hair", "jersey", "team", "shorts", "shoes"];
 			let data = { submissions: [], ideas: [], apps: [], players: [], scores: [] };
+			let flags = []; // feature flags (worker/src/flags.ts), each maybe linked to an idea
 			// Pictures and the builder live on the main site (a different port when testing locally).
 			const SITE = location.hostname === "localhost" ? "http://localhost:5173" : "";
 			// The pixel font comes from the main site too (the build copies it to /fonts/), never a font
@@ -302,9 +317,10 @@
 
 			async function load() {
 				const y = scrollY;
-				data = await api("inbox");
+				[data, flags] = await Promise.all([api("inbox"), api("flags").then((r) => r.flags).catch(() => flags)]);
 				for (const p of data.players ?? []) p.shorts ??= p.team;
 				renderInbox();
+				renderFlags();
 				renderIdeas();
 				renderPlayers();
 				renderScores();
@@ -558,7 +574,31 @@
 						onclick: run(() => api(`ideas/${idea.id}`, { title: title.value, description: description.value, credit: credit.value, status: status.value, app: app.value }), () => (app.value === idea.app ? "Saved" : `Moved to ${appName(app.value)}`)),
 					}),
 					el("details", {}, el("summary", { textContent: idea.description ? `Description: ${idea.description.slice(0, 90)}${idea.description.length > 90 ? "…" : ""}` : "Add a description" }), description),
+					flagLink(idea),
 				);
+			}
+
+			// The feature flag that delivers this idea, if any: while it's off the board says "Coming soon",
+			// and switching it on marks the idea done (Flags section).
+			function flagLink(idea) {
+				const current = flags.find((f) => f.idea_id === idea.id);
+				const ideaTitle = (id) => data.ideas.find((i) => i.id === id)?.title ?? `idea ${id}`;
+				const pick = el(
+					"select",
+					{ title: "Feature flag" },
+					el("option", { value: "", textContent: "No flag", selected: !current }),
+					...flags.map((f) =>
+						el("option", { value: f.key, selected: f === current, textContent: f.idea_id && f.idea_id !== idea.id ? `${f.name} (now on: ${ideaTitle(f.idea_id)})` : `${f.name} (${f.on ? "on" : "off"})` }),
+					),
+				);
+				pick.addEventListener(
+					"change",
+					run(async () => {
+						if (current) await api("flags", { key: current.key, ideaId: null });
+						if (pick.value) await api("flags", { key: pick.value, ideaId: idea.id });
+					}, () => (pick.value ? "Linked to its flag" : "Unlinked")),
+				);
+				return el("div", { className: "flag-link" }, el("span", { className: "meta", textContent: "Flag:" }), pick, current && !current.on ? el("span", { className: "meta", textContent: "Shows as Coming soon" }) : null);
 			}
 
 			// ---------- Players ----------
@@ -1067,9 +1107,73 @@
 				);
 			}
 
+			// Feature flags (worker/src/flags.ts): things that are built but not out yet. Each is off (hidden
+			// from everyone) until switched on here. The game picks a change up within a minute or two.
+			async function loadFlags() {
+				const box = document.getElementById("flags");
+				if (!box.childElementCount) box.append(el("div", { className: "empty", textContent: "Loading..." }));
+				try {
+					flags = (await api("flags")).flags;
+					renderFlags();
+				} catch (err) {
+					box.replaceChildren(el("div", { className: "empty", textContent: err.message }));
+				}
+			}
+
+			// A flag's idea (optional): the one it delivers. Picking one here or on the idea is the same link.
+			function ideaLink(f) {
+				const pick = el(
+					"select",
+					{ title: "The idea it delivers" },
+					el("option", { value: "", textContent: "No idea", selected: !f.idea_id }),
+					...data.ideas.filter((i) => i.status !== "hidden" || i.id === f.idea_id).map((i) => el("option", { value: String(i.id), selected: i.id === f.idea_id, textContent: `${appName(i.app)}: ${i.title}` })),
+				);
+				pick.addEventListener(
+					"change",
+					run(() => api("flags", { key: f.key, ideaId: pick.value ? Number(pick.value) : null }), () => (pick.value ? "Linked to the idea" : "Unlinked")),
+				);
+				return el("label", { className: "idea-link" }, el("span", { className: "meta", textContent: "Idea:" }), pick);
+			}
+
+			function renderFlags() {
+				const box = document.getElementById("flags");
+				if (!flags.length) return;
+				const card = (f) => {
+					const button = el("button", { type: "button", className: f.on ? "" : "primary", textContent: f.on ? "Switch off" : "Switch on" });
+					button.addEventListener("click", async () => {
+						button.disabled = true;
+						try {
+							await api("flags", { key: f.key, on: !f.on });
+							toast(`${f.name} is ${f.on ? "off" : "on"}.${!f.on && f.idea_id ? " Its idea is done." : ""}`);
+							await load();
+						} catch (err) {
+							toast(err.message);
+							button.disabled = false;
+						}
+					});
+					return el(
+						"div",
+						{ className: "feature" },
+						el("h3", {}, f.name, el("span", { className: `state ${f.on ? "on" : "off"}`, textContent: f.on ? "ON" : "OFF" })),
+						el("p", { textContent: `${f.on ? "Shows" : "Hides"}: ${f.hides}` }),
+						el("p", { className: "meta", textContent: `${f.updated_at ? `Changed ${f.updated_at.slice(0, 10)}` : "Never switched on"}. Try it: ?flags=${f.key}` }),
+						ideaLink(f),
+						button,
+					);
+				};
+				box.replaceChildren(
+					el("h2", { textContent: "Flags" }),
+					el("p", {
+						className: "meta",
+						textContent: "Things that are built but not out yet. Off hides them from everyone. To try one without switching it on, add ?flags= and its name (or ?flags=all, or ?debug) to the game's address. A flag linked to an idea shows the idea as Coming soon, and switching the flag on marks the idea done.",
+					}),
+					el("div", { className: "features" }, ...flags.map(card)),
+				);
+			}
+
 			// Each section has its own address (/admin is the inbox, then /admin/ideas and so on), so a
 			// link or a reload opens it and Back goes to the one before. The Worker serves this page for all.
-			const TABS = ["inbox", "ideas", "players", "scores", "words", "stats"];
+			const TABS = ["inbox", "ideas", "players", "scores", "words", "stats", "flags"];
 			const sectionOf = (path) => TABS.find((t) => t !== "inbox" && new RegExp(`^/admin/${t}/?$`).test(path)) ?? "inbox";
 			function show(section) {
 				for (const t of TABS) {
@@ -1079,6 +1183,7 @@
 					document.getElementById(t).hidden = t !== section;
 				}
 				if (section === "stats") loadStats();
+				if (section === "flags") loadFlags();
 				const name = section === "words" ? "Kind words" : `${section[0].toUpperCase()}${section.slice(1)}`;
 				document.title = `${section === "inbox" ? "Admin" : `${name} | Admin`} | Orson Brooker`;
 			}

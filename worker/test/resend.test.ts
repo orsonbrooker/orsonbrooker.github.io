@@ -99,3 +99,11 @@ test("fixing the same player a few times in a row isn't turned away", async () =
 		["5"],
 	);
 });
+
+test("resends count towards the day's sends, so they can't go on forever", async () => {
+	const { env, db } = fakeEnv();
+	for (let i = 0; i < 20; i++) await send(env, { number: String(i) });
+	assert.equal(rows(db).length, 1);
+	await assert.rejects(send(env, { number: "99" }), { status: 429 });
+	assert.equal(rows(db)[0].number, "19");
+});

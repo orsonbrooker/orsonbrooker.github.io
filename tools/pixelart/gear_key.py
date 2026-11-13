@@ -40,6 +40,8 @@ from scipy import ndimage
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from match_grids import sig  # noqa: E402
 
+import sheet_sizes  # noqa: E402
+
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 HERE = os.path.dirname(os.path.abspath(__file__))
 GREEN = np.array([0, 177, 64], float)
@@ -167,7 +169,8 @@ def build(kid, item, gdir, prefix):
         if off > 0.45:
             odd.append(f"grid {c['grid']:02d} cell {layout.index(c) - min(i for i, x in enumerate(layout) if x['grid'] == c['grid']):2d} ({c['anim']}): {off:.0%} off the usual size")
         _, gen, orig, k1, k2, lum, _ = cands[c["grid"]][j]
-        piece = cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, item_info.get("hides") == "hair")
+        piece = cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, item_info.get("hides") == "hair",
+                    item_info["slot"] in ("shoes", "legs"))
         if piece is not None:
             pieces[f"{c['rect'][0]},{c['rect'][1]}"] = piece
     # and single frames like that (a standing grid can be fine in its other move)
@@ -187,17 +190,32 @@ def build(kid, item, gdir, prefix):
         pieces[k] = weak[k]
     if weak:
         notes.append(f"{len(weak)} frames had little of the second colour: {len(weak) - len(kept)} borrowed, {len(kept)} kept their own")
-    if item_info.get("hides") == "hair":
-        for c in layout:
-            key = f"{c['rect'][0]},{c['rect'][1]}"
-            if key in pieces:
-                pieces[key] = hide_hair_above(pieces[key], c["rect"], sheet, regions)
+    mended = finish(item_info, meta, pieces, sheet, regions)
     write(kid, item, pieces, meta)
+    print(f"{mended} frames mended from their move (gear_check.py)")
     if borrowed:
         print(f"{borrowed} frames with no painting borrowed the item from a matching frame")
     for n in notes:
         print(n)
     print(f"{len(odd)} frames far from the item's usual size")
+
+
+def finish(info, meta, pieces, sheet, regions):
+    """Last steps for every layer: odd and missing frames mended from their move (gear_check.py), then a
+    hat hides each frame's own hair above it."""
+    from gear_check import rigid, steady
+    mended = steady(meta, pieces, sheet, info["slot"])
+    if info["slot"] in ("head", "face"):  # rigid: one painting per facing, moved with the head
+        mended = rigid(meta, pieces, sheet, regions, info["slot"])
+    if info.get("hides") == "hair":
+        for fr in meta["frames"].values():
+            for f in fr:
+                key = f"{f[0]},{f[1]}"
+                if key in pieces and not pieces[key].get("_hid"):
+                    pieces[key] = {**hide_hair_above(pieces[key], f[:4], sheet, regions), "_hid": True}
+        for k in pieces:
+            pieces[k].pop("_hid", None)
+    return mended
 
 
 def hide_hair_above(p, rect, sheet, regions):
@@ -234,7 +252,7 @@ def hide_hair_above(p, rect, sheet, regions):
     return {"rgba": rgba[t:b, l:r], "part": part[t:b, l:r], "dx": int(l) + left, "dy": int(t) + top}
 
 
-def borrow(layout, pieces, sheet, reach=8, donors=12):
+def borrow(layout, pieces, sheet, reach=8, donors=12, limit=120):
     """Frames Flow didn't paint take the item from the frame facing the same way whose body, where the
     item sits, matches best (lined up by shifting a few pixels): a standing frame borrows from the first
     frame of the turn, which is the same pose."""
@@ -275,14 +293,14 @@ def borrow(layout, pieces, sheet, reach=8, donors=12):
                     err = float(np.abs(patch[..., :3] - t[..., :3]).sum(-1)[a].mean() + 255 * np.mean((patch[..., 3] > 0) != (t[..., 3] > 0))) if a.any() else 1e9
                     if best is None or err < best[0]:
                         best = (err, p, oy, ox)
-        if best and best[0] < 120:  # a far-off match floats the item beside the body: worse than none
+        if best and best[0] < limit:  # a far-off match floats the item beside the body: worse than none
             _, p, oy, ox = best
             pieces[key] = {**p, "dx": p["dx"] + ox, "dy": p["dy"] + oy}
             n += 1
     return n
 
 
-def cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, hides_hair=False):
+def cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, hides_hair=False, feet=False):
     """One frame's piece: the item's pixels at the sheet's size, around the frame (pad on every side)."""
     bx, by, bw, bh = c["box"]
     sx, sy, sw, sh = c["rect"]
@@ -315,7 +333,15 @@ def cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, hides_hair=F
         item = np.isin(lab, 1 + np.flatnonzero((sizes >= max(6, 0.03 * sizes.max())) & (touch > 0)))
     m1 &= item
     m2 &= item
-    if not item.any():
+    if feet:  # shoes and socks: only shapes on the kid's own shoes (not a stray bit beside the ball)
+        low = np.zeros((oh, ow), bool)
+        low[fy0:fy0 + sh, fx0:fx0 + sw] = ndimage.binary_dilation(regions[sy:sy + sh, sx:sx + sw] == SHOES, iterations=4)
+        lab, n = ndimage.label(m1 | m2)
+        if n:
+            keep_ids = 1 + np.flatnonzero(ndimage.maximum(low, lab, range(1, n + 1)) > 0)
+            m1 &= np.isin(lab, keep_ids)
+            m2 &= np.isin(lab, keep_ids)
+    if not (m1 | m2).any():
         return None
     rgb = up(g.clip(0, 255).astype(np.uint8), Image.LANCZOS).astype(float)
     y_up = up(lum[y0:y1, x0:x1].clip(0, 255).astype(np.uint8))
@@ -337,8 +363,12 @@ def cut(c, gen, orig, k1, k2, lum, sheet, regions, meta, over_ball, hides_hair=F
     gone = body & is_green(rgb) & ~keep
     hair = np.zeros((oh, ow), bool)
     hair[fy0:fy0 + sh, fx0:fx0 + sw] = regions[sy:sy + sh, sx:sx + sw] == HAIR
-    hide = gone & (ndimage.binary_dilation(m1 | m2, iterations=int(10 / max(s, 0.5))) | hair)
+    near = ndimage.binary_dilation(m1 | m2, iterations=int(10 / max(s, 0.5)))
+    # only a hat takes away hair that's away from it (Buns' buns); anything else hides just what's next to it
+    hide = gone & (near | hair) if hides_hair else gone & near
     lone = ndimage.binary_dilation(hide & hair, iterations=3)
+    if not hides_hair:
+        lone &= near
     hide |= gone & lone
     if hides_hair:
         # a hat hides all the hair above its bottom edge that it doesn't cover (Buns' buns), whatever
@@ -433,6 +463,8 @@ def write(kid, item, pieces, meta, stretch=True):
     json.dump(dict(sorted(index.items())), open(ipath, "w"), indent=1)
     total = len({f"{f[0]},{f[1]}" for fr in meta["frames"].values() for f in fr})
     print(f"{item} on {kid}: {len(pieces)} of {total} frames, sheet {W}x{H}")
+    # and its smaller sizes for phones and tablets, on the kid's smaller sheets
+    sheet_sizes.gear(item, kid)
 
 
 def rekey(kid, rev):
@@ -476,14 +508,9 @@ def rekey(kid, rev):
                 ax, ay, w, h, dx, dy = p
                 pieces[f"{k[0]},{k[1]}"] = {"rgba": art[ay:ay + h, ax:ax + w], "part": part[ay:ay + h, ax:ax + w], "dx": dx, "dy": dy}
         n = borrow(layout, pieces, sheet)
-        info = json.load(open(f"{ROOT}/content/gear.json"))[item]
-        if info.get("hides") == "hair":
-            for c in layout:
-                key = f"{c['rect'][0]},{c['rect'][1]}"
-                if key in pieces:
-                    pieces[key] = hide_hair_above(pieces[key], c["rect"], sheet, regions)
+        mended = finish(json.load(open(f"{ROOT}/content/gear.json"))[item], meta, pieces, sheet, regions)
         write(kid, item, pieces, meta, stretch=False)
-        print(f"  {len(where)} frames followed to their new place, {n} new frames borrowed")
+        print(f"  {len(where)} frames followed to their new place, {n} new frames borrowed, {mended} mended")
 
 
 if __name__ == "__main__":

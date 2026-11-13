@@ -7,7 +7,12 @@ their card picture, the same crop as the game's picker cards. The card frame is 
 (standing, hands empty); thumb.webp is drawn from it, with keyed parts (hair stored at a mid-tone) shown
 in the kid's own colours. Names and ids stay, so kids' saved players keep them.
 
+Last, it makes each kid's smaller sizes of sheet and gear for phones and tablets (sheet_sizes.py), so they
+always match the full ones. Orson isn't a builder body, but run it for him too after rebuilding his sheets
+(it only makes his smaller sizes).
+
   python tools/pixelart/video_bases.py curly buns
+  python tools/pixelart/video_bases.py orson
 """
 import hashlib
 import json
@@ -15,6 +20,8 @@ import sys
 
 import numpy as np
 from PIL import Image
+
+import sheet_sizes
 
 INDEX = "assets/characters/bases/index.json"
 PRONOUN = {"curly": "he", "buns": "she"}
@@ -92,6 +99,7 @@ def main(kids):
         })
         print(kid, card, m["colours"])
     json.dump(bases, open(INDEX, "w"), indent=1)
+    sheet_sizes.main(kids)
 
 
 if __name__ == "__main__":

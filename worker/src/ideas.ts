@@ -1,5 +1,6 @@
 // The ideas board: the list of ideas, votes, and ideas people send in (which wait in the admin inbox).
 
+import { comingSoon } from "./flags.ts";
 import { HttpError } from "./http.ts";
 import { checkTurnstile, clean, hash, ipKey, isUnfriendly, json, rateLimit, readJson, RUDE } from "./util.ts";
 import type { Env } from "./util.ts";
@@ -34,7 +35,9 @@ export async function listIdeas(request: Request, env: Env, url: URL): Promise<R
 		: env.DB.prepare(
 				"SELECT id, app, title, description, credit, status, votes, done_at FROM ideas WHERE status != 'hidden' ORDER BY votes DESC, id DESC",
 			);
-	const ideas = (await query.all()).results;
+	// An idea whose feature is built but not out yet (its flag is off) says "Coming soon".
+	const [rows, soon] = await Promise.all([query.all<Record<string, unknown> & { id: number }>(), comingSoon(env)]);
+	const ideas = rows.results.map((i) => (soon.has(i.id) && i.status !== "done" ? { ...i, coming_soon: true } : i));
 	let voted: number[] = [];
 	if (device) {
 		const voter = await hash(env, `device:${device}`);
