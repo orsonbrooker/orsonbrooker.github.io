@@ -82,10 +82,46 @@ def specks(p):
     return {**p, "rgba": rgba}, int((sizes < sizes.max() / 7).sum())
 
 
-def judge(meta, pieces, sheet, slot):
-    """{anim: [(key, problem or None), ...]} for every move."""
+def judge(meta, pieces, sheet, slot, regions=None):
+    """{anim: [(key, problem or None), ...]} for every move. Given the region map, a head item is measured
+    against the head itself, and across every move, not only its own: a hat that sits low in a whole move
+    (the shot, with the arms up) looks steady within that move but is still wrong."""
     rects = {f"{f[0]},{f[1]}": f[:4] for fr in meta["frames"].values() for f in fr}
     out = {}
+    if regions is not None and slot in ("head", "face"):
+        heads = {k: head(sheet, regions, r) for k, r in rects.items()}
+        # how far the item's top sits below the top of the hair, in head heights: a hat lined up wrong (on
+        # shoulders joined to the face by raised arms) slides down over the eyes
+        rel = {}
+        for k, h in heads.items():
+            p = pieces.get(k)
+            if not h or not p or not measure(p)[0]:
+                continue
+            ys = np.nonzero(h["map"])[0]
+            hair = np.nonzero(h["map"] == HAIR_)[0]
+            top = (hair if len(hair) else ys).min()
+            rel[k] = (np.nonzero((p["rgba"][..., 3] > 0).any(1))[0].min() + p["dy"] - top) / (ys.max() - ys.min() + 1)
+        # each facing has its own usual (a cap's peak, the hair's shape); a turn passes through several
+        turning = lambda anim: anim.split("-")[0] in ("turn", "spin") or anim == "idle-t"
+        facing = lambda anim: next((s for s in SIDES[1:] if anim.endswith(s)), "")
+        by = {}
+        for anim, keys in moves(meta).items():
+            if not turning(anim):
+                for k in keys:
+                    if k in rel:
+                        by.setdefault(facing(anim), {})[k] = rel[k]
+        usual = {f: float(np.median(list(d.values()))) for f, d in by.items()}
+        for anim, keys in moves(meta).items():
+            res = []
+            for k in keys:
+                if k not in rel:
+                    res.append((k, "missing" if heads.get(k) else None))
+                    continue
+                near = list(usual.values()) if turning(anim) else [usual.get(facing(anim), rel[k])]
+                off = rel[k] - min(near, key=lambda u: abs(rel[k] - u))
+                res.append((k, f"moved {'down' if off > 0 else 'up'} {abs(off):.0%} of the head" if abs(off) > MOVE else None))
+            out[anim] = res
+        return out
     for anim, keys in moves(meta).items():
         rows = []
         for k in keys:
@@ -170,6 +206,14 @@ def head(sheet, regions, rect):
         return None
     sizes = ndimage.sum(r == HAIR_, lab, range(1, n + 1))
     keep = lab == 1 + int(np.argmax(sizes))  # the one with the hair in it (not a raised hand)
+    # arms raised for a shot join the face's skin: keep only what's round the hair (the face under it, not
+    # the arms and shoulders below the chin or a hand beside the head), else the head's middle drops to
+    # the shoulders and a hat sits over the eyes
+    hy, hx = np.nonzero(keep & (r == HAIR_))
+    if len(hy):
+        hh, hw = hy.max() - hy.min(), hx.max() - hx.min()
+        rows, cols = np.mgrid[0:band, 0:w]
+        keep &= (rows <= hy.max() + 0.35 * hh) & (cols >= hx.min() - 0.15 * hw) & (cols <= hx.max() + 0.15 * hw)
     ys, xs = np.nonzero(keep)
     labels = np.where(keep, r, 0).astype(np.uint8)
     return {"map": labels, "mid": (float(xs.mean()), float(ys.mean())), "top": int(ys.min()), "band": band}
@@ -222,7 +266,7 @@ def rigid(meta, pieces, sheet, regions, slot):
     the most usual one of its move, goes on every frame, on the head that frame's head looks most like,
     lined up on the head. Returns how many frames took a painting from another frame."""
     rects = {f"{f[0]},{f[1]}": f[:4] for fr in meta["frames"].values() for f in fr}
-    verdict = judge(meta, pieces, sheet, slot)
+    verdict = judge(meta, pieces, sheet, slot, regions)
     heads = {k: head(sheet, regions, r) for k, r in rects.items()}
     picks = []  # (key, head)
     for side in SIDES:
@@ -265,12 +309,26 @@ def load(kid, item):
     return pieces
 
 
+def bare(p):
+    """A stored piece without the body it hides (finish() works that out again for where the piece now
+    sits; kept, the old hidden pixels would move with it and add up)."""
+    keep = p["rgba"][..., 3] > 0
+    if not keep.any():
+        return p
+    ys, xs = np.nonzero(keep)
+    t, b, l, r = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+    part = p["part"][t:b, l:r].copy()
+    part[..., 1] = 0
+    return {"rgba": p["rgba"][t:b, l:r], "part": part, "dx": p["dx"] + int(l), "dy": p["dy"] + int(t)}
+
+
 def report(kid, item, quiet=False):
     d = f"{ROOT}/assets/characters/{kid}-detail"
     meta = json.load(open(f"{d}/sprites.json"))
     sheet = np.array(Image.open(f"{d}/sprites.webp").convert("RGBA"))
     slot = json.load(open(f"{ROOT}/content/gear.json"))[item]["slot"]
-    verdict = judge(meta, load(kid, item), sheet, slot)
+    regions = np.array(Image.open(f"{d}/regions.png"))[..., 0]
+    verdict = judge(meta, load(kid, item), sheet, slot, regions)
     total = sum(len(r) for r in verdict.values())
     fixes = MEND.get(slot, ("missing",))
     flagged = {a: [(k, w) for k, w in r if w and w.split()[0] in fixes] for a, r in verdict.items()}
@@ -300,7 +358,7 @@ if __name__ == "__main__":
         meta = json.load(open(f"{d}/sprites.json"))
         sheet = np.array(Image.open(f"{d}/sprites.webp").convert("RGBA"))
         slot = json.load(open(f"{ROOT}/content/gear.json"))[item]["slot"]
-        pieces = load(kid, item)
+        pieces = {k: bare(p) for k, p in load(kid, item).items()}
         regions = np.array(Image.open(f"{d}/regions.png"))[..., 0]
         print(gear_key.finish(json.load(open(f"{ROOT}/content/gear.json"))[item], meta, pieces, sheet, regions), "frames mended")
         gear_key.write(kid, item, pieces, meta, stretch=False)

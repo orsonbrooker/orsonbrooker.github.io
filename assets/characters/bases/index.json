@@ -57,7 +57,7 @@
      3.333,
      77.333
     ],
-    "maxPixels": 10547200
+    "maxPixels": 10567680
    },
    "medium": {
     "scale": 0.8182,
@@ -78,10 +78,10 @@
      4.091,
      94.909
     ],
-    "maxPixels": 16265216
+    "maxPixels": 16379904
    }
   },
-  "maxPixels": 22839296
+  "maxPixels": 22831104
  },
  {
   "id": "buzz",
