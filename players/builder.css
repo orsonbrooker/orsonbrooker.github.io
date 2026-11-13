@@ -354,8 +354,7 @@
 
 @media (min-width: 1000px) {
   .character-wall {
-    grid-auto-columns: minmax(0, 1fr);
-  grid-auto-flow: column; /* 4 tabs, or 3 without Body (the videokids flag) */
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
