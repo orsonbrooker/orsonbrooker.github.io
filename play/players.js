@@ -38,13 +38,15 @@ export function loadImage(src) {
   });
 }
 
-async function loadBuilt(entry) {
+// `size`: which size of sheet it's built from (null for full), part of what a kept player is kept by.
+async function loadBuilt(entry, size = null) {
   const base = (await loadBases()).find((b) => b.id === entry.base);
   if (base.video) {
-    // built on an earlier visit (play/kept.js), else built now and kept
+    // built on an earlier visit (play/kept.js), else built now and kept. The key names every sheet
+    // used (the sized ones, where a smaller size is picked) and the size itself.
     const testGear = new URLSearchParams(location.search).get("gear");
     const gear = testGear ? gearParam(testGear) : entry.gear;
-    const key = { sheets: [base.atlas, base.meta, base.regions], base: base.colours, colours: entry.colours, build: entry.build, gear: await gearStamps(base.id, gear) };
+    const key = { size, sheets: [base.atlas, base.meta, base.regions], base: base.colours, colours: entry.colours, build: entry.build, gear: await gearStamps(base.id, gear) };
     const kept = await keptPlayer(key);
     if (kept) return kept;
     const built = await buildVideoKid(base, entry, gear);

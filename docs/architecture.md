@@ -618,7 +618,7 @@ flowchart LR
   (`"hides": "hair"`), so Buns' buns go under a cap or beanie.
 - **Kept between visits** (`play/kept.js`): building a kid from video in a player's colours, gear and size
   takes 3-8 s on a phone, so the finished sheet (number and team name drawn in) and its frame list go in
-  Cache Storage (`built-players`, the newest 6), named by a hash of the sheets' stamps, the colours, build,
+  Cache Storage (`built-players`, the newest 6), named by a hash of the sheet size and the sheets' stamps, the colours, build,
   gear (with each layer's stamp) and the code that builds players (filled in by `vite.config.js`). A later
   visit decodes that one image off the main thread instead of building.
 - **Moves:** their sheets add `start` (picking the dribble back up) and `recover` (arms down after a shot),
