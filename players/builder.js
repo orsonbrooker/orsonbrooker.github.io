@@ -287,6 +287,10 @@ async function chooseBase(base) {
   heightInput.disabled = bulkInput.disabled = !current.video;
   showTurning();
   $("size-hint").hidden = !!current.video;
+  // Only a kid from video holds a ball of its own (a drawn body's ball is part of its art), so only
+  // they can try one on here. Kids from video only show with the videokids flag on.
+  $("ball-pick").hidden = !current.video;
+  if (!current.video) cancelBall();
   worn = current.video ? await loadGear(base.id, gear).catch(() => []) : [];
   repaint();
   paintWear();
