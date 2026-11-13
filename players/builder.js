@@ -837,7 +837,10 @@ async function saveCommunity() {
 }
 
 async function leave_(t) {
-  if (!(await confirmDialog(`Leave ${t.name}?`, { yes: "Leave", detail: "You can join again with the code." }))) return;
+  // The whole device leaves (team_members is per device), so its other players on this team leave too.
+  const others = myPlayers().filter((p) => p.colours?.teamId === t.key && p.id !== ownPlayer?.id).map((p) => p.name);
+  const detail = others.length ? `${others.join(", ")} on this device will leave it too. You can join again with the code.` : "You can join again with the code.";
+  if (!(await confirmDialog(`Leave ${t.name}?`, { yes: "Leave", detail }))) return;
   runTeam(null, async () => {
     await leaveTeam(t);
     community = keptTeams();
