@@ -5,7 +5,7 @@
   "fixed": 14,
   "mirror": false,
   "clips": {
-    "bounce": "/Users/lukebrooker/Downloads/orson-basketball/old-grey-background/grey-bounce-and-shoot.mp4"
+    "bounce": "/Users/lukebrooker/Documents/Work/Shootaround/videos/unused/old-grey-background/grey-bounce-and-shoot.mp4"
   },
   "anims": {
     "idle": {"clip": "bounce", "frames": [0, 2, 4, 6, 8, 10, 12, 14, 12, 10, 8, 6, 4, 2], "fps": 8},

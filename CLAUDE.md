@@ -52,7 +52,7 @@ judgement calls the reviewer applies.
   (players), `build_voice.py` (announcer), `build_favicons.py`, `build_share_images.py`,
   `build_game_cards.py`, `build_sfx.py` (recorded effects), `pixelart/video_body.py` (Orson, from generated
   green-screen videos listed in `art/video/orson.json`; the videos live outside the repo, in
-  `/Users/lukebrooker/Documents/Work/Shootaround/orson-basketball`, with the other art files: see the `flow-images` skill). Big source files
+  `/Users/lukebrooker/Documents/Work/Shootaround/videos`, with the other art files: see the `flow-images` skill). Big source files
   and caches (`.character-cache/`, `.voice-cache/`) are gitignored.
 
 ## Rules
