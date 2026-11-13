@@ -74,6 +74,15 @@ def main(d, grids_dir, prefix):
             m |= prev_hair & ndimage.binary_dilation(m, iterations=10)
             spots.append((sy, sx, m))
             lumas.append(np.asarray(cell_y)[m].astype(float))
+    # frames with no cell on the grids (added since they were cut): found by colour below, like a frame
+    # Flow left unpainted, rather than losing their hair
+    covered = {(sy, sx) for sy, sx, _ in spots}
+    for f in {tuple(f[:4]) for l in meta["frames"].values() for f in l}:
+        x, y, w, h = f
+        if (y, x) not in covered:
+            covered.add((y, x))
+            spots.append((y, x, np.zeros((h, w), bool)))
+            lumas.append(np.zeros(0))
     allL = np.concatenate([l for l in lumas if len(l)])
     lo, hi = np.percentile(allL, 2), np.percentile(allL, 98)
     # a frame Flow left unpainted (or nearly): its hair found by colour instead, against the hair and skin
@@ -121,7 +130,7 @@ def main(d, grids_dir, prefix):
             lumas[i] = lo + (Lm - a0) / max(1, a1 - a0) * (hi - lo)
             redone += 1
     if redone:
-        print(f"{redone} frames Flow missed: hair found by colour")
+        print(f"{redone} frames Flow missed (or not on the grids): hair found by colour")
     # the keyed hair is the hair now: whatever was guessed before goes back to outline
     reg[reg[..., 0] == HAIR, 0] = 0
     n = 0

@@ -344,7 +344,7 @@ def biggest_piece(mask):
     return lab == best if best else np.zeros_like(mask)
 
 
-def jersey_face(idx, palette, face):
+def jersey_face(idx, palette, face, rows=None, shift=0.0):
     """An invisible four-cornered face laid on his chest (or back) for the number to be warped onto:
     [x0, y0, x1, y1, x2, y2, x3, y3] (top-left, top-right, bottom-right, bottom-left, grid pixels),
     or None. Its top and bottom are rows across the main patch of jersey (a third of the way down to
@@ -392,7 +392,8 @@ def jersey_face(idx, palette, face):
     srows = srows[srows > top + 4]
     bottom = srows.min() if len(srows) else np.where(jers.any(1))[0].max()
     tall = bottom - top + 1
-    lo, hi = (0.22, 0.68) if face == "front" else (0.16, 0.5)
+    # (a config's "face_rows" can move them: {"back": [lo, hi]}, shares of the way down)
+    lo, hi = (rows or {}).get(face) or ((0.22, 0.68) if face == "front" else (0.16, 0.5))
     ry0, ry1 = int(round(top + tall * lo)), int(round(top + tall * hi))
 
     # its width and middle: from the lower half of his back (between the print and his shorts),
@@ -408,6 +409,13 @@ def jersey_face(idx, palette, face):
     a = float(np.median([s[0] for s in spans]))
     b = float(np.median([s[1] for s in spans]))
     mid, full_w = (a + b) / 2, b - a + 1
+    w = full_w * 0.8
+    # turned a little (front-left), the middle of his chest isn't the middle of the jersey that shows:
+    # a move's "face_x" moves it that share of the jersey's width (negative is to the left), and the
+    # face narrows to stay on the jersey
+    if shift:
+        mid += shift * full_w
+        w = min(w, 2 * min(mid - a, b - mid) * 0.95)
     # tilt from the shoulders: a line through the top edge of the jersey across its middle
     xs_all = np.where(main.any(0))[0]
     x0, x1 = xs_all.min(), xs_all.max()
@@ -417,7 +425,6 @@ def jersey_face(idx, palette, face):
         tops = [np.argmax(main[:, c]) for c in cols]
         angle = float(np.arctan(np.polyfit(cols, tops, 1)[0])) * 0.6
         angle = max(-np.radians(12), min(np.radians(12), angle))
-    w = full_w * 0.8
     corners = np.array([[mid - w / 2, ry0], [mid + w / 2, ry0], [mid + w / 2, ry1], [mid - w / 2, ry1]], float)
     c = corners.mean(0)
     rot = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
@@ -559,11 +566,14 @@ def main():
     prints = {}
     faces = {}  # frame -> the invisible face on his jersey the number is warped onto
     face_of = {}  # frame -> "front" / "back" / "side" when the jersey is plain
+    face_x = {}  # frame -> how far the print moves off the jersey's middle (a turned body)
     for spec in cfg["anims"].values():
         if "face" in spec:  # one for the move, or one per frame
             faces_list = spec["face"] if isinstance(spec["face"], list) else [spec["face"]] * len(spec["frames"])
             for n, f in zip(spec["frames"], faces_list):
                 face_of[(spec["clip"], n)] = f
+                if "face_x" in spec:
+                    face_x[(spec["clip"], n)] = spec["face_x"]
     for key in sorted(cells, key=lambda kk: (kk[0], kk[1])):
         c, floor = cells[key]
         lab = labels[key]
@@ -617,7 +627,7 @@ def main():
                 idx[y, x] = sock_base + palette["jersey"].index(idx[y, x])
         if key in face_of:  # a plain jersey: place the print from the jersey's shape (socks and eyes aside)
             prints[key] = jersey_spot(idx, palette, face_of[key])
-            faces[key] = jersey_face(idx, palette, face_of[key])
+            faces[key] = jersey_face(idx, palette, face_of[key], cfg.get("face_rows"), face_x.get(key, 0.0))
         if cfg.get("mirror"):  # the video turns the other way from the game's player
             idx = idx[:, ::-1]
         ys, xs = np.where(idx > 0)
@@ -726,6 +736,15 @@ def main():
     # narrow to read, get none, like the builder's side-on poses.
     for spec in cfg["anims"].values():
         keys = [(spec["clip"], n) for n in spec["frames"] if (spec["clip"], n) in by_key]
+        # a frame facing us (or away) whose face couldn't be measured (the ball held in front of his
+        # chest) takes its nearest neighbour's in the move, from his feet, so the print never blinks off
+        have = [k for k in keys if faces.get(k)]
+        for i, k in enumerate(keys):
+            same = [h for h in have if face_of.get(h) == face_of.get(k)]
+            if faces.get(k) or face_of.get(k) not in ("front", "back") or not same:
+                continue
+            g = min(same, key=lambda h: abs(keys.index(h) - i))
+            faces[k] = [v - (ax[g] if j % 2 == 0 else fy[g]) + (ax[k] if j % 2 == 0 else fy[k]) for j, v in enumerate(faces[g])]
         keys = [k for k in keys if faces.get(k)]
         if not keys:
             continue

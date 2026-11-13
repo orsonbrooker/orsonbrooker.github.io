@@ -18,10 +18,10 @@
  {
   "id": "curly",
   "name": "Curly",
-  "atlas": "assets/characters/curly-detail/sprites.webp?v=8c7492dc",
-  "meta": "assets/characters/curly-detail/sprites.json?v=69684662",
-  "regions": "assets/characters/curly-detail/regions.png?v=411a0579",
-  "thumb": "assets/characters/bases/curly/thumb.webp?v=75258428",
+  "atlas": "assets/characters/curly-detail/sprites.webp?v=bd3eb8ce",
+  "meta": "assets/characters/curly-detail/sprites.json?v=da399862",
+  "regions": "assets/characters/curly-detail/regions.png?v=8bc83b7a",
+  "thumb": "assets/characters/bases/curly/thumb.webp?v=d499836e",
   "colours": {
    "skin": "#a7755a",
    "hair": "#b78f4e",
@@ -76,10 +76,10 @@
  {
   "id": "buns",
   "name": "Buns",
-  "atlas": "assets/characters/buns-detail/sprites.webp?v=27fad70b",
-  "meta": "assets/characters/buns-detail/sprites.json?v=ece0d92d",
-  "regions": "assets/characters/buns-detail/regions.png?v=0ad69ac4",
-  "thumb": "assets/characters/bases/buns/thumb.webp?v=c1fa05d4",
+  "atlas": "assets/characters/buns-detail/sprites.webp?v=14a98529",
+  "meta": "assets/characters/buns-detail/sprites.json?v=214c4ca4",
+  "regions": "assets/characters/buns-detail/regions.png?v=465e9af8",
+  "thumb": "assets/characters/bases/buns/thumb.webp?v=2d467b13",
   "colours": {
    "skin": "#6d4b42",
    "hair": "#28292f",
