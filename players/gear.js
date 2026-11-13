@@ -140,6 +140,13 @@ const loadIndex = (root, size = null) => {
   return indexes.get(file);
 };
 
+/** Which version of each gear layer a kid wears ({ id: stamp }), so a dressed sheet kept from an earlier
+ * visit (play/kept.js) is only used while its gear is the same. `size`: as for loadGear. */
+export async function gearStamps(kid, gear, root = "/", size = null) {
+  const made = await loadIndex(root, size);
+  return Object.fromEntries(wornItems(gear).filter((id) => made[id]?.[kid]).map((id) => [id, made[id][kid]]));
+}
+
 function image(src) {
   return new Promise((resolve, reject) => {
     const i = new Image();

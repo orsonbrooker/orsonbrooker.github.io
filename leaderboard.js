@@ -9,6 +9,7 @@ import { say } from "./ui/form.js";
 import { icon } from "./ui/icons.js";
 import { confirmDialog } from "./ui/confirm.js";
 import { API } from "./api.js";
+import { offline } from "./offline.js";
 import { lowWins } from "./shared/rules.js";
 
 const NICKNAME = "orson-hoops-nickname";
@@ -57,6 +58,10 @@ export async function startToken() {
     return null;
   }
 }
+
+const NEEDS_INTERNET = "Scores need the internet.";
+const UNREACHABLE = "The leaderboard can't be reached right now.";
+const unreachable = (err) => (offline(err) ? NEEDS_INTERNET : UNREACHABLE);
 
 let config;
 let turnstileLoading;
@@ -152,6 +157,7 @@ export function showRoundResult(box, round) {
   };
 
   if (!round.canSend) return showMine();
+  if (!navigator.onLine) return showMine(NEEDS_INTERNET); // played offline: kept here, nothing to send
   box.replaceChildren(el("p", { className: "fb-hint", textContent: "Checking the leaderboard…" }));
   preview(nickname)
     .then((out) => (out.kept ? showMine(`Your best this week is ${scoreText(mode, out.best)}, so that stays on the leaderboard.`, out.sent) : showBoard(out)))
@@ -162,7 +168,7 @@ export function showRoundResult(box, round) {
         nickname = "";
         return showBoard(null);
       }
-      showMine("The leaderboard can't be reached right now.");
+      showMine(unreachable(err));
     });
 
   // A new best: the board around them, their name, and the button.
@@ -199,7 +205,7 @@ export function showRoundResult(box, round) {
     let token = "";
     robotCheck(check)
       .then((t) => (token = t))
-      .catch(() => say(message, "The leaderboard can't be reached right now.", { error: true }));
+      .catch((err) => say(message, unreachable(err), { error: true }));
 
     let latest = 0;
     const draw = (out) => {
@@ -227,7 +233,7 @@ export function showRoundResult(box, round) {
       timer = setTimeout(() => {
         preview(nickname)
           .then((out) => ask === latest && draw(out))
-          .catch((err) => ask === latest && say(message, err.message || "The leaderboard can't be reached right now.", { error: true }));
+          .catch((err) => ask === latest && say(message, offline(err) ? NEEDS_INTERNET : err.message || UNREACHABLE, { error: true }));
       }, 350);
     };
     input.addEventListener("input", rename);
@@ -240,7 +246,8 @@ export function showRoundResult(box, round) {
 
     send.addEventListener("click", async () => {
       const game = round.payload();
-      if (!game?.token) return say(message, "The leaderboard can't be reached right now.", { error: true });
+      if (!navigator.onLine) return say(message, NEEDS_INTERNET, { error: true });
+      if (!game?.token) return say(message, UNREACHABLE, { error: true });
       if (!token) return say(message, "Please finish the robot check first.", { error: true });
       send.disabled = true;
       say(message, "Sending…");
@@ -267,7 +274,7 @@ export function showRoundResult(box, round) {
         say(message, "");
         send.lastChild.textContent = out.rank ? `On the board at #${out.rank}!` : "On the leaderboard!";
       } catch (err) {
-        say(message, err.message || "That didn't send. Please try again.", { error: true });
+        say(message, offline(err) ? NEEDS_INTERNET : err.message || "That didn't send. Please try again.", { error: true });
         send.disabled = false;
       }
     });
@@ -334,10 +341,10 @@ export async function renderBoard(list, note, range, mode, faceFor, bodyFor) {
     const res = await fetch(`${API}/scores?range=${range}&mode=${mode}`);
     if (!res.ok) throw new Error();
     scores = (await res.json()).scores;
-  } catch {
+  } catch (err) {
     if (showing === key && !seen.has(key)) {
       list.replaceChildren();
-      note.textContent = "The leaderboard can't be reached right now.";
+      note.textContent = offline(err) ? "The leaderboard needs the internet." : UNREACHABLE;
     }
     return;
   }
