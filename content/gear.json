@@ -1,6 +1,6 @@
 {
   "hightops": { "slot": "shoes", "name": "High-tops", "colours": ["shoes", "team"] },
-  "flames": { "slot": "shoes", "name": "Flame shoes", "colours": ["shoes", "team"] },
+  "flames": { "slot": "shoes", "name": "Flame shoes", "colours": ["shoes", "team"], "contrast": "#f08a3c" },
   "headband": { "slot": "head", "name": "Headband", "colours": ["jersey", "team"] },
   "cap": { "slot": "head", "name": "Cap", "colours": ["jersey", "team"], "hides": "hair" },
   "backcap": { "slot": "head", "name": "Cap, backwards", "colours": ["jersey", "team"], "hides": "hair" },

@@ -115,6 +115,7 @@ def queue(ref, first, last, pfile, second=None):
         ab("click", '[aria-label="Start generation"]')
         print(n, "sent", flush=True)
         time.sleep(1.5)
+    time.sleep(8)  # let the last one start before anything else opens the project (that cancels it)
 
 
 TILES = """JSON.stringify([...document.querySelectorAll('flow-grid-tile-container')].map((t) => {

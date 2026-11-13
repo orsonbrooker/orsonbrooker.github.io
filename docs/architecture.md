@@ -590,7 +590,13 @@ flowchart LR
   `players/gear.js` puts the worn items on the recoloured sheet before height and build, growing frames
   where an item reaches outside them. Items behind the held ball are cut where the ball is; arm items go
   over it; jersey prints go over stripes and under a hoodie. Saved with the player (`gear` in
-  `shared/save.js`); `?gear=beanie,stripes` tries items in the builder and the game.
+  `shared/save.js`), picked in the builder's Gear tab ("What you wear", only items made for that kid,
+  listed in `assets/characters/gear/index.json`); `?gear=beanie,stripes` tries items in the builder and
+  the game.
+- Each grid Flow paints holds whole moves (`frame_grids.py --moves`), and a finished grid of the same item
+  goes with every prompt as a look reference, so an item can't change shape within a move. A frame Flow
+  didn't paint borrows the item from the closest frame facing the same way. Hats hide the hair above them
+  (`"hides": "hair"`), so Buns' buns go under a cap or beanie.
 - **Moves:** their sheets add `start` (picking the dribble back up) and `recover` (arms down after a shot),
   which the game uses when a sheet has them (`hasMove()` in `play/players.js`).
 

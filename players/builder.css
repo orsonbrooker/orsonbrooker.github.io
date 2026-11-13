@@ -724,6 +724,63 @@
   height: 16px;
 }
 
+#wear[hidden] {
+  display: none;
+}
+
+#wear {
+  margin-bottom: 18px;
+}
+
+.slot-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px;
+}
+
+.slot-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.slot-chip {
+  flex: none;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 2px solid transparent;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-family: var(--pixel);
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.slot-chip[aria-selected="true"] {
+  border-color: #fff;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.slot-empty {
+  width: 40px;
+  height: 40px;
+  margin: 4px;
+  border: 2px dashed rgba(255, 255, 255, 0.5);
+  border-radius: 6px;
+}
+
+.slot-chip .worn {
+  margin-left: 6px;
+  color: #8fe0a3;
+}
+
+.slot-chip .worn .icon {
+  width: 12px;
+  height: 12px;
+  vertical-align: middle;
+}
+
 .ball-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
@@ -753,6 +810,10 @@
 .ball-card canvas {
   width: 48px;
   height: 48px;
+}
+
+#wear-items canvas {
+  image-rendering: pixelated;
 }
 
 .ball-name {
