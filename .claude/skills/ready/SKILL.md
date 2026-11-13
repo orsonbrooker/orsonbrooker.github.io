@@ -27,6 +27,8 @@ a branch that only passed some of the steps.
 
 ## 3. Check
 
+- A worktree's `node_modules` can be missing or stale (the build then can't find `@fontsource/...`):
+  run `npm ci` and `npm --prefix worker ci` first.
 - `npm run check`. Every line must be `ok` (or `skip`/`warn`). On `FAIL`, fix it, commit, and go back to
   step 2. If `check` isn't on this branch yet (`npm error Missing script: "check"`), run the pieces by hand
   and say so: `npm run build`, `npm --prefix worker test`, and `cd worker` then `npx tsc --noEmit -p .`.
