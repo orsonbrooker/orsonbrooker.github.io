@@ -179,6 +179,55 @@ if (!existsSync(join(ROOT, "worker/.cloudflare/types"))) {
   }
 }
 
+// No sheet an iOS device could load is too big for its canvases (16.7 megapixels), with gear on and the
+// biggest build (maxPixels from tools/pixelart/sheet_sizes.py), at any size players/recolor.js pickSize
+// would give it; and no other player sheet is over the limit as it is.
+{
+  const LIMIT = 16_777_216;
+  const GROWTH = 1.2; // as recolor.js, where maxPixels isn't worked out
+  const webpSize = (file) => {
+    const b = readFileSync(join(ROOT, file));
+    const kind = b.toString("ascii", 12, 16);
+    if (kind === "VP8X") return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)];
+    if (kind === "VP8L") {
+      const v = b.readUInt32LE(21);
+      return [1 + (v & 0x3fff), 1 + ((v >> 14) & 0x3fff)];
+    }
+    return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff];
+  };
+  const pathOf = (url) => url.split("?")[0];
+  const { pickSize } = await import(pathToFileURL(join(ROOT, "players/recolor.js")).href);
+  const bad = [];
+  const covered = new Set(); // sheets the indexes point at: checked by what pickSize gives iOS
+  for (const index of ["assets/characters/index.json", "assets/characters/bases/index.json"]) {
+    for (const e of JSON.parse(read(index))) {
+      if (!e.atlas) continue;
+      for (const s of [e, ...Object.values(e.sizes ?? {})]) covered.add(pathOf(s.atlas));
+      const loadable = new Set();
+      for (const current of [undefined, null, ...Object.keys(e.sizes ?? {})])
+        for (let k = 0; k <= 4; k += 0.005) loadable.add(pickSize(e, k, current, true));
+      for (const size of loadable) {
+        const s = size ? e.sizes[size] : e;
+        const [w, h] = webpSize(pathOf(s.atlas));
+        const worst = s.maxPixels ?? w * h * GROWTH;
+        if (worst > LIMIT || w * h > LIMIT)
+          bad.push(`${e.id} ${size ?? "full"} (${pathOf(s.atlas)}): ${((w * h) / 1e6).toFixed(1)} MP, ${(worst / 1e6).toFixed(1)} MP at most`);
+      }
+    }
+  }
+  for (const f of tracked.filter((f) => /^assets\/characters\/.*\.webp$/.test(f) && existsSync(join(ROOT, f)) && !covered.has(f))) {
+    const [w, h] = webpSize(f);
+    if (w * h > LIMIT) bad.push(`${f}: ${((w * h) / 1e6).toFixed(1)} MP`);
+  }
+  if (!bad.length) report("player sheets fit iOS canvases", "ok");
+  else
+    report("player sheets fit iOS canvases", "fail", [
+      "iOS can't draw a canvas over 16.7 MP. Remake the kid's sizes (python tools/pixelart/sheet_sizes.py <kid>),",
+      "which picks a medium size that fits with gear and build, or make the sheet smaller:",
+      ...bad,
+    ]);
+}
+
 // No secrets in the repo (it's public).
 {
   const SECRET = /(^|\/)(\.dev\.vars|\.secrets\.json|\.env(\.(?!example$)[\w.-]+)?|id_(rsa|ed25519|ecdsa)|.*\.(pem|p8|p12|key|mobileprovision))$/;

@@ -13,8 +13,10 @@
     "pixels": 5956860,
     "atlas": "assets/characters/orson-detail/sprites@small.webp?v=9ac400d8",
     "meta": "assets/characters/orson-detail/sprites@small.json?v=551df775",
-    "regions": "assets/characters/orson-detail/regions@small.png?v=ef0ee60b"
+    "regions": "assets/characters/orson-detail/regions@small.png?v=ef0ee60b",
+    "maxPixels": 7356416
    }
-  }
+  },
+  "maxPixels": 15405056
  }
 ]

@@ -70,24 +70,26 @@ export function loadBases(root = "/") {
 // size is used only where it loses nothing: where the full sheet would be drawn at `k` screen pixels per
 // pixel or fewer, the smallest size whose own pixels aren't drawn enlarged (scale >= k), else full. On
 // iOS a canvas can't hold more than 16.7 megapixels, so a sheet too big for that once gear and the
-// biggest build are on gets the largest size that fits. ?small / ?medium / ?full try a size anywhere.
-// `current`: the size in use, kept until clearly too small, so a size doesn't flip at the edge.
+// biggest build are on (its `maxPixels`, from tools/pixelart/sheet_sizes.py) gets the largest size that
+// fits. ?small / ?medium / ?full try a size (one that fits, on iOS). `current`: the size in use, kept until clearly too
+// small, so a size doesn't flip at the edge. `ios`: for tools/dev/check.mjs.
 const IOS = typeof navigator !== "undefined" && (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
 const IOS_LIMIT = 16_777_216;
-const GROWTH = 1.2; // a sheet with gear on and the tallest, broadest build, as tools/pixelart/sheet_sizes.py
+const GROWTH = 1.2; // a sheet's growth with gear and build, where sheet_sizes.py hasn't worked out maxPixels
 const forcedSize = (() => {
   const q = typeof location !== "undefined" ? new URLSearchParams(location.search) : new URLSearchParams();
   return ["small", "medium", "full"].find((s) => q.has(s)) ?? null;
 })();
-export function pickSize(entry, k, current = undefined) {
+export function pickSize(entry, k, current = undefined, ios = IOS) {
   const sizes = Object.entries(entry?.sizes ?? {})
     .map(([name, s]) => ({ name, ...s }))
     .sort((a, b) => a.scale - b.scale);
   if (!sizes.length) return null;
-  if (forcedSize) return forcedSize === "full" ? null : sizes.some((s) => s.name === forcedSize) ? forcedSize : null;
-  let pick = sizes.find((s) => k <= s.scale * (s.name === current ? 1.06 : 1))?.name ?? null;
-  const fits = (pixels) => !IOS || !pixels || pixels * GROWTH <= IOS_LIMIT;
-  if (!fits(pick ? sizes.find((s) => s.name === pick).pixels : entry.pixels)) pick = [...sizes].reverse().find((s) => fits(s.pixels))?.name ?? sizes[0].name;
+  let pick = forcedSize
+    ? sizes.some((s) => s.name === forcedSize) ? forcedSize : null
+    : sizes.find((s) => k <= s.scale * (s.name === current ? 1.06 : 1))?.name ?? null;
+  const fits = (s) => !ios || (s.maxPixels ?? (s.pixels ? s.pixels * GROWTH : 0)) <= IOS_LIMIT;
+  if (!fits(pick ? sizes.find((s) => s.name === pick) : entry)) pick = [...sizes].reverse().find(fits)?.name ?? sizes[0].name;
   return pick;
 }
 

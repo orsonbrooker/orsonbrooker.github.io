@@ -638,16 +638,19 @@ flowchart LR
 ```
 
 - **Sheet sizes** (`<kid>-detail/sprites@<size>.*`, `gear/<item>/<kid>@<size>.*` stamped in
-  `gear/index@<size>.json`, the index entry's `sizes` and `pixels`): the same frames at `small` (2/3) and,
-  for a sheet too big for an iOS canvas with gear and the biggest build (Buns), `medium` (4/5). Made by
+  `gear/index@<size>.json`, the index entry's `sizes`, `pixels` and `maxPixels`): the same frames at `small`
+  (2/3) and, for a sheet too big for an iOS canvas with gear and the biggest build (Curly, Buns), `medium`:
+  the largest fraction (its `frac`) whose sheet still fits there. `maxPixels` is each sheet's worst case,
+  the canvas `wearGear()` then `stretchSheet()` make from it with every gear item on and height and bulk at
+  their most, worked out exactly from its meta, region map and gear layouts. Made by
   `sheet_sizes.py` at the end of `video_bases.py` (and of `gear_key.py` for a layer), so they never go
   stale. A size is only used where it loses nothing: `pickSize()` in `players/recolor.js` takes `k`, the
   screen pixels per full-sheet pixel where it's drawn, and picks the smallest size whose pixels aren't drawn
   enlarged (scale >= k), else full. The game works `k` out from its court's canvas (`gameScale()`; a full
   sheet pixel is 1/0.6 court pixels; `COURT_ZOOM` for a court drawn bigger) and checks again when the court
   is resized (`recheckSheet()`); the builder from its preview (`previewScale()`), its cards always small. On
-  iOS a canvas holds at most 16.7 megapixels, so there a sheet that can't fit takes the largest size that
-  can. `meta.fullRes` keeps the full sheet's `res`. `?small`, `?medium` and `?full` try a size.
+  iOS a canvas holds at most 16.7 megapixels, so there a sheet whose `maxPixels` can't fit takes the largest
+  size that can; `npm run check` fails if any sheet iOS could load is over. `meta.fullRes` keeps the full sheet's `res`. `?small`, `?medium` and `?full` try a size.
 - **Building a player** (`loadBuilt()` in `play/players.js`, `repaint()` in the builder) works on pixels
   already on the CPU: `recolor()` leaves its `ImageData` on its canvas for `wearGear()`, and print layers
   and region canvases are `willReadFrequently`, because drawing a GPU canvas into a CPU one reads the whole

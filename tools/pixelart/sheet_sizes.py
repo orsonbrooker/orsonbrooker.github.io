@@ -8,7 +8,14 @@ and the biggest build also gets the largest size that can.
 
 SIZES (name: fraction of full size):
   small   2/3    every kid
-  medium  4/5    only a kid whose full sheet can't fit an iOS canvas (Buns)
+  medium  the largest fraction (MEDIUM) whose sheet still fits an iOS canvas with every gear item on and the
+          biggest build, only for a kid whose full sheet doesn't (Curly, Buns)
+
+Every sheet's worst case, the pixels of the canvas the game makes from it with all the kid's gear on and the
+tallest, broadest build (players/gear.js wearGear, then players/stretch.js stretchSheet), is worked out exactly
+from its meta, region map and gear layouts, and saved as `maxPixels` (the entry's own for the full sheet, each
+size's for its sheet). pickSize gives iOS only sheets whose maxPixels fit; npm run check fails if any could
+be over.
 
 For each kid (`<kid>-detail/`) and size:
   sprites@<size>.webp, regions@<size>.png, sprites@<size>.json   every frame at that size, packed afresh:
@@ -41,9 +48,11 @@ from PIL import Image
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CHARS = f"{ROOT}/assets/characters"
-SIZES = {"small": (2, 3), "medium": (4, 5)}
+SIZES = {"small": (2, 3), "medium": None}  # medium: worked out per kid (medium_for)
+MEDIUM = sorted({(n, d) for d in range(3, 17) for n in range(1, d) if 2 / 3 < n / d}, key=lambda f: -f[0] / f[1])
 IOS_LIMIT = 16_777_216  # pixels in one canvas on iOS
-GROWTH = 1.2  # how much bigger a sheet gets with gear on and the tallest, broadest build
+AIM = 0.97  # a new medium leaves this much room, so a new gear item rarely needs the sizes remade
+HEIGHT_STEP, BULK_STEP, JERSEY, STRETCH_W, GEAR_SHEET_W = 0.06, 0.1, 3, 4096, 4096  # as players/stretch.js, gear.js
 GAP = 2  # clear pixels between frames, so smoothing never picks up a neighbour
 GEAR_W = 1024
 
@@ -56,15 +65,74 @@ def rel(path):
     return os.path.relpath(path, ROOT)
 
 
-def sizes_for(meta_pixels):
-    """The sizes a kid's sheet gets: small always, medium when the full one can't fit an iOS canvas."""
-    return [s for s in SIZES if s == "small" or meta_pixels * GROWTH > IOS_LIMIT]
+def shelves(boxes, width):
+    """Pixels of a canvas `width` across with (w, h) boxes packed in shelves, 1 apart (as gear.js, stretch.js)."""
+    px = py = shelf = 0
+    for w, h in boxes:
+        if px + w > width:
+            px, py, shelf = 0, py + shelf + 1, 0
+        px += w + 1
+        shelf = max(shelf, h)
+    return width * (py + shelf + 1)
+
+
+def worst_pixels(meta, reg, gears):
+    """The biggest canvas the game makes from this sheet: every gear layer in `gears` (their metas, keyed by
+    this sheet's frames) on at once, then height and bulk at their most. reg: the region map's labels."""
+    rects = {}
+    for frames in meta["frames"].values():
+        for f in frames:
+            rects.setdefault(tuple(f[:4]), f)
+    dressed, stretched = [], []
+    for x, y, w, h in rects:
+        left, top, right, bottom = 0, 0, w, h
+        for g in gears:
+            p = g["frames"].get(f"{x},{y}")
+            if p:
+                left, top = min(left, p[4]), min(top, p[5])
+                right, bottom = max(right, p[4] + p[2]), max(bottom, p[5] + p[3])
+        fw, fh = right - left, bottom - top
+        dressed.append((fw, fh))
+        cols = np.nonzero((reg[y:y + h, x:x + w] == JERSEY).any(axis=0))[0]
+        jw = cols[-1] - cols[0] + 1 if len(cols) else round(fw * 0.72) - round(fw * 0.28) + 1
+        stretched.append((fw + round(BULK_STEP * jw * 2), fh + round(HEIGHT_STEP * fh)))
+    return max(shelves(dressed, GEAR_SHEET_W) if gears else 0, shelves(stretched, STRETCH_W))
+
+
+def gear_metas(kid, size=None):
+    tail = f"@{size}" if size else ""
+    out = []
+    for item in sorted(os.listdir(f"{CHARS}/gear")):
+        p = f"{CHARS}/gear/{item}/{kid}{tail}.json"
+        if os.path.exists(p):
+            out.append(json.load(open(p)))
+    return out
+
+
+def worst_of(kid, size=None):
+    """worst_pixels for the kid's sheet at a size (None: full), from the files on disk."""
+    d, tail = f"{CHARS}/{kid}-detail", f"@{size}" if size else ""
+    meta = json.load(open(f"{d}/sprites{tail}.json"))
+    reg = np.asarray(Image.open(f"{d}/regions{tail}.png").convert("RGBA"))[..., 0]
+    return worst_pixels(meta, reg, gear_metas(kid, size))
+
+
+def medium_for(worst_full, worst_small, below=1):
+    """The largest fraction above 2/3 (and under `below`) whose worst case should fit an iOS canvas (with
+    AIM's room), or None when the full sheet fits. Estimated from the small sheet's real worst case (padding
+    and gaps grow about as the small one's do); main() checks the real one."""
+    if worst_full <= IOS_LIMIT:
+        return None
+    for n, d in MEDIUM:
+        if n / d < below and worst_small * (n / d * 3 / 2) ** 2 * 1.01 <= IOS_LIMIT * AIM:
+            return (n, d)
+    return None
 
 
 class Size:
-    def __init__(self, name):
+    def __init__(self, name, frac=None):
         self.name = name
-        self.n, self.d = SIZES[name]
+        self.n, self.d = frac or SIZES[name]
         self.sheet_w = 4096 * self.n // self.d
 
     def of(self, v):
@@ -180,8 +248,9 @@ def gear(item, kid, at=None, z=None):
     if not os.path.exists(f"{g}.json"):
         return
     if z is None:
-        for name in kid_sizes(kid):
-            gear(item, kid, None, Size(name))
+        for name, frac in entry_sizes(kid).items():
+            gear(item, kid, None, Size(name, frac))
+        set_worst(kid)
         return
     if at is None:
         at, _ = z.layout(json.load(open(f"{CHARS}/{kid}-detail/sprites.json")))
@@ -236,33 +305,90 @@ def gear(item, kid, at=None, z=None):
     print(f"  {item} on {kid} {z.name}: {len(frames)} pieces, {GEAR_W}x{H}")
 
 
-def kid_sizes(kid):
-    d = f"{CHARS}/{kid}-detail"
-    with Image.open(f"{d}/sprites.webp") as im:
-        return sizes_for(im.width * im.height)
-
-
-def set_entry(kid, pixels, sizes, ats):
-    """Points the kid's index entry at its sizes."""
+def edit_entries(kid, change):
+    """Calls change(entry) on each of the kid's sheet entries, and saves the index files it changed."""
     for path in (f"{CHARS}/bases/index.json", f"{CHARS}/index.json"):
         before = open(path).read()
-        entries = json.loads(before)
+        items = json.loads(before)
         hit = False
-        for e in entries:
+        for e in items:
             if e.get("id") == kid and f"{kid}-detail/" in e.get("atlas", ""):
-                e.pop("small", None)
-                e["pixels"] = pixels
-                e["sizes"] = {}
-                for name, entry in sizes.items():
-                    if "card" in e:
-                        z, (x, y, w, h, dx, dy, side) = Size(name), e["card"]
-                        qx, qy, w2, h2 = ats[name][f"{x},{y}"]
-                        entry = {**entry, "card": [qx, qy, w2, h2, z.of(dx), z.of(dy), z.of(side)]}
-                    e["sizes"][name] = entry
+                change(e)
                 hit = True
         if hit:
             with open(path, "w") as f:
-                f.write(json.dumps(entries, indent=1) + ("\n" if before.endswith("\n") else ""))
+                f.write(json.dumps(items, indent=1) + ("\n" if before.endswith("\n") else ""))
+
+
+def entry_sizes(kid):
+    """{name: (n, d)} of the sizes the kid's index entry has now."""
+    out = {}
+    def read(e):
+        for name, s in (e.get("sizes") or {}).items():
+            out[name] = tuple(s["frac"]) if "frac" in s else SIZES[name] or (4, 5)
+    edit_entries(kid, read)
+    return out
+
+
+def set_worst(kid):
+    """Saves each of the kid's sheets' worst case (worst_pixels) as maxPixels in its index entry."""
+    full = worst_of(kid)
+    sizes = {name: worst_of(kid, name) for name in entry_sizes(kid)}
+    def change(e):
+        e["maxPixels"] = full
+        for name, w in sizes.items():
+            e["sizes"][name]["maxPixels"] = w
+    edit_entries(kid, change)
+    for name, w in [("full", full), *sizes.items()]:
+        print(f"{kid} {name}: at most {w / 1e6:.1f} MP with gear and build" + ("  (too big for iOS)" if w > IOS_LIMIT else ""))
+    return full, sizes
+
+
+def set_entry(kid, pixels, sizes, zs, ats):
+    """Points the kid's index entry at its sizes."""
+    def change(e):
+        e.pop("small", None)
+        e["pixels"] = pixels
+        e["sizes"] = {}
+        for name, entry in sizes.items():
+            z = zs[name]
+            if (z.n, z.d) != SIZES.get(name):
+                entry = {**entry, "frac": [z.n, z.d]}
+            if "card" in e:
+                x, y, w, h, dx, dy, side = e["card"]
+                qx, qy, w2, h2 = ats[name][f"{x},{y}"]
+                entry = {**entry, "card": [qx, qy, w2, h2, z.of(dx), z.of(dy), z.of(side)]}
+            e["sizes"][name] = entry
+    edit_entries(kid, change)
+
+
+def make(kid, name, frac, meta, img, reg):
+    z = Size(name, frac)
+    entry, at = sheet(kid, z, meta, img, reg)
+    for item in sorted(os.listdir(f"{CHARS}/gear")):
+        if os.path.isdir(f"{CHARS}/gear/{item}"):
+            gear(item, kid, at, z)
+    return z, entry, at
+
+
+def drop_size(kid, name):
+    """Removes a size's files (sheet, region map, meta, gear) and its gear stamps."""
+    d = f"{CHARS}/{kid}-detail"
+    for p in (f"{d}/sprites@{name}.webp", f"{d}/sprites@{name}.json", f"{d}/regions@{name}.png"):
+        if os.path.exists(p):
+            os.remove(p)
+    for item in os.listdir(f"{CHARS}/gear"):
+        for ext in ("webp", "png", "json"):
+            p = f"{CHARS}/gear/{item}/{kid}@{name}.{ext}"
+            if os.path.exists(p):
+                os.remove(p)
+    ipath = f"{CHARS}/gear/index@{name}.json"
+    if os.path.exists(ipath):
+        index = json.load(open(ipath))
+        for v in index.values():
+            v.pop(kid, None)
+        index = {k: v for k, v in index.items() if v}
+        json.dump(dict(sorted(index.items())), open(ipath, "w"), indent=1)
 
 
 def main(kids):
@@ -271,14 +397,22 @@ def main(kids):
         meta = json.load(open(f"{d}/sprites.json"))
         img = np.asarray(Image.open(f"{d}/sprites.webp").convert("RGBA"))
         reg = np.asarray(Image.open(f"{d}/regions.png").convert("RGBA"))[..., 0]
-        sizes, ats = {}, {}
-        for name in sizes_for(img.shape[0] * img.shape[1]):
-            z = Size(name)
-            sizes[name], ats[name] = sheet(kid, z, meta, img, reg)
-            for item in sorted(os.listdir(f"{CHARS}/gear")):
-                if os.path.isdir(f"{CHARS}/gear/{item}"):
-                    gear(item, kid, ats[name], z)
-        set_entry(kid, img.shape[0] * img.shape[1], sizes, ats)
+        worst_full = worst_pixels(meta, reg, gear_metas(kid))
+        sizes, zs, ats = {}, {}, {}
+        z, sizes["small"], ats["small"] = make(kid, "small", SIZES["small"], meta, img, reg)
+        zs["small"] = z
+        worst_small = worst_of(kid, "small")
+        m = medium_for(worst_full, worst_small)
+        while m:
+            z, entry, at = make(kid, "medium", m, meta, img, reg)
+            if worst_of(kid, "medium") <= IOS_LIMIT:
+                sizes["medium"], zs["medium"], ats["medium"] = entry, z, at
+                break
+            m = medium_for(worst_full, worst_small, m[0] / m[1])
+        if "medium" not in sizes:
+            drop_size(kid, "medium")
+        set_entry(kid, img.shape[0] * img.shape[1], sizes, zs, ats)
+        set_worst(kid)
 
 
 if __name__ == "__main__":
