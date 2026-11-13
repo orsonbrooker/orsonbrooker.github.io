@@ -596,12 +596,12 @@
    "clip": "shot-front",
    "frames": [
     66,
+    68,
+    70,
+    72,
     74,
-    82,
-    88,
-    92,
-    96,
-    100
+    76,
+    78
    ],
    "face": "front",
    "anchor": "gather-f"
