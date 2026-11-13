@@ -397,6 +397,8 @@ export async function changeTeam(request: Request, env: Env, id: number, origin:
 			break;
 		case "list":
 			if (team.listing === "listed" || team.listing === "asked") break;
+			// Luke said "Not this name": only a new name (which sets it back to private) can ask again.
+			if (team.listing === "refused") throw new HttpError(400, "Try a different name to show it to everyone.");
 			await checkTurnstile(request, env, body.turnstileToken);
 			if (!(await listableName(env, team.name, id))) throw new HttpError(400, "There's already a team called that. Pick a different name to show it to everyone.");
 			await update("listing = 'asked'");

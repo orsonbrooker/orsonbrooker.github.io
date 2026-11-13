@@ -546,6 +546,13 @@ let kit = "home";
 let editing = false;
 let linkTeam = null; // a look from a link (the admin page's "open in builder"), kept only if edited
 let teamBusy = false;
+let codeTyped = ""; // a join code being typed (kept when the list is drawn again, e.g. after a wrong one)
+// What happened with a team change, shown in the Team tab (the builder's other message line is in the Done sheet).
+const teamMessage = $("team-message");
+const sayTeam = (text, options) => {
+  say(teamMessage, text, options);
+  if (text) teamMessage.scrollIntoView({ block: "nearest" });
+};
 
 const allTeams = () => [...community, ...mine, ...(linkTeam ? [linkTeam] : []), ...TEAMS];
 const currentKit = () => team[kit];
@@ -659,13 +666,17 @@ function paintTeams() {
     return teamRow(t, { side: count, onPick: () => runTeam(null, async () => wearTeam(await joinTeam({ id: t.id }), "home"), "Joined!") });
   });
 
-  const code = el("input", { type: "text", id: "team-code", maxLength: 9, autocomplete: "off", autocapitalize: "characters", spellcheck: false, placeholder: "ABCD-EFGH", ariaLabel: "Team code" });
+  const code = el("input", { type: "text", id: "team-code", maxLength: 9, autocomplete: "off", autocapitalize: "characters", spellcheck: false, placeholder: "ABCD-EFGH", ariaLabel: "Team code", value: codeTyped });
   code.addEventListener("input", () => {
     const raw = code.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 8);
-    code.value = raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw;
+    code.value = codeTyped = raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw;
   });
   const go = button({ className: "fb-button fb-primary", id: "team-join" }, "Join");
-  const join = () => runTeam(go, async () => wearTeam(await joinTeam({ code: code.value }), "home"), "Joined!");
+  const join = () =>
+    runTeam(go, async () => {
+      wearTeam(await joinTeam({ code: code.value }), "home");
+      codeTyped = "";
+    }, "Joined!");
   go.addEventListener("click", join);
   code.addEventListener("keydown", (e) => e.key === "Enter" && (e.preventDefault(), join()));
   list.replaceChildren(
@@ -728,7 +739,7 @@ function paintEditor() {
   const show = button({ className: "fb-button" }, team.listing === "listed" || team.listing === "asked" ? "Only with the code" : "Show it to everyone");
   show.addEventListener("click", () => {
     const listing = team.listing === "listed" || team.listing === "asked";
-    if (!listing && !teamToken) return say(message, "Please finish the robot check first.", { error: true });
+    if (!listing && !teamToken) return sayTeam("Please finish the robot check first.", { error: true });
     runTeam(show, async () => {
       Object.assign(team, await changeTeam(team, listing ? "unlist" : "list", listing ? {} : { turnstileToken: useTeamToken() }));
       paintTeams();
@@ -737,7 +748,7 @@ function paintEditor() {
   extra.replaceChildren(
     el("div", { className: "code-box" }, el("span", { className: "mini-label" }, "Team code"), codeText, fresh),
     el("p", { className: "fb-hint", textContent: "Share the code in person with friends. They type it in Join a team." }),
-    el("div", { className: "code-box" }, el("span", { className: "mini-label" }, "Who can join"), el("span", { className: "team-state", textContent: STATE[team.listing] ?? STATE.private }), show),
+    el("div", { className: "code-box" }, el("span", { className: "mini-label" }, "Who can join"), el("span", { className: "team-state", textContent: STATE[team.listing] ?? STATE.private }), ...(team.listing === "refused" ? [] : [show])),
     teamCheck(),
   );
 }
@@ -774,9 +785,9 @@ async function runTeam(btn, work, done = "") {
   try {
     await work();
     community = keptTeams();
-    if (done) say(message, done);
+    sayTeam(done);
   } catch (err) {
-    say(message, err.message || "That didn't work. Please try again.", { error: true });
+    sayTeam(err.message || "That didn't work. Please try again.", { error: true });
   } finally {
     teamBusy = false;
     if (btn) btn.disabled = false;
@@ -786,8 +797,8 @@ async function runTeam(btn, work, done = "") {
 
 function makeReal(btn) {
   const name = teamInput.value.trim();
-  if (!name) return say(message, "Give your team a name.", { error: true });
-  if (!teamToken) return say(message, "Please finish the robot check first.", { error: true });
+  if (!name) return sayTeam("Give your team a name.", { error: true });
+  if (!teamToken) return sayTeam("Please finish the robot check first.", { error: true });
   runTeam(
     btn,
     async () => {
@@ -809,7 +820,7 @@ async function saveCommunity() {
   const name = teamInput.value.trim() || saved?.name || team.name;
   const kitChanged = JSON.stringify([saved?.home, saved?.away]) !== JSON.stringify([team.home, team.away]);
   if (name !== saved?.name && !teamToken) {
-    say(message, "Please finish the robot check to change the name.", { error: true });
+    sayTeam("Please finish the robot check to change the name.", { error: true });
     return false;
   }
   let ok = true;
@@ -840,9 +851,18 @@ async function loadCommunity() {
   community = teams;
   mostTeams = most;
   listed = open;
+  // A player saved on a community team this device didn't know yet (another of their devices, with saved
+  // progress): wear it again, unless they've picked another team since the builder opened.
+  const saved = ownPlayer?.colours?.teamId;
+  const back = saved && !isCommunity(team) && !editing && team.name === ownPlayer.colours.teamName ? community.find((t) => t.key === saved && t.member !== false) : null;
   // The team they wear may have gone (hidden, or they left on another device): back to an official one.
-  if (isCommunity(team) && !community.some((t) => t.key === team.key && t.member !== false)) wearTeam(TEAMS[0], "home");
-  else if (isCommunity(team)) wearTeam(community.find((t) => t.key === team.key), kit);
+  if (back) {
+    if (team === linkTeam) linkTeam = null;
+    wearTeam(back, kit);
+  } else if (isCommunity(team) && !community.some((t) => t.key === team.key && t.member !== false)) {
+    wearTeam(TEAMS[0], "home");
+    sayTeam("This team isn't around any more. Pick another team.");
+  } else if (isCommunity(team)) wearTeam(community.find((t) => t.key === team.key), kit);
   else paintTeams();
 }
 

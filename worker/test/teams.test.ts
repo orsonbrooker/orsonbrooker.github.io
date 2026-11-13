@@ -280,6 +280,11 @@ test("listed names are unique; renaming a listed team waits for Luke again; bloc
 	await call(env, "POST", `/api/teams/${two.team.id}`, { device: B, action: "list", turnstileToken: "ok" });
 	await editTeam(env, two.team.id, { action: "refuse" }, "http://localhost");
 	assert.equal((await mine(env, B))[0].listing, "refused");
+	// The same name can't go back to Luke; a new name can.
+	await rejects(call(env, "POST", `/api/teams/${two.team.id}`, { device: B, action: "list", turnstileToken: "ok" }), 400, /different name/);
+	await call(env, "POST", `/api/teams/${two.team.id}`, { device: B, action: "name", name: "DUNKERS", turnstileToken: "ok" });
+	assert.equal((await mine(env, B))[0].listing, "private");
+	assert.equal((await call(env, "POST", `/api/teams/${two.team.id}`, { device: B, action: "list", turnstileToken: "ok" })).team.listing, "asked");
 	// Renaming a listed team: off the board until Luke OKs the new name.
 	const renamed = await call(env, "POST", `/api/teams/${one.team.id}`, { device: A, action: "name", name: "NEW NAME", turnstileToken: "ok" });
 	assert.equal(renamed.team.listing, "asked");

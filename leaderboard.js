@@ -472,7 +472,8 @@ function showTeamCard(team, range, mode, faceFor) {
   row.append(close);
   form.append(head, hint, list, row);
   dialog.append(form);
-  const load = team.mine || team.kind === "community" ? teamStanding(team.key, mode, range) : fetch(`${API}/teams/${encodeURIComponent(team.key)}/players?range=${range}&mode=${mode}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error())));
+  // A private team's players come only to its members; official and listed teams from the cached GET.
+  const load = team.mine ? teamStanding(team.key, mode, range) : fetch(`${API}/teams/${encodeURIComponent(team.key)}/players?range=${range}&mode=${mode}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error())));
   load
     .then(({ players }) => {
       hint.textContent = lowWins(mode) ? "The 3 best times add up." : "The 3 best players add up.";
