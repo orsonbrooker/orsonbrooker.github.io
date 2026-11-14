@@ -1,6 +1,7 @@
 // The game-over screen: the result and whether it's a new best, the daily challenge line, and the
 // leaderboard result under it (where a new best this week would land, and the button to put it on).
 
+import { myTeam } from "../players/community.js";
 import { countsIn, doneToday, progress, streakDays, todaysChallenge } from "../daily.js";
 import { save } from "../engine/storage.js";
 import { showRoundResult } from "../leaderboard.js";
@@ -113,10 +114,11 @@ function showRound() {
         score,
         shots,
         ...look,
-        // Their own player's team, for Top teams (the server knows the others'): an official team's name, or the
-        // community team they wear (it only counts if this device is on it).
-        team: c?.mine ? c.colours?.teamName : undefined,
-        teamId: c?.mine ? c.colours?.teamId : undefined,
+        // The team this game counts for on Top teams: their own player's (picked in the builder), or the one the
+        // device chose for Orson and approved players (screens/team.js). An official team's name, or a community
+        // team's key (it only counts if this device is on it).
+        team: c?.mine ? c.colours?.teamName : myTeam()?.name,
+        teamId: c?.mine ? c.colours?.teamId : myTeam()?.key,
         input: state.input,
         hiddenTab: state.hiddenTab,
         version: gameVersion,

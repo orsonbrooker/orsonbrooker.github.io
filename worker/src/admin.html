@@ -801,6 +801,7 @@
 			function teamCard(t) {
 				const act = (action, extra, done) => run(() => api(`teams/${t.id}`, { action, ...extra }), done);
 				const name = el("input", { type: "text", value: t.name, maxLength: 10 });
+				const code = el("b", { className: "team-new-code" });
 				return el(
 					"div",
 					{ className: "team-card" },
@@ -818,7 +819,16 @@
 							: el("button", { type: "button", textContent: "Show again", onclick: act("show", {}, "Shown again") }),
 					),
 					el("div", { className: "row" }, name, el("button", { type: "button", textContent: "Rename", onclick: () => act("rename", { name: name.value }, "Renamed")() })),
+					// For a maker whose device lost the code (only their device keeps it): a new one to give them in person.
+					t.status === "ok" ? el("div", { className: "row" }, el("button", { type: "button", textContent: "New code (the old one stops working)", onclick: newCode }), code) : null,
 				);
+				async function newCode() {
+					try {
+						code.textContent = `${(await api(`teams/${t.id}`, { action: "code" })).code}: give it to the maker in person.`;
+					} catch (err) {
+						toast(err.message);
+					}
+				}
 			}
 			function renderTeams() {
 				const box = document.getElementById("teams");

@@ -270,6 +270,7 @@ export async function joinCode(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
 	await rateLimit(request, env, "pair-join", TRIES_PER_DAY, "That's a lot of tries for one day! Try again tomorrow.");
 	const code = tidyCode(body.code);
+	if (code.length === 9 && code.startsWith("T")) throw new HttpError(400, "That's a team code. Type it in the player builder's Team tab."); // teams.ts
 	if (code.length !== 8) throw new HttpError(400, "A code is 8 letters and numbers.");
 	const pair = await env.DB.prepare("DELETE FROM pair_codes WHERE code_hash = ? RETURNING progress_id, expires_at > datetime('now') AS fresh")
 		.bind(await codeHash(env, code))

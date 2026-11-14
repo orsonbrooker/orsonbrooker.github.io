@@ -352,20 +352,32 @@ Terms used across the code:
   device keeps the code; a new code stops the old one), and there's no way to send one in the game. The maker
   can ask to show it to everyone: Luke OKs the name in the admin inbox ("Teams to list"), and listed names are
   unique among listed and official teams. A device (its board, so paired devices count as one, and pairing
-  moves its teams like its scores) makes at most 3, with Turnstile and a per-IP daily limit; joins are 15
-  tries a day per IP. Joining means wearing the team's kit and name (`colours.teamId` on the player, kept on
-  the device); a device is on a team in `team_members`. Luke can list, refuse a name, unlist, rename or hide a
-  team (Teams section); a hidden one is gone everywhere.
+  moves its teams like its scores) makes at most 3, with Turnstile; a team can't take an official team's
+  name. Codes look like `T-ABCD-EFGH`, never like a pairing code; only a hash is kept, so only the maker's
+  device can show one (Luke can make a new one in admin). Per-IP daily limits fit a class on one school
+  Wi-Fi: 20 teams made, 100 joins, and only wrong codes count towards the 15 that stop guessing. Joining
+  means wearing the team's kit and name (`colours.teamId` on the player, kept on the device); a device is on
+  a team in `team_members`. Luke can list, refuse a name, unlist, rename, hide a team or make it a new code
+  (Teams section); a hidden one is gone everywhere. The game asks `POST /api/teams/mine` once a visit when
+  the device is on a community team, and if one has gone its players stop wearing it and they're told
+  (`checkTeams` in `screens/team.js`).
+- **Choosing a team:** the first time a device plays a scored game as Orson or someone else's approved
+  player, it chooses the team those games count for (`screens/team.js`, kept as `orson-hoops-my-team`; the
+  Team button on Choose your player changes it). Its own players wear the team picked in the builder, and a
+  new one starts in the device's team.
 - **Top teams:** per mode, this week and all time (`GET /api/teams`, edge-cached and cleared with the mode's
-  board). The team is saved with each game when it's sent (`scores.team`) and never moves: KINGS for Orson; for
-  a kid's own player, the community team they wear if their device is on it, else the official team they
-  wear; for someone else's approved player, their team if it's official. A team's score is its 3 best devices
+  board). The team is saved with each game when it's sent (`scores.team`) and never moves: the team the kid
+  chose (their own player's, or the device's for anyone else), a community team only if the device is on
+  it; none while the flag is off, so games count from switching it on. A team's score is its 3 best devices
   added up (`TEAM_COUNTS`), each device once at its best game for that team, so a big team can't win by
   numbers and one kid can't fill all 3; in Around the World the 3 best times add up and teams with all 3 come
   first. It shows official and listed teams (never a blocked name), from shown games played from
   `FEATURE_FROM.teams`; a private team's members get a "Your team" row with where it would be
-  (`POST /api/teams/players`, just for them). Rows show the top player's face; tapping one lists the team's
-  players (nicknames as on the players' boards) with the 3 that count marked. In the game a Players / Teams
+  (`POST /api/teams/players`, just for them; the counting behind it is kept 30 s in the edge cache under
+  `/api/teams-rank`, which no request is answered from, and cleared with the board). Rows show the top
+  player's face; tapping one lists the team's players with the 3 that count marked: nicknames only for
+  players already on that players' board (others are a face and a score; a private team's members see each
+  other's), each with the report flag. In the game a Players / Teams
   switch on the leaderboard (`renderTeams` in `leaderboard.js`) appears with the flag.
 
 ## Courts

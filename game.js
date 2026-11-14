@@ -24,7 +24,8 @@ import { canDunk, checkDecided, shoot, startDunk, startGame, step, stepBall } fr
 import { art, render, resize, updateHud } from "./play/scene.js";
 import { DEBUG, PHASES, canShoot, mode, player, setAnim, setSeed, state, steer } from "./play/state.js";
 import { $, charPick, page, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
-import { openModes, openSelect, refreshPicker, selectBack, selectCharacter, setMode, showTitle, startTeam } from "./screens/menus.js";
+import { changeMyTeam, openModes, openSelect, refreshPicker, selectBack, selectCharacter, setMode, showTitle, startTeam } from "./screens/menus.js";
+import { checkTeams } from "./screens/team.js";
 import { setGameVersion } from "./screens/over.js";
 import { closeBoard, closeHelp, openBoard, toggleBoard, toggleHelp, wireBoardTabs } from "./screens/panels.js";
 import { closeMenu, wireMenu } from "./screens/menu.js";
@@ -119,6 +120,7 @@ for (const card of screens.modes.querySelectorAll("[data-mode]"))
     openSelect(true); // then choose a player
   });
 $("select-back").addEventListener("click", selectBack);
+$("my-team").addEventListener("click", changeMyTeam);
 $("again").addEventListener("click", () => {
   if (performance.now() - state.overAt > 900) startGame();
 });
@@ -214,6 +216,7 @@ async function boot() {
   onSave(() => reloadMyPlayers().then(refreshPicker));
   refreshProgress();
   showTitle();
+  checkTeams().then(refreshPicker); // a community team they were on may have gone (screens/team.js)
   if (location.hash === "#leaderboard") openBoard("week");
   updateHud();
   startLoop((dt) => {

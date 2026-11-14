@@ -24,7 +24,7 @@ import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
 import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer, useDrawnKids } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
-import { changeTeam, joinTeam, keptTeam, keptTeams, leaveTeam, listedTeams, makeTeam, refreshTeams } from "../players/community.js";
+import { changeTeam, joinTeam, keptTeam, keptTeams, leaveTeam, listedTeams, makeTeam, myTeam, refreshTeams, setMyTeam } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
 
 const $ = (id) => document.getElementById(id);
@@ -538,7 +538,9 @@ function setupSize() {
 
 const COMMUNITY = flagOn("teams");
 let mine = myTeams(); // teams kept on this device (drafts, with the flag on)
-let community = COMMUNITY ? keptTeams() : []; // community teams this device is on or made
+// Kept even with the flag off, so a player on a community team keeps wearing it (and switching the flag
+// back on finds them still on it).
+let community = keptTeams(); // community teams this device is on or made
 let listed = []; // community teams shown to everyone
 let mostTeams = 3;
 let team; // the team being played for
@@ -644,7 +646,8 @@ function paintTeams() {
   const section = (title, ...rows) => el("section", { className: "team-list" }, el("p", { className: "pane-title" }, title), ...rows);
   const official = section("Teams", ...TEAMS.map((t) => teamRow(t)));
   if (!COMMUNITY) {
-    list.replaceChildren(...(drafts.length ? [section("Your teams", ...drafts.map((t) => teamRow(t)))] : []), official, section("New team", make));
+    const worn = isCommunity(team) ? [teamRow(team)] : [];
+    list.replaceChildren(...(drafts.length || worn.length ? [section("Your teams", ...worn, ...drafts.map((t) => teamRow(t)))] : []), official, section("New team", make));
     return;
   }
   const on = community.filter((t) => t.member !== false);
@@ -666,10 +669,13 @@ function paintTeams() {
     return teamRow(t, { side: count, onPick: () => runTeam(null, async () => wearTeam(await joinTeam({ id: t.id }), "home"), "Joined!") });
   });
 
-  const code = el("input", { type: "text", id: "team-code", maxLength: 9, autocomplete: "off", autocapitalize: "characters", spellcheck: false, placeholder: "ABCD-EFGH", ariaLabel: "Team code", value: codeTyped });
+  // A team code is T-ABCD-EFGH (worker/src/teams.ts), so it never looks like a pairing code.
+  const code = el("input", { type: "text", id: "team-code", maxLength: 11, autocomplete: "off", autocapitalize: "characters", spellcheck: false, placeholder: "T-ABCD-EFGH", ariaLabel: "Team code", value: codeTyped });
   code.addEventListener("input", () => {
-    const raw = code.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 8);
-    code.value = codeTyped = raw.length > 4 ? `${raw.slice(0, 4)}-${raw.slice(4)}` : raw;
+    const raw = code.value.toUpperCase().replace(/[^0-9A-Z]/g, "");
+    const rest = (raw.startsWith("T") ? raw.slice(1) : raw).slice(0, 8);
+    const groups = rest.length > 4 ? `${rest.slice(0, 4)}-${rest.slice(4)}` : rest;
+    code.value = codeTyped = raw ? `T${rest ? `-${groups}` : ""}` : "";
   });
   const go = button({ className: "fb-button fb-primary", id: "team-join" }, "Join");
   const join = () =>
@@ -725,7 +731,7 @@ function paintEditor() {
     return;
   }
   // Their own community team.
-  const codeText = el("b", { className: "team-code", textContent: team.code ?? "••••-••••" });
+  const codeText = el("b", { className: "team-code", textContent: team.code ?? "T-••••-••••" });
   const fresh = button({ className: "fb-button" }, team.code ? "New code" : "Show a code");
   fresh.addEventListener("click", () =>
     runTeam(fresh, async () => Object.assign(team, await changeTeam(team, "code")), team.code ? "New code made. The old one won't work any more." : ""),
@@ -748,6 +754,8 @@ function paintEditor() {
   extra.replaceChildren(
     el("div", { className: "code-box" }, el("span", { className: "mini-label" }, "Team code"), codeText, fresh),
     el("p", { className: "fb-hint", textContent: "Share the code in person with friends. They type it in Join a team." }),
+    // Only this device can show it (the server keeps no copy), so a lost device would lose it.
+    el("p", { className: "fb-hint", textContent: "Only this device can show the code, so write it down somewhere safe. Play on more than one device? Join them in the game's Shop (Playing on another device?) so they share your team." }),
     el("div", { className: "code-box" }, el("span", { className: "mini-label" }, "Who can join"), el("span", { className: "team-state", textContent: STATE[team.listing] ?? STATE.private }), ...(team.listing === "refused" ? [] : [show])),
     teamCheck(),
   );
@@ -844,6 +852,7 @@ async function leave_(t) {
   runTeam(null, async () => {
     await leaveTeam(t);
     community = keptTeams();
+    if (myTeam()?.key === t.key) setMyTeam(null); // Orson's team too: the game asks again
     if (team?.key === t.key) wearTeam(TEAMS[0], "home");
   });
 }
@@ -1370,7 +1379,10 @@ async function setup() {
     team = known ?? linkTeam;
     if (known && !same(known.home)) startKit = "away";
   } else {
-    team = [...mine, ...TEAMS].find((t) => t.name === teamName) ?? TEAMS[0];
+    // A new player starts in the team the device chose in the game (players/community.js myTeam).
+    const chosen = !teamName && COMMUNITY ? myTeam() : null;
+    const theirs = chosen && (chosen.key ? community.find((t) => t.key === chosen.key && t.member !== false) : TEAMS.find((t) => t.name === chosen.name));
+    team = theirs ?? [...mine, ...TEAMS].find((t) => t.name === teamName) ?? TEAMS[0];
   }
   if (/^\d{1,2}$/.test(params.get("number") ?? "")) numberInput.value = colours.number = params.get("number");
   if (params.get("name")) nameInput.value = params.get("name").slice(0, 12);

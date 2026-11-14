@@ -106,7 +106,7 @@ export async function postScore(request: Request, env: Env): Promise<Response> {
 
 	const ipHash = await ipKey(request, env);
 	const deviceHash = await boardOf(env, device);
-	const team = await teamForScore(env, player, body.team, body.teamId, deviceHash); // for Top teams (teams.ts)
+	const team = await teamForScore(env, body.team, body.teamId, deviceHash); // for Top teams (teams.ts)
 	const [today, history, standing] = await env.DB.batch([
 		env.DB.prepare("SELECT COUNT(*) AS n FROM scores WHERE ip_hash = ?").bind(ipHash),
 		env.DB.prepare(`SELECT ${lowWins(mode) ? "MIN" : "MAX"}(score) AS best FROM scores WHERE device = ? AND mode = ?`).bind(deviceHash, mode),
@@ -275,8 +275,23 @@ async function boardRows(env: Env, mode: Mode, week: boolean, limit: number, min
 	return rows.results.map((r) => ({ ...r, colours: r.colours ? JSON.parse(r.colours) : null }));
 }
 
+/** Who's on one mode's players' board (its top 10), as "device player": Top teams' rankings only name them. */
+export async function boardNames(env: Env, mode: Mode, week: boolean): Promise<Set<string>> {
+	const rows = await env.DB.prepare(
+		`SELECT device, player FROM (
+		   SELECT id, score, device, player, ROW_NUMBER() OVER (PARTITION BY device, player ORDER BY score ${order(mode)}, id) AS n
+		   FROM scores WHERE status = 'shown' AND mode = ?1 ${week ? `AND ${WEEK}` : ""}
+		 ) t WHERE n = 1 ORDER BY score ${order(mode)}, id LIMIT ${BOARD_SIZE}`,
+	)
+		.bind(mode)
+		.all<{ device: string; player: string }>();
+	return new Set(rows.results.map((r) => `${r.device} ${r.player}`));
+}
+
+const BOARD_SIZE = 10;
+
 export async function leaderboard(env: Env, url: URL): Promise<Response> {
-	const scores = await boardRows(env, modeOf(url.searchParams.get("mode")), url.searchParams.get("range") !== "all", 10);
+	const scores = await boardRows(env, modeOf(url.searchParams.get("mode")), url.searchParams.get("range") !== "all", BOARD_SIZE);
 	return json({ scores }, 200, 30);
 }
 

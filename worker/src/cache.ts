@@ -37,6 +37,8 @@ export function cacheKey(request: Request, url: URL): Cached | null {
 
 const boardKey = (origin: string, mode: Mode, all: boolean) => `${origin}/api/scores?mode=${mode}&range=${all ? "all" : "week"}`;
 const teamsKey = (origin: string, mode: Mode, all: boolean) => `${origin}/api/teams?mode=${mode}&range=${all ? "all" : "week"}`;
+/** Where teams.ts keeps every team's count (private ones too): no request is ever answered from it. */
+export const rankKey = (origin: string, mode: Mode, all: boolean) => `${origin}/api/teams-rank?mode=${mode}&range=${all ? "all" : "week"}`;
 
 /**
  * The cached answer for `c`, or a fresh one from `make` (kept for next time if it's a 200). The
@@ -72,7 +74,14 @@ export async function forget(
 	const keys: string[] = [];
 	// A mode's board and its Top teams (teams.ts) change together.
 	for (const mode of what.boards ?? [])
-		keys.push(boardKey(origin, mode, false), boardKey(origin, mode, true), teamsKey(origin, mode, false), teamsKey(origin, mode, true));
+		keys.push(
+			boardKey(origin, mode, false),
+			boardKey(origin, mode, true),
+			teamsKey(origin, mode, false),
+			teamsKey(origin, mode, true),
+			rankKey(origin, mode, false),
+			rankKey(origin, mode, true),
+		);
 	if (what.score) keys.push(`${origin}/api/scores/${what.score}`);
 	for (const id of what.scores ?? []) keys.push(`${origin}/api/scores/${id}`);
 	if (what.players) keys.push(`${origin}/api/players`);
@@ -81,7 +90,7 @@ export async function forget(
 	// A community team listed, renamed or hidden: every mode's Top teams, and the builder's list.
 	if (what.teams) {
 		keys.push(`${origin}/api/teams/list`);
-		for (const mode of MODES) keys.push(teamsKey(origin, mode, false), teamsKey(origin, mode, true));
+		for (const mode of MODES) keys.push(teamsKey(origin, mode, false), teamsKey(origin, mode, true), rankKey(origin, mode, false), rankKey(origin, mode, true));
 	}
 	await Promise.all(keys.map((k) => caches.default.delete(k)));
 }

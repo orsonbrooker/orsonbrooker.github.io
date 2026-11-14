@@ -473,22 +473,27 @@ function showTeamCard(team, range, mode, faceFor) {
   form.append(head, hint, list, row);
   dialog.append(form);
   // A private team's players come only to its members; official and listed teams from the cached GET.
-  const load = team.mine ? teamStanding(team.key, mode, range) : fetch(`${API}/teams/${encodeURIComponent(team.key)}/players?range=${range}&mode=${mode}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error())));
-  load
+  const asked = team.mine ? teamStanding(team.key, mode, range) : fetch(`${API}/teams/${encodeURIComponent(team.key)}/players?range=${range}&mode=${mode}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error())));
+  asked
     .then(({ players }) => {
       hint.textContent = lowWins(mode) ? "The 3 best times add up." : "The 3 best players add up.";
+      // Names show only for players already on the players' board (or teammates on a private team):
+      // the rest are a face and a score. Someone else's name has the report flag, as on the board.
+      const mine = new Set(load(MY_SCORES, []));
       list.replaceChildren(
         ...players.map((p) => {
-          const li = el("li", { className: p.counts ? "counts" : "" });
+          const li = el("li", { className: `${p.counts ? "counts" : ""}${mine.has(p.id) ? " mine" : ""}` });
           const img = el("img", { alt: "", width: 40, height: 40 });
           faceFor(p, img);
+          const name = mine.has(p.id) && !p.nickname ? "You" : p.nickname ?? "A player";
           li.append(
             el("span", { className: "lb-rank", textContent: p.rank }),
             img,
-            el("span", { className: "lb-name", textContent: p.nickname }), // typed by visitors: text only
+            el("span", { className: `lb-name${p.nickname ? "" : " lb-unnamed"}`, textContent: name }), // typed by visitors: text only
             ...(p.counts ? [el("span", { className: "lb-best-tag", textContent: "Counts" })] : []),
             el("span", { className: "lb-points", textContent: scoreText(mode, p.score) }),
           );
+          if (p.nickname && p.id && !mine.has(p.id)) li.append(reportButton(p));
           return li;
         }),
       );

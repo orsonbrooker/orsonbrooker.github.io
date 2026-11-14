@@ -102,3 +102,42 @@ export async function changeTeam(team, action, extra = {}) {
 
 /** A team's rank and players, for a device on it (a private team's rank is just for its members). */
 export const teamStanding = (key, mode, range) => post("/players", { key, mode, range });
+
+// ---------- The device's team ----------
+
+// The team this device plays for when it plays as Orson or someone else's approved player (who have no
+// team of their own here): chosen the first time it plays (screens/team.js). Its own players wear the
+// team picked for them in the builder.
+const MY_TEAM = "orson-hoops-my-team";
+
+/** The device's team: { name, key? } (key for a community team), or null if it hasn't chosen one. */
+export function myTeam() {
+  try {
+    const t = JSON.parse(localStorage.getItem(MY_TEAM) ?? "null");
+    return t && typeof t.name === "string" && t.name && (t.key === undefined || /^c\d{1,10}$/.test(t.key)) ? { name: t.name, ...(t.key ? { key: t.key } : {}) } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Sets (or, with null, forgets) the device's team: an official team or a kept community team. */
+export function setMyTeam(t) {
+  try {
+    if (t) localStorage.setItem(MY_TEAM, JSON.stringify(t.key ? { name: t.name, key: t.key } : { name: t.name }));
+    else localStorage.removeItem(MY_TEAM);
+  } catch {
+    // Storage blocked: they choose again next visit.
+  }
+}
+
+/**
+ * The community teams this device was on and isn't any more (Luke hid one, or it left on another
+ * device), asked once a visit by the game: [{ key, name }]. None offline, or when it's on none.
+ */
+export async function goneTeams() {
+  const before = keptTeams().filter((t) => t.member !== false);
+  if (!before.length) return [];
+  const { teams, offline } = await refreshTeams();
+  if (offline) return [];
+  return before.filter((b) => !teams.some((t) => t.key === b.key && t.member !== false)).map(({ key, name }) => ({ key, name }));
+}
