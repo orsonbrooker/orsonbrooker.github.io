@@ -617,6 +617,15 @@
   width: 100%;
 }
 
+/* A community team can't be deleted here (Luke hides teams): no Delete, and Save takes the row. */
+.editor-actions [hidden] {
+  display: none;
+}
+
+.editor-actions [hidden] + .fb-button {
+  grid-column: 1 / -1;
+}
+
 .field {
   display: grid;
   gap: 6px;
