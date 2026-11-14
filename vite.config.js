@@ -28,9 +28,11 @@ const STATIC = [
   "site.webmanifest",
   "games/shootaround/manifest.webmanifest",
   // The admin page (served by the Worker) imports it to draw players exactly as the game does. Its only
-  // import is shades.js beside it, so the plain files work; the site's pages use their own bundled copy.
+  // imports are shades.js beside it and engine/download.js, so the plain files work; the site's pages
+  // use their own bundled copy.
   "players/recolor.js",
   "players/shades.js",
+  "engine/download.js",
   "robots.txt",
   "sitemap.xml",
   "CNAME",

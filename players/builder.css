@@ -1151,3 +1151,20 @@
 .team-row > .team-count {
   width: 92px;
 }
+
+/* Loading bars (ui/loading-bar.js): over a card's picture until it's in, and over the preview while a
+   body they chose is still coming in. */
+.character-card .card-loading {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 70%;
+  transform: translate(-50%, -50%);
+}
+
+.builder-stage .preview-loading {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}

@@ -1,7 +1,11 @@
 // Feature flags in the browser: whether something that's built but not out yet should show (the list
-// is shared/flags.js; Luke switches them on the admin page). Loaded once, when the page starts: from
-// the server if it answers quickly, else the copy this device kept last time (so it works offline),
-// else everything off, so nothing unreleased ever shows by accident.
+// is shared/flags.js; Luke switches them on the admin page). The copy this device kept last time is
+// used straight away, so a page never waits for the server; if it's more than a few minutes old a new
+// one is fetched in the background, for the next page. Only a device with no copy yet (a first visit)
+// waits for the server, briefly; if it doesn't answer, everything is off, so nothing unreleased ever
+// shows by accident. So a flag switched on shows on a device's next page after its copy is refreshed,
+// and every device asks the server at most once every few minutes (each ask is a Worker request,
+// which the free tier counts; the answer itself comes from the edge cache, not the database).
 //
 // For testing: ?flags=threepoint,freeplay (or ?flags=all, or ?flags=none) shows exactly those in this
 // tab, whatever the server has on (?flags=server ends it), and ?debug turns them all on (unless it has a ?flags= of its own). Turned on that way, a flag is only for looking: what it sends (scores, players) is still
@@ -12,8 +16,9 @@ import { load, save } from "./engine/storage.js";
 import { FLAG_KEYS, parseFlagList } from "./shared/flags.js";
 import { flagPreview } from "./ui/flag-preview.js";
 
-const KEPT = "orson-flags";
-const WAIT = 1500; // ms to wait for the server before using the kept copy
+const KEPT = "orson-flags"; // { flags, at }: the server's answer and when it came
+const WAIT = 1500; // ms a first visit waits for the server
+const FRESH_FOR = 10 * 60_000; // ms a kept copy is used without asking again
 
 const params = new URLSearchParams(location.search);
 // A ?flags= list stays for the rest of this tab (ui/flag-preview.js).
@@ -33,10 +38,20 @@ async function fetchFlags() {
   }
 }
 
-const fresh = await fetchFlags();
-if (fresh) save(KEPT, fresh);
+/** Asks the server and keeps its answer; returns it (null if it didn't answer). */
+async function refresh() {
+  const flags = await fetchFlags();
+  if (flags) save(KEPT, { flags, at: Date.now() });
+  return flags;
+}
+
+const kept = load(KEPT, null);
+// (a copy kept before the time was saved with it is just the flags: used, and refreshed)
+const keptFlags = kept && typeof kept === "object" ? (kept.flags && typeof kept.at === "number" ? kept.flags : kept) : null;
+const keptAt = typeof kept?.at === "number" ? kept.at : 0;
+if (keptFlags && !(Date.now() - keptAt >= 0 && Date.now() - keptAt < FRESH_FOR)) refresh();
 /** @type {Record<string, boolean>} */
-const server = fresh ?? load(KEPT, {}) ?? {};
+const server = keptFlags ?? (await refresh()) ?? {};
 
 /** Whether `key` is out for everyone (switched on on the admin page). */
 export const released = (key) => server[key] === true;

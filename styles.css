@@ -328,6 +328,55 @@ header p {
   }
 }
 
+/* A loading bar (ui/loading-bar.js): chunky pixel blocks filling up; it slides when the size isn't known. */
+.loading-bar {
+  position: relative;
+  width: min(220px, 70%);
+  height: 14px;
+  padding: 2px;
+  border: 2px solid var(--ink);
+  background: var(--sheet);
+  box-shadow: 2px 2px 0 var(--ink);
+  overflow: hidden;
+}
+
+.loading-bar[hidden] {
+  display: none;
+}
+
+.loading-bar > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: repeating-linear-gradient(90deg, #ffe066 0 6px, var(--accent) 6px 8px);
+  transition: width 0.15s steps(2);
+}
+
+.loading-bar.unknown > span {
+  width: 35%;
+  animation: loading-slide 1.1s steps(12) infinite;
+}
+
+@keyframes loading-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(290%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-bar > span {
+    transition: none;
+  }
+  .loading-bar.unknown > span {
+    width: 100%;
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
 /* Choosing a game: one card each, with your best, and today's challenge above them. */
 .mode-daily {
   margin: 0 0 12px;
@@ -599,6 +648,15 @@ header p {
 /* Choosing who's playing: a number on each chosen player for their turn. */
 .char-pick .card {
   position: relative;
+}
+
+/* A player still loading after their card was tapped: a bar over their face. */
+.char-pick .card .card-loading {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 70%;
+  transform: translate(-50%, -50%);
 }
 
 /* Several are picked at once, so every chosen card stays marked wherever the focus is. */
