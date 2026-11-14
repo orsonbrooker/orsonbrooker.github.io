@@ -129,7 +129,10 @@ async function showCode() {
 async function join(e) {
   e.preventDefault();
   const code = $("pair-input").value;
-  if (code.replace(/[^0-9a-z]/gi, "").length !== 8) return joinSay("A code is 8 letters and numbers, like ABCD-EFGH.");
+  const typed = code.replace(/[^0-9a-z]/gi, "").toUpperCase();
+  // A team code (T-ABCD-EFGH, worker/src/teams.ts) belongs in the builder; the server says the same.
+  if (typed.length === 9 && typed.startsWith("T")) return joinSay("That's a team code. Type it in the player builder's Team tab.");
+  if (typed.length !== 8) return joinSay("A code is 8 letters and numbers, like ABCD-EFGH.");
   try {
     await joinWithCode(code);
     $("pair-input").value = "";
