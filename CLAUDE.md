@@ -231,7 +231,8 @@ main checkout.
   "Looks fine".
 - The flow: tap or Space to play, choose a game, choose a player (and, with the teams flag, a team, the
   first time as Orson). Once they've chosen, choosing a game starts it straight away; Choose a game shows
-  their player and team to change. HORSE always picks its players.
+  their player and team to change (their own player's team only in the builder, which that button opens).
+  With the teams flag, no team is ever picked for a kid. HORSE always picks its players.
 - Players: Orson (built in), and kids' own players from the builder (10 bodies, recoloured from region maps);
   requests wait in the admin inbox. A player is a he or a she (from the body: ponytail and buns are she, for now; the admin can override);
   the announcer says "She's heating up!" for a she, and skips lines about he or she when it isn't set. A new

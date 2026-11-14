@@ -363,14 +363,21 @@ Terms used across the code:
   progress). If one has gone, its players go into the device's team (else KINGS) and they're told; a
   renamed or re-kitted team's players take its new name and kit (`checkTeams` in `screens/team.js`).
   Leaving in the builder moves the device's saved players off the team straight away.
-- **Choosing a team:** the first time a device plays a scored game as Orson or someone else's approved
-  player, it chooses the team those games count for (`screens/team.js`, kept as `orson-hoops-my-team`; the
-  Team button on Choose your player changes it, and so does Choose a game's while Orson or an approved player is
-  chosen). Its own players wear the team picked in the builder, and a new one starts in the device's team; while
-  one of them is chosen, Choose a game's Team button shows and changes their team (its home kit and name, saved
-  with them, as the builder does) and leaves the device's alone. Orson wears it too (`dressOrson` in `play/players.js`: its home kit,
-  shorts included, and its name on his jersey; only his art from video can be recoloured, so with the older
-  art he stays in KINGS). It travels with saved progress (`team` in `shared/save.js`, the latest choice wins).
+- **Choosing a team:** no team is ever picked for a kid (while the flag is on). The first time a device plays
+  a scored game as Orson or someone else's approved player, it chooses the team those games count for
+  (`screens/team.js`, kept as `orson-hoops-my-team`; the Team buttons on Choose your player and Choose a game
+  change it). Orson and approved players wear it (`dressInTeam` in `play/players.js`: its home kit, shorts
+  included, and its name on the jersey; an approved player wears the kit they were sent in until one's chosen;
+  only Orson's art from video can be recoloured, so with the older art he stays in KINGS). It travels with
+  saved progress (`team` in `shared/save.js`, the latest choice wins). Its own players' teams are picked only
+  in the builder: a new one starts in the device's team, else in no team (plain grey, no name) and can't be
+  saved until one's picked; saving marks it `teamPicked`. A player saved in KINGS before teams came out
+  (where every player started) counts as not picked (`teamPicked` in `players/recolor.js`): the builder opens
+  it with no team, and the game asks before its next scored game ("Pick Dude's team", `askPlayerTeam`).
+  Choose a game's Team button, and that question, open the builder on that player's Team tab
+  (`/players/?edit=<id>&tab=team&back=modes`); saving goes back to Choose a game (`#modes`). A player whose
+  community team is gone or left is left with no team, to pick again. Until then their games count for no
+  team. The iOS app has no builder: its players from saved progress aren't asked and their Team button only shows.
 - **Top teams:** per mode, this week and all time (`GET /api/teams`, edge-cached and cleared with the mode's
   board). The team is saved with each game when it's sent (`scores.team`) and never moves: the team the kid
   chose (their own player's, or the device's for anyone else), a community team only if the device is on
