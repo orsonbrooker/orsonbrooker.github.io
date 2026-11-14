@@ -27,6 +27,7 @@ from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 
 sys.path.insert(0, os.path.dirname(__file__))
 from from_video import kmeans, sample  # noqa: E402
+from print_twin import write_prints  # noqa: E402
 
 PARTS = ["skin", "hair", "jersey", "team", "shoes"]
 
@@ -969,7 +970,8 @@ def write_detail(cfg, meta, sheet_imgs, frame_of, flipped, grids, videos, pixel_
         # frame here is, K times bigger
         # (each file named with a stamp of its contents, so browsers never use a stale copy)
         "regionsFile": f"{out}/regions.png?v={stamp(os.path.join(out, 'regions.png'))}",
-        "printsFrom": {"atlas": f"{pixel_out}/sprites.png?v={stamp(os.path.join(pixel_out, 'sprites.png'))}",
+        # (from its jersey-only copy, a fraction of the whole sheet's size: print_twin.py)
+        "printsFrom": {"atlas": write_prints(pixel_out),
                        "meta": f"{pixel_out}/sprites.json?v={stamp(os.path.join(pixel_out, 'sprites.json'))}", "scale": K,
                        "frames": {f"{q[0]},{q[1]}": k for k, q in places.items()}},
     }
