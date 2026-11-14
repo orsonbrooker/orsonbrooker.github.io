@@ -20,6 +20,12 @@
 //   physics            gravity (m/s/s, down) and wind (optional: { u, v } in m/s/s, pushing the ball
 //                      along the floor's directions while it's in the air)
 //   test               only reachable from ?debug (window.game.setCourt), never offered to players
+//   contest            (optional) the 3-point contest's look on this court: its court image (the racks' shadows in
+//                      the floor, no racks) and each rack in RACK_LAYOUT order, where its picture's top left goes
+//                      and its picture with 0, 1, ... 5 balls left (modes/threes.js draws them)
+//   scoreboard         (pixel-art courts) the wall scoreboard the game lights: where its prop stands on the hoop wall
+//                      (foot: u and height, metres) and its face (art/iso/props/scoreboard/prop.json), drawn by
+//                      engine/pixelboard.js. Courts without it use the old painted board (content/looks.js BOARD_ART)
 
 const GYM = {
   id: "gym",
@@ -41,8 +47,46 @@ const GYM = {
   physics: { gravity: 9.81, wind: null },
 };
 
+// The gym redrawn in Blender as pixel art at clean 2:1 (art/iso/gym/, docs/art/isometric.md): 1 m of floor round
+// the court lines, the board 1.18 m off the wall, a smaller glass board (2.2 x 1.3 m) on the same rim. Its pixels
+// are 5 court pixels, like the pixel-art players'. Test only until it's tried on phones.
+// The contest racks' pictures (art/iso/props/rack/), one for each number of balls left.
+const ballsLeft = (way) => [0, 1, 2, 3, 4, 5].map((n) => `assets/props/rack/rack-${way}-left-${n}.webp`);
+
+const GYM_ISO = {
+  id: "gym-iso",
+  name: "Gym (new art)",
+  test: true,
+  image: "assets/courts/gym-iso/court.webp",
+  hoopFront: "assets/courts/gym-iso/hoop-front.webp",
+  hoopFrontAt: { x: 760, y: 1005 },
+  size: 2400,
+  pxPerM: 146.9694,
+  origin: { x: 1200, y: 1070 },
+  eu: { x: -120, y: 60 },
+  ev: { x: 120, y: 60 },
+  room: { u: 9.5, v: 9.5 },
+  rim: { at: { x: 845, y: 1014.24 }, height: 3.05, radius: 0.45, tube: 0.035 },
+  board: { rimOut: 0.62, u0: 3.65, u1: 5.85, z0: 2.85, z1: 4.15 },
+  threePointLine: GYM.threePointLine,
+  defaultSpot: { u: 4.6, v: 5.27 },
+  physics: { gravity: 9.81, wind: null },
+  contest: {
+    image: "assets/courts/gym-iso/contest.webp",
+    racks: [
+      { at: [410, 1350], images: ballsLeft("rot-0") }, // rack 1
+      { at: [760, 1470], images: ballsLeft("rot-42") }, // rack 2
+      { at: [1100, 1445], images: ballsLeft("rot-98") }, // rack 3
+      { at: [1075, 1315], images: ballsLeft("rot-138") }, // rack 4
+      { at: [830, 1140], images: ballsLeft("rot-180") }, // rack 5
+    ],
+  },
+  scoreboard: { foot: [1.85, 3.4021], face: {"start": [1.5416666666666667, 0.06804138174397717], "out": 0.122, "size": [74, 32], "segments": {"a": [0, 13, 8, 15], "g": [0, 6, 8, 8], "d": [0, 0, 8, 2], "f": [0, 7, 2, 15], "b": [6, 7, 8, 15], "e": [0, 0, 2, 7], "c": [6, 0, 8, 7]}, "digit": [8, 15], "windows": [{"id": "score", "window": [3, 3, 35, 22], "cells": [[5, 5], [15, 5], [25, 5]]}, {"id": "time", "window": [39, 3, 71, 22], "cells": [[41, 5], [51, 5], [61, 5]]}], "labelGap": 2, "colours": {"face": "#403751", "window": "#180826", "unlit": "#532837", "lit": "#d0553c", "label": "#e9ccbb"}} },
+};
+
 export const COURTS = {
   gym: GYM,
+  "gym-iso": GYM_ISO,
   // Test courts: the same gym, to try the physics settings before there's art for a new court.
   "gym-low-gravity": { ...GYM, id: "gym-low-gravity", name: "Gym (low gravity)", test: true, physics: { gravity: 3.7, wind: null } },
   "gym-windy": { ...GYM, id: "gym-windy", name: "Gym (windy)", test: true, physics: { gravity: 9.81, wind: { u: 1.5, v: 0 } } },

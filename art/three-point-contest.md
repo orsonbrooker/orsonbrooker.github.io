@@ -1,5 +1,9 @@
 # 3-point contest: rack art brief
 
+**Done for the pixel-art gym (14 Nov 2026):** the racks are baked in Blender with the court (`art/iso/props/rack/`,
+one picture per number of balls left) and drawn by `modes/threes.js` on courts with `contest` art (`gym-iso`).
+This brief is still what the old painted gym would need.
+
 The 3-point contest (`modes/threes.js`) is built and playable in `?debug`, with plain placeholder racks
 drawn in code. It stays hidden from players until these images exist. This is what's needed.
 

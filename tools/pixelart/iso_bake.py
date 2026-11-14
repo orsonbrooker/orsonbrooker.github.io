@@ -494,7 +494,7 @@ def add_balls(sc, panel, rgb, mat, alpha, ids, depth):
     apm, up = sc["artPerM"], sc["upArtPerM"]
     h, w = alpha.shape
     for i, s in enumerate(sc["shapes"]):
-        if s["panel"] != panel or s["shape"] != "ball":
+        if s["panel"] != panel or s["shape"] != "ball" or s.get("_taken"):
             continue
         cu, cv, cz = s["centre"]
         cx, cy = ox + apm * (cv - cu), oy + apm / 2 * (cu + cv) - cz * up
@@ -770,6 +770,21 @@ def bake_prop(sc, passes, out, light, palette):
             gl = np.zeros(alpha.shape + (4,), np.uint8)
             gl[glass_mask] = [*hexrgb(GLASS[0]), 255]
             crop(rgb, np.zeros_like(alpha), k, gl, box=box)[0].save(out / f"{stem}-glass-{name}.webp", lossless=True)
+        states = None
+        if sc.get("ballStates") and name.startswith("rot-"):
+            # a rack the game takes balls from: the bare picture with each number of balls left, 0 to all, cut
+            # like the picture; the first ball in the list goes first, the last (the money ball) last
+            balls = [s for s in sc["shapes"] if s["panel"] == name and s["shape"] == "ball"]
+            states = []
+            for n in range(len(balls) + 1):
+                for j, s in enumerate(balls):
+                    s["_taken"] = j < len(balls) - n
+                srgb, salpha = bake_panel(sc, name, pas, light, palette)
+                f = f"{stem}-{name}-left-{n}.webp"
+                crop(srgb, salpha, k, box=box)[0].save(out / f, lossless=True)
+                states.append(f)
+            for s in balls:
+                s["_taken"] = False
         if any(s["shape"] == "poly" and s.get("windows") for s in sc["shapes"]):
             # a preview with digits lit, for looking at; the game lights them itself
             sc["_lit"] = True
@@ -790,6 +805,7 @@ def bake_prop(sc, passes, out, light, palette):
             hinge = [[lo[0], lo[1], 0], [hi[0], lo[1], 0]] if name == "along-u" else [[lo[0], lo[1], 0], [lo[0], hi[1], 0]]
         e = {"image": f"{stem}-{name}.webp", "bare": f"{stem}-bare-{name}.webp", "shadow": f"{stem}-shadow-{name}.webp",
              **({"glass": f"{stem}-glass-{name}.webp"} if glass_mask is not None else {}),
+             **({"ballsLeft": states} if states else {}),
              "foot": [(ox - x0) * k, (oy - y0) * k],  # where its foot is in the image, court px from the top left
              "footprint": [lo, hi], "hinge": hinge, "height": hi[2]}
         if wall:
@@ -808,10 +824,13 @@ def bake_prop(sc, passes, out, light, palette):
             pts = [wall_coords(e["wall"], p) for p in face["points"]]
             al = [float(p[0]) for p in pts]
             e["face"] = {"start": [max(al) if name == "along-u" else min(al), min(float(p[2]) for p in pts)],
+                         "out": round(float(wall_coords(e["wall"], face["points"][0])[1]), 4),  # metres out from the wall
                          "reading": -1 if name == "along-u" else 1, "size": [fw, fh],
                          "segments": segment_rects(DIGIT_W), "digit": [DIGIT_W, DIGIT_H],
-                         "windows": [{"id": wd["id"], "cells": wd["cells"]} for wd in layout],
-                         "colours": {"lit": FACE["lit"], "unlit": FACE["unlit"]}}
+                         # each window [r0, c0, r1, c1] and its digit cells; its label is centred over it, its
+                         # bottom row LABEL_GAP above the window, in the 3x5 font
+                         "windows": [{"id": wd["id"], "window": wd["window"], "cells": wd["cells"]} for wd in layout],
+                         "labelGap": LABEL_GAP, "colours": FACE}
         info["orientations"][name] = e
     (out / "prop.json").write_text(json.dumps(info, indent=1) + "\n")
     print(f"wrote {len(info['orientations'])} pictures and prop.json to {out}")
@@ -870,9 +889,19 @@ def bake_court(sc, passes, out, light, palette):
             e["hinge"] = [court_px(0, 0), court_px(U, 0) if q["plane"] == "hoop" else court_px(0, V)]
         entries.append(e)
     # props: their own pictures (baked first, on their own), stood at their foot
+    preview = None
     for pr, folder, o, on, f, base, at in placed:
-        # its shadow is already in the panel under it, so it stands there without one
-        flat.alpha_composite(Image.open(folder / o["bare"]).convert("RGBA"), tuple(at))
+        # its shadow is already in the panel under it, so it stands there without one. A prop the game draws itself
+        # ("game": true, a contest rack it takes balls from) is left out of court.webp, and only shown in preview.webp
+        img = Image.open(folder / o["bare"]).convert("RGBA")
+        if pr.get("game"):
+            if preview is None:
+                preview = flat.copy()
+            preview.alpha_composite(img, tuple(at))
+        else:
+            flat.alpha_composite(img, tuple(at))
+            if preview is not None:
+                preview.alpha_composite(img, tuple(at))
         kind = json.loads((folder / "prop.json").read_text()).get("kind", "prop")
         image = os.path.relpath(folder / o["bare"], out)
         if kind == "hoop":
@@ -882,11 +911,16 @@ def bake_court(sc, passes, out, light, palette):
             if o.get("front"):
                 shutil.copyfile(folder / o["front"]["image"], out / "hoop-front.webp")
                 hoop_front = {"image": "hoop-front.webp", "at": [at[0] + o["front"]["at"][0], at[1] + o["front"]["at"][1]]}
-        entries.append({"id": pr["id"], "kind": kind, "prop": pr["prop"], "along": pr["along"],
+        extra = {}
+        if pr.get("game"):
+            extra = {"game": True, "ballsLeft": [os.path.relpath(folder / x, out) for x in o.get("ballsLeft", [])]}
+        entries.append({"id": pr["id"], "kind": kind, "prop": pr["prop"], "along": pr["along"], **extra,
                         "image": image, "at": at, "order": len(entries),
                         "on": on, "foot": [round(x, 4) for x in f],
                         "hinge": [court_px(base[0] + a, base[1] + b, base[2] + c) for a, b, c in turn_pts(o["hinge"], o.get("rot"))]})
     flat.save(out / "court.webp", lossless=True)
+    if preview is not None:
+        preview.save(out / "preview.webp", lossless=True)
     manifest = {"note": sc.get("note", ""), "geometry": geo, "scale": k, "wallHeight": sc["wallHeightPx"] / up,
                 "needs": sorted({e["kind"] + (":" + e["plane"] if e.get("plane") else "") for e in entries if e["kind"] != "prop"}),
                 "image": "court.webp", "panels": entries}

@@ -21,6 +21,7 @@
 //                        shot in seconds from the top of the jump; missing or 0 keeps it at the top
 //   rumble()             how far the court shakes, in court pixels
 //   drawFloor(ctx)       optional: drawn on the floor, under the players and balls
+//   contestArt           optional: show the court's contest image while playing (content/courts.js `contest`)
 //   drawOver(ctx)        optional: drawn over the court, under the calls (HORSE's letters)
 // Showing it:
 //   hud()                [score, time] text under the court

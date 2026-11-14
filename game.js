@@ -195,7 +195,8 @@ async function boot() {
     // a loading bar under the title while their player comes in
     showLoading(tapToPlay.parentElement, loadingProgress(characters.selected), playerReady, "Loading your player");
     await Promise.all([
-      useCourt(), // the default court: its measurements, physics and art
+      // the default court (its measurements, physics and art); in ?debug, &court=<id> tries another (content/courts.js)
+      useCourt((DEBUG && COURTS[new URLSearchParams(location.search).get("court")]?.id) || undefined),
       document.fonts?.load('48px "Press Start 2P"').catch(() => {}),
     ]);
     art.ballSprites = makeBallSprites(ballLook()); // their ball style from the shop

@@ -18,6 +18,7 @@ export async function useCourt(id = DEFAULT_COURT) {
   const def = COURTS[id];
   if (!def) throw new Error(`No court called "${id}"`);
   const hoopFront = hoopFrontSrc === def.hoopFront ? art.hoopFront : await loadImage(def.hoopFront);
+  if (def.contest) loadImage(def.contest.image).catch(() => {}); // ready for the 3-point contest
   setCourt(def);
   setPhysics(def.physics);
   art.hoopFront = hoopFront;

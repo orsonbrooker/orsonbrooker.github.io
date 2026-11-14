@@ -6,7 +6,7 @@
 
 import { sound } from "../audio.js";
 import { RACK_ART, RACK_LAYOUT } from "../content/threes.js";
-import { LINE_CLEARANCE, RIM, project, threePointRadius } from "../engine/court.js";
+import { LINE_CLEARANCE, RIM, court, project, threePointRadius } from "../engine/court.js";
 import timed from "../modes/timed.js";
 import { pointsMode, scorePoints } from "../modes/points.js";
 import { loadImage } from "../play/players.js";
@@ -72,8 +72,19 @@ function finish() {
 }
 
 // ---------- The racks on the floor ----------
-// Placeholder racks until the art is drawn (art/three-point-contest.md): a dark frame with the balls
-// still on it, the last one gold. With RACK_ART filled in, the images instead.
+// On a court with contest art (content/courts.js `contest`: the pixel-art gym), each rack is its own picture
+// for the number of balls left on it, baked with the court (art/iso/props/rack/), standing inside the arc and
+// pointing at the hoop. Elsewhere, placeholder racks: a dark frame with the balls still on it, the last one
+// gold (or RACK_ART's images, once they're filled in).
+
+const courtRacks = new Map(); // picture -> its image once it's loaded (null while loading)
+function courtRack(src) {
+  if (!courtRacks.has(src)) {
+    courtRacks.set(src, null);
+    loadImage(src).then((img) => courtRacks.set(src, img)).catch(() => {});
+  }
+  return courtRacks.get(src);
+}
 
 const art = { rack: null, ball: null, moneyBall: null, loading: false };
 function loadArt() {
@@ -83,7 +94,14 @@ function loadArt() {
     if (RACK_ART[key]) loadImage(RACK_ART[key]).then((img) => (art[key] = img)).catch(() => {});
 }
 
-function drawRack(ctx, at, left, current) {
+function drawRack(ctx, at, left, current, i) {
+  const own = court.contest?.racks[i];
+  if (own) {
+    own.images.forEach(courtRack); // all of them, so the next one's ready when a ball's taken
+    const img = courtRack(own.images[left]);
+    if (img) ctx.drawImage(img, own.at[0], own.at[1]);
+    return;
+  }
   const p = project(at.u, at.v);
   if (art.rack) {
     const [ax, ay] = RACK_ART.anchor;
@@ -129,7 +147,7 @@ function drawFloor(ctx) {
       ctx.fill();
       ctx.restore();
     }
-    drawRack(ctx, rack, left, current);
+    drawRack(ctx, rack, left, current, i);
   });
 }
 
@@ -142,6 +160,7 @@ export default {
   bestKey: "orson-hoops-best-threes",
   bonusBalls: false,
   ballKind: contestBall,
+  contestArt: true, // the court's contest image while it's played (play/scene.js)
 
   startSpot() {
     lastRack = 0;

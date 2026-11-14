@@ -402,8 +402,19 @@ default spot, and physics settings (gravity, optional wind). `engine/court.js` a
 the active court's numbers as live bindings (`RIM`, `BOARD`, `GRAVITY`, ...), so the rest of the code reads
 them as before; `play/court.js` `useCourt(id)` switches all of it (and the art) at once. Players only get the
 gym for now. The test courts (`test: true`, the gym with low gravity or wind) are only reachable from `?debug`:
-`await window.game.setCourt("gym-low-gravity")` before starting a game. A new court needs its own art, and a
-look at the Around the World spots (`content/around.js`), which are placed round the hoop by angle and distance.
+`await window.game.setCourt("gym-low-gravity")` before starting a game, or `?debug&court=<id>` to start on it. A
+new court needs its own art, and a look at the Around the World spots (`content/around.js`), which are placed
+round the hoop by angle and distance.
+
+The gym redrawn as pixel art (`art/iso/gym/`, built in Blender, see `docs/art/isometric.md`) is in as a test
+court, `gym-iso`: 2400 court pixels, a smaller glass board, one rack by the bench. Its `contest` gives the 3-point
+contest its own look: while the contest is played (`contestArt` in `modes/threes.js`), `play/scene.js` swaps the
+court picture for the contest one (`art/iso/gym-contest/`: the racks' shadows in the floor, no racks), and
+`modes/threes.js` draws each rack from its baked picture for the number of balls left (`assets/props/rack/`),
+inside the arc and pointing at the hoop. The spots he shoots from stay `RACK_LAYOUT`'s. A pixel-art court gives `scoreboard` (where the scoreboard prop hangs and its
+face, from the prop's `prop.json`) instead of the old painted board (`BOARD_ART` in `content/looks.js`):
+`engine/pixelboard.js` works out which art pixels of the court show each face pixel, and repaints them with the
+mode's labels (a 3x5 pixel font) and lit digit segments whenever the score changes.
 
 ## Player attributes
 

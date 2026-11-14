@@ -2,7 +2,9 @@
 // order like the real contest: corner, wing, top of the key, wing, corner, from the right of the court
 // art round to the left. Each is [angle from the hoop in degrees (90 is straight out from the hoop,
 // 0 and 180 along the hoop wall), metres past the 3-point line]: `spot` is where he shoots from,
-// `rack` where the ball rack stands beside him (towards the middle of the floor in the corners).
+// `rack` where the ball rack stands beside him (towards the middle of the floor in the corners). A court
+// with contest art (content/courts.js `contest`, the pixel-art gym) places and draws its own racks instead,
+// inside the arc pointing at the hoop; the spots stay these.
 export const RACK_LAYOUT = [
   { spot: [12, 0.25], rack: [21, 0.35] }, // corner
   { spot: [50, 0.25], rack: [42, 0.35] }, // wing

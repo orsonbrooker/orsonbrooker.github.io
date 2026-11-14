@@ -155,7 +155,10 @@ court lines on every side, so the floor is 9.5 x 9.5 m: 1.57 m and 1.62 m beside
 picture is 2400 px square (the game's gym is 2048), so the game has to show the bigger picture when it moves to
 it. It comes twice: `art/iso/gym/` for normal games, with one rack along the side wall by the bench, and
 `art/iso/gym-contest/` for the 3-point contest, with all five (same walls and floor, baked from the same Blender
-passes; the props differ, and so do the shadows painted into the floor). The game still draws its racks outside the line (`content/threes.js`); moving them inside is game work, for
+passes; the props differ, and so do the shadows painted into the floor). In the contest gym the racks are
+`"game": true`: their shadows are painted into the floor but the racks are left out of `court.webp` (`preview.webp`
+shows them), because the game draws them itself from the rack prop's pictures for each number of balls left
+(`"ballStates": true` bakes `rack-rot-<deg>-left-<n>.webp`, n from 0 to 5). The game still draws its racks outside the line (`content/threes.js`); moving them inside is game work, for
 when it uses this art.
 
 ## Courts are made of panels

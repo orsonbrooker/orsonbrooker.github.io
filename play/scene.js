@@ -2,9 +2,10 @@
 // keeps the score shown under the court and on the wall scoreboard up to date.
 
 import { BOARD_ART } from "../content/looks.js";
+import { createPixelScoreboard } from "../engine/pixelboard.js";
 import { drawArtLab } from "../play/artlab.js";
-import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, project } from "../engine/court.js";
-import { ballFrame, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow } from "../engine/draw.js";
+import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, court, project } from "../engine/court.js";
+import { ROLL_HEADINGS, ballFrame, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow, rollFrame } from "../engine/draw.js";
 import { currentFrame, frameCount, liftNow, recheckSheet, sheet } from "../play/players.js";
 import { fireLevel, nextBallBadge, nextBallKind, pixelFx, timingWindow, zoneCenter } from "../play/react.js";
 import { drawReplay, replayGreen } from "../play/replay.js";
@@ -37,6 +38,9 @@ const scoreEl = document.getElementById("score");
 const timeEl = document.getElementById("time");
 const wallScoreboard = createWallScoreboard();
 let scoreboardDirty = true;
+// A pixel-art court's scoreboard (engine/pixelboard.js), made for the court being played.
+let pixelBoard = null;
+let pixelBoardCourt = null;
 
 // Shows the score and time (what they are depends on the mode) under the court, and marks the wall
 // scoreboard to be redrawn.
@@ -49,8 +53,35 @@ export function updateHud() {
 
 function renderScoreboard() {
   const [left, right] = mode().scoreboard();
-  wallScoreboard.draw(left, right);
+  if (court.scoreboard) {
+    if (pixelBoardCourt !== court) {
+      pixelBoard = createPixelScoreboard(court);
+      pixelBoardCourt = court;
+    }
+    pixelBoard.draw(left, right);
+  } else wallScoreboard.draw(left, right);
   scoreboardDirty = false;
+}
+
+// The court picture under the canvas: the court's contest image (racks' shadows on the floor) while the 3-point
+// contest is played on a court that has one, its own image otherwise.
+const courtImg = document.querySelector("img.court");
+function showCourtArt() {
+  const src = mode().contestArt && state.phase !== "title" && court.contest ? court.contest.image : court.image;
+  if (courtImg && courtImg.getAttribute("src") !== src) courtImg.src = src;
+}
+
+function drawScoreboard() {
+  if (scoreboardDirty || (court.scoreboard && pixelBoardCourt !== court)) renderScoreboard();
+  if (!court.scoreboard) {
+    ctx.drawImage(wallScoreboard.canvas, BOARD_ART.area.x, BOARD_ART.area.y);
+    return;
+  }
+  const smooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  const { canvas: c, x, y, scale } = pixelBoard;
+  ctx.drawImage(c, x, y, c.width * scale, c.height * scale);
+  ctx.imageSmoothingEnabled = smooth;
 }
 
 // ---------- The court ----------
@@ -101,14 +132,11 @@ function drawBall(b) {
   const p = project(b.u, b.v, b.z);
   const size = BALL_R * PX_PER_M * 2.6;
   const fade = b.age > 4.5 ? Math.max(0, (5 - b.age) / 0.5) : 1;
-  // Turning the way it travels on screen: rolling over for up or down the screen, side to side across
-  // it (kept while it's only going up and down). `spin` is forward positive, so backspin on a shot
-  // going up the screen turns the face we see down.
-  const ahead = project(b.u + b.vu * 0.05, b.v + b.vv * 0.05, b.z);
-  const dx = ahead.x - p.x, dy = ahead.y - p.y;
-  if (Math.abs(dx) + Math.abs(dy) > 0.5) b.drawAxis = Math.abs(dx) > Math.abs(dy) ? Math.sign(dx) * 2 : Math.sign(dy);
-  const axis = b.drawAxis ?? 1;
-  const sprite = ballFrame(art.ballSprites[b.kind ?? NORMAL], b.spin * Math.sign(axis), Math.abs(axis) === 2);
+  // Turning about the level axis across the way it travels on the floor (engine/draw.js rollFrame), so backspin
+  // off a shot turns it back towards the shooter whichever way it's going. `spin` is forward positive. Going
+  // straight up or down (a dribble), it keeps the way it last had.
+  if (Math.hypot(b.vu, b.vv) > 0.3) b.heading = (Math.atan2(b.vv, b.vu) / (Math.PI * 2)) * ROLL_HEADINGS;
+  const sprite = rollFrame(art.ballSprites[b.kind ?? NORMAL], b.spin, b.heading ?? ROLL_HEADINGS / 4);
   // squashed flat for a moment after a floor bounce, sitting on the floor
   const sq = (b.squash ?? 0) * 0.35;
   const w = size * (1 + sq), h = size * (1 - sq);
@@ -179,8 +207,8 @@ export function render() {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
-  if (scoreboardDirty) renderScoreboard();
-  ctx.drawImage(wallScoreboard.canvas, BOARD_ART.area.x, BOARD_ART.area.y);
+  showCourtArt();
+  drawScoreboard();
 
   mode().drawFloor?.(ctx);
 

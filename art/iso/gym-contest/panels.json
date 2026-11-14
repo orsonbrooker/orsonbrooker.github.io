@@ -1,5 +1,5 @@
 {
- "note": "The gym redrawn at clean 2:1 as folding panels (docs/art/isometric.md): its rim (u 4.75, v 1.125) and 3-point line (content/courts.js), with room round the arc for all five 3-point contest racks (content/threes.js RACK_LAYOUT), 1 m of floor outside the court lines on every side, so the floor is 9.5 x 9.5 m (the game's gym is 8.25 x 8.25), 6.5 m walls and a 0.3 m thick floor. Built by tools/pixelart/iso_blender.py, baked by iso_bake.py; the hoop, scoreboard, wall pad, clock, shelf, bench, bag and racks are shared props (art/iso/props/). This is the 3-point contest's version, with its five racks; art/iso/gym/ is the same gym with one rack by the bench.",
+ "note": "The gym redrawn at clean 2:1 as folding panels (docs/art/isometric.md): its rim (u 4.75, v 1.125) and 3-point line (content/courts.js), with room round the arc for all five 3-point contest racks (content/threes.js RACK_LAYOUT), 1 m of floor outside the court lines on every side, so the floor is 9.5 x 9.5 m (the game's gym is 8.25 x 8.25), 6.5 m walls and a 0.3 m thick floor. Built by tools/pixelart/iso_blender.py, baked by iso_bake.py; the hoop, scoreboard, wall pad, clock, shelf, bench, bag and racks are shared props (art/iso/props/). This is the 3-point contest's version: its five racks' shadows are in the floor and the game draws the racks (preview.webp shows them); art/iso/gym/ is the same gym with one rack by the bench.",
  "geometry": {
   "origin": {
    "x": 1200,
@@ -116,23 +116,23 @@
    "along": "along-u",
    "image": "../props/scoreboard/prop-scoreboard-bare-along-u.webp",
    "at": [
-    820,
+    780,
     400
    ],
    "order": 3,
    "on": "wall-hoop",
    "foot": [
-    1.7,
+    1.85,
     3.4021
    ],
    "hinge": [
     [
-     1165,
+     1175,
      585
     ],
     [
-     825,
-     755
+     785,
+     780
     ]
    ]
   },
@@ -249,6 +249,15 @@
    "kind": "prop",
    "prop": "art/iso/props/rack",
    "along": "rot-180",
+   "game": true,
+   "ballsLeft": [
+    "../props/rack/rack-rot-180-left-0.webp",
+    "../props/rack/rack-rot-180-left-1.webp",
+    "../props/rack/rack-rot-180-left-2.webp",
+    "../props/rack/rack-rot-180-left-3.webp",
+    "../props/rack/rack-rot-180-left-4.webp",
+    "../props/rack/rack-rot-180-left-5.webp"
+   ],
    "image": "../props/rack/rack-bare-rot-180.webp",
    "at": [
     830,
@@ -303,6 +312,15 @@
    "kind": "prop",
    "prop": "art/iso/props/rack",
    "along": "rot-138",
+   "game": true,
+   "ballsLeft": [
+    "../props/rack/rack-rot-138-left-0.webp",
+    "../props/rack/rack-rot-138-left-1.webp",
+    "../props/rack/rack-rot-138-left-2.webp",
+    "../props/rack/rack-rot-138-left-3.webp",
+    "../props/rack/rack-rot-138-left-4.webp",
+    "../props/rack/rack-rot-138-left-5.webp"
+   ],
    "image": "../props/rack/rack-bare-rot-138.webp",
    "at": [
     1075,
@@ -330,6 +348,15 @@
    "kind": "prop",
    "prop": "art/iso/props/rack",
    "along": "rot-0",
+   "game": true,
+   "ballsLeft": [
+    "../props/rack/rack-rot-0-left-0.webp",
+    "../props/rack/rack-rot-0-left-1.webp",
+    "../props/rack/rack-rot-0-left-2.webp",
+    "../props/rack/rack-rot-0-left-3.webp",
+    "../props/rack/rack-rot-0-left-4.webp",
+    "../props/rack/rack-rot-0-left-5.webp"
+   ],
    "image": "../props/rack/rack-bare-rot-0.webp",
    "at": [
     410,
@@ -384,6 +411,15 @@
    "kind": "prop",
    "prop": "art/iso/props/rack",
    "along": "rot-98",
+   "game": true,
+   "ballsLeft": [
+    "../props/rack/rack-rot-98-left-0.webp",
+    "../props/rack/rack-rot-98-left-1.webp",
+    "../props/rack/rack-rot-98-left-2.webp",
+    "../props/rack/rack-rot-98-left-3.webp",
+    "../props/rack/rack-rot-98-left-4.webp",
+    "../props/rack/rack-rot-98-left-5.webp"
+   ],
    "image": "../props/rack/rack-bare-rot-98.webp",
    "at": [
     1100,
@@ -411,6 +447,15 @@
    "kind": "prop",
    "prop": "art/iso/props/rack",
    "along": "rot-42",
+   "game": true,
+   "ballsLeft": [
+    "../props/rack/rack-rot-42-left-0.webp",
+    "../props/rack/rack-rot-42-left-1.webp",
+    "../props/rack/rack-rot-42-left-2.webp",
+    "../props/rack/rack-rot-42-left-3.webp",
+    "../props/rack/rack-rot-42-left-4.webp",
+    "../props/rack/rack-rot-42-left-5.webp"
+   ],
    "image": "../props/rack/rack-bare-rot-42.webp",
    "at": [
     760,

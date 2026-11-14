@@ -1,5 +1,5 @@
 {
- "note": "The gym redrawn at clean 2:1 as folding panels (docs/art/isometric.md): its rim (u 4.75, v 1.125) and 3-point line (content/courts.js), with room round the arc for all five 3-point contest racks (content/threes.js RACK_LAYOUT), 1 m of floor outside the court lines on every side, so the floor is 9.5 x 9.5 m (the game's gym is 8.25 x 8.25), 6.5 m walls and a 0.3 m thick floor. Built by tools/pixelart/iso_blender.py, baked by iso_bake.py; the hoop, scoreboard, wall pad, clock, shelf, bench, bag and racks are shared props (art/iso/props/). This is the 3-point contest's version, with its five racks; art/iso/gym/ is the same gym with one rack by the bench.",
+ "note": "The gym redrawn at clean 2:1 as folding panels (docs/art/isometric.md): its rim (u 4.75, v 1.125) and 3-point line (content/courts.js), with room round the arc for all five 3-point contest racks (content/threes.js RACK_LAYOUT), 1 m of floor outside the court lines on every side, so the floor is 9.5 x 9.5 m (the game's gym is 8.25 x 8.25), 6.5 m walls and a 0.3 m thick floor. Built by tools/pixelart/iso_blender.py, baked by iso_bake.py; the hoop, scoreboard, wall pad, clock, shelf, bench, bag and racks are shared props (art/iso/props/). This is the 3-point contest's version: its five racks' shadows are in the floor and the game draws the racks (preview.webp shows them); art/iso/gym/ is the same gym with one rack by the bench.",
  "scale": 5,
  "artPerM": 24,
  "canvas": [
@@ -268,7 +268,7 @@
    "along": "along-u",
    "on": "wall-hoop",
    "foot": [
-    1.7,
+    1.85,
     3.402069087198859
    ]
   },
@@ -319,7 +319,8 @@
    "foot": [
     3.0,
     1.462
-   ]
+   ],
+   "game": true
   },
   {
    "id": "prop-bench",
@@ -337,7 +338,8 @@
    "foot": [
     2.766,
     3.578
-   ]
+   ],
+   "game": true
   },
   {
    "id": "rack-1",
@@ -346,7 +348,8 @@
    "foot": [
     6.5,
     1.462
-   ]
+   ],
+   "game": true
   },
   {
    "id": "prop-bag",
@@ -364,7 +367,8 @@
    "foot": [
     4.285,
     5.101
-   ]
+   ],
+   "game": true
   },
   {
    "id": "rack-2",
@@ -373,7 +377,8 @@
    "foot": [
     6.745,
     3.588
-   ]
+   ],
+   "game": true
   }
  ],
  "shapes": [

@@ -75,6 +75,14 @@
    "image": "rack-rot-0.webp",
    "bare": "rack-bare-rot-0.webp",
    "shadow": "rack-shadow-rot-0.webp",
+   "ballsLeft": [
+    "rack-rot-0-left-0.webp",
+    "rack-rot-0-left-1.webp",
+    "rack-rot-0-left-2.webp",
+    "rack-rot-0-left-3.webp",
+    "rack-rot-0-left-4.webp",
+    "rack-rot-0-left-5.webp"
+   ],
    "foot": [
     185,
     200
@@ -110,6 +118,14 @@
    "image": "rack-rot-42.webp",
    "bare": "rack-bare-rot-42.webp",
    "shadow": "rack-shadow-rot-42.webp",
+   "ballsLeft": [
+    "rack-rot-42-left-0.webp",
+    "rack-rot-42-left-1.webp",
+    "rack-rot-42-left-2.webp",
+    "rack-rot-42-left-3.webp",
+    "rack-rot-42-left-4.webp",
+    "rack-rot-42-left-5.webp"
+   ],
    "foot": [
     60,
     220
@@ -145,6 +161,14 @@
    "image": "rack-rot-98.webp",
    "bare": "rack-bare-rot-98.webp",
    "shadow": "rack-shadow-rot-98.webp",
+   "ballsLeft": [
+    "rack-rot-98-left-0.webp",
+    "rack-rot-98-left-1.webp",
+    "rack-rot-98-left-2.webp",
+    "rack-rot-98-left-3.webp",
+    "rack-rot-98-left-4.webp",
+    "rack-rot-98-left-5.webp"
+   ],
    "foot": [
     200,
     190
@@ -180,6 +204,14 @@
    "image": "rack-rot-138.webp",
    "bare": "rack-bare-rot-138.webp",
    "shadow": "rack-shadow-rot-138.webp",
+   "ballsLeft": [
+    "rack-rot-138-left-0.webp",
+    "rack-rot-138-left-1.webp",
+    "rack-rot-138-left-2.webp",
+    "rack-rot-138-left-3.webp",
+    "rack-rot-138-left-4.webp",
+    "rack-rot-138-left-5.webp"
+   ],
    "foot": [
     220,
     135
@@ -215,6 +247,14 @@
    "image": "rack-rot-180.webp",
    "bare": "rack-bare-rot-180.webp",
    "shadow": "rack-shadow-rot-180.webp",
+   "ballsLeft": [
+    "rack-rot-180-left-0.webp",
+    "rack-rot-180-left-1.webp",
+    "rack-rot-180-left-2.webp",
+    "rack-rot-180-left-3.webp",
+    "rack-rot-180-left-4.webp",
+    "rack-rot-180-left-5.webp"
+   ],
    "foot": [
     185,
     200

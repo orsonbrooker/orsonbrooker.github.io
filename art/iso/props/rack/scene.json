@@ -266,5 +266,6 @@
    "look": "money",
    "turn": 3.9
   }
- ]
+ ],
+ "ballStates": true
 }

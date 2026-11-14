@@ -14,7 +14,9 @@ const FONT = '"Press Start 2P", monospace';
 // (rotating one picture smears its pixels). Two sets of frames: rolling over (about the screen's
 // sideways axis, for a ball going up or down the screen) and turning side to side (about the upright
 // axis, for one going across). In each, a positive turn moves the face we see down (or right): the way
-// a ball rolling down (or right) turns. ballFrame() picks the frame.
+// a ball rolling down (or right) turns. ballFrame() picks the frame. A ball in flight uses rollFrame() instead:
+// it turns about the level axis across its path on the floor, in any of ROLL_HEADINGS directions, so a shot's
+// backspin turns it back towards the shooter whichever way it's going on screen.
 export const BALL_FRAMES = 16;
 
 export const BALL_PX = 24; // the sprite's size: enough pixels for round shading and thin seams
@@ -38,12 +40,32 @@ const LIGHT = (() => {
 })();
 
 // Where a point we see (nx, ny on the disc, facing us) is on the ball's own surface: [across, down].
+// `sideways`: true or false for the two old axes, or an axis [x, y, z] in view space (x right, y down, z
+// towards us) that the ball rolls forward about (rollAxis), turned `turn` radians.
 function onBall(nx, ny, turn, sideways) {
   const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
   let x = nx, y = ny, z = nz;
-  if (sideways) [x, z] = [x * Math.cos(turn) - z * Math.sin(turn), x * Math.sin(turn) + z * Math.cos(turn)];
+  if (Array.isArray(sideways)) {
+    // the ball turned `turn` about the axis puts what was at p where we see it: p is the point turned back. (View
+    // space is left-handed, y down, so turning back is +turn in the right-handed formula.)
+    const [kx, ky, kz] = sideways;
+    const c = Math.cos(turn), s = Math.sin(turn), d = (kx * x + ky * y + kz * z) * (1 - c);
+    [x, y, z] = [x * c + (ky * z - kz * y) * s + kx * d, y * c + (kz * x - kx * z) * s + ky * d, z * c + (kx * y - ky * x) * s + kz * d];
+  } else if (sideways) [x, z] = [x * Math.cos(turn) - z * Math.sin(turn), x * Math.sin(turn) + z * Math.cos(turn)];
   else [y, z] = [y * Math.cos(turn) - z * Math.sin(turn), y * Math.sin(turn) + z * Math.cos(turn)];
   return [x * Math.cos(TURNED) + z * Math.sin(TURNED), y];
+}
+
+// Rolling in the court's directions: ROLL_HEADINGS ways round the floor (0 is along +u, a quarter along +v).
+// A ball travelling that way rolls forward about the level axis across its path (up x heading), seen from
+// the court's camera (2:1, looking down 30 degrees: +u is left and down the screen, +v right and down).
+export const ROLL_HEADINGS = 16;
+const VIEW_U = [-Math.SQRT1_2, Math.SQRT1_2 / 2, Math.sqrt(0.375)];
+const VIEW_V = [Math.SQRT1_2, Math.SQRT1_2 / 2, Math.sqrt(0.375)];
+function rollAxis(heading) {
+  const a = (heading / ROLL_HEADINGS) * Math.PI * 2;
+  const [wu, wv] = [-Math.sin(a), Math.cos(a)]; // up x (cos a, sin a, 0)
+  return VIEW_U.map((u, i) => wu * u + wv * VIEW_V[i]);
 }
 
 // look: the ball's colours (BALL_LOOKS in content/looks.js, or a ball style from shared/shop.js).
@@ -113,11 +135,21 @@ function makeBallSprite(turn, look = BALL_LOOKS[NORMAL], sideways = false) {
 // One spinning set of frames for a look (a whole turn), rolling over; `.side`: turning side to side.
 export const makeBallFrames = (look) => {
   const at = (i, side) => makeBallSprite((i / BALL_FRAMES) * Math.PI * 2, look, side);
-  return Object.assign(Array.from({ length: BALL_FRAMES }, (_, i) => at(i, false)), { side: Array.from({ length: BALL_FRAMES }, (_, i) => at(i, true)) });
+  return Object.assign(Array.from({ length: BALL_FRAMES }, (_, i) => at(i, false)), { side: Array.from({ length: BALL_FRAMES }, (_, i) => at(i, true)), look });
 };
 
 /** A still picture of a ball in a look (the first frame of makeBallFrames, without making the rest). */
 export const ballPicture = (look) => makeBallSprite(0, look);
+
+/** The frame for a ball travelling towards `heading` (0 to ROLL_HEADINGS, see rollAxis) on the court, turned
+ * `turn` radians forward (negative: backspin). Each heading's frames are made the first time it's needed. */
+export function rollFrame(frames, turn, heading) {
+  const h = ((Math.round(heading) % ROLL_HEADINGS) + ROLL_HEADINGS) % ROLL_HEADINGS;
+  frames.rolls ??= [];
+  const set = (frames.rolls[h] ??= Array.from({ length: BALL_FRAMES }, (_, i) => makeBallSprite((i / BALL_FRAMES) * Math.PI * 2, frames.look, rollAxis(h))));
+  const k = (((turn / (Math.PI * 2)) % 1) + 1) % 1;
+  return set[Math.floor(k * BALL_FRAMES) % BALL_FRAMES];
+}
 
 /** The frame for a ball turned `turn` radians (see BALL_FRAMES), rolling over or `sideways`. */
 export function ballFrame(frames, turn, sideways = false) {

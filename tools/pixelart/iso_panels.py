@@ -277,6 +277,8 @@ def check_panels(manifest_path, court_def=None, evaluate=None, room_checks=None)
         comp = np.zeros_like(flat)
         order = sorted(panels, key=lambda p: {"floor": 0, "wall": 0, "hoop": 1, "prop": 1}[p["kind"]])
         for p in order:
+            if p.get("game"):  # the game draws it (a contest rack): not in the flat picture
+                continue
             a = imgs[p["id"]].astype(np.float64)
             x, y = p["at"]
             h, w = a.shape[:2]

@@ -115,8 +115,8 @@
    "along": "along-u",
    "image": "../props/scoreboard/prop-scoreboard-bare-along-u.webp",
    "at": [
-    120,
-    340
+    95,
+    330
    ],
    "order": 4,
    "on": "wall-hoop",
@@ -126,12 +126,12 @@
    ],
    "hinge": [
     [
-     465,
-     525
+     490,
+     515
     ],
     [
-     125,
-     700
+     100,
+     710
     ]
    ]
   }

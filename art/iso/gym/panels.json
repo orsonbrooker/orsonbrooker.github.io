@@ -116,23 +116,23 @@
    "along": "along-u",
    "image": "../props/scoreboard/prop-scoreboard-bare-along-u.webp",
    "at": [
-    820,
+    780,
     400
    ],
    "order": 3,
    "on": "wall-hoop",
    "foot": [
-    1.7,
+    1.85,
     3.4021
    ],
    "hinge": [
     [
-     1165,
+     1175,
      585
     ],
     [
-     825,
-     755
+     785,
+     780
     ]
    ]
   },
