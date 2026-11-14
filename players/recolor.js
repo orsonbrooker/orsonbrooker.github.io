@@ -498,6 +498,13 @@ export function setGonePlayers(list) {
   }
 }
 
+/**
+ * Whether a kid picked the team of a player made on a device: in the builder since teams came out
+ * (teamPicked), a community team, or any team but KINGS (where every player used to start, so KINGS
+ * alone doesn't say they chose it). The game asks for one before a scored game until they have.
+ */
+export const teamPicked = (p) => !!(p?.teamPicked || p?.colours?.teamId || (p?.colours?.teamName && p.colours.teamName !== DEFAULT_TEAM));
+
 export function myPlayers() {
   try {
     const list = JSON.parse(localStorage.getItem(MY_PLAYERS) ?? "[]");

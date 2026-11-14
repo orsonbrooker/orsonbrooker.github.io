@@ -1,13 +1,15 @@
-// Choosing a team (while the `teams` flag is on). The first time a device plays as Orson or someone
-// else's approved player, it picks the team its games count for on Top teams (players/community.js
-// myTeam); the Team button on Choose your player changes it. Its own players wear the team picked for
-// them in the builder, and the Team button on Choose a game changes the one they're playing as.
-// Also: telling them when a community team they were on has gone.
+// Choosing a team (while the `teams` flag is on). No team is ever picked for a kid. The first time a
+// device plays as Orson or someone else's approved player, it picks the team its games count for on Top
+// teams (players/community.js myTeam); the Team buttons change it. Its own players' teams are picked in
+// the builder, the one place to change them: the Team button on Choose a game opens it on that player's
+// Team tab, and so does the question before a scored game as a player with no team picked (a new one,
+// or one saved in KINGS only because every player used to start there). Also: telling them when a
+// community team they were on has gone.
 
 import { IN_APP } from "../api.js";
 import { flagOn } from "../flags.js";
-import { dressOrson, reloadMyPlayers } from "../play/players.js";
-import { myPlayers, saveMyPlayer } from "../players/recolor.js";
+import { dressInTeam, reloadMyPlayers } from "../play/players.js";
+import { myPlayers, saveMyPlayer, teamPicked } from "../players/recolor.js";
 import { kitColours } from "../players/teams.js";
 import { goneTeams, keptTeam, keptTeams, myTeam, myTeamKit, setMyTeam } from "../players/community.js";
 import { TEAMS } from "../shared/teams.js";
@@ -21,51 +23,51 @@ const el = (tag, props = {}, ...children) => {
 };
 export const swatch = (kit) => el("span", { className: "team-kit" }, ...["jersey", "shorts", "trim"].map((p) => el("span", { style: `background:${kit[p]}` })));
 
-/** Whether a game as this player needs the device to choose a team first. */
-export const needsTeam = (player, gameMode) => flagOn("teams") && !player?.mine && !gameMode.passAndPlay && !!gameMode.bestKey && !myTeam();
+/**
+ * Whether a scored game as this player needs a team picked first: the device's (Orson and approved
+ * players; chooseTeam) or, for its own player, theirs (in the builder; askPlayerTeam).
+ */
+// (The iOS app has no builder, so a player of theirs from saved progress isn't asked there: until a team's
+// picked on the website, its games count for none.)
+export const needsTeam = (player, gameMode) =>
+  flagOn("teams") && !gameMode.passAndPlay && !!gameMode.bestKey && (player?.mine ? !IN_APP && !teamPicked(player) : !myTeam());
 
-// A device's own player, as saved (null for Orson and approved players, who wear the device's team).
-const savedOwn = (player) => (player?.mine && myPlayers().find((p) => p.id === player.id)) || null;
+/** The builder, on this own player's Team tab; saving there comes back to Choose a game. */
+export function editTeam(player) {
+  if (IN_APP) return; // no builder in the app (and so no players of its own)
+  location.assign(`/players/?edit=${encodeURIComponent(player.id)}&tab=team&back=modes`);
+}
+
+/** Before a scored game as their own player with no team picked: off to pick one in the builder. */
+export async function askPlayerTeam(player) {
+  const go = await confirmDialog(`Pick ${player.name}'s team`, { yes: "Pick a team", yesIcon: "players", no: "Not now", detail: "Every player plays for a team. Their games count for it on Top teams." });
+  if (go) editTeam(player);
+}
 
 /**
  * The team a player plays for and the kit they wear: { name, kit: { jersey, shorts, trim } }, or null
- * before the device has chosen. Their own player's is the one saved with them (builder or the Team
- * button), in the colours they wear (it may be the away kit); anyone else's is the device's team.
+ * before one's picked. Their own player's is the one saved with them in the builder, in the colours they
+ * wear (it may be the away kit); anyone else's is the device's team.
  */
 export function teamOf(player) {
   if (!player?.mine) {
     const kit = myTeamKit();
     return kit && { name: kit.name, kit: kit.home };
   }
+  if (flagOn("teams") && !teamPicked(player)) return null;
   const c = player.colours ?? {};
   const official = TEAMS.find((t) => t.name === c.teamName);
   const kit = c.jersey && c.shorts && c.team ? { jersey: c.jersey, shorts: c.shorts, trim: c.team } : (official?.home ?? null);
   return { name: c.teamName || official?.name || "", kit };
 }
 
-// Puts their own player in a team, in its home kit, the way the builder does (players/builder.js wearTeam).
-function wearTeam(own, t) {
-  const home = (t.key ? keptTeam(t.key) : TEAMS.find((o) => o.name === t.name))?.home;
-  if (!home) return;
-  const { teamId: _, ...colours } = own.colours ?? {};
-  saveMyPlayer({ ...own, colours: { ...colours, ...kitColours(home), teamName: t.name, ...(t.key ? { teamId: t.key } : {}) } });
-}
-
-/**
- * Asks which team the device plays for; resolves once they've picked (it can't be skipped). Given the
- * device's own player, it asks for theirs instead (which can be left as it is), and they wear it.
- */
-export function chooseTeam(note = "", player = null) {
+/** Asks which team the device plays for; resolves once they've picked (it can't be skipped the first time). */
+export function chooseTeam(note = "") {
   return new Promise((resolve) => {
-    const own = savedOwn(player);
-    const now = own ? { name: own.colours?.teamName ?? "", key: own.colours?.teamId } : myTeam();
+    const now = myTeam();
     const dialog = el("dialog", { className: "confirm-dialog team-dialog" });
-    let changed = false;
     const pick = (t) => {
-      const on = now && (t.key ? now.key === t.key : !now.key && now.name === t.name);
-      if (own && !on) wearTeam(own, t); // the same team again keeps the kit they wear (maybe away)
-      else if (!own) setMyTeam(t);
-      changed = own && !on;
+      setMyTeam(t);
       dialog.close();
     };
     const row = (t, community) => {
@@ -83,22 +85,18 @@ export function chooseTeam(note = "", player = null) {
     };
     const joined = keptTeams().filter((t) => t.member !== false);
     dialog.append(
-      el("p", { className: "confirm-question", textContent: own ? `${own.name}'s team` : "Choose your team" }), // a kid's player's name: text only
+      el("p", { className: "confirm-question", textContent: "Choose your team" }),
       ...(note ? [el("p", { className: "confirm-detail team-gone", textContent: note })] : []),
-      el("p", { className: "team-why", textContent: own ? `${own.name}'s games count for this team on Top teams.` : "Your games count for your team on Top teams." }),
+      el("p", { className: "team-why", textContent: "Your games count for your team on Top teams." }),
       el("div", { className: "team-choices" }, ...joined.map((t) => row(t, true)), ...TEAMS.map((t) => row(t, false))),
       ...(IN_APP ? [] : [el("a", { className: "team-make", href: "/players/", textContent: "Make a team, or join a friend's with a code, in Make your player." })]),
     );
     dialog.addEventListener("cancel", (e) => {
-      if (!own && !myTeam()) e.preventDefault(); // a team has to be chosen; changing it can be left
+      if (!myTeam()) e.preventDefault(); // a team has to be chosen; changing it can be left
     });
     dialog.addEventListener("close", async () => {
       dialog.remove();
-      if (own) {
-        if (changed) await reloadMyPlayers(); // drawn again in the new kit
-        return resolve(teamOf({ ...savedOwn(player), mine: true }));
-      }
-      await dressOrson(); // he wears it
+      await dressInTeam(); // he wears it
       resolve(myTeam());
     });
     document.body.append(dialog);
@@ -110,9 +108,8 @@ export function chooseTeam(note = "", player = null) {
 }
 
 /**
- * Once a visit: if a community team this device was on has gone, its players stop wearing it (they go
- * into the device's team, else the first of the game's teams) and the device chooses again next game.
- * Says so, once. A team that was renamed or given new kits (Luke renames a team whose name isn't
+ * Once a visit: if a community team this device was on has gone, its players stop wearing it (no team,
+ * so they pick another before their next scored game) and the device chooses again next game. Says so, once. A team that was renamed or given new kits (Luke renames a team whose name isn't
  * friendly) shows its new name and kit on its players here too, not only once the builder opens them.
  */
 export async function checkTeams() {
@@ -120,14 +117,15 @@ export async function checkTeams() {
   const gone = await goneTeams(myPlayers().map((p) => ({ key: p.colours?.teamId, name: p.colours?.teamName })));
   const keys = new Set(gone.map((t) => t.key));
   if (keys.has(myTeam()?.key)) setMyTeam(null);
-  await dressOrson(); // a team chosen on another device, or a renamed one, is known now
-  const instead = myTeam() ?? { name: TEAMS[0].name };
+  await dressInTeam(); // a team chosen on another device, or a renamed one, is known now
   let changed = false;
   for (const p of myPlayers()) {
     const id = p.colours?.teamId;
     if (!id) continue;
     if (keys.has(id)) {
-      wearTeam(p, instead);
+      const { teamId: _, ...colours } = p.colours;
+      const { teamPicked: __, ...player } = p;
+      saveMyPlayer({ ...player, colours: { ...colours, teamName: "" } });
       changed = true;
       continue;
     }

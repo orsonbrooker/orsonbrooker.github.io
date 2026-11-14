@@ -14,7 +14,7 @@ import { mode, modes, setPhase, state } from "../play/state.js";
 import { removeMyPlayer } from "../players/recolor.js";
 import { $, charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js";
 import { showDaily } from "../screens/over.js";
-import { chooseTeam, needsTeam, swatch, teamOf } from "../screens/team.js";
+import { askPlayerTeam, chooseTeam, editTeam, needsTeam, swatch, teamOf } from "../screens/team.js";
 import { flagOn } from "../flags.js";
 import { myTeam, myTeamKit } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
@@ -97,7 +97,10 @@ export async function pickMode(id) {
   setMode(id);
   if (!choseBefore() || mode().passAndPlay) return openSelect(true);
   const c = characters.list.find((p) => p.id === characters.selected);
-  if (needsTeam(c, mode()) && !(await chooseTeam())) return;
+  if (needsTeam(c, mode())) {
+    if (c.mine) return askPlayerTeam(c); // their own player's team is picked in the builder
+    if (!(await chooseTeam())) return;
+  }
   stage.focus({ preventScroll: true }); // so Space plays rather than pressing the card again
   startGame();
 }
@@ -118,8 +121,10 @@ function showWho() {
   const teamButton = $("mode-team");
   teamButton.hidden = !flagOn("teams");
   dressTeamButton(teamButton, t?.kit);
-  teamButton.append(Object.assign(document.createElement("span"), { textContent: t?.name || "Choose your team" })); // may be a kid's: text only
-  teamButton.setAttribute("aria-label", t?.name ? `${c.mine ? `${c.name}'s team` : "Team"}: ${t.name}. Change team` : "Choose your team");
+  const none = c.mine ? "Pick a team" : "Choose your team";
+  teamButton.append(Object.assign(document.createElement("span"), { textContent: t?.name || none })); // may be a kid's: text only
+  teamButton.setAttribute("aria-label", t?.name ? `${c.mine ? `${c.name}'s team` : "Team"}: ${t.name}. Change team` : c.mine ? `Pick ${c.name}'s team` : none);
+  teamButton.disabled = IN_APP && !!c.mine; // their own player's team is changed in the builder, not in the app
 }
 
 // A team button starts with the kit (jersey, shorts, trim), or the team icon before one's chosen.
@@ -132,9 +137,14 @@ function dressTeamButton(button, kit = myTeamKit()?.home) {
 /** Change player from Choose a game, then back to it. */
 export const changePlayer = () => openSelect("modes");
 
-/** Change team from Choose a game: their own player's, or the device's for Orson and approved players. */
+/**
+ * Change team from Choose a game: their own player's in the builder (its Team tab, then back here), or
+ * the device's for Orson and approved players.
+ */
 export async function changeTeamFromModes() {
-  await chooseTeam("", characters.list.find((p) => p.id === characters.selected));
+  const c = characters.list.find((p) => p.id === characters.selected);
+  if (c?.mine) return editTeam(c);
+  await chooseTeam();
   showWho();
 }
 
@@ -178,13 +188,19 @@ function renderPicker() {
       button.addEventListener("click", async () => {
         if (team) return toggleTeam(c.id);
         // The first game as Orson (or anyone without a team of their own): which team it counts for.
-        if (selectThenPlay === true && needsTeam(c, mode())) await chooseTeam();
+        // Their own player with no team picked: off to the builder to pick one, after choosing them.
+        const ask = selectThenPlay === true && needsTeam(c, mode());
+        if (ask && !c.mine) await chooseTeam();
         // a loading bar on their card while their player comes in
         const ready = selectCharacter(c.id);
         showLoading(button, loadingProgress(c.id), ready, `Loading ${c.name}`, { className: "card-loading" });
         await ready;
         save("orson-hoops-chosen", true);
         stage.focus({ preventScroll: true }); // so Space plays rather than pressing this card again
+        if (ask && c.mine) {
+          openModes();
+          return askPlayerTeam(c);
+        }
         if (selectThenPlay === true) startGame();
         else if (selectThenPlay === "modes") openModes();
         else showTitle();

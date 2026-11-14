@@ -2,6 +2,7 @@
 // leaderboard result under it (where a new best this week would land, and the button to put it on).
 
 import { myTeam } from "../players/community.js";
+import { teamPicked } from "../players/recolor.js";
 import { countsIn, doneToday, progress, streakDays, todaysChallenge } from "../daily.js";
 import { save } from "../engine/storage.js";
 import { showRoundResult } from "../leaderboard.js";
@@ -117,7 +118,8 @@ function showRound() {
         // The team this game counts for on Top teams: their own player's (picked in the builder), or the one the
         // device chose for Orson and approved players (screens/team.js). An official team's name, or a community
         // team's key (it only counts if this device is on it).
-        team: c?.mine ? c.colours?.teamName : myTeam()?.name,
+        // (A player of theirs with no team picked counts for none: KINGS was only where every player started.)
+        team: c?.mine ? (teamPicked(c) ? c.colours?.teamName : undefined) : myTeam()?.name,
         teamId: c?.mine ? c.colours?.teamId : myTeam()?.key,
         input: state.input,
         hiddenTab: state.hiddenTab,

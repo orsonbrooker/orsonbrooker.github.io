@@ -39,6 +39,13 @@ test("a player's gear: one item id per known slot, anything else dropped", () =>
 	assert.equal("gear" in tidySave({ players: [player("me1", "Zip", { gear: "beanie" })] }).players[0], false);
 });
 
+test("a player's picked team is kept (so the game doesn't ask again), and only as true", () => {
+	const s = tidySave({ players: [player("me1", "AVA", { teamPicked: true }), player("me2", "BO", { teamPicked: "yes" }), player("me3", "CY", { colours: { ...colours, teamName: "" } })] });
+	assert.equal(s.players.find((p) => p.id === "me1")?.teamPicked, true);
+	assert.equal(s.players.find((p) => p.id === "me2")?.teamPicked, undefined);
+	assert.equal(s.players.find((p) => p.id === "me3")?.colours.teamName, ""); // no team yet: picked later
+});
+
 test("merging: the better best (fastest for Around the World), the latest streak, the latest nickname", () => {
 	const a = tidySave({ bests: { timed: 40, around: 30 }, daily: { done: "2026-11-08", last: "2026-11-08", days: 3 }, nickname: { name: "Ace", at: 200 } });
 	const b = tidySave({ bests: { timed: 55, survival: 9, around: 25 }, daily: { done: "2026-11-09", last: "2026-11-09", days: 1 }, nickname: { name: "Bo", at: 100 } });

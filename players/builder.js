@@ -22,7 +22,7 @@ import { paletteSwap } from "../players/pixelkit.js";
 import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, readyGear, wearGear } from "../players/gear.js";
 import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
-import { DEFAULT_TEAM, loadBase, loadBases, loadStill, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer, useDrawnKids } from "../players/recolor.js";
+import { DEFAULT_TEAM, loadBase, loadBases, loadStill, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer, teamPicked, useDrawnKids } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
 import { changeTeam, joinTeam, keptTeam, keptTeams, leaveTeam, listedTeams, makeTeam, myTeam, refreshTeams, setMyTeam } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
@@ -64,6 +64,9 @@ const gearTest = params.has("gear"); // a ?gear= test link: every item made, rea
 // ?edit=<id>: change a player made on this device (from the game's player picker). Their look is
 // read in as if it were a link's, and saving keeps their id, so their scores stay theirs.
 const ownPlayer = myPlayers().find((p) => p.id === params.get("edit")) ?? null;
+// &back=modes: they came from the game's Choose a game (its Team button), so saving takes them back there.
+const GAME = params.get("back") === "modes" ? "/games/shootaround/#modes" : "/games/shootaround/";
+for (const link of document.querySelectorAll("[data-back-link]")) link.href = GAME;
 if (ownPlayer) {
   const c = ownPlayer.colours ?? {};
   params.set("base", ownPlayer.base);
@@ -601,7 +604,15 @@ let mine = myTeams(); // teams kept on this device (drafts, with the flag on)
 let community = keptTeams(); // community teams this device is on or made
 let listed = []; // community teams shown to everyone
 let mostTeams = 3;
-let team; // the team being played for
+let team; // the team being played for (NO_TEAM until they pick one, while the flag is on)
+// No team yet (teams flag on): a new player, unless the device chose a team in the game, and a player saved
+// in KINGS only because every player used to start there. Plain grey with no name, until the kid picks one;
+// a player can't be saved without one. (With the flag off, a new player starts in KINGS, as before.)
+const GREY = { jersey: "#8c8f99", shorts: "#8c8f99", trim: "#f2f2ef" };
+const NO_TEAM = { id: "none", name: "", home: GREY, away: GREY };
+const noTeam = () => team === NO_TEAM;
+// Where a team goes when it's gone (left, hidden, deleted): back to no team, or KINGS with the flag off.
+const noTeamOr = () => (COMMUNITY ? NO_TEAM : TEAMS[0]);
 let kit = "home";
 let editing = false;
 let linkTeam = null; // a look from a link (the admin page's "open in builder"), kept only if edited
@@ -672,7 +683,8 @@ function teamRow(t, extra) {
 }
 
 function paintTeams() {
-  $("team-now").textContent = team.name;
+  $("team-now").textContent = noTeam() ? "Pick a team" : team.name;
+  $("kit-picker").hidden = noTeam();
   $("team-now-badge").replaceChildren(...(isCommunity(team) ? [badge()] : []));
   // Home and away.
   const picker = $("kit-picker");
@@ -912,15 +924,15 @@ async function leave_(t) {
     community = keptTeams();
     if (myTeam()?.key === t.key) setMyTeam(null); // Orson's team too: the game asks again
     // Its players saved on this device stop wearing it now, not only once they're saved again (else the
-    // game would keep them in it, and their games would count for no team): the device's team, else KINGS.
-    const chosen = myTeam();
-    const instead = (chosen && (chosen.key ? community.find((c) => c.key === chosen.key && c.member !== false) : TEAMS.find((o) => o.name === chosen.name))) ?? TEAMS[0];
+    // game would keep them in it, and their games would count for no team). They pick another team: here,
+    // or the game asks before their next game.
     for (const p of myPlayers()) {
       if (p.colours?.teamId !== t.key) continue;
       const { teamId: _, ...colours } = p.colours;
-      saveMyPlayer({ ...p, colours: { ...colours, ...kitColours(instead.home), teamName: instead.name, ...(instead.key ? { teamId: instead.key } : {}) } });
+      const { teamPicked: __, ...player } = p;
+      saveMyPlayer({ ...player, colours: { ...colours, teamName: "" } });
     }
-    if (team?.key === t.key) wearTeam(instead, "home");
+    if (team?.key === t.key) wearTeam(noTeamOr(), "home");
   });
 }
 
@@ -939,7 +951,7 @@ async function loadCommunity() {
     if (team === linkTeam) linkTeam = null;
     wearTeam(back, kit);
   } else if (isCommunity(team) && !community.some((t) => t.key === team.key && t.member !== false)) {
-    wearTeam(TEAMS[0], "home");
+    wearTeam(noTeamOr(), "home");
     sayTeam("This team isn't around any more. Pick another team.");
   } else if (isCommunity(team)) wearTeam(community.find((t) => t.key === team.key), kit);
   else paintTeams();
@@ -967,7 +979,7 @@ function setupTeams() {
     if (team === linkTeam) linkTeam = null;
     saveMyTeams(mine);
     editing = false;
-    wearTeam(TEAMS[0], "home");
+    wearTeam(noTeamOr(), "home");
   });
   numberInput.addEventListener("input", () => {
     numberInput.value = numberInput.value.replace(/\D/g, "").slice(0, 2);
@@ -1255,6 +1267,7 @@ function closeDone() {
 }
 $("done-open").addEventListener("click", () => {
   cancelBall();
+  if (needTeam()) return;
   openDone();
 });
 $("done-close").addEventListener("click", closeDone);
@@ -1337,6 +1350,7 @@ async function setupTurnstile() {
 const look = () => ({
   base: current.id,
   colours: { ...colours, teamName: colours.teamName ?? DEFAULT_TEAM },
+  ...(COMMUNITY ? { teamPicked: true } : {}), // the kid chose it (needTeam makes sure); the game won't ask
   build: current.video ? { ...build } : undefined,
   gear: current.video && flagOn("gear") && Object.keys(gear).length ? { ...gear } : undefined,
 });
@@ -1345,6 +1359,15 @@ const look = () => ({
 function stillLoading() {
   if (current) return false;
   say(message, "Your player is still loading. Try again in a moment.", { error: true });
+  return true;
+}
+
+// While the teams flag is on, every player plays for a team the kid picked: none is picked for them.
+function needTeam() {
+  if (!COMMUNITY || !noTeam()) return false;
+  closeDone();
+  showTab("team");
+  sayTeam("Pick a team for your player first.", { error: true });
   return true;
 }
 
@@ -1358,7 +1381,7 @@ function needName() {
 
 // Play straight away: save to this device and jump into the game as them.
 play.addEventListener("click", () => {
-  if (rude || stillLoading() || needName()) return;
+  if (rude || stillLoading() || needTeam() || needName()) return;
   const id = saveMyPlayer({ ...ownPlayer, name: nameInput.value.trim(), ...look() });
   try {
     localStorage.setItem("orson-hoops-character", JSON.stringify(id));
@@ -1366,12 +1389,12 @@ play.addEventListener("click", () => {
   } catch {
     // The game falls back to Orson.
   }
-  location.href = "/games/shootaround/";
+  location.href = GAME;
 });
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
-  if (stillLoading() || needName()) return;
+  if (stillLoading() || needTeam() || needName()) return;
   if (!token) {
     say(message, "Please finish the robot check first.", { error: true });
     return;
@@ -1453,10 +1476,16 @@ async function setup() {
     team = known ?? linkTeam;
     if (known && !same(known.home)) startKit = "away";
   } else {
-    // A new player starts in the team the device chose in the game (players/community.js myTeam).
+    // A new player starts in the team the device chose in the game (players/community.js myTeam), else
+    // (flag on) in no team, to pick.
     const chosen = !teamName && COMMUNITY ? myTeam() : null;
     const theirs = chosen && (chosen.key ? community.find((t) => t.key === chosen.key && t.member !== false) : TEAMS.find((t) => t.name === chosen.name));
-    team = theirs ?? [...mine, ...TEAMS].find((t) => t.name === teamName) ?? TEAMS[0];
+    team = theirs ?? [...mine, ...TEAMS].find((t) => t.name === teamName) ?? noTeamOr();
+  }
+  // A player saved in KINGS only because it was where every player started picks a team now.
+  if (COMMUNITY && ownPlayer && !teamPicked(ownPlayer) && !linkTeam) {
+    team = NO_TEAM;
+    startKit = "home";
   }
   if (/^\d{1,2}$/.test(params.get("number") ?? "")) numberInput.value = colours.number = params.get("number");
   if (params.get("name")) nameInput.value = params.get("name").slice(0, 12);
@@ -1468,7 +1497,7 @@ async function setup() {
   setupTurning();
   paintLook();
   mark(shoesRow, colours.shoes);
-  showTab("character");
+  showTab(params.get("tab") === "team" ? "team" : "character"); // &tab=team: from the game's Team button
   await chooseBase(start);
   wearTeam(team, startKit);
   if (ownPlayer) {

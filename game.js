@@ -17,7 +17,7 @@ import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { setUpTouchControls } from "./play/controls.js";
 import { COURTS, court, useCourt } from "./play/court.js";
-import { characters, dressOrson, faceHoop, loadImage, loadingProgress, loadRoster, playerFiles, reloadMyPlayers, sheet } from "./play/players.js";
+import { characters, dressInTeam, faceHoop, loadImage, loadingProgress, loadRoster, playerFiles, reloadMyPlayers, sheet } from "./play/players.js";
 import { showLoading } from "./ui/loading-bar.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play/react.js";
 import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js";
@@ -215,11 +215,15 @@ async function boot() {
   onProgress(() => (art.ballSprites = makeBallSprites(ballLook())));
   // Players made on their other devices (saved progress) join the picker.
   onSave(() => reloadMyPlayers().then(refreshPicker));
-  onSave(() => dressOrson()); // the team chosen on another device (screens/team.js)
+  onSave(() => dressInTeam()); // the team chosen on another device (screens/team.js)
   refreshProgress();
   showTitle();
   checkTeams().then(refreshPicker); // a community team they were on may have gone (screens/team.js)
   if (location.hash === "#leaderboard") openBoard("week");
+  if (location.hash === "#modes") {
+    openModes(); // back from the builder's Team tab (screens/team.js editTeam)
+    history.replaceState(null, "", location.pathname + location.search);
+  }
   updateHud();
   startLoop((dt) => {
     if (!sheet.sprites) return; // their player is still loading (the title is up)

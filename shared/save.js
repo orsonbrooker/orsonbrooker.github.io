@@ -17,7 +17,7 @@
 
 import { MODES, lowWins } from "./rules.js";
 
-/** @typedef {{ id: string, name: string, base: string, colours: Record<string, string>, pronoun?: "he" | "she", build?: { height: number, bulk: number }, gear?: Record<string, string>, sent?: true }} SavedPlayer */
+/** @typedef {{ id: string, name: string, base: string, colours: Record<string, string>, pronoun?: "he" | "she", build?: { height: number, bulk: number }, gear?: Record<string, string>, sent?: true, teamPicked?: true }} SavedPlayer */
 /** @typedef {{ name: string, key?: string, at: number }} SavedTeam */
 /** @typedef {{ bests: Record<string, number>, daily: { done: string, last: string, days: number }, players: SavedPlayer[], gone: string[], nickname: { name: string, at: number }, team: SavedTeam }} Save */
 
@@ -60,6 +60,7 @@ function tidyPlayer(raw) {
   const player = { id, name, base, colours };
   if (p.pronoun === "he" || p.pronoun === "she") player.pronoun = p.pronoun;
   if (p.sent === true) player.sent = true; // sent to Orson (sending again sends the new look)
+  if (p.teamPicked === true) player.teamPicked = true; // the kid picked their team (players/recolor.js teamPicked)
   // their size: height and build (bulk), -1 to 1 each
   const b = obj(p.build);
   /** @type {(v: unknown) => number} */
