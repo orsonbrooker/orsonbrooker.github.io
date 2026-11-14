@@ -105,6 +105,11 @@
             <button class="screen-back" id="mode-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
             <h2>Choose a game</h2>
           </div>
+          <!-- Once they've chosen a player: who they play as, and their team (screens/menus.js showWho). -->
+          <div class="mode-who" id="mode-who" hidden>
+            <button class="mode-player" id="mode-player" type="button"></button>
+            <button class="my-team" id="mode-team" type="button" hidden></button>
+          </div>
           <p class="mode-daily" id="mode-daily"></p>
           <div class="mode-cards" role="group" aria-label="Games">
             <button type="button" class="mode-card" data-mode="timed">

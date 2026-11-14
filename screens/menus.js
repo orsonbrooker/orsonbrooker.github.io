@@ -1,5 +1,7 @@
 // The way into a game: the title screen, then choose a game (each card shows its best), then choose a
-// player. The first time someone plays, choosing a player comes first and then the game starts.
+// player (and, the first time as Orson with the teams flag on, a team: screens/team.js), then it starts.
+// Once they've chosen a player, choosing a game starts it straight away as that player; the Choose a
+// game screen shows who they play as and their team, to change either. HORSE always picks its players.
 
 import { attributesFor, skillWords } from "../content/attributes.js";
 import { IN_APP } from "../api.js";
@@ -45,11 +47,15 @@ export function showTitle() {
   showScreen("title");
 }
 
+// Whether they've chosen a player before (then a game starts as soon as it's chosen).
+const choseBefore = () => load("orson-hoops-chosen", false) === true;
+
 // Step two, after tapping to start: pick a game (each card shows its best), then a player.
 export function openModes() {
   setPhase("modes");
   restoreChosenPlayer();
   showDaily();
+  showWho();
   for (const card of screens.modes.querySelectorAll("[data-mode]")) {
     const m = modes[card.dataset.mode] ?? modes.timed;
     card.setAttribute("aria-pressed", String(card.dataset.mode === state.mode));
@@ -65,7 +71,8 @@ export function openModes() {
   else focus();
 }
 
-// Pick a player. `thenPlay`: start the game once they've picked (otherwise back to the title).
+// Pick a player. `thenPlay`: true starts the game once they've picked, "modes" goes back to Choose a
+// game, and otherwise back to the title.
 // A pass and play game (HORSE) picks several instead, in turn order, and starts with the Start button.
 let selectThenPlay = false;
 let team = null; // pass and play: { min, max, chosen: [ids in turn order] }
@@ -81,6 +88,45 @@ export function openSelect(thenPlay = false) {
   renderPicker();
   showScreen("select");
   (charPick.querySelector('[aria-pressed="true"]') ?? charPick.querySelector("button"))?.focus({ preventScroll: true });
+}
+
+// A game was chosen: straight in as their player once they've chosen one (asking for a team first if
+// it's needed), else choose a player first. HORSE always picks who's playing.
+export async function pickMode(id) {
+  setMode(id);
+  if (!choseBefore() || mode().passAndPlay) return openSelect(true);
+  const c = characters.list.find((p) => p.id === characters.selected);
+  if (needsTeam(c, mode()) && !(await chooseTeam())) return;
+  stage.focus({ preventScroll: true }); // so Space plays rather than pressing the card again
+  startGame();
+}
+
+// Under Choose a game, once they've chosen a player: who they play as and their team, to change.
+function showWho() {
+  const row = $("mode-who");
+  row.hidden = !choseBefore();
+  if (row.hidden) return;
+  const c = characters.list.find((p) => p.id === characters.selected) ?? characters.list[0];
+  const face = Object.assign(document.createElement("img"), { alt: "", width: 32, height: 32 });
+  setFace(face, c);
+  const who = $("mode-player");
+  who.replaceChildren(face, Object.assign(document.createElement("span"), { textContent: c.name })); // a kid's player's name: text only
+  who.setAttribute("aria-label", `Playing as ${c.name}. Change player`);
+  const t = myTeam();
+  const teamButton = $("mode-team");
+  teamButton.hidden = !flagOn("teams");
+  teamButton.replaceChildren();
+  teamButton.insertAdjacentHTML("afterbegin", icon("players"));
+  teamButton.append(Object.assign(document.createElement("span"), { textContent: t ? t.name : "Choose your team" })); // may be a kid's: text only
+}
+
+/** Change player from Choose a game, then back to it. */
+export const changePlayer = () => openSelect("modes");
+
+/** Change team from Choose a game. */
+export async function changeTeamFromModes() {
+  await chooseTeam();
+  showWho();
 }
 
 // Back from choosing a player: to choosing a game, if that's where they came from.
@@ -123,11 +169,12 @@ function renderPicker() {
       button.addEventListener("click", async () => {
         if (team) return toggleTeam(c.id);
         // The first game as Orson (or anyone without a team of their own): which team it counts for.
-        if (selectThenPlay && needsTeam(c, mode())) await chooseTeam();
+        if (selectThenPlay === true && needsTeam(c, mode())) await chooseTeam();
         await selectCharacter(c.id);
         save("orson-hoops-chosen", true);
         stage.focus({ preventScroll: true }); // so Space plays rather than pressing this card again
-        if (selectThenPlay) startGame();
+        if (selectThenPlay === true) startGame();
+        else if (selectThenPlay === "modes") openModes();
         else showTitle();
       });
       if (!c.mine) return button;

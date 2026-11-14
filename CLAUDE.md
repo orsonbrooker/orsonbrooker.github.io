@@ -229,7 +229,9 @@ main checkout.
 - Leaderboard rows (except your own) have a small flag to report an unfriendly name (Apple asks for this
   where kids type names). Reports wait in the admin inbox until the name is renamed, hidden or marked
   "Looks fine".
-- The flow: tap or Space to play, choose a game, choose a player.
+- The flow: tap or Space to play, choose a game, choose a player (and, with the teams flag, a team, the
+  first time as Orson). Once they've chosen, choosing a game starts it straight away; Choose a game shows
+  their player and team to change. HORSE always picks its players.
 - Players: Orson (built in), and kids' own players from the builder (10 bodies, recoloured from region maps);
   requests wait in the admin inbox. A player is a he or a she (from the body: ponytail and buns are she, for now; the admin can override);
   the announcer says "She's heating up!" for a she, and skips lines about he or she when it isn't set. A new
