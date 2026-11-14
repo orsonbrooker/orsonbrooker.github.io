@@ -359,8 +359,10 @@ Terms used across the code:
   means wearing the team's kit and name (`colours.teamId` on the player, kept on the device); a device is on
   a team in `team_members`. Luke can list, refuse a name, unlist, rename, hide a team or make it a new code
   (Teams section); a hidden one is gone everywhere. The game asks `POST /api/teams/mine` once a visit when
-  the device is on a community team, and if one has gone its players stop wearing it and they're told
-  (`checkTeams` in `screens/team.js`).
+  the device is on a community team (or a player wears one the device doesn't know yet, from saved
+  progress). If one has gone, its players go into the device's team (else KINGS) and they're told; a
+  renamed or re-kitted team's players take its new name and kit (`checkTeams` in `screens/team.js`).
+  Leaving in the builder moves the device's saved players off the team straight away.
 - **Choosing a team:** the first time a device plays a scored game as Orson or someone else's approved
   player, it chooses the team those games count for (`screens/team.js`, kept as `orson-hoops-my-team`; the
   Team button on Choose your player changes it, and so does Choose a game's while Orson or an approved player is
