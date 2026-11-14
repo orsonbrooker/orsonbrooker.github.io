@@ -95,12 +95,13 @@ test("making a team: private, the maker is on it, and the code joins it", async 
 	assert.equal(made.team.name, "HOOPERS");
 	assert.equal(made.team.maker, true);
 	assert.equal(made.team.listing, "private");
-	assert.match(made.code, /^[2-9A-Z]{4}-[2-9A-Z]{4}$/);
+	assert.match(made.code, /^T-[2-9A-Z]{4}-[2-9A-Z]{4}$/); // never like a pairing code (ABCD-EFGH)
 	// Only a hash of the code is kept.
 	const row = db.prepare("SELECT * FROM community_teams").get() as Record<string, string>;
-	assert.ok(!Object.values(row).some((v) => String(v).includes(made.code.replace("-", ""))));
-	// A friend types it (any case, with or without the dash).
-	const joined = await join(env, B, made.code.toLowerCase().replace("-", ""));
+	assert.ok(!Object.values(row).some((v) => String(v).includes(made.code.replace(/-/g, "").slice(1))));
+	// A friend types it (any case, with or without the dashes and the T).
+	const joined = await join(env, B, made.code.toLowerCase().replace(/-/g, ""));
+	assert.equal((await join(env, C, made.code.slice(2))).team.name, "HOOPERS");
 	assert.equal(joined.team.name, "HOOPERS");
 	assert.equal(joined.team.maker, undefined); // the friend can't change it
 	assert.deepEqual(names(await mine(env, B)), ["HOOPERS"]);
@@ -114,30 +115,40 @@ test("making a team: the robot check, friendly names, 3 per device, and a daily 
 	await rejects(call(env, "POST", "/api/teams", { device: A, name: "HOOPERS", home: GREEN, away: WHITE, turnstileToken: "bad" }), 400, /robot/);
 	await rejects(make(env, A, "shit team"), 400, /friendly/);
 	await rejects(make(env, A, "!!!"), 400, /name/);
+	await rejects(make(env, A, "kings"), 400, /game's teams/); // it would look like the official one
 	await rejects(call(env, "POST", "/api/teams", { device: A, name: "HOOPERS", home: { jersey: "red" }, away: WHITE, turnstileToken: "ok" }), 400, /colours/);
 	for (const n of ["ONE", "TWO", "THREE"]) await make(env, A, n);
 	await rejects(make(env, A, "FOUR"), 400, /3 teams/);
-	// One IP: 5 a day, whichever devices.
+	// One IP (a school's Wi-Fi): 20 a day, whichever devices.
 	const ip = "203.0.113.9";
-	for (const n of ["A1", "A2", "A3"]) await make(env, B, n, ip);
-	for (const n of ["A4", "A5"]) await make(env, C, n, ip);
-	await rejects(make(env, "d".repeat(32), "A6", ip), 429);
+	for (let i = 0; i < 20; i++) await make(env, `kid${Math.floor(i / 3)}`.padEnd(32, "x"), `HOOP ${String.fromCharCode(65 + i)}`, ip);
+	await rejects(make(env, "z".repeat(32), "HOOP Z", ip), 429);
 });
 
-test("codes: a wrong one fails, 15 tries a day per IP, and a new code stops the old one", async () => {
+test("codes: a wrong one fails, 15 wrong a day per IP, right ones don't count, and a new code stops the old one", async () => {
 	const { env } = setup();
 	const made = await make(env, A, "HOOPERS");
 	await rejects(join(env, B, "ZZZZ-ZZZZ"), 400, /didn't work/);
 	await rejects(join(env, B, "SHORT"), 400, /8 letters/);
+	// A class joining on one Wi-Fi: right codes don't use up the tries.
 	const ip = "203.0.113.20";
-	for (let i = 0; i < 15; i++) await rejects(join(env, B, "ZZZZ-ZZZZ", ip), 400);
-	await rejects(join(env, B, made.code, ip), 429); // even the right one, until tomorrow
+	for (let i = 0; i < 20; i++) await join(env, `kid${i}`.padEnd(32, "x"), made.code, ip);
+	for (let i = 0; i < 15; i++) await rejects(join(env, B, "ZZZZ-ZZZZ", ip), 400, /didn't work/);
+	await rejects(join(env, B, made.code, ip), 429); // after 15 wrong, even the right one, until tomorrow
+	// A team code typed where a pairing code goes says where it belongs.
+	const pair = new Request("http://localhost/api/progress/join", { method: "POST", headers: { "CF-Connecting-IP": "203.0.113.21" }, body: JSON.stringify({ code: made.code, device: B }) });
+	await rejects(joinCode(pair, env), 400, /team code/);
 	// Only the maker can get a new code.
 	await rejects(call(env, "POST", `/api/teams/${made.team.id}`, { device: B, action: "code" }), 404);
 	const fresh = await call(env, "POST", `/api/teams/${made.team.id}`, { device: A, action: "code" });
 	assert.notEqual(fresh.code, made.code);
 	await rejects(join(env, C, made.code), 400);
 	assert.equal((await join(env, C, fresh.code)).team.name, "HOOPERS");
+	// Luke can make one too, for a maker whose device lost it.
+	const admin = (await (await editTeam(env, made.team.id, { action: "code" }, "http://localhost")).json()) as Out;
+	assert.match(admin.code, /^T-/);
+	await rejects(join(env, "d".repeat(32), fresh.code), 400);
+	assert.equal((await join(env, "d".repeat(32), admin.code)).team.name, "HOOPERS");
 });
 
 test("leaving a team, and a hidden team is gone for its members", async () => {
@@ -155,28 +166,27 @@ test("leaving a team, and a hidden team is gone for its members", async () => {
 	assert.deepEqual(names(await mine(env, B)), ["HOOPERS"]);
 });
 
-test("which team a game is saved for: Orson, own players, members only, and approved players' official teams", async () => {
+test("which team a game is saved for: the team the kid chose, whoever they play as; members only; nothing while the flag is off", async () => {
 	const { env, db } = setup();
 	const hA = await boardOf(env, A);
 	const hB = await boardOf(env, B);
 	const made = await make(env, A, "HOOPERS");
-	const comets = addPlayer(db, "COMETS");
-	const ilovefood = addPlayer(db, "ILOVEFOOD");
-	const waiting = addPlayer(db, "SHARKS", "new");
-	assert.equal(await teamForScore(env, "orson", "DRAGONS", made.team.key, hA), "KINGS"); // what's sent doesn't matter
-	assert.equal(await teamForScore(env, `p${comets}`, "DRAGONS", null, hA), "COMETS");
-	assert.equal(await teamForScore(env, `p${ilovefood}`, null, null, hA), null); // not an official team
-	assert.equal(await teamForScore(env, `p${waiting}`, null, null, hA), null); // not approved
-	assert.equal(await teamForScore(env, "me1", "sharks", undefined, hA), "SHARKS");
-	assert.equal(await teamForScore(env, "me1", undefined, undefined, hA), "KINGS"); // an older game
-	assert.equal(await teamForScore(env, "me1", "MY TEAM", undefined, hA), null); // a team only on the device
-	assert.equal(await teamForScore(env, "me1", "HOOPERS", made.team.key, hA), made.team.key);
+	// Orson, an approved player or their own: whatever team was sent (the device's, or their own player's).
+	assert.equal(await teamForScore(env, "sharks", undefined, hA), "SHARKS");
+	assert.equal(await teamForScore(env, undefined, undefined, hA), null); // an older game, or no team chosen
+	assert.equal(await teamForScore(env, "MY TEAM", undefined, hA), null); // a team only on the device
+	assert.equal(await teamForScore(env, "HOOPERS", made.team.key, hA), made.team.key);
 	// B isn't on it: the game counts for the official team they'd wear, or none.
-	assert.equal(await teamForScore(env, "me1", "HOOPERS", made.team.key, hB), null);
+	assert.equal(await teamForScore(env, "HOOPERS", made.team.key, hB), null);
+	assert.equal(await teamForScore(env, "COMETS", made.team.key, hB), "COMETS");
 	await join(env, B, made.code);
-	assert.equal(await teamForScore(env, "me1", "HOOPERS", made.team.key, hB), made.team.key);
+	assert.equal(await teamForScore(env, "HOOPERS", made.team.key, hB), made.team.key);
 	await editTeam(env, made.team.id, { action: "hide" }, "http://localhost");
-	assert.equal(await teamForScore(env, "me1", "HOOPERS", made.team.key, hB), null);
+	assert.equal(await teamForScore(env, "HOOPERS", made.team.key, hB), null);
+	// With the flag off, no game gets a team: they count from when it's switched on.
+	db.prepare("UPDATE flags SET enabled = 0 WHERE key = 'teams'").run();
+	forgetFlags();
+	assert.equal(await teamForScore(env, "SHARKS", undefined, hA), null);
 });
 
 test("a sent game is saved with its team", async () => {
@@ -270,10 +280,9 @@ test("listed names are unique; renaming a listed team waits for Luke again; bloc
 	const { env, db } = setup();
 	const one = await make(env, A, "HOOPERS");
 	const two = await make(env, B, "HOOPERS"); // private teams can share a name
-	const kings = await make(env, C, "KINGS");
 	await editTeam(env, one.team.id, { action: "list" }, "http://localhost");
 	await rejects(call(env, "POST", `/api/teams/${two.team.id}`, { device: B, action: "list", turnstileToken: "ok" }), 400, /already a team/);
-	await rejects(call(env, "POST", `/api/teams/${kings.team.id}`, { device: C, action: "list", turnstileToken: "ok" }), 400, /already a team/);
+	await rejects(call(env, "POST", `/api/teams/${two.team.id}`, { device: B, action: "name", name: "Sharks", turnstileToken: "ok" }), 400, /game's teams/);
 	await rejects(editTeam(env, two.team.id, { action: "list" }, "http://localhost"), 400);
 	// Not this name: it stays private, and the maker sees why.
 	await call(env, "POST", `/api/teams/${two.team.id}`, { device: B, action: "name", name: "BALLERS", turnstileToken: "ok" });
@@ -329,7 +338,7 @@ test("pairing a device brings its teams along", async () => {
 	assert.equal(await boardOf(env, B), await boardOf(env, A));
 	assert.deepEqual(names(await mine(env, A)).sort(), ["FRIENDS", "MINE"]);
 	assert.equal((await mine(env, A)).find((t) => t.name === "MINE")!.maker, true);
-	assert.equal((await call(env, "POST", `/api/teams/${theirs.team.id}`, { device: A, action: "code" })).code.length, 9);
+	assert.match((await call(env, "POST", `/api/teams/${theirs.team.id}`, { device: A, action: "code" })).code, /^T-.{4}-.{4}$/);
 });
 
 test("public team reads are cached like the boards, with only the parameters they read", () => {
@@ -339,4 +348,19 @@ test("public team reads are cached like the boards, with only the parameters the
 	assert.equal(key("http://localhost/api/teams/Kings/players?mode=around&range=all&x=2"), "http://localhost/api/teams/KINGS/players?mode=around&range=all");
 	assert.equal(key("http://localhost/api/teams/C12/players"), "http://localhost/api/teams/c12/players?mode=timed&range=week");
 	assert.equal(key("http://localhost/api/teams/nope/players"), undefined);
+	assert.equal(key("http://localhost/api/teams-rank?mode=timed&range=week"), undefined); // the private count is never served
+});
+
+test("a team's ranking names only players already on the players' board; members of a private team see each other", async () => {
+	const { env, db } = setup();
+	// 12 devices on SHARKS: the players' board shows 10, so the 2 lowest are a face and a score.
+	for (let i = 0; i < 12; i++) addScore(db, { player: "me1", device: `s${i}`, score: 50 - i, team: "SHARKS", nickname: `Kid${i}` });
+	const { players } = await call(env, "GET", "/api/teams/SHARKS/players?mode=timed");
+	assert.deepEqual(players.map((p: Out) => p.nickname), [...Array(10).keys()].map((i) => `Kid${i}`).concat([null, null]));
+	assert.ok(players.every((p: Out) => Number.isInteger(p.id))); // for the report flag
+	// A private team: its members see every name.
+	const secret = await make(env, A, "SECRET");
+	for (let i = 0; i < 2; i++) addScore(db, { player: "me1", device: i ? await boardOf(env, A) : "q1", score: 1 + i, team: secret.team.key, nickname: `Pal${i}` });
+	const standing = await call(env, "POST", "/api/teams/players", { device: A, key: secret.team.key, mode: "timed" });
+	assert.deepEqual(standing.players.map((p: Out) => p.nickname), ["Pal1", "Pal0"]);
 });

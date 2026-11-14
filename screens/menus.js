@@ -12,6 +12,9 @@ import { mode, modes, setPhase, state } from "../play/state.js";
 import { removeMyPlayer } from "../players/recolor.js";
 import { $, charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js";
 import { showDaily } from "../screens/over.js";
+import { chooseTeam, needsTeam } from "../screens/team.js";
+import { flagOn } from "../flags.js";
+import { myTeam } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
 
@@ -73,6 +76,7 @@ export function openSelect(thenPlay = false) {
   team = pass ? { ...pass, chosen: load("orson-hoops-team", []).filter((id) => characters.list.some((c) => c.id === id)).slice(0, pass.max) } : null;
   $("select-title").textContent = team ? "Who's playing?" : "Choose your player";
   $("team-note").hidden = $("team-go-row").hidden = !team;
+  showMyTeam();
   charPick.classList.toggle("team", !!team);
   renderPicker();
   showScreen("select");
@@ -118,6 +122,8 @@ function renderPicker() {
       }
       button.addEventListener("click", async () => {
         if (team) return toggleTeam(c.id);
+        // The first game as Orson (or anyone without a team of their own): which team it counts for.
+        if (selectThenPlay && needsTeam(c, mode())) await chooseTeam();
         await selectCharacter(c.id);
         save("orson-hoops-chosen", true);
         stage.focus({ preventScroll: true }); // so Space plays rather than pressing this card again
@@ -153,6 +159,22 @@ function renderPicker() {
     ...(IN_APP ? [] : [Object.assign(document.createElement("a"), { href: "/players/", className: "card make-player", innerHTML: `${icon("plus")}<span>Make your player</span>` })]),
   );
   if (team) showTeam();
+}
+
+// The device's team (Top teams), under Choose your player: tap to change it. Not for pass and play.
+function showMyTeam() {
+  const button = $("my-team");
+  button.hidden = !flagOn("teams") || !!team;
+  if (button.hidden) return;
+  const t = myTeam();
+  button.replaceChildren();
+  button.insertAdjacentHTML("afterbegin", icon("players"));
+  button.append(Object.assign(document.createElement("span"), { textContent: t ? `Team: ${t.name}` : "Choose your team" })); // may be a kid's: text only
+}
+
+export async function changeMyTeam() {
+  await chooseTeam();
+  showMyTeam();
 }
 
 // ---------- Pass and play: picking who's playing ----------

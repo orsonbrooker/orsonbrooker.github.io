@@ -9,8 +9,10 @@
 // (its leaderboard id, boardOf in scores.ts, so paired devices count as one) makes at most 3 teams.
 //
 // Which team a game is for is saved with it when it's sent (teamForScore, called from postScore) and
-// never changes: switching teams never moves old games. A community team only counts a game from a
-// device that's on it (team_members).
+// never changes: switching teams never moves old games. It's the team the kid chose, whoever they play
+// as: their own player's team, or the team the device picked the first time it played (Orson and
+// approved players have no team of their own). A community team only counts a game from a device that's
+// on it (team_members). While the flag is off no game gets a team, so games count from switching it on.
 //
 // A team's score is its TEAM_COUNTS (3) best devices added up, each at its best game for that team in
 // that mode, so a team can't win just by having lots of players, and one kid can't fill all 3 places.
@@ -21,12 +23,12 @@
 
 import { lowWins, modeOf } from "../../shared/rules.js";
 import type { Mode } from "../../shared/rules.js";
-import { DEFAULT_TEAM, TEAMS, TEAM_COUNTS, teamNameOf } from "../../shared/teams.js";
-import { forget } from "./cache.ts";
-import { requireFlag } from "./flags.ts";
+import { TEAMS, TEAM_COUNTS, teamNameOf } from "../../shared/teams.js";
+import { forget, rankKey } from "./cache.ts";
+import { readFlags, requireFlag } from "./flags.ts";
 import { HttpError } from "./http.ts";
 import { newCode, tidyCode } from "./progress.ts";
-import { boardOf, featureFrom } from "./scores.ts";
+import { boardNames, boardOf, featureFrom } from "./scores.ts";
 import { checkTurnstile, clean, hash, ipKey, isUnfriendly, json, rateLimit, readJson, RUDE } from "./util.ts";
 import type { Env } from "./util.ts";
 
@@ -34,11 +36,13 @@ const OFFICIAL = new Map(TEAMS.map((t) => [t.name, t]));
 const SHOWN_TEAMS = 10;
 const SHOWN_PLAYERS = 20;
 export const TEAMS_PER_DEVICE = 3;
-const NEW_PER_DAY = 5; // teams made from one IP
-const TRIES_PER_DAY = 15; // join codes typed in (also stops guessing), as for pairing codes
+// Per IP and day. A school's Wi-Fi is one IP, so a class making and joining teams together must fit.
+const NEW_PER_DAY = 20; // teams made (each device makes at most 3, and Turnstile)
+const WRONG_CODES_PER_DAY = 15; // wrong join codes: what stops guessing, as for pairing codes
+const JOINS_PER_DAY = 100; // joins with a right code, or of a listed team
 const CHANGES_PER_DAY = 30; // a maker's changes: new code, listing, kit, name
 const LEAVES_PER_DAY = 60;
-const READS_PER_DAY = 300; // a device's own teams and private rankings (not cached)
+const READS_PER_DAY = 2000; // a device's own teams and private ranks (not edge-cached; the counting is, in rankAll)
 
 const KIT_PARTS = ["jersey", "shorts", "trim"] as const;
 type Kit = Record<(typeof KIT_PARTS)[number], string>;
@@ -46,6 +50,13 @@ type Listing = "private" | "asked" | "listed" | "refused";
 type TeamRecord = { id: number; name: string; home: string; away: string; owner: string; listing: Listing; status: string };
 
 const codeHash = (env: Env, code: string) => hash(env, `team:${code}`);
+// A team code is shown as T-ABCD-EFGH, so it never looks like a pairing code (ABCD-EFGH, which shares
+// saved progress). Typed in, the T is optional.
+const showCode = (code: string) => `T-${code.slice(0, 4)}-${code.slice(4)}`;
+const typedCode = (value: unknown) => {
+	const code = tidyCode(value);
+	return code.length === 9 && code.startsWith("T") ? code.slice(1) : code;
+};
 const keyOf = (id: number) => `c${id}`;
 const idOf = (key: string) => {
 	const m = key.match(/^c(\d{1,10})$/);
@@ -97,6 +108,8 @@ async function teamName(env: Env, value: unknown): Promise<string> {
 	const name = teamNameOf(value);
 	if (!name) throw new HttpError(400, "Give your team a name.");
 	if (await isUnfriendly(env, name)) throw new HttpError(400, RUDE);
+	// A made-up team called KINGS would look like the game's own on a jersey.
+	if (OFFICIAL.has(name)) throw new HttpError(400, "That's one of the game's teams. Pick it from the teams, or give yours a new name.");
 	return name;
 }
 
@@ -109,30 +122,17 @@ async function listableName(env: Env, name: string, id: number): Promise<boolean
 // ---------- Which team a game counts for ----------
 
 /**
- * The team a game counts for, saved with it (an official name or "c<id>"), or null. `player` is who
- * they played as; `sent` is the team name their own player wears and `sentId` its community team, if any.
- * - Orson (and any built-in player): KINGS.
- * - Their own player ("me…"): the community team they wear if this device is on it, else the official
- *   team they wear (KINGS from older games that send none). A name that's neither counts for no team.
- * - Someone else's approved player ("p12"): their saved team if it's an official one.
+ * The team a game counts for, saved with it (an official name or "c<id>"), or null. `sent` is the team
+ * the kid chose (an official name) and `sentId` its community team, if any: their own player's team, or
+ * the device's team when they play as Orson or someone else's approved player. A community team counts
+ * only if this device is on it; anything else, and anything while the `teams` flag is off, is no team.
  */
-export async function teamForScore(env: Env, player: string, sent: unknown, sentId: unknown, board: string): Promise<string | null> {
-	const approved = player.match(/^p(\d{1,10})$/);
-	if (approved) {
-		const row = await env.DB.prepare("SELECT team_name FROM players WHERE id = ? AND status = 'approved'")
-			.bind(Number(approved[1]))
-			.first<{ team_name: string }>();
-		const name = row ? teamNameOf(row.team_name) || DEFAULT_TEAM : null;
-		return name && OFFICIAL.has(name) ? name : null;
-	}
-	if (/^me\d{1,15}$/.test(player)) {
-		const id = idOf(clean(sentId, 12));
-		if (id !== null && (await isMember(env, board, id))) return keyOf(id);
-		if (sent === undefined || sent === null || sent === "") return DEFAULT_TEAM;
-		const name = teamNameOf(sent);
-		return OFFICIAL.has(name) ? name : null;
-	}
-	return DEFAULT_TEAM; // Orson, and any other built-in player
+export async function teamForScore(env: Env, sent: unknown, sentId: unknown, board: string): Promise<string | null> {
+	if (!(await readFlags(env)).teams) return null;
+	const id = idOf(clean(sentId, 12));
+	if (id !== null && (await isMember(env, board, id))) return keyOf(id);
+	const name = teamNameOf(sent);
+	return OFFICIAL.has(name) ? name : null;
 }
 
 // ---------- Counting ----------
@@ -153,8 +153,23 @@ const bestPerDevice = (week: boolean, order: string) => `
 	  SELECT *, ROW_NUMBER() OVER (PARTITION BY team, device ORDER BY score ${order}, id) AS k FROM g
 	)`;
 
-/** Every team with games (official, and community ones that are ok), ranked best first. */
-async function rankAll(env: Env, mode: Mode, week: boolean): Promise<Ranked[]> {
+/**
+ * Every team with games (official, and community ones that are ok), ranked best first. It's the same
+ * for everyone, and members of private teams ask for it often (their rank), so with `origin` it's kept
+ * in the edge cache for 30 seconds under an address no request is served from (cleared with the mode's
+ * board in cache.ts, like Top teams).
+ */
+async function rankAll(env: Env, mode: Mode, week: boolean, origin?: string): Promise<Ranked[]> {
+	const cache = typeof caches !== "undefined" && typeof caches.default?.match === "function" && origin ? caches.default : null;
+	const key = origin ? rankKey(origin, mode, !week) : "";
+	const hit = cache ? await cache.match(key) : undefined;
+	if (hit) return hit.json<Ranked[]>();
+	const ranked = await countTeams(env, mode, week);
+	if (cache) await cache.put(key, new Response(JSON.stringify(ranked), { headers: { "Content-Type": "application/json", "Cache-Control": "max-age=30" } }));
+	return ranked;
+}
+
+async function countTeams(env: Env, mode: Mode, week: boolean): Promise<Ranked[]> {
 	const low = lowWins(mode);
 	const order = low ? "ASC" : "DESC";
 	const [rows, community] = await env.DB.batch([
@@ -202,25 +217,41 @@ async function rankAll(env: Env, mode: Mode, week: boolean): Promise<Ranked[]> {
 const boardRow = (t: Ranked, rank: number) => ({ rank, key: t.key, name: t.name, kind: t.kind, score: t.score, top: t.top, kit: t.kit });
 
 /** One mode's Top teams: official and listed community teams, best first (at most 10). */
-export async function teamRows(env: Env, mode: Mode, week: boolean) {
-	return (await rankAll(env, mode, week))
+export async function teamRows(env: Env, mode: Mode, week: boolean, origin?: string) {
+	return (await rankAll(env, mode, week, origin))
 		.filter((t) => t.listed)
 		.slice(0, SHOWN_TEAMS)
 		.map((t, i) => boardRow(t, i + 1));
 }
 
-/** A team's players, best first: each device once, at its best game, the top 3 marked as counting. */
-async function playerRows(env: Env, key: string, mode: Mode, week: boolean) {
+/**
+ * A team's players, best first: each device once, at its best game (`id`, for the report flag), the top 3
+ * marked as counting. Nicknames show only for players already on the players' board for that mode and
+ * range (the rest are a face and a score), unless `everyone`: a private team's members see each other's.
+ */
+async function playerRows(env: Env, key: string, mode: Mode, week: boolean, everyone = false) {
 	const order = lowWins(mode) ? "ASC" : "DESC";
-	const rows = await env.DB.prepare(
-		`${bestPerDevice(week, order)}
-		 SELECT score, player, base, colours,
-		   (SELECT x.nickname FROM scores x WHERE x.device = b.device AND x.player = b.player AND x.status = 'shown' ORDER BY x.id DESC LIMIT 1) AS nickname
-		 FROM b WHERE k = 1 AND team = ?3 ORDER BY score ${order}, id LIMIT ${SHOWN_PLAYERS}`,
-	)
-		.bind(mode, featureFrom("teams"), key)
-		.all<Counted & { nickname: string; colours: string | null }>();
-	return rows.results.map((r, i) => ({ rank: i + 1, nickname: r.nickname, player: r.player, base: r.base, colours: parseJson(r.colours), score: r.score, counts: i < TEAM_COUNTS }));
+	const [rows, named] = await Promise.all([
+		env.DB.prepare(
+			`${bestPerDevice(week, order)}
+			 SELECT id, score, player, base, colours, device,
+			   (SELECT x.nickname FROM scores x WHERE x.device = b.device AND x.player = b.player AND x.status = 'shown' ORDER BY x.id DESC LIMIT 1) AS nickname
+			 FROM b WHERE k = 1 AND team = ?3 ORDER BY score ${order}, id LIMIT ${SHOWN_PLAYERS}`,
+		)
+			.bind(mode, featureFrom("teams"), key)
+			.all<Counted & { id: number; device: string; nickname: string; colours: string | null }>(),
+		everyone ? null : boardNames(env, mode, week),
+	]);
+	return rows.results.map((r, i) => ({
+		rank: i + 1,
+		id: r.id,
+		nickname: !named || named.has(`${r.device} ${r.player}`) ? r.nickname : null,
+		player: r.player,
+		base: r.base,
+		colours: parseJson(r.colours),
+		score: r.score,
+		counts: i < TEAM_COUNTS,
+	}));
 }
 
 /** The mode and range asked for (This week unless "all"). */
@@ -232,7 +263,7 @@ const rangeOf = (get: (k: string) => unknown) => ({ mode: modeOf(get("mode")), w
 export async function teamBoard(env: Env, url: URL): Promise<Response> {
 	await requireFlag(env, "teams");
 	const { mode, week } = rangeOf((k) => url.searchParams.get(k));
-	return json({ teams: await teamRows(env, mode, week) }, 200, 30);
+	return json({ teams: await teamRows(env, mode, week, url.origin) }, 200, 30);
 }
 
 /** GET /api/teams/list: listed community teams, for the builder (name, kits, how many devices are on it). */
@@ -304,11 +335,12 @@ export async function teamStanding(request: Request, env: Env): Promise<Response
 		if (!t || t.status !== "ok" || (t.listing !== "listed" && !(await isMember(env, board, id)))) throw new HttpError(404, "No such team.");
 	}
 	const { mode, week } = rangeOf((k) => body[k]);
-	const all = await rankAll(env, mode, week);
+	const all = await rankAll(env, mode, week, new URL(request.url).origin);
 	const team = all.find((t) => t.key === key);
 	const shown = all.filter((t) => t.listed || t.key === key);
 	const rank = team ? shown.indexOf(team) + 1 : null;
-	return json({ rank, team: team ? boardRow(team, rank!) : null, players: await playerRows(env, key, mode, week) }, 200, 0);
+	const everyone = id !== null && team?.listed === false; // a private team, asked for by a member
+	return json({ rank, team: team ? boardRow(team, rank!) : null, players: await playerRows(env, key, mode, week, everyone) }, 200, 0);
 }
 
 // ---------- Making, joining and leaving ----------
@@ -334,7 +366,15 @@ export async function makeTeam(request: Request, env: Env): Promise<Response> {
 	return json({ team: { ...teamView(row!, board), member: true }, code: showCode(code) }, 200, 0);
 }
 
-const showCode = (code: string) => `${code.slice(0, 4)}-${code.slice(4)}`;
+const TOO_MANY_TRIES = "That's a lot of tries for one day! Try again tomorrow.";
+
+/** How many times this IP has used `bucket` today (rateLimit), without counting this one. */
+async function triedToday(request: Request, env: Env, bucket: string): Promise<number> {
+	const row = await env.DB.prepare("SELECT count FROM rate_limits WHERE bucket = ? AND ip_hash = ? AND day = date('now')")
+		.bind(bucket, await ipKey(request, env))
+		.first<{ count: number }>();
+	return row?.count ?? 0;
+}
 
 /**
  * POST /api/teams/join { device, code } or { device, id }: this device joins the team the code is for,
@@ -343,19 +383,24 @@ const showCode = (code: string) => `${code.slice(0, 4)}-${code.slice(4)}`;
 export async function joinTeam(request: Request, env: Env): Promise<Response> {
 	await requireFlag(env, "teams");
 	const body = await readJson(request);
-	await rateLimit(request, env, "team-join", TRIES_PER_DAY, "That's a lot of tries for one day! Try again tomorrow.");
+	// Only wrong codes count towards the guessing limit, so a class joining together isn't stopped.
+	if (body.code !== undefined && (await triedToday(request, env, "team-guess")) >= WRONG_CODES_PER_DAY) throw new HttpError(429, TOO_MANY_TRIES);
 	let team: TeamRecord | null;
 	if (body.code === undefined) {
 		team = await findTeam(env, Number(body.id) || 0);
 		if (!team || team.status !== "ok" || team.listing !== "listed") throw new HttpError(404, "No such team.");
 	} else {
-		const code = tidyCode(body.code);
-		if (code.length !== 8) throw new HttpError(400, "A team code is 8 letters and numbers.");
+		const code = typedCode(body.code);
+		if (code.length !== 8) throw new HttpError(400, "A team code is a T and 8 letters and numbers.");
 		team = await env.DB.prepare("SELECT id, name, home, away, owner, listing, status FROM community_teams WHERE code_hash = ? AND status = 'ok'")
 			.bind(await codeHash(env, code))
 			.first<TeamRecord>();
-		if (!team) throw new HttpError(400, "That code didn't work. Check it with your friend and try again.");
+		if (!team) {
+			await rateLimit(request, env, "team-guess", WRONG_CODES_PER_DAY, TOO_MANY_TRIES);
+			throw new HttpError(400, "That code didn't work. Check it with your friend and try again.");
+		}
 	}
+	await rateLimit(request, env, "team-join", JOINS_PER_DAY, TOO_MANY_TRIES);
 	const board = await boardFrom(env, body);
 	await env.DB.prepare("INSERT OR IGNORE INTO team_members (board, team_id) VALUES (?, ?)").bind(board, team.id).run();
 	if (team.listing === "listed") await forgetTeams(new URL(request.url).origin); // its number of members
@@ -440,7 +485,11 @@ export async function adminTeams(env: Env) {
 	return rows.results.map((t) => ({ ...t, home: parseJson<Kit>(t.home), away: parseJson<Kit>(t.away) }));
 }
 
-/** POST /api/admin/teams/:id { action: list | refuse | unlist | hide | show | rename, name? }. */
+/**
+ * POST /api/admin/teams/:id { action: list | refuse | unlist | hide | show | rename | code, name? }.
+ * `code` makes a new join code (the old one stops working) for Luke to give the maker in person, for
+ * when the maker's device lost it.
+ */
 export async function editTeam(env: Env, id: number, body: Record<string, unknown>, origin: string): Promise<Response> {
 	const team = await findTeam(env, id);
 	if (!team) throw new HttpError(404, "No such team.");
@@ -465,6 +514,11 @@ export async function editTeam(env: Env, id: number, body: Record<string, unknow
 		case "show":
 			await update("status = 'ok'");
 			break;
+		case "code": {
+			const code = newCode();
+			await update("code_hash = ?", await codeHash(env, code));
+			return json({ ok: true, code: showCode(code) }, 200, 0);
+		}
 		case "rename": {
 			const name = teamNameOf(body.name);
 			if (!name) throw new HttpError(400, "Give the team a name.");
