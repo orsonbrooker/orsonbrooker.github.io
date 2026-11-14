@@ -2,17 +2,20 @@
 // be passed on: who's up ("Pass to Jethro!"), what just happened, everyone's letters, and the spot on a
 // little map of the court. The leader picks the spot there; anyone matching sees the leader's spot.
 
-import { HORSE_MAP, HORSE_WORD } from "../content/horse.js";
-import { project } from "../engine/court.js";
+import { HORSE_WORD } from "../content/horse.js";
+import { court, project } from "../engine/court.js";
 import { setFace } from "../play/players.js";
 import { $, showScreen } from "../screens/base.js";
 
 const map = $("spot-map");
 const pct = (n) => `${(n * 100).toFixed(2)}%`;
-// The map shows HORSE_MAP's square of the court art.
-map.style.backgroundImage = "url(assets/court.webp)";
-map.style.backgroundSize = pct(2048 / HORSE_MAP.size);
-map.style.backgroundPosition = `${pct(HORSE_MAP.x / (2048 - HORSE_MAP.size))} ${pct(HORSE_MAP.y / (2048 - HORSE_MAP.size))}`;
+// The map shows the court's horseMap square of its art (content/courts.js).
+function showCourt() {
+  const { image, size, horseMap: m } = court;
+  map.style.backgroundImage = `url(${image})`;
+  map.style.backgroundSize = pct(size / m.size);
+  map.style.backgroundPosition = `${pct(m.x / (size - m.size))} ${pct(m.y / (size - m.size))}`;
+}
 
 const spotText = (spots, i) => `Spot ${i + 1}: ${spots[i].name}${spots[i].three ? " (3 points)" : ""}`;
 
@@ -35,6 +38,8 @@ export function showTurn(view) {
 }
 
 function renderMap(spots, canPick) {
+  showCourt();
+  const m = court.horseMap;
   map.classList.toggle("picking", canPick);
   const label = $("turn-spot");
   map.replaceChildren(
@@ -44,8 +49,8 @@ function renderMap(spots, canPick) {
       button.type = "button";
       button.className = "card spot" + (spot.three ? " three" : ""); // .card: the arrow keys move between them
       button.textContent = String(i + 1);
-      button.style.left = pct((p.x - HORSE_MAP.x) / HORSE_MAP.size);
-      button.style.top = pct((p.y - HORSE_MAP.y) / HORSE_MAP.size);
+      button.style.left = pct((p.x - m.x) / m.size);
+      button.style.top = pct((p.y - m.y) / m.size);
       button.setAttribute("aria-label", spotText(spots, i));
       button.setAttribute("aria-pressed", String(i === chosen));
       button.disabled = !canPick && i !== chosen;

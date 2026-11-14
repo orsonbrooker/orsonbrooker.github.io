@@ -17,5 +17,3 @@ export const HORSE_LAYOUT = [
 
 export const HORSE_WORD = "HORSE";
 
-// The part of the court art the spot map shows, in court pixels (the floor around the hoop).
-export const HORSE_MAP = { x: 214, y: 690, size: 1300 };

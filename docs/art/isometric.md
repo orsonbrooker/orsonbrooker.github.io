@@ -55,8 +55,8 @@ That's about 0.566 (29.5 deg), close to true isometric (0.577), looking down abo
   `threePointLine` against the new paint. For example, 1 m along the floor as (-24, +12) art pixels is
   (-120, +60) court px at 5x (134.2 long), so `pxPerM` is 147 (1.095 x 134.2). The floor looks a little
   flatter, and walls and the rim a little higher on screen, than today.
-- **Court pixels written outside `courts.js`:** `HORSE_MAP` in `content/horse.js` and the scoreboard `area`
-  in `content/looks.js` (on a 2:1 court the scoreboard prop's `prop.json` replaces it: see "The scoreboard"). Code that goes through `project()`, `EU` and `EV` (`engine/court.js`, steering in
+- **Court pixels written outside `courts.js`:** the old gym's scoreboard `area` in `content/looks.js` (HORSE's
+  spot map is each court's `horseMap` now) (on a 2:1 court the scoreboard prop's `prop.json` replaces it: see "The scoreboard"). Code that goes through `project()`, `EU` and `EV` (`engine/court.js`, steering in
   `play/round.js`) follows the new numbers by itself.
 - **The hoop front** (`assets/hoop-front.webp`) is redrawn with the court, on its grid.
 - **The players** don't change: they're sprites with their own camera and size. Because `pxPerM` goes up,

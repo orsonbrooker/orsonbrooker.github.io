@@ -19,6 +19,7 @@
 //   defaultSpot        where he stands when nothing else says
 //   physics            gravity (m/s/s, down) and wind (optional: { u, v } in m/s/s, pushing the ball
 //                      along the floor's directions while it's in the air)
+//   horseMap           the square of the court art HORSE's spot map shows, in court pixels (the floor round the hoop)
 //   test               only reachable from ?debug (window.game.setCourt), never offered to players
 //   contest            (optional) the 3-point contest's look on this court: its court image (the racks' shadows in
 //                      the floor, no racks) and each rack in RACK_LAYOUT order, where its picture's top left goes
@@ -27,9 +28,11 @@
 //                      (foot: u and height, metres) and its face (art/iso/props/scoreboard/prop.json), drawn by
 //                      engine/pixelboard.js. Courts without it use the old painted board (content/looks.js BOARD_ART)
 
-const GYM = {
-  id: "gym",
-  name: "Gym",
+// The first gym, painted (until 2026): kept to compare against, from ?debug only.
+const OLD_GYM = {
+  id: "gym-old",
+  name: "Gym (old art)",
+  test: true,
   image: "assets/court.webp",
   hoopFront: "assets/hoop-front.webp",
   hoopFrontAt: { x: 515, y: 735 },
@@ -45,20 +48,20 @@ const GYM = {
   threePointLine: [3.1, 3.17, 3.33, 3.6, 3.98, 4.25, 4.48, 4.65, 4.73, 4.74, 4.68, 4.59, 4.46, 4.22, 3.97, 3.67, 3.35, 3.19, 3.1],
   defaultSpot: { u: 4.6, v: 4.6 },
   physics: { gravity: 9.81, wind: null },
+  horseMap: { x: 214, y: 690, size: 1300 },
 };
 
 // The gym redrawn in Blender as pixel art at clean 2:1 (art/iso/gym/, docs/art/isometric.md): 1 m of floor round
 // the court lines, the board 1.18 m off the wall, a smaller glass board (2.2 x 1.3 m) on the same rim. Its pixels
-// are 5 court pixels, like the pixel-art players'. Test only until it's tried on phones.
+// are 5 court pixels, like the pixel-art players'.
 // The contest racks' pictures (art/iso/props/rack/), one for each number of balls left.
 const ballsLeft = (way) => [0, 1, 2, 3, 4, 5].map((n) => `assets/props/rack/rack-${way}-left-${n}.webp`);
 
-const GYM_ISO = {
-  id: "gym-iso",
-  name: "Gym (new art)",
-  test: true,
-  image: "assets/courts/gym-iso/court.webp",
-  hoopFront: "assets/courts/gym-iso/hoop-front.webp",
+const GYM = {
+  id: "gym",
+  name: "Gym",
+  image: "assets/courts/gym/court.webp",
+  hoopFront: "assets/courts/gym/hoop-front.webp",
   hoopFrontAt: { x: 760, y: 1005 },
   size: 2400,
   pxPerM: 146.9694,
@@ -68,11 +71,12 @@ const GYM_ISO = {
   room: { u: 9.5, v: 9.5 },
   rim: { at: { x: 845, y: 1014.24 }, height: 3.05, radius: 0.45, tube: 0.035 },
   board: { rimOut: 0.62, u0: 3.65, u1: 5.85, z0: 2.85, z1: 4.15 },
-  threePointLine: GYM.threePointLine,
+  threePointLine: OLD_GYM.threePointLine,
   defaultSpot: { u: 4.6, v: 5.27 },
   physics: { gravity: 9.81, wind: null },
+  horseMap: { x: 240, y: 760, size: 1600 },
   contest: {
-    image: "assets/courts/gym-iso/contest.webp",
+    image: "assets/courts/gym/contest.webp",
     racks: [
       { at: [410, 1350], images: ballsLeft("rot-0") }, // rack 1
       { at: [760, 1470], images: ballsLeft("rot-42") }, // rack 2
@@ -86,7 +90,7 @@ const GYM_ISO = {
 
 export const COURTS = {
   gym: GYM,
-  "gym-iso": GYM_ISO,
+  "gym-old": OLD_GYM,
   // Test courts: the same gym, to try the physics settings before there's art for a new court.
   "gym-low-gravity": { ...GYM, id: "gym-low-gravity", name: "Gym (low gravity)", test: true, physics: { gravity: 3.7, wind: null } },
   "gym-windy": { ...GYM, id: "gym-windy", name: "Gym (windy)", test: true, physics: { gravity: 9.81, wind: { u: 1.5, v: 0 } } },
