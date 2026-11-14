@@ -11,6 +11,7 @@ import { flagOn } from "../flags.js";
 import { attributesFor } from "../content/attributes.js";
 import { EU, EV, RIM, project } from "../engine/court.js";
 import { feetIn, regionFeet } from "../engine/draw.js";
+import { Progress, loadImage } from "../engine/download.js";
 import { load, save } from "../engine/storage.js";
 import { ANIM_FPS, JUMP_APEX, JUMP_FRAME_TIME, player } from "../play/state.js";
 import { gearParam, gearStamps, loadGear, readyGear, wearGear } from "../players/gear.js";
@@ -18,7 +19,7 @@ import { buildPlayer, loadHeads } from "../players/layered.js";
 import { keepPlayer, keptPlayer } from "./kept.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { stretchSheet } from "../players/stretch.js";
-import { DEFAULT_TEAM, gameScale, loadBase, loadBases, myPlayers, pickSize, recolor, sized, thumbnail, useDrawnKids } from "../players/recolor.js";
+import { DEFAULT_TEAM, gameScale, loadBase, loadBases, loadStill, myPlayers, pickSize, recolor, sized, thumbnail, useDrawnKids } from "../players/recolor.js";
 
 // Kids from video and their gear aren't out until their flags are on (shared/flags.js): until then
 // Curly and Buns play with their drawn bodies.
@@ -28,6 +29,7 @@ const PLAYERS_API = `${API}/players`;
 export const characters = {
   list: [{ id: "orson", name: "Orson", pronoun: "he", atlas: "assets/sprites.webp", meta: "assets/sprites.json", thumb: "" }],
   loaded: new Map(),
+  progress: new Map(), // the same keys: how far along each one's download is (engine/download.js)
   selected: load("orson-hoops-character", "orson"),
 };
 
@@ -45,14 +47,7 @@ function sizeFor(entry, current) {
 }
 const keyOf = (id, size) => `${id}@${size ?? "full"}`;
 
-export function loadImage(src) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = reject;
-    img.src = src;
-  });
-}
+export { loadImage };
 
 // The parts of a player's colours that recolour the body, and their number and team name.
 const PARTS = ["skin", "hair", "jersey", "team", "shoes"];
@@ -93,10 +88,10 @@ async function twinPrints(meta, colours, twin = loadTwin(meta.printsFrom)) {
   return prints;
 }
 
-async function loadBuilt(entry, size) {
+async function loadBuilt(entry, size, progress) {
   const base = (await loadBases()).find((b) => b.id === entry.base);
   if (!base.video) {
-    const loaded = await loadBase(base, "/", size);
+    const loaded = await loadBase(base, "/", size, progress);
     return { meta: loaded.meta, img: recolor(loaded, entry.colours), loaded };
   }
   // a kid made from their own videos: built on an earlier visit (play/kept.js), else built now and
@@ -108,14 +103,14 @@ async function loadBuilt(entry, size) {
   const key = { size: files.size, sheets: [files.atlas, files.meta, files.regions], base: base.colours, colours: entry.colours, build: entry.build, gear: await gearStamps(base.id, gear, "/", files.size) };
   const kept = await keptPlayer(key);
   if (kept) return kept;
-  const built = await buildVideoKid(base, entry, gear, size);
+  const built = await buildVideoKid(base, entry, gear, size, progress);
   keepPlayer(key, built);
   return built;
 }
 
 // Their full-detail sheet in the player's colours (as for Orson), with their gear, height and build.
-async function buildVideoKid(base, entry, gear, size) {
-  const loaded = await loadBase(base, "/", size);
+async function buildVideoKid(base, entry, gear, size, progress) {
+  const loaded = await loadBase(base, "/", size, progress);
   const [prints, worn] = await Promise.all([twinPrints(loaded.meta, entry.colours), loadGear(base.id, gear, "/", loaded.size).catch(() => [])]);
   const img = recolor(loaded, partsOf(entry.colours));
   const dressed = wearGear({ meta: loaded.meta, img, prints, regions: loaded.regionsData }, worn, { ...base.colours, ...entry.colours });
@@ -169,21 +164,30 @@ async function loadCharacter(id, size = null) {
   if (!characters.loaded.has(key)) {
     const entry = characters.list.find((c) => c.id === id) ?? characters.list[0];
     const font = document.fonts?.load('16px "Press Start 2P"').catch(() => {}); // for printing the number
+    const progress = new Progress();
+    characters.progress.set(key, progress);
     let loading;
     if (entry.layered) loading = Promise.all([buildPlayer(entry.layered), font]).then(([{ meta, img }]) => withKit(meta, img, entry, entry.colours));
-    else if (entry.base) loading = Promise.all([loadBuilt(entry, size), font]).then(([built]) => built);
+    else if (entry.base) loading = Promise.all([loadBuilt(entry, size, progress), font]).then(([built]) => built);
     else {
       // the smaller sheet where it's drawn small; the number's twin starts loading with the sheet
       const { meta: metaUrl, atlas } = sized(entry, size);
       const meta = fetch(metaUrl).then((r) => r.json());
       const twin = meta.then((m) => (m.printsFrom ? loadTwin(m.printsFrom) : null));
       twin.catch(() => {});
-      loading = Promise.all([meta, loadImage(atlas), font]).then(([m, img]) => withKit(m, img, entry, entry.colours, m.printsFrom ? twin : undefined));
+      loading = Promise.all([meta, loadImage(atlas, progress), font]).then(([m, img]) => withKit(m, img, entry, entry.colours, m.printsFrom ? twin : undefined));
     }
     characters.loaded.set(key, loading);
-    loading.catch(() => characters.loaded.delete(key));
+    loading.catch(() => characters.loaded.delete(key)).finally(() => progress.finish());
   }
   return characters.loaded.get(key);
+}
+
+/** How far along loading player `id` is (a Progress, for a loading bar), or null if they're in. */
+export function loadingProgress(id) {
+  const entry = characters.list.find((c) => c.id === id) ?? characters.list[0];
+  const progress = characters.progress.get(keyOf(entry.id, sizeFor(entry, sheet.id === entry.id ? sheet.size : undefined)));
+  return progress && !progress.finished ? progress : null;
 }
 
 // Plays as this player from now on (and remembers it, unless it's only for now: a turn in a pass and
@@ -372,7 +376,9 @@ export function setFace(img, c) {
     const p = loadBases()
       .then((list) => {
         const base = list.find((b) => b.id === c.base);
-        return loadBase(base, "/", pickSize(base, gameScale(stageWidth()))); // (the size the game would use)
+        // (the size the game would use; a drawn body's face needs only its first frame read: loadStill)
+        const size = pickSize(base, gameScale(stageWidth()));
+        return base.card ? loadBase(base, "/", size) : loadStill(base, "/", size);
       })
       .then((loaded) => {
         faces.set(key, thumbnail(loaded, c.colours).toDataURL());

@@ -13,6 +13,7 @@
 // printed onto jersey pixels only, tilted to follow the shoulders, so it looks printed on and arms
 // and the ball pass in front of it.
 
+import { Progress, loadImage } from "../engine/download.js";
 import { shadeRanks, shadeSamples, shadeTable, lightness } from "./shades.js";
 
 const REGIONS = { 1: "skin", 2: "hair", 3: "jersey", 4: "team", 5: "shoes" };
@@ -106,29 +107,66 @@ export function gameScale(stageWidth) {
 }
 
 const loaded = new Map();
+const loadingProgress = new Map(); // the same keys: how far along each download is
 // Loads a base's sprite sheet, colour map and frame info at a size (pickSize; null for full), once.
-export function loadBase(full, root = "/", size = null) {
+// `progress` (an engine/download.js Progress, optional) hears how far along its files are.
+export function loadBase(full, root = "/", size = null, progress = null) {
   const base = sized(full, size);
   const key = `${base.id}@${base.size ?? "full"}`;
   if (!loaded.has(key)) {
-    const img = (src) =>
-      new Promise((resolve, reject) => {
-        const i = new Image();
-        // So pixels can be read when the site is on another origin (the admin page, run locally).
-        i.crossOrigin = "anonymous";
-        i.onload = () => resolve(i);
-        i.onerror = reject;
-        i.src = root + src;
-      });
+    const mine = new Progress();
+    loadingProgress.set(key, mine);
     // The pixel font is needed before numbers can be printed.
     const font = document.fonts?.load('16px "Press Start 2P"').catch(() => {});
-    const loading = Promise.all([img(base.atlas), img(base.regions), fetch(root + base.meta).then((r) => r.json()), font]).then(
+    const loading = Promise.all([loadImage(root + base.atlas, mine), loadImage(root + base.regions, mine), fetch(root + base.meta).then((r) => r.json()), font]).then(
       ([atlas, regions, meta]) => ({ ...base, atlasImg: atlas, regionsData: pixels(regions), meta }),
     );
     loaded.set(key, loading);
-    loading.catch(() => loaded.delete(key));
+    loading.catch(() => loaded.delete(key)).finally(() => mine.finish());
   }
+  if (progress) progress.include(loadingProgress.get(key));
   return loaded.get(key);
+}
+
+// A still picture's worth of a body: its first frame of `anim` as a loaded base of its own, so drawing
+// it (recolor) reads only that frame's pixels, never the whole sheet's. A card on the builder's wall.
+// `src`: a loaded base, or one whose colour map is still an image (`regionsImg`).
+export function stillOf(src, anim = "idle") {
+  const f = src.meta.frames[anim][0];
+  const [x, y, w, h] = f;
+  const atlas = document.createElement("canvas");
+  atlas.width = w;
+  atlas.height = h;
+  atlas.getContext("2d").drawImage(src.atlasImg, x, y, w, h, 0, 0, w, h);
+  let regionsData;
+  if (src.regionsData) {
+    const whole = src.regionsData;
+    regionsData = new ImageData(w, h);
+    for (let r = 0; r < h; r++) regionsData.data.set(whole.data.subarray(((y + r) * whole.width + x) * 4, ((y + r) * whole.width + x + w) * 4), r * w * 4);
+  } else regionsData = pixels(src.regionsImg, [x, y, w, h]);
+  const held = src.meta.balls?.[`${x},${y}`];
+  const meta = { ...src.meta, frames: { [anim]: [[0, 0, w, h, ...f.slice(4)]] }, balls: held ? { "0,0": held } : undefined };
+  return { ...src, regionsImg: undefined, atlasImg: atlas, regionsData, meta, still: true };
+}
+
+const stills = new Map();
+// Loads what a still picture of a base needs (stillOf), once per size: its sheet and colour map are
+// downloaded and decoded, but only one frame's pixels are read. `progress` as for loadBase.
+export function loadStill(full, root = "/", size = null, progress = null) {
+  const base = sized(full, size);
+  const key = `${base.id}@${base.size ?? "full"}`;
+  if (loaded.has(key)) return loaded.get(key).then((b) => stillOf(b)); // the whole thing is in already
+  if (!stills.has(key)) {
+    const mine = new Progress();
+    loadingProgress.set(`still ${key}`, mine);
+    const loading = Promise.all([loadImage(root + base.atlas, mine), loadImage(root + base.regions, mine), fetch(root + base.meta).then((r) => r.json())]).then(
+      ([atlasImg, regionsImg, meta]) => stillOf({ ...base, atlasImg, regionsImg, meta }),
+    );
+    stills.set(key, loading);
+    loading.catch(() => stills.delete(key)).finally(() => mine.finish());
+  }
+  if (progress) progress.include(loadingProgress.get(`still ${key}`));
+  return stills.get(key);
 }
 
 function pixels(img, rect = [0, 0, img.width, img.height]) {
@@ -151,7 +189,7 @@ const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 const rankCache = new Map();
 function hairRanks(loadedBase) {
   const { atlasImg, regionsData, meta } = loadedBase;
-  const key = atlasImg.src || atlasImg;
+  const key = atlasImg.sourceUrl || atlasImg.src || atlasImg;
   if (!rankCache.has(key)) {
     const W = regionsData.width;
     const reg = regionsData.data;
@@ -186,7 +224,7 @@ function shortsMask(loadedBase) {
   const { atlasImg, regionsData, meta } = loadedBase;
   // (a smaller copy of a sheet reaches as far on the body: fewer pixels)
   const reach = meta?.fullRes && meta.res ? Math.max(1, Math.round((TRIM_REACH * meta.res) / meta.fullRes)) : TRIM_REACH;
-  const key = atlasImg.src || atlasImg;
+  const key = atlasImg.sourceUrl || atlasImg.src || atlasImg;
   if (!shortsCache.has(key)) {
     const { data: reg, width: w, height: h } = regionsData;
     const mask = new Uint8Array(w * h);

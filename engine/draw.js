@@ -116,6 +116,9 @@ export const makeBallFrames = (look) => {
   return Object.assign(Array.from({ length: BALL_FRAMES }, (_, i) => at(i, false)), { side: Array.from({ length: BALL_FRAMES }, (_, i) => at(i, true)) });
 };
 
+/** A still picture of a ball in a look (the first frame of makeBallFrames, without making the rest). */
+export const ballPicture = (look) => makeBallSprite(0, look);
+
 /** The frame for a ball turned `turn` radians (see BALL_FRAMES), rolling over or `sideways`. */
 export function ballFrame(frames, turn, sideways = false) {
   const set = sideways ? frames.side : frames;

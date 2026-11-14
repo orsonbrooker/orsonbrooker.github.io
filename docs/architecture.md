@@ -420,9 +420,13 @@ the ones switched on or off, and which idea each delivers. A flag with no row is
   idea done and sets its `done_at` if it has none, so there's no separate step; a hidden idea stays hidden.
 - **Public:** `GET /api/flags` answers `{ flags: { key: true/false } }`, edge-cached like the boards (a change
   clears it here; elsewhere it's up to a minute old).
-- **Game and builder:** `flags.js` loads them once as the page starts (waiting up to 1.5 s), keeps a copy
-  on the device for offline (the service worker never caches `/api`), and falls back to that copy, else to
-  everything off, so nothing unreleased leaks. `flagOn(key)` says whether to show it; `released(key)` whether
+- **Game and builder:** `flags.js` uses the copy kept on the device straight away (so a page never waits
+  for the server, and it works offline: the service worker never caches `/api`); a copy over 10 minutes
+  old is refreshed in the background for the next page. Only a first visit waits for the server (up to
+  1.5 s), else everything is off, so nothing unreleased leaks. So each device asks at most once every
+  10 minutes (a Worker request on the free tier; the answer comes from the edge cache, not D1), and a flag
+  switched on reaches a device on its next page after that. Switching one in admin clears that browser's
+  copy, so Luke sees it at once. `flagOn(key)` says whether to show it; `released(key)` whether
   it's really out (so what it sends will count). For testing, `?flags=threepoint,freeplay` (or `?flags=all`, or
   `?flags=none`) shows exactly those for the rest of the browser tab (kept in sessionStorage, as the
   game's links drop the query; `?flags=server` ends it), whatever the server has on, and `?debug` turns on all of them unless it has a `?flags=` of its own

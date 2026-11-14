@@ -7,7 +7,7 @@ import { attributesFor, skillWords } from "../content/attributes.js";
 import { IN_APP } from "../api.js";
 import { load, save } from "../engine/storage.js";
 import { modeShown } from "../modes/index.js";
-import { characters, setFace, useCharacter } from "../play/players.js";
+import { characters, loadingProgress, setFace, useCharacter } from "../play/players.js";
 import { startGame } from "../play/round.js";
 import { updateHud } from "../play/scene.js";
 import { mode, modes, setPhase, state } from "../play/state.js";
@@ -19,6 +19,7 @@ import { flagOn } from "../flags.js";
 import { myTeam, myTeamKit } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
+import { showLoading } from "../ui/loading-bar.js";
 
 // Modes that aren't out yet (modeShown, modes/index.js): their card, leaderboard tab and help go.
 for (const el of document.querySelectorAll("[data-mode], [data-board-mode], [data-help-mode]"))
@@ -177,7 +178,10 @@ function renderPicker() {
         if (team) return toggleTeam(c.id);
         // The first game as Orson (or anyone without a team of their own): which team it counts for.
         if (selectThenPlay === true && needsTeam(c, mode())) await chooseTeam();
-        await selectCharacter(c.id);
+        // a loading bar on their card while their player comes in
+        const ready = selectCharacter(c.id);
+        showLoading(button, loadingProgress(c.id), ready, `Loading ${c.name}`, { className: "card-loading" });
+        await ready;
         save("orson-hoops-chosen", true);
         stage.focus({ preventScroll: true }); // so Space plays rather than pressing this card again
         if (selectThenPlay === true) startGame();

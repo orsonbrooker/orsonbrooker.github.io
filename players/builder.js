@@ -15,17 +15,19 @@ import { API } from "../api.js";
 import { flagOn } from "../flags.js";
 import { markField, say } from "../ui/form.js";
 import { fillIcons, icon } from "../ui/icons.js";
-import { ballFrame, makeBallFrames, makeBallSprites } from "../engine/draw.js";
+import { ballFrame, ballPicture, makeBallSprites } from "../engine/draw.js";
 import { buyBall, hasProgress, onProgress, owns, progress, refreshProgress, useBall } from "../progress.js";
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../shared/shop.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, readyGear, wearGear } from "../players/gear.js";
 import { stretchFrame, stretchSheet } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
-import { DEFAULT_TEAM, loadBase, loadBases, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer, useDrawnKids } from "../players/recolor.js";
+import { DEFAULT_TEAM, loadBase, loadBases, loadStill, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer, useDrawnKids } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
 import { changeTeam, joinTeam, keptTeam, keptTeams, leaveTeam, listedTeams, makeTeam, myTeam, refreshTeams, setMyTeam } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
+import { loadingBar } from "../ui/loading-bar.js";
+import { Progress } from "../engine/download.js";
 
 const $ = (id) => document.getElementById(id);
 const el = (tag, props = {}, ...children) => {
@@ -210,9 +212,10 @@ function standingHeight(b) {
   return Math.max(1, bottom - top + 1);
 }
 
-function cardFrame(card, i) {
-  if (card.frames.has(i)) return card.frames.get(i);
-  const b = card.loaded;
+// Frame `i` of body `b` (a still from loadStill, or the chosen body's whole sheet) on a card, kept in
+// `cache` until the colours change.
+function cardFrame(b, i, cache) {
+  if (cache.has(i)) return cache.get(i);
   const f = b.meta.frames.idle[i];
   const [x, y, w, h, ox, oy] = f;
   const art = recolor(b, { ...colours, number: "", teamName: "" }, [x, y, w, h]);
@@ -225,23 +228,30 @@ function cardFrame(card, i) {
   // Room for the tallest player standing, feet on the card's floor.
   // Every character the same standing height on its card (kids from video are drawn at a different
   // scale from the hand-drawn bodies), with room above for the tallest size.
-  card.standing ??= standingHeight(b);
-  const s = (CARD_H - 12) / (1 + HEIGHT_ROOM) / card.standing;
+  b.standing ??= standingHeight(b); // (in that sheet's own pixels: sizes differ)
+  const s = (CARD_H - 12) / (1 + HEIGHT_ROOM) / b.standing;
   const at = [CARD_W / 2 + (ox - sized.dx) * s, CARD_H - 5 + (oy - sized.dy) * s];
   if (sized.ball) {
     const d = 2 * sized.ball[2] * s * 1.04;
     g.drawImage(ball(sized.ball), at[0] + sized.ball[0] * s - d / 2, at[1] + sized.ball[1] * s - d / 2, d, d);
   }
   g.drawImage(sized.canvas, 0, 0, sized.w, sized.h, at[0], at[1], sized.w * s, sized.h * s);
-  card.frames.set(i, c);
+  cache.set(i, c);
   return c;
 }
 
+// The chosen card plays its idle loop from the preview's sheet (the others are stills).
+let chosenFrames = { of: null, frames: new Map() };
+
 function paintCard(card, i = 0) {
-  if (!card.loaded) return;
+  const chosen = current?.id === card.base.id;
+  if (chosen && chosenFrames.of !== current) chosenFrames = { of: current, frames: new Map() };
+  const b = chosen ? current : card.loaded;
+  if (!b) return;
   const g = card.canvas.getContext("2d");
   g.clearRect(0, 0, CARD_W, CARD_H);
-  g.drawImage(cardFrame(card, i % card.loaded.meta.frames.idle.length), 0, 0);
+  g.drawImage(chosen ? cardFrame(b, i % b.meta.frames.idle.length, chosenFrames.frames) : cardFrame(b, 0, card.frames), 0, 0);
+  if (chosen) card.bar.hidden = true;
 }
 
 function paintCards() {
@@ -249,39 +259,57 @@ function paintCards() {
   if (key !== cardsKey) {
     cardsKey = key;
     for (const card of cards.values()) card.frames.clear();
+    chosenFrames.frames.clear();
   }
   for (const card of cards.values()) {
-    card.button.setAttribute("aria-pressed", String(card.base.id === current?.id));
-    paintCard(card, 0);
+    const chosen = card.base.id === current?.id;
+    card.button.setAttribute("aria-pressed", String(chosen));
+    paintCard(card, chosen ? cardTick : 0);
   }
 }
 
-// The cards stand still, apart from a slow idle loop while the Character tab is open.
+// The cards are still pictures in your colours; the one you chose plays a slow idle loop while the
+// Character tab is open.
 let cardTick = 0;
 setInterval(() => {
   if (reducedMotion.matches || document.hidden || builder.dataset.tab !== "character") return;
+  const card = current && cards.get(current.id);
+  if (!card) return;
   cardTick++;
-  for (const card of cards.values()) paintCard(card, cardTick);
+  paintCard(card, cardTick);
 }, 250);
 
 function setupWall() {
   for (const base of bases) {
     const c = el("canvas", { width: CARD_W, height: CARD_H, className: "card-art" });
-    const b = button({ className: "character-card", ariaLabel: base.name }, c, el("span", { className: "card-name" }, base.name));
+    const bar = loadingBar(`Loading ${base.name}`);
+    bar.classList.add("card-loading");
+    bar.set(null); // (sliding while it waits its turn, then filling as it loads)
+    const b = button({ className: "character-card", ariaLabel: base.name }, c, bar, el("span", { className: "card-name" }, base.name));
     if (base.video) b.append(el("span", { className: "card-new" }, "NEW"));
     b.addEventListener("click", () => chooseBase(base));
     wall.append(b);
-    cards.set(base.id, { base, button: b, canvas: c, loaded: null, frames: new Map() });
+    cards.set(base.id, { base, button: b, canvas: c, bar, loaded: null, frames: new Map() });
   }
 }
 
-// Every body loads in the background (the picked one first), one at a time so the page stays quick.
+// Waits until the page has a moment to spare (so loading the cards never holds up a tap).
+const idle = () => new Promise((resolve) => (window.requestIdleCallback ? requestIdleCallback(() => resolve(), { timeout: 1000 }) : setTimeout(resolve, 50)));
+
+// Every card's still loads in the background, down the wall, one at a time and when the page is idle,
+// so it stays quick (the chosen card draws from the preview's sheet, so its own still comes last). Each
+// card shows a loading bar until its picture is in.
 async function loadCards() {
-  const order = [current.id, ...bases.map((b) => b.id).filter((id) => id !== current.id)];
+  const order = [...bases.map((b) => b.id).filter((id) => id !== current.id), current.id];
   for (const id of order) {
     const card = cards.get(id);
+    await idle();
     // a card draws its body at about 0.6 card pixels per full-sheet pixel: the smallest size shows all of it
-    card.loaded = await loadBase(card.base, "/", pickSize(card.base, CARD_SCALE)).catch(() => null);
+    const bytes = new Progress();
+    card.bar.follow(bytes);
+    if (current?.id !== id) card.bar.hidden = false;
+    card.loaded = await loadStill(card.base, "/", pickSize(card.base, CARD_SCALE), bytes).catch(() => null);
+    card.bar.hidden = true;
     paintCard(card, cardTick);
   }
 }
@@ -315,8 +343,36 @@ function recheckPreview() {
 }
 new ResizeObserver(recheckPreview).observe(canvas);
 
+// The preview's loading bar, while a body they chose is still coming in.
+const previewBar = loadingBar("Loading your player");
+previewBar.classList.add("preview-loading");
+previewBar.hidden = true;
+canvas.after(previewBar);
+
+let choosing = 0;
 async function chooseBase(base) {
-  current = await loadBase(base, "/", previewSize(base));
+  const ticket = ++choosing;
+  const bytes = new Progress();
+  const loading = loadBase(base, "/", previewSize(base), bytes);
+  // (a body that's already in shows straight away, without a flash of the bar)
+  // On the preview, and on their card (a phone's Character tab shows only the cards).
+  const card = cards.get(base.id);
+  const shown = setTimeout(() => {
+    if (ticket !== choosing) return;
+    for (const bar of [previewBar, card?.bar]) bar?.follow(bytes);
+    previewBar.hidden = false;
+    if (card) card.bar.hidden = false;
+  }, 120);
+  let next;
+  try {
+    next = await loading;
+  } finally {
+    clearTimeout(shown);
+    if (ticket === choosing) previewBar.hidden = true;
+  }
+  if (card?.loaded) card.bar.hidden = true; // (and one still waiting for its turn shows the chosen body: paintCard)
+  if (ticket !== choosing) return; // they chose another one while this was loading
+  current = next;
   if (base.video && current.meta.printsFrom) current.twin ??= await loadTwin(current.meta.printsFrom).catch(() => null);
   heightInput.disabled = bulkInput.disabled = !current.video;
   showTurning();
@@ -380,9 +436,11 @@ async function wear(slot, id) {
 // ---------- Balls: the shop's ball styles, tried on here and bought with coins ----------
 
 const coinText = (n) => `${n} ${n === 1 ? "coin" : "coins"}`;
+const ballPictures = new Map(); // style id -> its still picture, made once
+const ballPictureOf = (style) => ballPictures.get(style.id) ?? ballPictures.set(style.id, ballPicture(style.look)).get(style.id);
 const ballArt = (style, size) => {
   const c = el("canvas", { width: size, height: size });
-  c.getContext("2d").drawImage(makeBallFrames(style.look)[0], 0, 0, size, size);
+  c.getContext("2d").drawImage(ballPictureOf(style), 0, 0, size, size);
   return c;
 };
 let ballBusy = false;
@@ -424,7 +482,7 @@ function tryBall(style) {
   tryingBall = style.id;
   const can = progress.coins >= style.price;
   $("buy-art").getContext("2d").clearRect(0, 0, 96, 96);
-  $("buy-art").getContext("2d").drawImage(makeBallFrames(style.look)[0], 0, 0, 96, 96);
+  $("buy-art").getContext("2d").drawImage(ballPictureOf(style), 0, 0, 96, 96);
   $("buy-name").textContent = `${style.name} ball`;
   $("buy-price").innerHTML = `${icon("coins")}${style.price}`;
   $("buy-say").textContent = can

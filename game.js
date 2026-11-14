@@ -17,7 +17,8 @@ import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { setUpTouchControls } from "./play/controls.js";
 import { COURTS, court, useCourt } from "./play/court.js";
-import { characters, dressOrson, faceHoop, loadImage, loadRoster, playerFiles, reloadMyPlayers, sheet } from "./play/players.js";
+import { characters, dressOrson, faceHoop, loadImage, loadingProgress, loadRoster, playerFiles, reloadMyPlayers, sheet } from "./play/players.js";
+import { showLoading } from "./ui/loading-bar.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play/react.js";
 import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js";
 import { canDunk, checkDecided, shoot, startDunk, startGame, step, stepBall } from "./play/round.js";
@@ -191,6 +192,8 @@ async function boot() {
     await loadRoster();
     playerReady = selectCharacter(characters.selected);
     playerReady.catch((err) => console.error(err));
+    // a loading bar under the title while their player comes in
+    showLoading(tapToPlay.parentElement, loadingProgress(characters.selected), playerReady, "Loading your player");
     await Promise.all([
       useCourt(), // the default court: its measurements, physics and art
       document.fonts?.load('48px "Press Start 2P"').catch(() => {}),

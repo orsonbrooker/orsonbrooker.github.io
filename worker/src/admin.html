@@ -1212,6 +1212,10 @@
 						button.disabled = true;
 						try {
 							await api("flags", { key: f.key, on: !f.on });
+							// This browser's kept flags (flags.js, same site) are out of date: fetched afresh on its next page.
+							try {
+								localStorage.removeItem("orson-flags");
+							} catch {}
 							toast(`${f.name} is ${f.on ? "off" : "on"}.${!f.on && f.idea_id ? " Its idea is done." : ""}`);
 							await load();
 						} catch (err) {
