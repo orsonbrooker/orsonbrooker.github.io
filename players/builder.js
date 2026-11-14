@@ -911,7 +911,16 @@ async function leave_(t) {
     await leaveTeam(t);
     community = keptTeams();
     if (myTeam()?.key === t.key) setMyTeam(null); // Orson's team too: the game asks again
-    if (team?.key === t.key) wearTeam(TEAMS[0], "home");
+    // Its players saved on this device stop wearing it now, not only once they're saved again (else the
+    // game would keep them in it, and their games would count for no team): the device's team, else KINGS.
+    const chosen = myTeam();
+    const instead = (chosen && (chosen.key ? community.find((c) => c.key === chosen.key && c.member !== false) : TEAMS.find((o) => o.name === chosen.name))) ?? TEAMS[0];
+    for (const p of myPlayers()) {
+      if (p.colours?.teamId !== t.key) continue;
+      const { teamId: _, ...colours } = p.colours;
+      saveMyPlayer({ ...p, colours: { ...colours, ...kitColours(instead.home), teamName: instead.name, ...(instead.key ? { teamId: instead.key } : {}) } });
+    }
+    if (team?.key === t.key) wearTeam(instead, "home");
   });
 }
 
