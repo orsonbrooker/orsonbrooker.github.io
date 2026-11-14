@@ -5,7 +5,7 @@
 
 import { IN_APP } from "../api.js";
 import { flagOn } from "../flags.js";
-import { reloadMyPlayers } from "../play/players.js";
+import { dressOrson, reloadMyPlayers } from "../play/players.js";
 import { myPlayers, saveMyPlayer } from "../players/recolor.js";
 import { goneTeams, keptTeams, myTeam, setMyTeam } from "../players/community.js";
 import { TEAMS } from "../shared/teams.js";
@@ -55,8 +55,9 @@ export function chooseTeam(note = "") {
     dialog.addEventListener("cancel", (e) => {
       if (!myTeam()) e.preventDefault(); // a team has to be chosen; changing it can be left
     });
-    dialog.addEventListener("close", () => {
+    dialog.addEventListener("close", async () => {
       dialog.remove();
+      await dressOrson(); // he wears it
       resolve(myTeam());
     });
     document.body.append(dialog);
@@ -72,9 +73,13 @@ export function chooseTeam(note = "") {
 export async function checkTeams() {
   if (!flagOn("teams")) return;
   const gone = await goneTeams();
+  await dressOrson(); // a team chosen on another device is known now
   if (!gone.length) return;
   const keys = new Set(gone.map((t) => t.key));
-  if (keys.has(myTeam()?.key)) setMyTeam(null);
+  if (keys.has(myTeam()?.key)) {
+    setMyTeam(null);
+    await dressOrson();
+  }
   for (const p of myPlayers()) {
     if (!keys.has(p.colours?.teamId)) continue;
     const { teamId: _, ...colours } = p.colours;

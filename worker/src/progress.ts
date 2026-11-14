@@ -120,6 +120,7 @@ async function sentSave(env: Env, value: unknown): Promise<Save> {
 	const ok = await Promise.all(s.players.map(async (p) => !(await isUnfriendly(env, p.name, p.colours.teamName))));
 	s.players = s.players.filter((_, i) => ok[i]);
 	if (await isUnfriendly(env, s.nickname.name)) s.nickname = { name: "", at: 0 };
+	if (await isUnfriendly(env, s.team.name)) s.team = { name: "", at: 0 };
 	return s;
 }
 

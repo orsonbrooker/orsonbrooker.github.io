@@ -137,3 +137,21 @@ test("joining with a code brings the whole save together", async () => {
 	assert.deepEqual(fresh.save.players.map((p) => p.name).sort(), ["Dot", "Neo", "Zip"]);
 	assert.deepEqual((await call(getProgress, env, { key: a.key })).save, fresh.save);
 });
+
+test("the device's team: tidied, the most recently chosen one wins, and a rude one is never saved", async () => {
+	assert.deepEqual(tidySave({}).team, { name: "", at: 0 });
+	assert.deepEqual(tidySave({ team: { name: " sharks ", at: 5 } }).team, { name: "SHARKS", at: 5 });
+	assert.deepEqual(tidySave({ team: { name: "HOOPERS", key: "c12", at: 5 } }).team, { name: "HOOPERS", key: "c12", at: 5 });
+	assert.deepEqual(tidySave({ team: { name: "HOOPERS", key: "nope", at: 5 } }).team, { name: "HOOPERS", at: 5 });
+	assert.deepEqual(tidySave({ team: { name: "<b>", at: 5 } }).team, { name: "", at: 0 });
+	const older = tidySave({ team: { name: "SHARKS", at: 100 } });
+	const newer = tidySave({ team: { name: "HOOPERS", key: "c3", at: 200 } });
+	assert.deepEqual(mergeSaves(older, newer).team, newer.team);
+	assert.deepEqual(mergeSaves(newer, older).team, newer.team);
+	// Forgetting a team (it was hidden) is a choice too: it wins over the older team.
+	assert.deepEqual(mergeSaves(newer, tidySave({ team: { name: "", at: 300 } })).team, { name: "", at: 300 });
+	forgetBlockedNames();
+	const { env } = fakeEnv();
+	const out = await call(claimGame, env, { ...(await game(env)), save: { team: { name: "SH1T", at: 5 } } });
+	assert.equal(out.save.team.name, "");
+});

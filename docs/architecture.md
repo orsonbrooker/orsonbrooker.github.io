@@ -364,7 +364,9 @@ Terms used across the code:
 - **Choosing a team:** the first time a device plays a scored game as Orson or someone else's approved
   player, it chooses the team those games count for (`screens/team.js`, kept as `orson-hoops-my-team`; the
   Team button on Choose your player changes it). Its own players wear the team picked in the builder, and a
-  new one starts in the device's team.
+  new one starts in the device's team. Orson wears it too (`dressOrson` in `play/players.js`: its home kit,
+  shorts included, and its name on his jersey; only his art from video can be recoloured, so with the older
+  art he stays in KINGS). It travels with saved progress (`team` in `shared/save.js`, the latest choice wins).
 - **Top teams:** per mode, this week and all time (`GET /api/teams`, edge-cached and cleared with the mode's
   board). The team is saved with each game when it's sent (`scores.team`) and never moves: the team the kid
   chose (their own player's, or the device's for anyone else), a community team only if the device is on

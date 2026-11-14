@@ -17,7 +17,7 @@ import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { setUpTouchControls } from "./play/controls.js";
 import { COURTS, court, useCourt } from "./play/court.js";
-import { characters, faceHoop, loadImage, loadRoster, playerFiles, reloadMyPlayers, sheet } from "./play/players.js";
+import { characters, dressOrson, faceHoop, loadImage, loadRoster, playerFiles, reloadMyPlayers, sheet } from "./play/players.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play/react.js";
 import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js";
 import { canDunk, checkDecided, shoot, startDunk, startGame, step, stepBall } from "./play/round.js";
@@ -214,6 +214,7 @@ async function boot() {
   onProgress(() => (art.ballSprites = makeBallSprites(ballLook())));
   // Players made on their other devices (saved progress) join the picker.
   onSave(() => reloadMyPlayers().then(refreshPicker));
+  onSave(() => dressOrson()); // the team chosen on another device (screens/team.js)
   refreshProgress();
   showTitle();
   checkTeams().then(refreshPicker); // a community team they were on may have gone (screens/team.js)

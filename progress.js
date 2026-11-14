@@ -5,7 +5,7 @@
 // ball are kept here too, so the shop and the ball look right straight away (and offline).
 //
 // The rest of what's kept on this device travels too (shared/save.js): personal bests, the daily
-// challenge streak, players made in the builder and the nickname. Each call sends this device's, and
+// challenge streak, players made in the builder, the nickname and the team it plays for as Orson. Each call sends this device's, and
 // the server's merged copy comes back and is merged in here (so nothing set meanwhile is lost).
 
 import { API } from "./api.js";
@@ -14,6 +14,7 @@ import { load, save } from "./engine/storage.js";
 import { NICKNAME_KEYS, deviceId } from "./leaderboard.js";
 import { modes, state } from "./play/state.js";
 import { gonePlayers, myPlayers, setGonePlayers, setMyPlayers } from "./players/recolor.js";
+import { keepMyTeamSaved, myTeamSaved } from "./players/community.js";
 import { MODES } from "./shared/rules.js";
 import { mergeSaves, sameSave, tidySave } from "./shared/save.js";
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "./shared/shop.js";
@@ -45,6 +46,7 @@ function localSave() {
     players: myPlayers(),
     gone: gonePlayers(),
     nickname: { name: load(NICKNAME_KEYS.name, ""), at: load(NICKNAME_KEYS.at, 0) },
+    team: myTeamSaved(),
   });
 }
 
@@ -71,6 +73,7 @@ function applySave(fromServer) {
     save(NICKNAME_KEYS.name, merged.nickname.name);
     save(NICKNAME_KEYS.at, merged.nickname.at);
   }
+  if (merged.team.at > mine.team.at) keepMyTeamSaved(merged.team); // chosen more recently on another device
   if (bestKey(state.mode)) state.best = load(bestKey(state.mode), 0);
   for (const fn of saveListeners) fn(merged);
 }

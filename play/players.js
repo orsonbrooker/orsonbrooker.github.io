@@ -5,6 +5,7 @@
 // made with the builder (/players/) come from the API once approved, drawn from a base body in
 // their chosen colours.
 
+import { myTeamKit } from "../players/community.js";
 import { API } from "../api.js";
 import { flagOn } from "../flags.js";
 import { attributesFor } from "../content/attributes.js";
@@ -154,7 +155,9 @@ async function withKit(meta, img, entry, colours = {}, twin) {
       const g = c.getContext("2d", { willReadFrequently: true });
       g.drawImage(regions, 0, 0);
       const regionsData = g.getImageData(0, 0, c.width, c.height);
-      out = recolor({ atlasImg: img, regionsData, meta, colours: meta.colours }, parts);
+      // (Orson in a team's kit has shorts of their own colour: dressOrson)
+      const shorts = entry?.id === "orson" && colours.shorts ? { shorts: colours.shorts } : {};
+      out = recolor({ atlasImg: img, regionsData, meta, colours: meta.colours }, { ...parts, ...shorts });
     } else out = toCanvas(img);
     return { meta, img: Object.assign(out, { prints }) };
   }
@@ -254,11 +257,29 @@ export async function loadRoster() {
   for (const k of ["skin", "hair", "jersey", "team", "shoes"]) if (/^[0-9a-f]{6}$/i.test(params.get(k) ?? "")) custom[k] = `#${params.get(k).toLowerCase()}`;
   if (/^\d{1,2}$/.test(params.get("number") ?? "")) custom.number = params.get("number");
   if (params.get("teamName")) custom.teamName = params.get("teamName").toUpperCase().replace(/[^A-Z0-9 ]/g, "").slice(0, 10);
-  if (orson && Object.keys(custom).length) orson.colours = custom;
+  if (orson && Object.keys(custom).length) Object.assign(orson, { colours: custom, tryingColours: true });
+  else dressOrson();
   await loadBuiltPlayers();
   const moved = MOVED[characters.selected];
   if (moved && characters.list.some((c) => c.id === moved)) characters.selected = moved;
   if (!characters.list.some((c) => c.id === characters.selected)) characters.selected = characters.list[0].id;
+}
+
+/**
+ * Orson wears the team the device chose (players/community.js myTeam, while the teams flag is on): its
+ * home kit and its name on his jersey. KINGS, or no team, is how he's drawn. Called when the roster
+ * loads and whenever the team changes; if he's the one playing, he's drawn again in the new kit.
+ * (Not with ?jersey= and the like, which try other colours on him.)
+ */
+export async function dressOrson() {
+  const orson = characters.list.find((c) => c.id === "orson");
+  if (!orson || orson.tryingColours) return;
+  const kit = flagOn("teams") ? myTeamKit() : null;
+  const colours = kit && kit.name !== DEFAULT_TEAM ? { jersey: kit.home.jersey, team: kit.home.trim, shorts: kit.home.shorts, teamName: kit.name } : undefined;
+  if (JSON.stringify(colours) === JSON.stringify(orson.colours)) return;
+  orson.colours = colours;
+  for (const key of [...characters.loaded.keys()]) if (key.split("@")[0] === "orson") characters.loaded.delete(key);
+  if (sheet.id === "orson") await useCharacter("orson", { remember: false });
 }
 
 // Players made on this device (or on another of theirs, with saved progress), as picker entries.
