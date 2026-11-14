@@ -16,7 +16,7 @@ window.__play = async (mode, missEvery) => {
   window.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
   await __wait(500);
   document.querySelector('[data-mode="' + mode + '"]').click(); await __wait(300);
-  document.querySelector("#char-pick .card")?.click(); // only the first time: after that a game starts as that player await __wait(500);
+  document.querySelector("#char-pick .card")?.click(); await __wait(500); // only the first time: after that a game starts as that player
   document.querySelector(".team-dialog .team-choice")?.click(); await __wait(2000);
   const key = (type) => window.dispatchEvent(new KeyboardEvent(type, { key: " ", code: "Space", bubbles: true }));
   let n = 0, down = 0;
