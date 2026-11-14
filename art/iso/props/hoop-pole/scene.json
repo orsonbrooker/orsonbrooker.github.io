@@ -1,0 +1,268 @@
+{
+ "note": "The hoop on its own post (Free play, where the walls fold half way back): the same board, rim and net as art/iso/props/hoop, held by arms from a post that stands on the floor 0.3 m out from the hoop wall. Placed like the hoop: its foot (0, 0, 0) is on the wall below the rim, 2.4 m up, so the post reaches down 2.4 m to the floor.",
+ "prop": true,
+ "kind": "hoop",
+ "mount": "wall",
+ "id": "hoop-pole",
+ "scale": 5,
+ "artPerM": 24,
+ "canvas": [
+  210,
+  300
+ ],
+ "origin": [
+  80,
+  150
+ ],
+ "light": [
+  0.55,
+  0.2,
+  0.81
+ ],
+ "orientations": [
+  "along-u"
+ ],
+ "shapes": [
+  {
+   "name": "board",
+   "material": "backboard",
+   "shape": "box",
+   "min": [
+    -1.1,
+    1.0966666666666667,
+    0.45
+   ],
+   "max": [
+    1.1,
+    1.1766666666666667,
+    1.75
+   ],
+   "face": "wall",
+   "target": [
+    0,
+    0.65,
+    1.0,
+    0.6
+   ],
+   "part": "glass"
+  },
+  {
+   "name": "rim bracket",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.08,
+    1.1766666666666667,
+    0.56
+   ],
+   "max": [
+    0.08,
+    1.346666666666667,
+    0.65
+   ],
+   "shadow": false
+  },
+  {
+   "name": "arm",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.5866666666666668,
+    0.38,
+    0.6
+   ],
+   "max": [
+    -0.5133333333333333,
+    1.0966666666666667,
+    0.68
+   ],
+   "shadow": false
+  },
+  {
+   "name": "arm",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.5866666666666668,
+    0.38,
+    1.5000000000000002
+   ],
+   "max": [
+    -0.5133333333333333,
+    1.0966666666666667,
+    1.5799999999999998
+   ],
+   "shadow": false
+  },
+  {
+   "name": "arm",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.5133333333333333,
+    0.38,
+    0.6
+   ],
+   "max": [
+    0.5866666666666668,
+    1.0966666666666667,
+    0.68
+   ],
+   "shadow": false
+  },
+  {
+   "name": "arm",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.5133333333333333,
+    0.38,
+    1.5000000000000002
+   ],
+   "max": [
+    0.5866666666666668,
+    1.0966666666666667,
+    1.5799999999999998
+   ],
+   "shadow": false
+  },
+  {
+   "name": "net back",
+   "material": "net",
+   "shape": "net",
+   "centre": [
+    0,
+    1.7916666666666667,
+    0.58
+   ],
+   "r": 0.42,
+   "r_bottom": 0.27,
+   "drop": 0.55,
+   "arc": [
+    135,
+    315
+   ],
+   "strings": 8,
+   "rows": 2,
+   "part": "back"
+  },
+  {
+   "name": "rim back",
+   "material": "rim",
+   "shape": "ring",
+   "centre": [
+    0,
+    1.7916666666666667,
+    0.58
+   ],
+   "r_out": 0.47,
+   "r_in": 0.42,
+   "h": 0.07,
+   "arc": [
+    135,
+    315
+   ],
+   "part": "back"
+  },
+  {
+   "name": "net front",
+   "material": "net",
+   "shape": "net",
+   "centre": [
+    0,
+    1.7916666666666667,
+    0.58
+   ],
+   "r": 0.42,
+   "r_bottom": 0.27,
+   "drop": 0.55,
+   "arc": [
+    -45,
+    135
+   ],
+   "strings": 8,
+   "rows": 2,
+   "part": "front"
+  },
+  {
+   "name": "rim front",
+   "material": "rim",
+   "shape": "ring",
+   "centre": [
+    0,
+    1.7916666666666667,
+    0.58
+   ],
+   "r_out": 0.47,
+   "r_in": 0.42,
+   "h": 0.07,
+   "arc": [
+    -45,
+    135
+   ],
+   "part": "front"
+  },
+  {
+   "name": "post",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.09,
+    0.2,
+    -2.4
+   ],
+   "max": [
+    0.09,
+    0.38,
+    1.6
+   ]
+  },
+  {
+   "name": "post arm bar",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.62,
+    0.22,
+    0.6
+   ],
+   "max": [
+    0.62,
+    0.36,
+    0.68
+   ],
+   "shadow": false
+  },
+  {
+   "name": "post arm bar",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.62,
+    0.22,
+    1.5
+   ],
+   "max": [
+    0.62,
+    0.36,
+    1.58
+   ],
+   "shadow": false
+  },
+  {
+   "name": "base",
+   "material": "pad",
+   "shape": "box",
+   "min": [
+    -0.3,
+    0.08,
+    -2.4
+   ],
+   "max": [
+    0.3,
+    0.62,
+    -2.25
+   ]
+  }
+ ]
+}

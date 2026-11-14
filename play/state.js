@@ -2,6 +2,7 @@
 // is being played, and the seeded randomness for where he shoots from and how each shot wobbles.
 // Everything else in play/, modes/ and screens/ reads and changes these.
 
+import { rising } from "../play/fold.js";
 import { NEUTRAL } from "../content/attributes.js";
 import { DEFAULT_SPOT } from "../engine/court.js";
 import { load } from "../engine/storage.js";
@@ -54,7 +55,7 @@ export function setPhase(next) {
 }
 
 /** A shot can only be taken while a game is being played (not paused, not once time's up). */
-export const canShoot = () => state.phase === "playing" && !state.paused;
+export const canShoot = () => state.phase === "playing" && !state.paused && !rising(); // not while the walls come up (play/fold.js)
 
 export const state = {
   phase: "loading", // see PHASES; change it with setPhase() (free play never ends)

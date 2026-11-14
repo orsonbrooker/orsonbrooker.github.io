@@ -102,18 +102,28 @@ export function setUpTouchControls({ stage, press, release, setInput }) {
   }
 
   // The joystick: the further from its centre, the faster he goes, up to full jog speed.
+  // It can be turned to lie on a wall (Free play on a court with folding walls, play/scene.js placeControls): the
+  // finger is followed on screen, and the knob's move is turned back into the joystick's own frame so it stays
+  // under the finger, within the ring as drawn.
   function aim(e) {
     const r = stick.getBoundingClientRect();
-    const reach = r.width * STICK_REACH;
+    const m = new DOMMatrix(getComputedStyle(stick).transform === "none" ? undefined : getComputedStyle(stick).transform);
+    const reach = stick.offsetWidth * STICK_REACH;
     let dx = e.clientX - (r.left + r.width / 2);
     let dy = e.clientY - (r.top + r.height / 2);
-    const dist = Math.hypot(dx, dy);
-    if (dist > reach) {
-      dx *= reach / dist;
-      dy *= reach / dist;
+    const det = m.a * m.d - m.b * m.c || 1;
+    let lx = (m.d * dx - m.c * dy) / det; // in the joystick's own frame
+    let ly = (-m.b * dx + m.a * dy) / det;
+    const local = Math.hypot(lx, ly);
+    if (local > reach) {
+      lx *= reach / local;
+      ly *= reach / local;
+      dx = m.a * lx + m.c * ly;
+      dy = m.b * lx + m.d * ly;
     }
-    knobEl.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-    const amount = Math.min(1, dist / reach);
+    const dist = Math.hypot(dx, dy);
+    knobEl.style.transform = `translate(calc(-50% + ${lx}px), calc(-50% + ${ly}px))`;
+    const amount = Math.min(1, Math.hypot(lx, ly) / reach);
     const speed = amount < DEAD_ZONE ? 0 : (amount - DEAD_ZONE) / (1 - DEAD_ZONE);
     steer.stick = dist ? { x: (dx / Math.hypot(dx, dy)) * speed, y: (dy / Math.hypot(dx, dy)) * speed } : { x: 0, y: 0 };
   }

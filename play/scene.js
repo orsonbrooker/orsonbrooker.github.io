@@ -4,6 +4,7 @@
 import { BOARD_ART } from "../content/looks.js";
 import { createPixelScoreboard } from "../engine/pixelboard.js";
 import { drawArtLab } from "../play/artlab.js";
+import { drawCourt, folded, hasPanels, onWallNow, rising, setWalls, wallsAngle } from "../play/fold.js";
 import { BALL_R, COURT_PX, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, court, project } from "../engine/court.js";
 import { ROLL_HEADINGS, ballFrame, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow, rollFrame } from "../engine/draw.js";
 import { currentFrame, frameCount, liftNow, recheckSheet, sheet } from "../play/players.js";
@@ -66,9 +67,67 @@ function renderScoreboard() {
 // The court picture under the canvas: the court's contest image (racks' shadows on the floor) while the 3-point
 // contest is played on a court that has one, its own image otherwise.
 const courtImg = document.querySelector("img.court");
+// While the walls aren't upright (play/fold.js: rising at the start of a game, or Free play's half-folded walls),
+// the picture is hidden and the court is drawn from its panels on the canvas instead, the scoreboard folding with
+// its wall. Returns whether it was.
+const IN_GAME = new Set(["playing", "turn", "ending"]);
 function showCourtArt() {
-  const src = mode().contestArt && state.phase !== "title" && court.contest ? court.contest.image : court.image;
+  if (!IN_GAME.has(state.phase) && !rising()) setWalls(0); // out of a game (Free play left), the walls stand up
+  const contest = !!(mode().contestArt && state.phase !== "title" && court.contest);
+  const src = contest ? court.contest.image : court.image;
   if (courtImg && courtImg.getAttribute("src") !== src) courtImg.src = src;
+  const panels = folded();
+  if (courtImg) courtImg.style.visibility = panels ? "hidden" : "";
+  if (panels) {
+    // still, like the court picture: the shake and the rumble only move what's drawn over it
+    ctx.save();
+    const k = canvas.width / COURT_PX;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    drawCourt(ctx, { contest, onWall: (on) => on === "wall-hoop" && drawScoreboard() });
+    ctx.restore();
+  }
+  placeControls();
+  return panels;
+}
+
+// Free play's joystick and shoot button (play/controls.js) sit on the half-folded walls: the joystick on the hoop
+// wall past the hoop, the shoot button on the side wall, turned to lie on them. Elsewhere they keep their corners.
+const STICK_ON = ["wall-hoop", 7.1, 1.7]; // the wall, metres along it, metres up it
+const SHOOT_ON = ["wall-side", 5.2, 1.7];
+let controlsPlaced = null;
+function placeControls() {
+  const on = mode().freeMove && hasPanels() && IN_GAME.has(state.phase);
+  const stick = document.querySelector(".touch-stick");
+  const shoot = document.querySelector(".touch-shoot");
+  if (!stick || !shoot) return;
+  const knob = stick.querySelector(".touch-knob");
+  if (!on) {
+    if (controlsPlaced) for (const el of [stick, shoot]) el.style.cssText = "";
+    if (controlsPlaced) for (const prop of ["width", "height"]) knob?.style.removeProperty(prop);
+    controlsPlaced = null;
+    return;
+  }
+  // the knob keeps its share of the joystick however big it's drawn (styles.css gives it a fixed size)
+  for (const prop of ["width", "height"]) knob?.style.setProperty(prop, "44%", "important");
+  const rect = canvas.getBoundingClientRect();
+  const s = rect.width / COURT_PX; // CSS pixels per court pixel
+  const key = `${rect.left},${rect.top},${s},${wallsAngle().toFixed(1)}`;
+  if (key === controlsPlaced) return;
+  controlsPlaced = key;
+  for (const [el, [wall, along, up], most] of [[stick, STICK_ON, 136], [shoot, SHOOT_ON, 112]]) {
+    const w = onWallNow(wall, along, up);
+    const len = Math.hypot(w.along.x, w.along.y);
+    // about a third of the wall's length across, never so small it's hard to hit
+    const size = Math.max(72, Math.min(most, len * s * 3));
+    // its left to right runs along the wall the way that reads left to right on screen, its top to bottom down it
+    const flip = w.along.x < 0 ? -1 : 1;
+    const ax = (flip * w.along.x) / len, ay = (flip * w.along.y) / len, ux = -w.up.x / len, uy = -w.up.y / len;
+    // kept on the screen (a phone shows the court edge to edge)
+    const left = Math.max(8, Math.min(innerWidth - size - 8, rect.left + w.at.x * s - size / 2));
+    const top = Math.max(8, Math.min(innerHeight - size - 8, rect.top + w.at.y * s - size / 2));
+    el.style.cssText = `left: ${left}px; top: ${top}px; right: auto; bottom: auto;
+      width: ${size}px; height: ${size}px; transform: matrix(${ax}, ${ay}, ${ux}, ${uy}, 0, 0);`;
+  }
 }
 
 function drawScoreboard() {
@@ -207,8 +266,7 @@ export function render() {
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
 
-  showCourtArt();
-  drawScoreboard();
+  if (!showCourtArt()) drawScoreboard();
 
   mode().drawFloor?.(ctx);
 
@@ -224,7 +282,8 @@ export function render() {
 
   // Back to front by isometric depth (u + v).
   const items = [{ depth: player.u + player.v, draw: drawPlayer }];
-  items.push({ depth: RIM.u + RIM.v + RIM_R * 0.7, draw: () => ctx.drawImage(art.hoopFront, HOOP_FRONT_AT.x, HOOP_FRONT_AT.y) });
+  // (not while the walls rise: the hoop is still folding up with its wall)
+  if (!rising()) items.push({ depth: RIM.u + RIM.v + RIM_R * 0.7, draw: () => ctx.drawImage(art.hoopFront, HOOP_FRONT_AT.x, HOOP_FRONT_AT.y) });
   for (const b of state.balls) items.push({ depth: b.u + b.v, draw: () => drawBall(b) });
   items.sort((a, b) => a.depth - b.depth);
   for (const item of items) item.draw();

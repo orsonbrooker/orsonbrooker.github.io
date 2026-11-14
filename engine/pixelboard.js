@@ -88,7 +88,7 @@ export function createPixelScoreboard(court, k = 5) {
         const [r0, c0, r1, c1] = win.window;
         for (let c = c0; c < c1; c++) for (let r = r0; r < r1; r++) set(r, c, WINDOW);
         const digits = win.cells.length;
-        const shown = String(Math.max(0, Math.min(10 ** digits - 1, Math.floor(value))))
+        const shown = String(Math.max(0, Math.min(10 ** digits - 1, Math.floor(Number(value) || 0))))
           .padStart(Math.min(2, digits), "0")
           .padStart(digits, " ");
         win.cells.forEach(([rx, cy], d) => {

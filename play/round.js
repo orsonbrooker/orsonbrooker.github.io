@@ -2,6 +2,7 @@
 // ball's hits and whether each shot went in, and the per-frame update. What differs between modes
 // is asked of the mode being played (modes/index.js).
 
+import { HALF_WAY, riseTo, rising } from "../play/fold.js";
 import { sound } from "../audio.js";
 import { BALL_BADGES } from "../content/looks.js";
 import { COURT_PX, EU, EV, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, isThreePointSpot, project } from "../engine/court.js";
@@ -71,6 +72,8 @@ export function startGame() {
   updateHud();
   sound.gameStart();
   announce("start", "#ffffff");
+  // the walls rise into place (half way in Free play, where the joystick and shoot button sit on them)
+  riseTo(mode().freeMove ? HALF_WAY : 0);
   mode().begin?.();
 }
 
@@ -493,7 +496,7 @@ function updatePlayer(dt) {
 }
 
 function update(dt) {
-  if (state.phase === "playing") mode().clock(dt);
+  if (state.phase === "playing" && !rising()) mode().clock(dt); // the clock waits for the walls (play/fold.js)
   else if (state.phase === "turn") mode().betweenTurns?.(dt);
   else if (state.phase === "ending") {
     // Let the last shot's reaction play out before the game-over screen.

@@ -1,0 +1,51 @@
+{
+ "note": "The hoop on its own post (Free play, where the walls fold half way back): the same board, rim and net as art/iso/props/hoop, held by arms from a post that stands on the floor 0.3 m out from the hoop wall. Placed like the hoop: its foot (0, 0, 0) is on the wall below the rim, 2.4 m up, so the post reaches down 2.4 m to the floor.",
+ "scale": 5,
+ "kind": "hoop",
+ "orientations": {
+  "along-u": {
+   "image": "hoop-pole-along-u.webp",
+   "bare": "hoop-pole-bare-along-u.webp",
+   "shadow": "hoop-pole-shadow-along-u.webp",
+   "glass": "hoop-pole-glass-along-u.webp",
+   "foot": [
+    55,
+    260
+   ],
+   "footprint": [
+    [
+     -1.1,
+     0.08,
+     -2.4
+    ],
+    [
+     1.1,
+     2.2617,
+     1.75
+    ]
+   ],
+   "hinge": [
+    [
+     -1.1,
+     0,
+     -2.4
+    ],
+    [
+     1.1,
+     0,
+     -2.4
+    ]
+   ],
+   "height": 1.75,
+   "wall": "hoop",
+   "front": {
+    "image": "hoop-pole-front-along-u.webp",
+    "at": [
+     185,
+     265
+    ]
+   }
+  }
+ },
+ "mount": "wall"
+}

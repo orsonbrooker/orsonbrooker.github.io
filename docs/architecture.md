@@ -411,7 +411,17 @@ a smaller glass board, one rack by the bench. The first, painted gym is kept as 
 `contest` gives the 3-point contest its own look: while the contest is played (`contestArt` in `modes/threes.js`),
 `play/scene.js` swaps the court picture for the contest one (`art/iso/gym-contest/`: the racks' shadows in the
 floor, no racks), and `modes/threes.js` draws each rack from its baked picture for the number of balls left
-(`assets/props/rack/`), inside the arc and pointing at the hoop. The spots he shoots from stay `RACK_LAYOUT`'s. A pixel-art court gives `scoreboard` (where the scoreboard prop hangs and its
+(`assets/props/rack/`), inside the arc and pointing at the hoop. The spots he shoots from stay `RACK_LAYOUT`'s.
+
+**Folding walls** (`play/fold.js`). The gym is also a set of folding panels (`panels`: `assets/courts/gym/panels.json`,
+written by `tools/pixelart/iso_export.py` from the baked courts). At the start of every game (`startGame` in
+`play/round.js`) the two walls rise from lying flat behind the floor, carrying what hangs on them, and the floor's
+props stand up; the clock and shots wait until they're up (`rising()` in `canShoot` and the clock). In Free play
+the walls only come half way (`HALF_WAY`), the hoop stands on its own post (`art/iso/props/hoop-pole`, and Free
+play's own floor and walls from `art/iso/gym-free/`), and the joystick and shoot button (`play/controls.js`) are
+placed on the walls, turned to lie on them (`placeControls` in `play/scene.js`). While a wall isn't upright the
+court picture is hidden and the scene draws the panels instead: a panel turning about its hinge is the same
+picture under one affine transform. Reduced motion skips the rise. A pixel-art court gives `scoreboard` (where the scoreboard prop hangs and its
 face, from the prop's `prop.json`) instead of the old painted board (`BOARD_ART` in `content/looks.js`):
 `engine/pixelboard.js` works out which art pixels of the court show each face pixel, and repaints them with the
 mode's labels (a 3x5 pixel font) and lit digit segments whenever the score changes.

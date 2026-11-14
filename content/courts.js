@@ -19,6 +19,8 @@
 //   defaultSpot        where he stands when nothing else says
 //   physics            gravity (m/s/s, down) and wind (optional: { u, v } in m/s/s, pushing the ball
 //                      along the floor's directions while it's in the air)
+//   panels             (optional) the court as folding panels: a panels.json from tools/pixelart/iso_export.py, for
+//                      the walls rising at the start of a game and Free play's half-folded walls (play/fold.js)
 //   horseMap           the square of the court art HORSE's spot map shows, in court pixels (the floor round the hoop)
 //   test               only reachable from ?debug (window.game.setCourt), never offered to players
 //   contest            (optional) the 3-point contest's look on this court: its court image (the racks' shadows in
@@ -27,6 +29,8 @@
 //   scoreboard         (pixel-art courts) the wall scoreboard the game lights: where its prop stands on the hoop wall
 //                      (foot: u and height, metres) and its face (art/iso/props/scoreboard/prop.json), drawn by
 //                      engine/pixelboard.js. Courts without it use the old painted board (content/looks.js BOARD_ART)
+
+import GYM_ART from "./courts/gym.js"; // the scoreboard and contest racks, from the bake (tools/pixelart/iso_export.py)
 
 // The first gym, painted (until 2026): kept to compare against, from ?debug only.
 const OLD_GYM = {
@@ -75,17 +79,12 @@ const GYM = {
   defaultSpot: { u: 4.6, v: 5.27 },
   physics: { gravity: 9.81, wind: null },
   horseMap: { x: 240, y: 760, size: 1600 },
+  panels: "assets/courts/gym/panels.json", // its folding panels (play/fold.js, tools/pixelart/iso_export.py)
   contest: {
     image: "assets/courts/gym/contest.webp",
-    racks: [
-      { at: [410, 1350], images: ballsLeft("rot-0") }, // rack 1
-      { at: [760, 1470], images: ballsLeft("rot-42") }, // rack 2
-      { at: [1100, 1445], images: ballsLeft("rot-98") }, // rack 3
-      { at: [1075, 1315], images: ballsLeft("rot-138") }, // rack 4
-      { at: [830, 1140], images: ballsLeft("rot-180") }, // rack 5
-    ],
+    racks: GYM_ART.racks.map((r) => ({ at: r.at, images: ballsLeft(r.way) })),
   },
-  scoreboard: { foot: [1.85, 3.4021], face: {"start": [1.5416666666666667, 0.06804138174397717], "out": 0.122, "size": [74, 32], "segments": {"a": [0, 13, 8, 15], "g": [0, 6, 8, 8], "d": [0, 0, 8, 2], "f": [0, 7, 2, 15], "b": [6, 7, 8, 15], "e": [0, 0, 2, 7], "c": [6, 0, 8, 7]}, "digit": [8, 15], "windows": [{"id": "score", "window": [3, 3, 35, 22], "cells": [[5, 5], [15, 5], [25, 5]]}, {"id": "time", "window": [39, 3, 71, 22], "cells": [[41, 5], [51, 5], [61, 5]]}], "labelGap": 2, "colours": {"face": "#403751", "window": "#180826", "unlit": "#532837", "lit": "#d0553c", "label": "#e9ccbb"}} },
+  scoreboard: GYM_ART.scoreboard,
 };
 
 export const COURTS = {
