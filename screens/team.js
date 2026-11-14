@@ -110,24 +110,35 @@ export function chooseTeam(note = "", player = null) {
 }
 
 /**
- * Once a visit: if a community team this device was on has gone, its players stop wearing it and the
- * device chooses again next game. Says so, once.
+ * Once a visit: if a community team this device was on has gone, its players stop wearing it (they go
+ * into the device's team, else the first of the game's teams) and the device chooses again next game.
+ * Says so, once. A team that was renamed or given new kits (Luke renames a team whose name isn't
+ * friendly) shows its new name and kit on its players here too, not only once the builder opens them.
  */
 export async function checkTeams() {
   if (!flagOn("teams")) return;
-  const gone = await goneTeams();
-  await dressOrson(); // a team chosen on another device is known now
-  if (!gone.length) return;
+  const gone = await goneTeams(myPlayers().map((p) => ({ key: p.colours?.teamId, name: p.colours?.teamName })));
   const keys = new Set(gone.map((t) => t.key));
-  if (keys.has(myTeam()?.key)) {
-    setMyTeam(null);
-    await dressOrson();
-  }
+  if (keys.has(myTeam()?.key)) setMyTeam(null);
+  await dressOrson(); // a team chosen on another device, or a renamed one, is known now
+  const instead = myTeam() ?? { name: TEAMS[0].name };
+  let changed = false;
   for (const p of myPlayers()) {
-    if (!keys.has(p.colours?.teamId)) continue;
-    const { teamId: _, ...colours } = p.colours;
-    saveMyPlayer({ ...p, colours });
+    const id = p.colours?.teamId;
+    if (!id) continue;
+    if (keys.has(id)) {
+      wearTeam(p, instead);
+      changed = true;
+      continue;
+    }
+    const t = keptTeam(id);
+    if (!t || t.member === false) continue;
+    const c = p.colours;
+    const wearing = [t.home, t.away].some((k) => k.jersey === c.jersey && k.shorts === c.shorts && k.trim === c.team);
+    if (wearing && c.teamName === t.name) continue;
+    saveMyPlayer({ ...p, colours: { ...c, ...(wearing ? {} : kitColours(t.home)), teamName: t.name } });
+    changed = true;
   }
-  await reloadMyPlayers();
-  await confirmDialog(`${gone[0].name} isn't around any more.`, { yes: "Okay", no: null, yesIcon: "", detail: "Pick another team." });
+  if (changed) await reloadMyPlayers();
+  if (gone.length) await confirmDialog(`${gone[0].name} isn't around any more.`, { yes: "Okay", no: null, yesIcon: "", detail: "Pick another team." });
 }

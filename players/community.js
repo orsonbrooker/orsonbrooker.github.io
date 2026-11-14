@@ -152,13 +152,17 @@ export function myTeamKit() {
 
 /**
  * The community teams this device was on and isn't any more (Luke hid one, or it left on another
- * device), asked once a visit by the game: [{ key, name }]. None offline, or when it's on none.
+ * device), asked once a visit by the game: [{ key, name }]. `wearing` adds teams its players wear
+ * that this device may not know yet (saved progress from another device). None offline, or when it's on none.
  */
-export async function goneTeams() {
+export async function goneTeams(wearing = []) {
+  const on = (key, list) => list.some((t) => t.key === key && t.member !== false);
   const before = keptTeams().filter((t) => t.member !== false);
-  const unknown = myTeam()?.key && !keptTeam(myTeam().key); // chosen on another device (saved progress)
-  if (!before.length && !unknown) return [];
+  const worn = [myTeam(), ...wearing].filter((t) => t?.key); // the device's team too: chosen on another device
+  if (!before.length && !worn.some((t) => !on(t.key, before))) return [];
   const { teams, offline } = await refreshTeams();
   if (offline) return [];
-  return before.filter((b) => !teams.some((t) => t.key === b.key && t.member !== false)).map(({ key, name }) => ({ key, name }));
+  const gone = new Map();
+  for (const t of [...before, ...worn]) if (!on(t.key, teams)) gone.set(t.key, t.name);
+  return [...gone].map(([key, name]) => ({ key, name }));
 }
