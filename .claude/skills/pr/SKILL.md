@@ -10,7 +10,7 @@ and honest about what nobody checked. Based on ideas from Matt Pocock's pr skill
 
 ## 1. Facts first
 
-Run each as its own command (the worktree guard refuses chains). Base is `test-all` unless told otherwise.
+Run each as its own command (the worktree guard refuses chains). Base is `origin/main` unless told otherwise.
 
 - `git branch --show-current`, then `git log --format='%h %s%n%b' <base>..HEAD`
 - `git diff <base>...HEAD --stat`, then read the diff (for binary art, the stat is enough; look at the pictures)
@@ -57,7 +57,7 @@ Copy `template.md` (beside this file) to `.verify/<branch>/merge-note.md` and fi
 
 The same file works as `gh pr create --body-file .verify/<branch>/merge-note.md`. Local image links won't
 show on GitHub: drag the images into the PR or leave the table as file names. Don't open a PR unless Luke
-asks: this project merges into `test-all` locally.
+asks: this project's coordinator merges branches locally, then pushes to `main`.
 
 ## 4. Hand back
 

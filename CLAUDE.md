@@ -17,7 +17,7 @@ judgement calls the reviewer applies.
 - `verify`: screenshots at phone, iPad and desktop, play-throughs, frame times, art sheets, test links.
 - `review`: a fresh reviewer for a branch's diff; fixes small things, then writes the merge note.
 - `pr`: writes the merge note (`.verify/<branch>/merge-note.md`), also usable as a PR body.
-- `ready`: what a worker runs when it thinks it's done: sync with `test-all`, check, review, links.
+- `ready`: what a worker runs when it thinks it's done: merge in `main`, check, review, links.
 - `coordinate`: the coordinating session's playbook for fanning out, merging and status.
 - `retro`: weekly; turns corrections Luke repeated into checks, tests or standards, for him to tick.
 - `ideas-triage`: drafts categories, rewrites and kid-safety checks for new ideas; Luke confirms writes.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // What a branch touches, worked out from its diff: the facts the merge note's "Merge danger" section needs.
 //
-//   node tools/dev/blast_radius.mjs                 # this branch against test-all
+//   node tools/dev/blast_radius.mjs                 # this branch against origin/main (or main)
 //   node tools/dev/blast_radius.mjs main            # against another base
 //   node tools/dev/blast_radius.mjs A --head B      # any two commits (e.g. a merge's two parents)
 //   node tools/dev/blast_radius.mjs --json          # the same facts as JSON
@@ -19,9 +19,9 @@ const args = process.argv.slice(2);
 const json = args.includes("--json");
 const headAt = args.indexOf("--head");
 const head = headAt >= 0 ? args[headAt + 1] : "HEAD";
-const base = args.find((a, i) => !a.startsWith("--") && i !== headAt + 1) ?? "test-all";
-
 const git = (...a) => execFileSync("git", a, { encoding: "utf8", maxBuffer: 64 << 20 });
+const hasRef = (ref) => { try { git("rev-parse", "--verify", "-q", ref); return true; } catch { return false; } };
+const base = args.find((a, i) => !a.startsWith("--") && i !== headAt + 1) ?? (hasRef("origin/main") ? "origin/main" : "main");
 // Every page, script, stylesheet and Worker file at <head>, read in one batch (one git call, not one per file).
 const shown = new Map();
 {

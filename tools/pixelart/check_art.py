@@ -1,6 +1,6 @@
 """Checks a player's or a builder body's art, for `node tools/dev/verify.mjs art <id>` (which runs it).
 
-  uv run --with pillow --with numpy --with scipy python3 tools/pixelart/check_art.py <id> <out dir> [--base test-all]
+  uv run --with pillow --with numpy --with scipy python3 tools/pixelart/check_art.py <id> <out dir> [--base origin/main]
 
 <id> is a player in assets/characters/index.json (orson) or a body in assets/characters/bases/index.json
 (curly, buns, spiky, ...). It writes into <out dir>:
@@ -342,9 +342,15 @@ def sheets(meta, img, reg, compare, compare_label, out, scale):
     return names
 
 
+def default_base():
+    """origin/main, or main when there's no copy of GitHub's main here."""
+    ok = subprocess.run(["git", "rev-parse", "--verify", "-q", "origin/main"], cwd=ROOT, capture_output=True).returncode == 0
+    return "origin/main" if ok else "main"
+
+
 def main():
     who, out = sys.argv[1], Path(sys.argv[2])
-    base = sys.argv[sys.argv.index("--base") + 1] if "--base" in sys.argv else "test-all"
+    base = sys.argv[sys.argv.index("--base") + 1] if "--base" in sys.argv else default_base()
     scale = float(sys.argv[sys.argv.index("--scale") + 1]) if "--scale" in sys.argv else 0.35
     out.mkdir(parents=True, exist_ok=True)
     atlas, meta_path, regions = find(who)

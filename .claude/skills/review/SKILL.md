@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review a branch before it merges into test-all - a fresh subagent (never the implementer) reads the diff, runs check and verify, looks at the pictures, fixes small things, writes the merge note and gives a verdict. Use when a branch is ready, when asked to "review" a branch, or from the ready skill.
+description: Review a branch before the coordinator merges it - a fresh subagent (never the implementer) reads the diff, runs check and verify, looks at the pictures, fixes small things, writes the merge note and gives a verdict. Use when a branch is ready, when asked to "review" a branch, or from the ready skill.
 ---
 
 # Review a branch
@@ -13,7 +13,7 @@ code-review and pr skills and pstack's interrogate.
 
 Run each as a separate command (the worktree guard refuses chains):
 
-- Branch: `git branch --show-current`. Base: `test-all` unless told `main`.
+- Branch: `git branch --show-current`. Base: `origin/main` unless told otherwise.
 - `git status --short` must be empty. If not, stop: the implementer commits first.
 - `git merge-base <base> HEAD` and `git log --oneline <base>..HEAD`. If there are no commits, stop.
 - **The brief**: what was asked. In order of preference: the task text this session was given, a note in

@@ -34,7 +34,7 @@ Enforcers:
 | Every control works by keyboard: reached with Tab and the arrow keys, pressed with Enter (and Space), the yellow highlight on what's focused, dialogs keep focus, close on Escape and give it back; screens opt in with `data-keys` (`ui/keys.js`), no key code of their own | `verify keys` (`tools/dev/keyboard.mjs`) |
 | Smooth on a phone: no frame-time or size regressions | `verify perf` |
 | "Done" means tested, with a link to try it | `ready` (`verify serve`) |
-| Branch is up to date with `test-all` before hand-off | `ready`, session-start hook (`tools/dev/behind.sh`) |
+| Branch is up to date with `main` before hand-off | `ready`, session-start hook (`tools/dev/behind.sh`) |
 | Stage and commit only your own files; work in a worktree | nothing yet |
 | New packages pinned to exact versions; Actions pinned to commits | `review` |
 | Respect reduced motion | `review` |

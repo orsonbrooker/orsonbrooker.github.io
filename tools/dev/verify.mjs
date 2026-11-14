@@ -463,7 +463,7 @@ async function art() {
   const who = rest[0];
   if (!who) throw new Error("say which player or body: node tools/dev/verify.mjs art <orson|curly|buns|spiky|...>");
   const out = dirFor(`art-${who}`);
-  const base = option("--base") ?? (git("rev-parse", "--verify", "-q", "test-all") ? "test-all" : "main");
+  const base = option("--base") ?? (git("rev-parse", "--verify", "-q", "origin/main") ? "origin/main" : "main");
   const [py, pre] = python();
   const r = spawnSync(py, [...pre, join(ROOT, "tools/pixelart/check_art.py"), who, out, "--base", base], { cwd: ROOT, encoding: "utf8", maxBuffer: 1 << 26 });
   process.stdout.write(r.stderr ?? "");

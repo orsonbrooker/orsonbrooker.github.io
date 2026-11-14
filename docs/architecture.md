@@ -834,7 +834,7 @@ flowchart LR
 ```mermaid
 flowchart LR
   W["Worker session<br/>(own worktree)"] -- ready --> R["check, review<br/>(fresh reviewer),<br/>merge note, links"]
-  R --> C["Coordinator merges<br/>into test-all,<br/>npm run check"]
+  R --> C["Coordinator merges<br/>into its own branch,<br/>npm run check"]
   C --> L["Luke looks"]
   L -- "go live" --> G["go-live skill"]
 ```
@@ -850,7 +850,7 @@ flowchart LR
   the newest unseen one is a card at the top of the admin inbox until "Got it" (`POST /api/admin/digests/:id`).
   It never changes the board. The `ideas-triage` skill writes to the live inbox only on Luke's yes per item;
   the `dependabot` skill checks a Dependabot PR locally and writes a merge note, and Luke merges.
-- A `SessionStart` hook (`tools/dev/behind.sh`) says how far a worktree is behind `main` and `test-all`.
+- A `SessionStart` hook (`tools/dev/behind.sh`) says how far a worktree is behind `main`.
 
 ## Going live
 

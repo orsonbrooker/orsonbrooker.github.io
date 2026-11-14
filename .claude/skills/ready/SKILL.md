@@ -1,6 +1,6 @@
 ---
 name: ready
-description: What a worker session runs when it thinks its branch is done - commit, merge test-all in, npm run check, the review skill (which writes the merge note), verify serve for test links, then one short hand-over message for the coordinator. Use when you're about to say "done", or when asked to get a branch "ready" or "ready to merge".
+description: What a worker session runs when it thinks its branch is done - commit, merge main in, npm run check, the review skill (which writes the merge note), verify serve for test links, then one short hand-over message for the coordinator. Use when you're about to say "done", or when asked to get a branch "ready" or "ready to merge".
 ---
 
 # Ready: hand a branch to the coordinator
@@ -15,15 +15,13 @@ a branch that only passed some of the steps.
   `git add -A`, never a bare `git stash`). Commit with a message that says what changed for the player.
 - Note the branch: `git branch --show-current`.
 
-## 2. Bring in test-all
+## 2. Bring in main
 
-- `git fetch -q origin` (fine if it fails offline: `test-all` is a local branch).
-- `git merge test-all`. If it says "Already up to date", go on.
-- **On a conflict, stop.** Run `git merge --abort`, then report `not ready: conflicts with test-all` with
+- `git fetch -q origin` (if it fails offline, merge the last copy and say so in the report).
+- `git merge origin/main`. If it says "Already up to date", go on.
+- **On a conflict, stop.** Run `git merge --abort`, then report `not ready: conflicts with main` with
   the files from `git diff --name-only --diff-filter=U` (run it before the abort). Don't resolve another
   session's work by guessing; the coordinator decides who owns the files.
-- If `main` has commits that `test-all` doesn't (`git log --oneline test-all..origin/main`), say so in the
-  report; the coordinator merges `main` into `test-all`, not you.
 
 ## 3. Check
 
@@ -66,4 +64,4 @@ Links: <Tailscale link>  (Wi-Fi: <link>, here: <localhost link>)
 Notes: <behind main? skipped steps? a question for Luke, word for word>
 ```
 
-Don't merge into `test-all`, push, deploy or touch the live database: that's the coordinator's and Luke's.
+Don't merge into the coordinator branch or `main`, push, deploy or touch the live database: that's the coordinator's and Luke's.

@@ -14,7 +14,7 @@ Based on ideas from pstack's `correct` and `reflect` and Matt Pocock's `retro` (
 
 ```sh
 python3 -I tools/dev/transcripts.py --days 7 --format text > <scratchpad>/week.txt
-git log --since="7 days ago" --oneline test-all
+git log --since="7 days ago" --oneline coordinator
 git log --since="7 days ago" --oneline main
 ls .verify/*/merge-note.md
 ```

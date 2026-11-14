@@ -20,12 +20,12 @@ The body lists each package, its old and new version, and usually the release no
 
 ## 2. Test it in its own worktree
 
-Test the update with today's code and tools: start from `test-all` and merge the PR branch into a scratch
+Test the update with today's code and tools: start from `origin/main` and merge the PR branch into a scratch
 branch. Run these one at a time (the worktree guard refuses chained commands):
 
 ```sh
 git fetch origin <headRefName>
-git worktree add -b dependabot-<N> .claude/worktrees/dependabot-<N> test-all
+git worktree add -b dependabot-<N> .claude/worktrees/dependabot-<N> origin/main
 cd .claude/worktrees/dependabot-<N>
 git merge --no-edit origin/<headRefName>
 ```

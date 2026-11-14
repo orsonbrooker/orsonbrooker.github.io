@@ -34,7 +34,7 @@ believing a frame-time failure; sizes don't wobble.
 ## Art
 
 `art <id>` writes `sheet-N.png`: every move, frame by frame, lined up on the feet at one scale, with the
-game's held ball drawn in. Each move has three rows: the art **before this branch** (from `test-all`; or
+game's held ball drawn in. Each move has three rows: the art **before this branch** (from `origin/main`; or
 the pixel twin when the art didn't change), **on green**, and **on clashing colours** (each region loud, so
 paint in the wrong region shows). It also writes `held-ball.png` (every held ball with the hand round it,
 flagged ones boxed red), `regions.png` from `tools/pixelart/check_regions.py` (kids from video), and for
