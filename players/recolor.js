@@ -250,13 +250,56 @@ function shortsMask(loadedBase) {
   return shortsCache.get(key);
 }
 
-// Returns a canvas of the base's sprite sheet (or one rectangle of it) in the given colours.
-export function recolor(loadedBase, colours, rect) {
+// One pixel (at byte i of d) in its region's plan: a lookup table for hair, else the colour scaled by the
+// pixel's lightness against the region's reference.
+function paintPixel(d, i, plan) {
+  if (plan.table) {
+    const l = lightness(d[i], d[i + 1], d[i + 2]) * 3;
+    d[i] = plan.table[l];
+    d[i + 1] = plan.table[l + 1];
+    d[i + 2] = plan.table[l + 2];
+    return;
+  }
+  let k = luma(d[i], d[i + 1], d[i + 2]) / plan.refL;
+  if (plan.dark) k = 0.35 + 0.65 * k;
+  for (let ch = 0; ch < 3; ch++) {
+    const t = plan.t[ch];
+    // Darker than average: scale the colour down. Lighter: blend toward white for highlights.
+    d[i + ch] = k <= 1 ? t * k : Math.min(255, t + (255 - t) * (k - 1) * 0.6);
+  }
+}
+
+// The builder's last whole sheet (recolor's `keep`), so the next colour change redoes only the regions it
+// changes: the sheet's own pixels, each region's pixels, what each region was last painted for, and the result.
+let kept = null;
+function keptFor(loadedBase, W, H) {
+  if (kept?.base === loadedBase) return kept;
+  kept = null; // (let the last body's go first)
+  const src = pixels(loadedBase.atlasImg, [0, 0, W, H]).data;
+  const reg = loadedBase.regionsData.data;
+  const counts = new Uint32Array(256);
+  for (let p = 0, n = W * H; p < n; p++) if (src[p * 4 + 3] && reg[p * 4]) counts[reg[p * 4]]++;
+  const lists = {};
+  for (const id of Object.keys(REGIONS)) lists[id] = new Uint32Array(counts[id]);
+  const fill = new Uint32Array(256);
+  for (let p = 0, n = W * H; p < n; p++) {
+    const id = reg[p * 4];
+    if (src[p * 4 + 3] && lists[id]) lists[id][fill[id]++] = p;
+  }
+  kept = { base: loadedBase, src, lists, painted: null, out: null };
+  return kept;
+}
+
+// Returns a canvas of the base's sprite sheet (or one rectangle of it) in the given colours. `keep`: the
+// builder's preview, recoloured again and again (see keptFor); only for the whole sheet.
+export function recolor(loadedBase, colours, rect, { keep = false } = {}) {
   const full = [0, 0, loadedBase.atlasImg.width, loadedBase.atlasImg.height];
   const [x, y, w, h] = rect ?? full;
-  const src = pixels(loadedBase.atlasImg, [x, y, w, h]);
   const regionPx = loadedBase.regionsData.data;
   const atlasW = loadedBase.regionsData.width;
+  const whole = keep && !rect && w === atlasW && h === loadedBase.regionsData.height;
+  const k = whole ? keptFor(loadedBase, w, h) : null;
+  const src = k ? new ImageData(w, h) : pixels(loadedBase.atlasImg, [x, y, w, h]);
   const plans = {};
   for (const [id, name] of Object.entries(REGIONS)) {
     const target = colours[name];
@@ -282,6 +325,54 @@ export function recolor(loadedBase, colours, rect) {
   const shortsTarget = colours.shorts && colours.shorts.toLowerCase() !== (colours.team ?? "").toLowerCase() ? colours.shorts : null;
   const shortsPlan = shortsTarget && teamRef && { t: hex(shortsTarget), refL: Math.max(1, luma(...teamRef)), dark: luma(...teamRef) < 70 };
   const shorts = shortsPlan && shortsMask(loadedBase);
+  const hasNumber = colours.number !== undefined && colours.number !== "";
+  const printing = hasNumber || colours.teamName !== "";
+  if (k) {
+    // what each region is painted for (the jersey's number and name are printed on it, in the team colour)
+    const want = {};
+    for (const [id, name] of Object.entries(REGIONS)) want[id] = plans[id] ? colours[name].toLowerCase() : "";
+    want[TEAM] += `|${shortsPlan ? shortsTarget.toLowerCase() : ""}`;
+    want[JERSEY] += `|${JSON.stringify(printing ? [colours.number, colours.teamName, colours.jersey, colours.team] : null)}`;
+    const d = src.data;
+    d.set(k.out ? k.out.data : k.src); // the last result: only the regions painted for something else are redone
+    const s32 = new Uint32Array(k.src.buffer), d32 = new Uint32Array(d.buffer);
+    for (const id of Object.keys(REGIONS)) {
+      if (k.out && k.painted[id] === want[id]) continue;
+      const list = k.lists[id];
+      for (let n = 0; n < list.length; n++) d32[list[n]] = s32[list[n]]; // back to the sheet's own
+      const plan = plans[id];
+      let done = null;
+      if (+id === HAIR && plan?.frames) {
+        done = new Uint8Array(w * h);
+        for (const { box, table } of plan.frames)
+          for (let py = box[1]; py < box[3]; py++)
+            for (let px = box[0]; px < box[2]; px++) {
+              const p = py * w + px;
+              if (!d[p * 4 + 3] || regionPx[p * 4] !== HAIR) continue;
+              paintPixel(d, p * 4, { table });
+              done[p] = 1;
+            }
+      }
+      for (let n = 0; n < list.length; n++) {
+        const p = list[n];
+        const pl = shorts && +id === TEAM && shorts[p] ? shortsPlan : plan;
+        if (pl && !done?.[p]) paintPixel(d, p * 4, pl);
+      }
+      if (+id === JERSEY && printing) {
+        const jerseyRef = Math.max(1, luma(...(loadedBase.meta.regions.jersey ?? [200, 200, 200])));
+        const S = k.src;
+        printNumber(loadedBase, colours, [x, y, w, h], d, (p) => (S[p * 4 + 3] ? luma(S[p * 4], S[p * 4 + 1], S[p * 4 + 2]) / jerseyRef : 0), regionPx, atlasW);
+      }
+    }
+    k.painted = want;
+    k.out = src;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").putImageData(src, 0, 0);
+    canvas.pixels = src; // (shared with k.out: only ever read)
+    return canvas;
+  }
   const d = src.data;
   const done = plans[HAIR]?.frames && new Uint8Array(w * h); // hair already in its frame's shades
   for (const { box, table } of plans[HAIR]?.frames ?? []) {
@@ -306,26 +397,11 @@ export function recolor(loadedBase, colours, rect) {
       const region = regionPx[((py + y) * atlasW + px + x) * 4];
       if (region === JERSEY) shade[py * w + px] = luma(d[i], d[i + 1], d[i + 2]) / jerseyRef;
       const plan = shorts && region === TEAM && shorts[(py + y) * atlasW + px + x] ? shortsPlan : plans[region];
-      if (!plan) continue;
-      if (plan.table) {
-        if (done?.[py * w + px]) continue;
-        const l = lightness(d[i], d[i + 1], d[i + 2]) * 3;
-        d[i] = plan.table[l];
-        d[i + 1] = plan.table[l + 1];
-        d[i + 2] = plan.table[l + 2];
-        continue;
-      }
-      let k = luma(d[i], d[i + 1], d[i + 2]) / plan.refL;
-      if (plan.dark) k = 0.35 + 0.65 * k;
-      for (let ch = 0; ch < 3; ch++) {
-        const t = plan.t[ch];
-        // Darker than average: scale the colour down. Lighter: blend toward white for highlights.
-        d[i + ch] = k <= 1 ? t * k : Math.min(255, t + (255 - t) * (k - 1) * 0.6);
-      }
+      if (!plan || (plan.table && done?.[py * w + px])) continue;
+      paintPixel(d, i, plan);
     }
   }
-  const hasNumber = colours.number !== undefined && colours.number !== "";
-  if (hasNumber || colours.teamName !== "") printNumber(loadedBase, colours, [x, y, w, h], d, shade, regionPx, atlasW);
+  if (printing) printNumber(loadedBase, colours, [x, y, w, h], d, (p) => shade[p], regionPx, atlasW);
   const canvas = document.createElement("canvas");
   canvas.width = w;
   canvas.height = h;
@@ -337,7 +413,7 @@ export function recolor(loadedBase, colours, rect) {
 
 // Prints the number on the back (and the team name plus number on the front) in the team colour,
 // or black/white if that wouldn't show up on the jersey. Only jersey pixels get ink.
-function printNumber(loadedBase, colours, [x, y, w, h], d, shade, regionPx, atlasW) {
+function printNumber(loadedBase, colours, [x, y, w, h], d, shadeAt, regionPx, atlasW) {
   const jersey = hex(colours.jersey ?? loadedBase.colours.jersey);
   let ink = hex(colours.team ?? loadedBase.colours.team);
   if (Math.abs(luma(...ink) - luma(...jersey)) < 60) ink = luma(...jersey) > 128 ? [32, 30, 36] : [242, 242, 239];
@@ -381,7 +457,7 @@ function printNumber(loadedBase, colours, [x, y, w, h], d, shade, regionPx, atla
     const px = p % w;
     const py = (p - px) / w;
     if (regionPx[((py + y) * atlasW + px + x) * 4] !== JERSEY) continue;
-    const k = Math.min(1.15, shade[p]);
+    const k = Math.min(1.15, shadeAt(p));
     const i = p * 4;
     for (let ch = 0; ch < 3; ch++) d[i + ch] = Math.min(255, ink[ch] * k);
   }

@@ -62,6 +62,18 @@ function jerseyBox(regions, x, y, w, h) {
   return top < 0 ? null : { top, left, right };
 }
 
+// A frame's jersey box and feet, from the region map: they don't change with the height or build, so kept for
+// each region map (the builder re-stretches the same sheet at each step).
+const partsCache = new WeakMap(); // region map -> Map(frame's place -> { j, feet })
+function frameParts(regions, x, y, w, h) {
+  if (!regions) return { j: null, feet: null };
+  let known = partsCache.get(regions);
+  if (!known) partsCache.set(regions, (known = new Map()));
+  const key = `${x},${y},${w},${h}`;
+  if (!known.has(key)) known.set(key, { j: jerseyBox(regions, x, y, w, h), feet: regionFeet(regions, [x, y, w, h]) });
+  return known.get(key);
+}
+
 // One frame at a size: the frame [x, y, w, h, ox] drawn from `src` at (sx, sy) (and its print, if any),
 // with the region map read at the frame's own place. Returns { canvas, w, h, dx (columns added left of
 // the feet), dy (rows added), ball } for a held ball at [x, y, r] in the frame.
@@ -72,8 +84,7 @@ export function stretchFrame(src, [sx, sy], regions, [x, y, w, h, ox], build = {
   const g1 = one.getContext("2d");
   g1.drawImage(src, sx, sy, w, h, 0, 0, w, h);
   if (print) g1.drawImage(print, 0, 0, print.width, print.height, 0, 0, w, h);
-  const j = jerseyBox(regions, x, y, w, h);
-  const feet = regions && regionFeet(regions, [x, y, w, h]);
+  const { j, feet } = frameParts(regions, x, y, w, h);
   const top = j ? j.top : Math.round(h * 0.36);
   const rowFit = stretch(h, Math.round(height * HEIGHT_STEP * h), top, h - 6);
   const rows = rowFit.map;
