@@ -267,6 +267,8 @@ export async function loadRoster() {
 // A kid made from their own videos (Curly, Buns) moves as themselves.
 const layeredOf = (heads, bases = []) => (p) =>
   bases.find((b) => b.id === p.base)?.video ? {} : heads[p.base] && flagOn("layered") ? { layered: { head: p.base, build: p.build ?? {} } } : {};
+// The heads list is only needed while layered players are on.
+const headStyles = () => (flagOn("layered") ? loadHeads() : Promise.resolve({}));
 
 function minePlayers(bases, heads) {
   const layered = layeredOf(heads, bases);
@@ -281,7 +283,7 @@ const lookOf = (c) => JSON.stringify([c.base, c.colours, c.build, c.gear, c.laye
 
 /** Their own players again, after saved progress brought some from another device (or removed some). */
 export async function reloadMyPlayers() {
-  const [bases, heads] = await Promise.all([loadBases().catch(() => []), loadHeads()]);
+  const [bases, heads] = await Promise.all([loadBases().catch(() => []), headStyles()]);
   const before = new Map(characters.list.filter((c) => c.mine).map((c) => [c.id, lookOf(c)]));
   const others = characters.list.filter((c) => !c.mine);
   const at = others.findIndex((c) => /^p\d+$/.test(c.id)); // before the approved builder players
@@ -299,7 +301,7 @@ export async function reloadMyPlayers() {
 
 // Players made on this device (saved by the builder's "Play now"), then approved builder players.
 async function loadBuiltPlayers() {
-  const [bases, heads] = await Promise.all([loadBases().catch(() => []), loadHeads()]);
+  const [bases, heads] = await Promise.all([loadBases().catch(() => []), headStyles()]);
   for (const b of bases) basesById.set(b.id, b);
   const layered = layeredOf(heads, bases);
   characters.list.push(...minePlayers(bases, heads));
