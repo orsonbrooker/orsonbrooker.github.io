@@ -16,7 +16,8 @@ window.__play = async (mode, missEvery) => {
   window.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
   await __wait(500);
   document.querySelector('[data-mode="' + mode + '"]').click(); await __wait(300);
-  document.querySelector("#char-pick .card").click(); await __wait(2500);
+  document.querySelector("#char-pick .card").click(); await __wait(500);
+  document.querySelector(".team-dialog .team-choice")?.click(); await __wait(2000);
   const key = (type) => window.dispatchEvent(new KeyboardEvent(type, { key: " ", code: "Space", bubbles: true }));
   let n = 0, down = 0;
   clearInterval(window.__auto);
@@ -47,6 +48,8 @@ window.__send = async () => {
   const s = window.game.state;
   const score = s.mode === "around" ? Math.round(s.aroundTime * 10) : s.score;
   const body = { token: s.gameToken, mode: s.mode, score, shots: s.shotLog, player: "orson", nickname: "Tester", device: "test-device-shared-rules-01", turnstileToken: "XXXX.DUMMY.TOKEN.XXXX", input: "keyboard" };
+  const myTeam = JSON.parse(localStorage.getItem("orson-hoops-my-team") ?? "null"); // as screens/over.js sends it
+  if (myTeam) Object.assign(body, { team: myTeam.name, teamId: myTeam.key });
   const forged = await fetch("http://localhost:8787/api/scores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(__forge(body)) });
   const forgedText = "made-up copy -> " + forged.status + " " + (await forged.text()) + "\\n  ";
   const r = await fetch("http://localhost:8787/api/scores", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
