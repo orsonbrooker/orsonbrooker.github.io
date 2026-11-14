@@ -1,9 +1,12 @@
 {
- "note": "A ball rack for the 3-point contest: a prop any court can stand on its floor. Its foot (0, 0) is the middle of its footprint. Balls are the game's own ball sprite (engine/draw.js) at 16 art px: BALL_R (0.23 m) on the floor's scale, the size the game draws its ball.",
+ "note": "A ball rack for the 3-point contest: a prop any court can stand on its floor. Its foot (0, 0) is the middle of its footprint; its length runs along x, the money ball at +x. Balls are the game's own ball sprite (engine/draw.js) at 16 art px: BALL_R (0.23 m) on the floor's scale, the size the game draws its ball. Drawn along each wall, and turned (rot-<deg>) to point at the hoop from each place in content/threes.js RACK_LAYOUT (the corners straight in, 0 and 180).",
  "scale": 5,
+ "kind": "prop",
  "orientations": {
   "along-u": {
    "image": "rack-along-u.webp",
+   "bare": "rack-bare-along-u.webp",
+   "shadow": "rack-shadow-along-u.webp",
    "foot": [
     185,
     200
@@ -36,6 +39,8 @@
   },
   "along-v": {
    "image": "rack-along-v.webp",
+   "bare": "rack-bare-along-v.webp",
+   "shadow": "rack-shadow-along-v.webp",
    "foot": [
     185,
     200
@@ -65,6 +70,181 @@
     ]
    ],
    "height": 0.72
+  },
+  "rot-0": {
+   "image": "rack-rot-0.webp",
+   "bare": "rack-bare-rot-0.webp",
+   "shadow": "rack-shadow-rot-0.webp",
+   "foot": [
+    185,
+    200
+   ],
+   "footprint": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     0.25,
+     0.72
+    ]
+   ],
+   "hinge": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     -0.25,
+     0
+    ]
+   ],
+   "height": 0.72,
+   "rot": 0.0
+  },
+  "rot-42": {
+   "image": "rack-rot-42.webp",
+   "bare": "rack-bare-rot-42.webp",
+   "shadow": "rack-shadow-rot-42.webp",
+   "foot": [
+    60,
+    220
+   ],
+   "footprint": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     0.25,
+     0.72
+    ]
+   ],
+   "hinge": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     -0.25,
+     0
+    ]
+   ],
+   "height": 0.72,
+   "rot": 42.0
+  },
+  "rot-98": {
+   "image": "rack-rot-98.webp",
+   "bare": "rack-bare-rot-98.webp",
+   "shadow": "rack-shadow-rot-98.webp",
+   "foot": [
+    200,
+    190
+   ],
+   "footprint": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     0.25,
+     0.72
+    ]
+   ],
+   "hinge": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     -0.25,
+     0
+    ]
+   ],
+   "height": 0.72,
+   "rot": 98.0
+  },
+  "rot-138": {
+   "image": "rack-rot-138.webp",
+   "bare": "rack-bare-rot-138.webp",
+   "shadow": "rack-shadow-rot-138.webp",
+   "foot": [
+    220,
+    135
+   ],
+   "footprint": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     0.25,
+     0.72
+    ]
+   ],
+   "hinge": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     -0.25,
+     0
+    ]
+   ],
+   "height": 0.72,
+   "rot": 138.0
+  },
+  "rot-180": {
+   "image": "rack-rot-180.webp",
+   "bare": "rack-bare-rot-180.webp",
+   "shadow": "rack-shadow-rot-180.webp",
+   "foot": [
+    185,
+    200
+   ],
+   "footprint": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     0.25,
+     0.72
+    ]
+   ],
+   "hinge": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     -0.25,
+     0
+    ]
+   ],
+   "height": 0.72,
+   "rot": 180.0
   }
  },
  "mount": "floor"

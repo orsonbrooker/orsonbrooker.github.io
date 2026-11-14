@@ -1,0 +1,43 @@
+{
+ "note": "A round wall clock, its hands at ten past ten. Its foot (0, 0, 0) is the bottom of its back, on the wall.",
+ "mount": "wall",
+ "id": "prop-clock",
+ "canvas": [
+  40,
+  50
+ ],
+ "origin": [
+  20,
+  42
+ ],
+ "scale": 5,
+ "artPerM": 24,
+ "light": [
+  0.55,
+  0.2,
+  0.81
+ ],
+ "prop": true,
+ "orientations": [
+  "along-u",
+  "along-v"
+ ],
+ "shapes": [
+  {
+   "name": "clock",
+   "material": "clock",
+   "shape": "ring",
+   "centre": [
+    0,
+    0,
+    0.42
+   ],
+   "r_out": 0.42,
+   "r_in": 0.0,
+   "h": 0.08,
+   "axis": "y",
+   "face": "wall",
+   "segments": 40
+  }
+ ]
+}

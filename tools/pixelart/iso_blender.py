@@ -63,6 +63,9 @@ def make_shape(s, i):
     elif s["shape"] == "box":
         (x0, y0, z0), (x1, y1, z1) = s["min"], s["max"]
         v = [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0), (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)]
+        if s.get("rot"):  # a turned prop (iso_scene.py rot-<deg>): about its foot
+            c, sn = math.cos(math.radians(s["rot"])), math.sin(math.radians(s["rot"]))
+            v = [(x * c - y * sn, x * sn + y * c, z) for x, y, z in v]
         f = [(0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)]
         ob = mesh_object(name, v, f)
     elif s["shape"] == "sphere":
@@ -88,6 +91,40 @@ def make_shape(s, i):
         for k in range(seg):
             f.append((last + k, last + (k + 1) % seg, top))
         ob = mesh_object(name, v, f, smooth=True)
+    elif s["shape"] in ("ring", "net"):
+        # ring: a rim, a short upright band (r_out, r_in, h). net: an open cone hanging from r at z down `drop` to
+        # r_bottom. Both round a centre, over the angles `arc` (degrees from +u towards +v; default all the way)
+        cx, cy, cz = s["centre"]
+        a0, a1 = s.get("arc", [0, 360])
+        seg = s.get("segments", 32)
+        n = max(2, int(round(seg * (a1 - a0) / 360)) + 1)
+        angs = [math.radians(a0 + (a1 - a0) * j / (n - 1)) for j in range(n)]
+        closed = (a1 - a0) >= 360
+        if closed:
+            angs = angs[:-1]
+            n -= 1
+        if s["shape"] == "ring":
+            ro, ri, hh = s["r_out"], s["r_in"], s["h"]
+            rings = [(ro, cz), (ro, cz + hh), (ri, cz + hh), (ri, cz)]
+        else:
+            rings = [(s["r"], cz), (s["r_bottom"], cz - s["drop"])]
+        # `axis` (ring only): the way the band points. "z" lies flat (a rim); "y" or "x" stands it up facing out from
+        # the hoop wall or the side wall (a clock: r_in 0 fills its face)
+        ax = s.get("axis", "z")
+
+        def at(r, z, a):
+            p, q, h = r * math.cos(a), r * math.sin(a), z - cz
+            return {"z": (cx + p, cy + q, cz + h), "y": (cx + p, cy + h, cz + q), "x": (cx + h, cy + p, cz + q)}[ax]
+        v = [at(r, z, a) for r, z in rings for a in angs]
+        f = []
+        nr = len(rings)
+        loops = nr if s["shape"] == "ring" else nr - 1
+        for j in range(loops):
+            jb = (j + 1) % nr
+            for k in range(n if closed else n - 1):
+                k2 = (k + 1) % n
+                f.append((j * n + k, j * n + k2, jb * n + k2, jb * n + k))
+        ob = mesh_object(name, v, f, smooth=ax == "z")  # standing up (a clock face) it's flat, so its face reads flat
     else:
         raise ValueError(s["shape"])
     ob.pass_index = i + 1

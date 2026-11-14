@@ -86,7 +86,7 @@
    "kind": "prop",
    "prop": "art/iso/props/rack",
    "along": "along-v",
-   "image": "../props/rack/rack-along-v.webp",
+   "image": "../props/rack/rack-bare-along-v.webp",
    "at": [
     595,
     990
@@ -113,7 +113,7 @@
    "kind": "prop",
    "prop": "art/iso/props/scoreboard",
    "along": "along-u",
-   "image": "../props/scoreboard/prop-scoreboard-along-u.webp",
+   "image": "../props/scoreboard/prop-scoreboard-bare-along-u.webp",
    "at": [
     120,
     340

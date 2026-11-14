@@ -1,0 +1,78 @@
+{
+ "note": "A wall shelf with books, a water bottle and a plant. Its foot (0, 0, 0) is the middle of its brackets' bottom, on the wall.",
+ "scale": 5,
+ "kind": "prop",
+ "orientations": {
+  "along-u": {
+   "image": "prop-shelf-along-u.webp",
+   "bare": "prop-shelf-bare-along-u.webp",
+   "shadow": "prop-shelf-shadow-along-u.webp",
+   "foot": [
+    100,
+    95
+   ],
+   "footprint": [
+    [
+     -0.8,
+     0,
+     0
+    ],
+    [
+     0.8,
+     0.31,
+     0.68
+    ]
+   ],
+   "hinge": [
+    [
+     -0.8,
+     0,
+     0
+    ],
+    [
+     0.8,
+     0,
+     0
+    ]
+   ],
+   "height": 0.68,
+   "wall": "hoop"
+  },
+  "along-v": {
+   "image": "prop-shelf-along-v.webp",
+   "bare": "prop-shelf-bare-along-v.webp",
+   "shadow": "prop-shelf-shadow-along-v.webp",
+   "foot": [
+    135,
+    95
+   ],
+   "footprint": [
+    [
+     0,
+     -0.8,
+     0
+    ],
+    [
+     0.31,
+     0.8,
+     0.68
+    ]
+   ],
+   "hinge": [
+    [
+     0,
+     -0.8,
+     0
+    ],
+    [
+     0,
+     0.8,
+     0
+    ]
+   ],
+   "height": 0.68,
+   "wall": "side"
+  }
+ },
+ "mount": "wall"
+}

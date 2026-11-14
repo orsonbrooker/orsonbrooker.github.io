@@ -1,9 +1,12 @@
 {
  "note": "A wall scoreboard any court can hang on either wall. Its foot (0, 0, 0) is the middle of its bottom back edge, on the wall. The face is painted in its own pixels (tools/pixelart/iso_bake.py scoreface): windows with unlit digit segments, which the game lights, and labels. prop.json says where each digit's segments are.",
  "scale": 5,
+ "kind": "prop",
  "orientations": {
   "along-u": {
    "image": "prop-scoreboard-along-u.webp",
+   "bare": "prop-scoreboard-bare-along-u.webp",
+   "shadow": "prop-scoreboard-shadow-along-u.webp",
    "foot": [
     175,
     270
@@ -132,6 +135,8 @@
   },
   "along-v": {
    "image": "prop-scoreboard-along-v.webp",
+   "bare": "prop-scoreboard-bare-along-v.webp",
+   "shadow": "prop-scoreboard-shadow-along-v.webp",
    "foot": [
     190,
     270

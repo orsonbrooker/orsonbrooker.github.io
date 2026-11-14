@@ -1,0 +1,44 @@
+{
+ "note": "Blue wall padding under a hoop: three panels side by side, 2.7 m wide and 2 m tall. Its foot (0, 0, 0) is the middle of its bottom back edge, on the wall.",
+ "mount": "wall",
+ "id": "prop-pad",
+ "canvas": [
+  120,
+  130
+ ],
+ "origin": [
+  60,
+  100
+ ],
+ "scale": 5,
+ "artPerM": 24,
+ "light": [
+  0.55,
+  0.2,
+  0.81
+ ],
+ "prop": true,
+ "orientations": [
+  "along-u",
+  "along-v"
+ ],
+ "shapes": [
+  {
+   "name": "padding",
+   "material": "pad",
+   "shape": "box",
+   "min": [
+    -1.35,
+    0,
+    0
+   ],
+   "max": [
+    1.35,
+    0.1,
+    2.0
+   ],
+   "face": "wall",
+   "panel_w": 0.9
+  }
+ ]
+}

@@ -1,15 +1,15 @@
 {
- "note": "A ball rack for the 3-point contest: a prop any court can stand on its floor. Its foot (0, 0) is the middle of its footprint. Balls are the game's own ball sprite (engine/draw.js) at 16 art px: BALL_R (0.23 m) on the floor's scale, the size the game draws its ball.",
+ "note": "A ball rack for the 3-point contest: a prop any court can stand on its floor. Its foot (0, 0) is the middle of its footprint; its length runs along x, the money ball at +x. Balls are the game's own ball sprite (engine/draw.js) at 16 art px: BALL_R (0.23 m) on the floor's scale, the size the game draws its ball. Drawn along each wall, and turned (rot-<deg>) to point at the hoop from each place in content/threes.js RACK_LAYOUT (the corners straight in, 0 and 180).",
  "prop": true,
  "scale": 5,
  "artPerM": 24,
  "canvas": [
-  120,
-  110
+  150,
+  130
  ],
  "origin": [
-  60,
-  70
+  75,
+  80
  ],
  "light": [
   0.55,
@@ -18,7 +18,12 @@
  ],
  "orientations": [
   "along-u",
-  "along-v"
+  "along-v",
+  "rot-0",
+  "rot-42",
+  "rot-98",
+  "rot-138",
+  "rot-180"
  ],
  "shapes": [
   {

@@ -1,0 +1,270 @@
+{
+ "note": "The hoop: backboard, rim and net, on the hoop wall. Its foot (0, 0, 0) is on the wall below the rim, at 2.4 m. The game's spacing (content/courts.js): rim 3.05 m up, radius 0.45, the board's front 0.62 m behind the rim's middle. The board is drawn 2.2 m wide and 2.85 to 4.15 m up (Luke, 14 Nov 2026: the game's 3.05 x 2.15 m board looked too big next to real-size props), so the game's board should shrink to match when it uses this art. The board stands 1.18 m off the wall on four arms (the rim's middle 1.79 m out, 1 m of floor behind the baseline), so a court's rim is at v 1.792. The board is glass (part: glass): what's behind it shows through, tinted. The rim's and net's front halves (part: front) are also baked on their own, the hoop front the game draws over a ball dropping through.",
+ "prop": true,
+ "kind": "hoop",
+ "mount": "wall",
+ "id": "hoop",
+ "scale": 5,
+ "artPerM": 24,
+ "canvas": [
+  210,
+  215
+ ],
+ "origin": [
+  80,
+  130
+ ],
+ "light": [
+  0.55,
+  0.2,
+  0.81
+ ],
+ "orientations": [
+  "along-u"
+ ],
+ "shapes": [
+  {
+   "name": "board",
+   "material": "backboard",
+   "shape": "box",
+   "min": [
+    -1.1,
+    1.0966666666666667,
+    0.45
+   ],
+   "max": [
+    1.1,
+    1.1766666666666667,
+    1.75
+   ],
+   "face": "wall",
+   "target": [
+    0,
+    0.65,
+    1.0,
+    0.6
+   ],
+   "part": "glass"
+  },
+  {
+   "name": "rim bracket",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.08,
+    1.1766666666666667,
+    0.56
+   ],
+   "max": [
+    0.08,
+    1.346666666666667,
+    0.65
+   ],
+   "shadow": false
+  },
+  {
+   "name": "arm",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.5866666666666668,
+    0,
+    0.6
+   ],
+   "max": [
+    -0.5133333333333333,
+    1.0966666666666667,
+    0.68
+   ],
+   "shadow": false
+  },
+  {
+   "name": "wall plate",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.6233333333333334,
+    0,
+    0.5
+   ],
+   "max": [
+    -0.47666666666666674,
+    0.03,
+    0.78
+   ],
+   "shadow": false
+  },
+  {
+   "name": "arm",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.5866666666666668,
+    0,
+    1.5000000000000002
+   ],
+   "max": [
+    -0.5133333333333333,
+    1.0966666666666667,
+    1.5799999999999998
+   ],
+   "shadow": false
+  },
+  {
+   "name": "wall plate",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.6233333333333334,
+    0,
+    1.4000000000000001
+   ],
+   "max": [
+    -0.47666666666666674,
+    0.03,
+    1.68
+   ],
+   "shadow": false
+  },
+  {
+   "name": "arm",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.5133333333333333,
+    0,
+    0.6
+   ],
+   "max": [
+    0.5866666666666668,
+    1.0966666666666667,
+    0.68
+   ],
+   "shadow": false
+  },
+  {
+   "name": "wall plate",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.47666666666666674,
+    0,
+    0.5
+   ],
+   "max": [
+    0.6233333333333334,
+    0.03,
+    0.78
+   ],
+   "shadow": false
+  },
+  {
+   "name": "arm",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.5133333333333333,
+    0,
+    1.5000000000000002
+   ],
+   "max": [
+    0.5866666666666668,
+    1.0966666666666667,
+    1.5799999999999998
+   ],
+   "shadow": false
+  },
+  {
+   "name": "wall plate",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.47666666666666674,
+    0,
+    1.4000000000000001
+   ],
+   "max": [
+    0.6233333333333334,
+    0.03,
+    1.68
+   ],
+   "shadow": false
+  },
+  {
+   "name": "net back",
+   "material": "net",
+   "shape": "net",
+   "centre": [
+    0,
+    1.7916666666666667,
+    0.58
+   ],
+   "r": 0.42,
+   "r_bottom": 0.27,
+   "drop": 0.55,
+   "arc": [
+    135,
+    315
+   ],
+   "strings": 8,
+   "rows": 2,
+   "part": "back"
+  },
+  {
+   "name": "rim back",
+   "material": "rim",
+   "shape": "ring",
+   "centre": [
+    0,
+    1.7916666666666667,
+    0.58
+   ],
+   "r_out": 0.47,
+   "r_in": 0.42,
+   "h": 0.07,
+   "arc": [
+    135,
+    315
+   ],
+   "part": "back"
+  },
+  {
+   "name": "net front",
+   "material": "net",
+   "shape": "net",
+   "centre": [
+    0,
+    1.7916666666666667,
+    0.58
+   ],
+   "r": 0.42,
+   "r_bottom": 0.27,
+   "drop": 0.55,
+   "arc": [
+    -45,
+    135
+   ],
+   "strings": 8,
+   "rows": 2,
+   "part": "front"
+  },
+  {
+   "name": "rim front",
+   "material": "rim",
+   "shape": "ring",
+   "centre": [
+    0,
+    1.7916666666666667,
+    0.58
+   ],
+   "r_out": 0.47,
+   "r_in": 0.42,
+   "h": 0.07,
+   "arc": [
+    -45,
+    135
+   ],
+   "part": "front"
+  }
+ ]
+}

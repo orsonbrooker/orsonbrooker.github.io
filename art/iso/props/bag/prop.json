@@ -1,0 +1,76 @@
+{
+ "note": "A backpack standing on the floor. Its foot (0, 0) is the middle of its footprint.",
+ "scale": 5,
+ "kind": "prop",
+ "orientations": {
+  "along-u": {
+   "image": "prop-bag-along-u.webp",
+   "bare": "prop-bag-bare-along-u.webp",
+   "shadow": "prop-bag-shadow-along-u.webp",
+   "foot": [
+    40,
+    85
+   ],
+   "footprint": [
+    [
+     -0.18,
+     -0.12,
+     0
+    ],
+    [
+     0.18,
+     0.16,
+     0.45
+    ]
+   ],
+   "hinge": [
+    [
+     -0.18,
+     -0.12,
+     0
+    ],
+    [
+     0.18,
+     -0.12,
+     0
+    ]
+   ],
+   "height": 0.45
+  },
+  "along-v": {
+   "image": "prop-bag-along-v.webp",
+   "bare": "prop-bag-bare-along-v.webp",
+   "shadow": "prop-bag-shadow-along-v.webp",
+   "foot": [
+    40,
+    85
+   ],
+   "footprint": [
+    [
+     -0.12,
+     -0.18,
+     0
+    ],
+    [
+     0.16,
+     0.18,
+     0.45
+    ]
+   ],
+   "hinge": [
+    [
+     -0.12,
+     -0.18,
+     0
+    ],
+    [
+     -0.12,
+     0.18,
+     0
+    ]
+   ],
+   "height": 0.45
+  }
+ },
+ "mount": "floor"
+}

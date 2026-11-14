@@ -1,0 +1,71 @@
+{
+ "note": "A backpack standing on the floor. Its foot (0, 0) is the middle of its footprint.",
+ "id": "prop-bag",
+ "canvas": [
+  30,
+  34
+ ],
+ "origin": [
+  15,
+  24
+ ],
+ "scale": 5,
+ "artPerM": 24,
+ "light": [
+  0.55,
+  0.2,
+  0.81
+ ],
+ "prop": true,
+ "orientations": [
+  "along-u",
+  "along-v"
+ ],
+ "shapes": [
+  {
+   "name": "backpack",
+   "material": "bag2",
+   "shape": "box",
+   "min": [
+    -0.18,
+    -0.12,
+    0
+   ],
+   "max": [
+    0.18,
+    0.12,
+    0.4
+   ]
+  },
+  {
+   "name": "backpack top",
+   "material": "bag2",
+   "shape": "box",
+   "min": [
+    -0.14,
+    -0.1,
+    0.4
+   ],
+   "max": [
+    0.14,
+    0.1,
+    0.45
+   ]
+  },
+  {
+   "name": "pocket",
+   "material": "bag2",
+   "shape": "box",
+   "min": [
+    -0.13,
+    0.12,
+    0.06
+   ],
+   "max": [
+    0.13,
+    0.16,
+    0.25
+   ]
+  }
+ ]
+}

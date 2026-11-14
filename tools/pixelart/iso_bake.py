@@ -23,6 +23,7 @@ shadow on the floor, as see-through dark pixels, so it can stand on any court.
 import json
 import math
 import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -47,13 +48,30 @@ RAMPS = {
     "banner": ["#3b3876", "#3d5a99", "#356098", "#afd1e0"],
     "pennant": ["#180826", "#3d654c", "#e9ccbb"],
     "board": ["#403751", "#5f5d77", "#877e8f", "#959cb7"],
+    "backboard": ["#877e8f", "#959cb7", "#afd1e0", "#f9f5f0"],
+    "rim": ["#793540", "#b5501d", "#de6d2b", "#ea8642"],  # the ball's oranges: it stands out from the wall
+    "net": ["#af8a7e", "#e9ccbb", "#f9f5f0"],
+    "pad": ["#3b3876", "#3d5a99", "#356098"],
+    "plank": ["#6e3b3c", "#a0574b", "#bb714f", "#cd7e4e", "#dd9257"],
+    "bag": ["#400c22", "#793540", "#9c3238", "#d0553c"],
+    "bag2": ["#180826", "#3d654c", "#6a9a5b"],
+    "leaf": ["#403751", "#3d654c", "#6a9a5b"],
+    "pot": ["#793540", "#9c3238", "#b66439", "#d0553c"],
+    "bottle": ["#356098", "#afd1e0", "#f9f5f0"],
+    "book": ["#3b3876", "#3d5a99", "#e9ccbb"],
+    "slab": ["#532837", "#6e3b3c", "#8b4541", "#a0574b"],
+    "clock": ["#403751", "#5f5d77", "#877e8f", "#959cb7"],
 }
 # The scoreboard's face: what the game lights is the digits' segments; the art has them unlit.
 FACE = {"face": "#403751", "window": "#180826", "unlit": "#532837", "lit": "#d0553c", "label": "#e9ccbb"}
 OUTLINE = {"wood": "#532837", "blue": "#180826", "line": "#532837", "brick": "#400c22", "skirting": "#1e0418",
            "cap": "#400c22", "frame": "#180826", "glass": "#180826", "metal": "#180826", "banner": "#180826",
-           "pennant": "#180826", "board": "#180826", "scoreface": "#180826"}
-SHADOW = ("#180826", 84)  # a prop's shadow on the floor: this colour, this opaque (0-255)
+           "pennant": "#180826", "board": "#180826", "scoreface": "#180826",
+           "backboard": "#180826", "rim": "#400c22", "pad": "#180826", "plank": "#400c22", "bag": "#1e0418",
+           "bag2": "#180826", "leaf": "#180826", "pot": "#400c22", "bottle": "#180826", "book": "#180826",
+           "slab": "#1e0418", "clock": "#180826", "clear": "#180826"}  # the net has none: its strings are one pixel already
+SHADOW = ("#180826", 84)
+GLASS = ("#afd1e0", 0.35)  # what's seen through a glass board: mixed this much towards this colour, then snapped  # a prop's shadow on the floor: this colour, this opaque (0-255)
 JOINED_M = 0.15  # parts of one material this close in depth are joined (a rail meeting a post): no line between
 HINGE_M = 0.06  # a pixel this close to a hinge line belongs to the hinge: no outline there
 BACK = np.array([math.cos(math.radians(30)) * math.cos(math.radians(45))] * 2 + [math.sin(math.radians(30))])
@@ -184,6 +202,30 @@ def wall_shadow(sc, panel, face, P, light):
     return hit
 
 
+def marking_mask(mk, u, v):
+    """Where a floor marking is: `rects` [u0, v0, u1, v1]; `arc` a line round the hoop, `radii` its distance every
+    10 degrees from +u round to -u (content/courts.js threePointLine), `width` wide; `rings` [cu, cv, r_in, r_out,
+    v_min(, v_max)] (only the part at v >= v_min, and below v_max); `dashes` n: rings in n dashes round."""
+    on = np.zeros(u.shape, bool)
+    for u0, v0, u1, v1 in mk.get("rects", []):
+        on |= (u >= u0) & (u < u1) & (v >= v0) & (v < v1)
+    if "arc" in mk:
+        a = mk["arc"]
+        cu, cv = a["centre"]
+        du, dv = u - cu, v - cv
+        ang = np.degrees(np.arctan2(dv, du))
+        rad = np.interp(ang, np.arange(len(a["radii"])) * 10.0, a["radii"])
+        dist = np.hypot(du, dv)
+        on |= (dv >= 0) & (np.abs(dist - rad) < a["width"] / 2)
+    for cu, cv, r0, r1, vmin, *vmax in mk.get("rings", []):
+        dist = np.hypot(u - cu, v - cv)
+        ring = (dist >= r0) & (dist < r1) & (v >= vmin) & (v < (vmax[0] if vmax else np.inf))
+        if mk.get("dashes"):
+            ring &= np.floor(np.arctan2(v - cv, u - cu) / (2 * math.pi) * 2 * mk["dashes"]).astype(int) % 2 == 0
+        on |= ring
+    return on
+
+
 def edges(m):
     """The top, left, right and bottom edge pixels of a mask."""
     return (m & ~np.roll(m, 1, axis=0), m & ~np.roll(m, 1, axis=1), m & ~np.roll(m, -1, axis=1), m & ~np.roll(m, -1, axis=0))
@@ -220,9 +262,7 @@ def paint(sc, panel, pas, light):
             out[seam] = R[1]
             # the court markings, in order: painted over the boards (seams show through the blue, not the lines)
             for mk in sc.get("markings", []):
-                on = np.zeros_like(alpha)
-                for u0, v0, u1, v1 in mk["rects"]:
-                    on |= (u >= u0) & (u < u1) & (v >= v0) & (v < v1)
+                on = marking_mask(mk, u, v)
                 Rm = ramp(mk["material"])
                 out[on] = Rm[-1] if mk["material"] == "line" else Rm[1]
                 if mk["material"] != "line":
@@ -279,6 +319,85 @@ def paint(sc, panel, pas, light):
             out[(top | lft) & ~(rgt | bot)] = lt
             out[rgt | bot] = R[0]
             rgb[m] = out[m]
+        elif name == "net":
+            # strings in a diamond mesh, worked out round the hoop: one-pixel lines where the mesh cell changes from
+            # the pixel above or beside, plus the net's outer edges; the rest is see-through
+            cu, cv, cz = s["centre"]
+            ang = np.arctan2(v - cv, u - cu)
+            a = ang / (2 * math.pi) * s.get("strings", 12)
+            b = (cz - z) / s["drop"] * s.get("rows", 3)
+            same = np.roll(ids, 1, axis=0) == ids
+            same_x = np.roll(ids, 1, axis=1) == ids
+            string = np.zeros_like(m)
+            for key in (np.floor(a + b), np.floor(a - b)):
+                string |= ((key != np.roll(key, 1, axis=0)) & same) | ((key != np.roll(key, 1, axis=1)) & same_x)
+            lft = m & ~np.roll(m, 1, axis=1)
+            rgt = m & ~np.roll(m, -1, axis=1)
+            bot = m & ~np.roll(m, -1, axis=0)
+            string |= lft | rgt | bot
+            out = np.broadcast_to(R[2], (h, w, 3)).copy()
+            out[d < 0.2] = R[1]
+            out[d < -0.3] = R[0]
+            rgb[m & string] = out[m & string]
+            alpha[m & ~string] = False
+            mat[m & ~string] = ""
+        elif name == "backboard":
+            # glass: pale blue with light streaks across it, a white frame and a white target square
+            out = R[band(d, len(R))]
+            front = nrm[..., 1] > 0.9
+            b0, b1 = s["min"], s["max"]
+            px_a, px_c = 1 / sc["artPerM"], 1 / up
+            out[front] = R[2]
+            ga = (u - b0[0]) * sc["artPerM"] + (b1[2] - z) * up  # along a 45 degree streak, in art pixels
+            out[front & (np.floor(ga) % 46 < 3)] = R[3]
+            out[front & ((np.floor(ga) % 46 >= 6) & (np.floor(ga) % 46 < 7))] = R[3]
+            border = front & ((u < b0[0] + 2 * px_a) | (u > b1[0] - 2 * px_a) | (z < b0[2] + 2 * px_c) | (z > b1[2] - 2 * px_c))
+            tu, tz, tw, th = s["target"]  # the square over the rim: middle along, bottom, width, height
+            box = (np.abs(u - tu) < tw / 2) & (z >= tz) & (z < tz + th)
+            inner = (np.abs(u - tu) < tw / 2 - 2 * px_a) & (z >= tz + 2 * px_c) & (z < tz + th - 2 * px_c)
+            out[border | (front & box & ~inner)] = R[3]
+            rgb[m] = out[m]
+            if s.get("part") == "glass":
+                # see-through: only the frame, the target and the streaks are drawn; the rest shows what's behind,
+                # tinted (bake_prop for the hoop's own parts, the court bake for the wall)
+                streak = (np.floor(ga) % 46 < 3) | (np.floor(ga) % 46 == 6)
+                clear = front & ~border & ~(box & ~inner) & ~streak
+                mat[m & clear] = "clear"
+        elif name == "pad":
+            # padding panels: a darker seam between them, lit along their top
+            a, o_, c = wall_coords(face, pos)
+            out = R[band(d, len(R))]
+            fr = np.abs(o_ - max(s["max"][1] if face == "hoop" else s["max"][0], 0)) < 1e-3
+            out[fr] = R[1]
+            w_ = s.get("panel_w", 0.9)
+            seam = np.floor((a - (s["min"][0] if face == "hoop" else s["min"][1])) / w_ + 1e-6)
+            out[fr & (seam != np.roll(seam, 1, axis=1)) & np.roll(m, 1, axis=1)] = R[0]
+            out[fr & (c > s["max"][2] - 1.5 / up)] = R[2]
+            rgb[m] = out[m]
+        elif name == "clock":
+            # a round face on its wall: white, twelve ticks, hands at ten past ten; the band round it is grey
+            a, o_, c = wall_coords(face, pos)
+            ca, _, cc = wall_coords(face, s["centre"])
+            out = R[band(d, len(R))]
+            facing = (np.abs(nrm[..., 1] if face == "hoop" else nrm[..., 0])) > 0.9
+            ra = (a - ca) * (-1 if face == "hoop" else 1)  # across the face, left to right on screen
+            rc = c - cc
+            rr = np.hypot(ra, rc)
+            R0 = s["r_out"]
+            dial = facing & (rr < R0 - 1.5 / sc["artPerM"])
+            out[facing] = R[0]
+            out[dial] = hexrgb("#f9f5f0")
+            ang = np.degrees(np.arctan2(ra, rc)) % 360  # clockwise from 12
+            tick = dial & (rr > R0 * 0.62) & ((ang + 6) % 30 < 12)
+            out[tick] = R[2]
+            def hand(deg, length, width):
+                hx, hy = math.sin(math.radians(deg)), math.cos(math.radians(deg))
+                along = ra * hx + rc * hy
+                off = np.abs(ra * hy - rc * hx)
+                return dial & (along > -0.02) & (along < length) & (off < width)
+            out[hand(305, R0 * 0.5, 0.035) | hand(60, R0 * 0.72, 0.03)] = hexrgb("#180826")
+            out[dial & (rr < 0.04)] = hexrgb("#d0553c")
+            rgb[m] = out[m]
         elif name == "scoreface":
             rgb[m] = scoreface(sc, s, pos, face, h, w)[m]
         elif name == "glass":
@@ -297,7 +416,7 @@ def paint(sc, panel, pas, light):
             rgb[m] = out[m]
         else:  # boxes (trim, frames, the rack): a step of the ramp by which way the face points
             out = R[band(d, len(R))]
-            if name in ("cap", "frame"):
+            if name in ("cap", "frame", "rim"):
                 out[nrm[..., 2] > 0.9] = R[-1]  # their tops catch the light
             rgb[m] = out[m]
     return rgb, mat, alpha
@@ -427,8 +546,8 @@ def outlines(kind, plane, rgb, mat, alpha, ids, depth, pos):
                 for dy, dx in ((0, 1), (1, 0), (0, -1), (-1, 0)):
                     yy, xx = y + dy, x + dx
                     if 0 <= yy < h and 0 <= xx < w and alpha[yy, xx] and ids[yy, xx] != ids[y, x] \
-                            and depth[y, x] - depth[yy, xx] > (JOINED_M if mat[yy, xx] == mat[y, x] else 0.01) \
-                            and not dark_ball[yy, xx]:
+                            and depth[y, x] - depth[yy, xx] > (JOINED_M if mat[yy, xx] == mat[y, x] or "slab" in (mat[y, x], mat[yy, xx]) else 0.01) \
+                            and not dark_ball[yy, xx] and mat[yy, xx] != "net":
                         line[yy, xx] = True
                         col[yy, xx] = hexrgb(OUTLINE[mat[y, x]])
                 continue
@@ -437,7 +556,7 @@ def outlines(kind, plane, rgb, mat, alpha, ids, depth, pos):
             best = None
             for dy, dx in ((0, 1), (1, 0), (0, -1), (-1, 0)):
                 yy, xx = y + dy, x + dx
-                if 0 <= yy < h and 0 <= xx < w and alpha[yy, xx] and mat[yy, xx] != "ball" and not on_hinge(yy, xx):
+                if 0 <= yy < h and 0 <= xx < w and alpha[yy, xx] and mat[yy, xx] not in ("ball", "net") and not on_hinge(yy, xx):
                     if best is None or depth[yy, xx] > depth[best]:
                         best = (yy, xx)
             if best is not None:
@@ -482,7 +601,13 @@ def snap(rgb, alpha, mat, palette):
     return out
 
 
-def bake_panel(sc, name, pas, light, palette):
+def tinted(rgb, m):
+    """Pixels seen through glass."""
+    rgb[m] = np.round(rgb[m] * (1 - GLASS[1]) + hexrgb(GLASS[0]) * GLASS[1]).astype(np.uint8)
+
+
+def bake_panel(sc, name, pas, light, palette, shade=None, tint=None, want_mat=False):
+    """shade: pixels in a prop's shadow (a court bake), darkened here and then snapped, so they stay on the palette."""
     q = sc["panels"][name]
     rgb, mat, alpha = paint(sc, name, pas, light)
     ids = pas["id"].copy()
@@ -490,18 +615,27 @@ def bake_panel(sc, name, pas, light, palette):
     depth = np.where(alpha, (pos * BACK).sum(-1), -1e9)
     add_balls(sc, name, rgb, mat, alpha, ids, depth)
     rgb, alpha, mat = outlines(q["kind"], q.get("plane"), rgb, mat, alpha, ids, depth, pos)
-    return snap(rgb, alpha, mat, palette), alpha
+    if shade is not None:
+        m = shade & alpha & (mat != "outline")
+        a = SHADOW[1] / 255
+        rgb[m] = np.round(rgb[m] * (1 - a) + hexrgb(SHADOW[0]) * a).astype(np.uint8)
+    if tint is not None:
+        tinted(rgb, tint & alpha & (mat != "outline"))
+    out = snap(rgb, alpha, mat, palette)
+    return (out, alpha, mat) if want_mat else (out, alpha)
 
 
-def crop(rgb, alpha, k, under=None):
-    """The panel cut to what it covers, blown up k times; under: an RGBA layer beneath it (a shadow)."""
+def crop(rgb, alpha, k, under=None, box=None):
+    """The panel cut to what it covers (or to box), blown up k times; under: an RGBA layer beneath it (a shadow)."""
     full = np.zeros(alpha.shape + (4,), np.uint8)
     if under is not None:
         full[:] = under
     full[alpha, :3] = rgb[alpha]
     full[alpha, 3] = 255
-    ys, xs = np.nonzero(full[..., 3])
-    x0, y0, x1, y1 = xs.min(), ys.min(), xs.max() + 1, ys.max() + 1
+    if box is None:
+        ys, xs = np.nonzero(full[..., 3])
+        box = (xs.min(), ys.min(), xs.max() + 1, ys.max() + 1)
+    x0, y0, x1, y1 = box
     img = Image.fromarray(full[y0:y1, x0:x1]).resize(((x1 - x0) * k, (y1 - y0) * k), Image.NEAREST)
     return img, int(x0), int(y0)
 
@@ -516,13 +650,17 @@ def prop_shadow(sc, name, light):
     P = np.stack([(upv - vmu) / 2, (upv + vmu) / 2, np.zeros_like(xs)], -1)
     hit = np.zeros((ch, cw), bool)
     shapes = [s for s in sc["shapes"] if s["panel"] == name]
-    top = max((s["max"][2] if s["shape"] == "box" else s["centre"][2] + s["r"]) for s in shapes)
+    top = max((s["max"][2] if s["shape"] == "box" else s["centre"][2] + s.get("r", s.get("r_out", 0))) for s in shapes)
     for t in np.linspace(0.01, top / light[2], 48):
         Q = P + t * light
         for s in shapes:
             if s["shape"] == "box":
-                hit |= np.all((Q >= np.array(s["min"])) & (Q <= np.array(s["max"])), axis=-1)
-            else:
+                q = Q
+                if s.get("rot"):  # a turned box: test in its own frame
+                    c, sn = math.cos(math.radians(s["rot"])), math.sin(math.radians(s["rot"]))
+                    q = np.stack([Q[..., 0] * c + Q[..., 1] * sn, -Q[..., 0] * sn + Q[..., 1] * c, Q[..., 2]], -1)
+                hit |= np.all((q >= np.array(s["min"])) & (q <= np.array(s["max"])), axis=-1)
+            elif s["shape"] in ("sphere", "ball"):
                 hit |= ((Q - np.array(s["centre"])) ** 2).sum(-1) <= s["r"] ** 2
     layer = np.zeros((ch, cw, 4), np.uint8)
     layer[hit, :3] = hexrgb(SHADOW[0])
@@ -543,52 +681,125 @@ def prop_wall_shadow(sc, name, light):
         v = (xs - ox) / apm
         P = np.stack([np.zeros_like(v), v, (oy + apm / 2 * v - ys) / up], -1)
     k = 1 if name == "along-u" else 0
-    shapes = [s for s in sc["shapes"] if s["panel"] == name and s["shape"] == "box"]
-    deep = max(s["max"][k] for s in shapes)
+    # a part hidden behind the rest (the hoop's arms behind its board) can say "shadow": false
+    out_axis = "y" if name == "along-u" else "x"
+    shapes = [s for s in sc["shapes"] if s["panel"] == name and s.get("shadow", True)
+              and (s["shape"] == "box" or (s["shape"] == "ring" and s.get("axis") == out_axis))]
     hit = np.zeros((ch, cw), bool)
+    if not shapes:
+        return np.zeros((ch, cw, 4), np.uint8)
+    deep = max(s["max"][k] if s["shape"] == "box" else s["centre"][k] + s["h"] for s in shapes)
     for t in np.linspace(0.005, deep / light[k], 24):
         Q = P + t * light
         for s in shapes:
-            hit |= np.all((Q >= np.array(s["min"])) & (Q <= np.array(s["max"])), axis=-1)
+            if s["shape"] == "box":
+                hit |= np.all((Q >= np.array(s["min"])) & (Q <= np.array(s["max"])), axis=-1)
+            else:  # a disc standing out from the wall (a clock)
+                c = np.array(s["centre"])
+                a, b = [i for i in (0, 1, 2) if i != k]
+                hit |= (Q[..., k] >= c[k]) & (Q[..., k] <= c[k] + s["h"]) & ((Q[..., a] - c[a]) ** 2 + (Q[..., b] - c[b]) ** 2 <= s["r_out"] ** 2)
     layer = np.zeros((ch, cw, 4), np.uint8)
     layer[hit, :3] = hexrgb(SHADOW[0])
     layer[hit, 3] = SHADOW[1]
     return layer
 
 
+def turn_pts(pts, deg):
+    """Points in a turned prop's own frame, turned onto the court."""
+    if not deg:
+        return pts
+    c, s = math.cos(math.radians(deg)), math.sin(math.radians(deg))
+    return [[x * c - y * s, x * s + y * c, z] for x, y, z in pts]
+
+
+def extent(s):
+    """A shape's box (min, max), game metres."""
+    if s["shape"] == "box":
+        return s["min"], s["max"]
+    c = np.array(s["centre"], float)
+    if s["shape"] == "sphere":
+        return list(c - s["r"]), list(c + s["r"])
+    k = {"z": 2, "y": 1, "x": 0}[s.get("axis", "z")]  # a ring: round its axis, h along it
+    lo, hi = c - s["r_out"], c + s["r_out"]
+    lo[k], hi[k] = c[k], c[k] + s["h"]
+    return list(lo), list(hi)
+
+
 def bake_prop(sc, passes, out, light, palette):
     k = sc["scale"]
     ox, oy = sc["origin"]
     stem = sc.get("id", out.name)
-    info = {"note": sc.get("note", ""), "scale": k, "orientations": {}}
+    info = {"note": sc.get("note", ""), "scale": k, "kind": sc.get("kind", "prop"), "orientations": {}}
     wall = sc.get("mount") == "wall"
     info["mount"] = "wall" if wall else "floor"
-    for name in sc["panels"]:
+    for name in [n for n in sc["panels"] if not sc["panels"][n].get("front") and not sc["panels"][n].get("glass")]:
         pas = dict(np.load(passes / f"{name}.npz"))
         rgb, alpha = bake_panel(sc, name, pas, light, palette)
+        glass_mask = None
+        if name + "-glass" in sc["panels"]:
+            # a glass board, drawn on its own and laid over the rest by depth: its clear part tints what's behind it
+            # (the arms), or is left see-through, for the court to tint the wall there
+            gp = dict(np.load(passes / f"{name}-glass.npz"))
+            grgb, galpha, gmat = bake_panel(sc, name + "-glass", gp, light, palette, want_mat=True)
+            depth_m = np.where(pas["alpha"] > 0.5, (pas["pos"] * BACK).sum(-1), -1e9)
+            depth_g = np.where(gp["alpha"] > 0.5, (gp["pos"] * BACK).sum(-1), -1e9)
+            over = galpha & (depth_g > depth_m)
+            clear = over & (gmat == "clear")
+            rgb = rgb.copy()
+            rgb[over & ~clear] = grgb[over & ~clear]
+            behind = clear & alpha
+            tinted(rgb, behind)
+            rgb = snap(rgb, alpha, np.full(alpha.shape, "", dtype=object), palette)
+            glass_mask = clear & ~alpha
+            alpha = alpha | (over & ~clear)
+        front = None
+        if name + "-front" in sc["panels"]:
+            # the front parts (the rim's and net's front halves) go over the rest, and on their own as well
+            frgb, falpha = bake_panel(sc, name + "-front", dict(np.load(passes / f"{name}-front.npz")), light, palette)
+            rgb, alpha = np.where(falpha[..., None], frgb, rgb), alpha | falpha
+            front = crop(frgb, falpha, k)
         shadow = prop_wall_shadow(sc, name, light) if wall else prop_shadow(sc, name, light)
         img, x0, y0 = crop(rgb, alpha, k, shadow)
         img.save(out / f"{stem}-{name}.webp", lossless=True)
+        # on a court the bake paints the shadow into the floor or wall it falls on (on the palette) and stands the prop
+        # there without it: the same picture with no shadow, and the shadow on its own, both cut like the picture
+        box = (x0, y0, x0 + img.width // k, y0 + img.height // k)
+        crop(rgb, alpha, k, box=box)[0].save(out / f"{stem}-bare-{name}.webp", lossless=True)
+        crop(rgb, np.zeros_like(alpha), k, shadow, box=box)[0].save(out / f"{stem}-shadow-{name}.webp", lossless=True)
+        if glass_mask is not None:
+            gl = np.zeros(alpha.shape + (4,), np.uint8)
+            gl[glass_mask] = [*hexrgb(GLASS[0]), 255]
+            crop(rgb, np.zeros_like(alpha), k, gl, box=box)[0].save(out / f"{stem}-glass-{name}.webp", lossless=True)
         if any(s["shape"] == "poly" and s.get("windows") for s in sc["shapes"]):
             # a preview with digits lit, for looking at; the game lights them itself
             sc["_lit"] = True
             rgb2, alpha2 = bake_panel(sc, name, pas, light, palette)
             sc["_lit"] = False
             crop(rgb2, alpha2, k, shadow)[0].save(out / f"{stem}-{name}-lit-preview.webp", lossless=True)
-        boxes = [s for s in sc["shapes"] if s["panel"] == name and s["shape"] == "box"]
-        lo = [round(min(s["min"][i] for s in boxes), 4) for i in (0, 1, 2)]
-        hi = [round(max(s["max"][i] for s in boxes), 4) for i in (0, 1, 2)]
+        boxes = [extent(s) for s in sc["shapes"] if s["panel"] in (name, name + "-glass", name + "-front") and s["shape"] in ("box", "ring", "sphere")]
+        lo = [round(min(b[0][i] for b in boxes), 4) for i in (0, 1, 2)]
+        hi = [round(max(b[1][i] for b in boxes), 4) for i in (0, 1, 2)]
         # it folds flat onto its panel about its back edge: a floor prop the long edge nearer the wall it runs along,
         # a wall prop its bottom edge on the wall (game metres from its foot, u v z)
-        if wall:
+        if name.startswith("rot-"):
+            # a turned prop: footprint and hinge in its own frame (length along x), and how far it's turned
+            hinge = [[lo[0], lo[1], 0], [hi[0], lo[1], 0]]
+        elif wall:
             hinge = [[lo[0], 0, lo[2]], [hi[0], 0, lo[2]]] if name == "along-u" else [[0, lo[1], lo[2]], [0, hi[1], lo[2]]]
         else:
             hinge = [[lo[0], lo[1], 0], [hi[0], lo[1], 0]] if name == "along-u" else [[lo[0], lo[1], 0], [lo[0], hi[1], 0]]
-        e = {"image": f"{stem}-{name}.webp",
+        e = {"image": f"{stem}-{name}.webp", "bare": f"{stem}-bare-{name}.webp", "shadow": f"{stem}-shadow-{name}.webp",
+             **({"glass": f"{stem}-glass-{name}.webp"} if glass_mask is not None else {}),
              "foot": [(ox - x0) * k, (oy - y0) * k],  # where its foot is in the image, court px from the top left
              "footprint": [lo, hi], "hinge": hinge, "height": hi[2]}
         if wall:
             e["wall"] = "hoop" if name == "along-u" else "side"
+        if name.startswith("rot-"):
+            e["rot"] = float(name[4:])
+        if front:
+            front[0].save(out / f"{stem}-front-{name}.webp", lossless=True)
+            # drawn over a ball dropping through the hoop; where it goes on this picture, court px from its top left
+            e["front"] = {"image": f"{stem}-front-{name}.webp", "at": [(front[1] - x0) * k, (front[2] - y0) * k]}
         face = next((s for s in sc["shapes"] if s["panel"] == name and s.get("windows")), None)
         if face:
             # where the game lights digits: the face's corner on the wall (metres from the foot: along, up), which
@@ -615,6 +826,9 @@ def bake_court(sc, passes, out, light, palette):
     flat = Image.new("RGBA", (cw * k, ch * k), (0, 0, 0, 0))
     geo = {"origin": {"x": ox * k, "y": oy * k}, "eu": {"x": -apm * k, "y": apm // 2 * k},
            "ev": {"x": apm * k, "y": apm // 2 * k}, "room": sc["room"], "pxPerM": up * k, "size": cw * k}
+    for key in ("rim", "threePointLine", "slab", "wallThick"):  # where the game's hoop and 3-point line are, and the floor's thickness
+        if key in sc:
+            geo[key] = sc[key]
 
     def court_px(u_, v_, z_=0.0):
         # on the art grid: whole art pixels, then blown up
@@ -622,9 +836,31 @@ def bake_court(sc, passes, out, light, palette):
     U, V = sc["room"]["u"], sc["room"]["v"]
     names = {"floor": "floor.webp", "wall-hoop": "wall-hoop.webp", "wall-side": "wall-side.webp"}
     entries = []
+    hoop_front = None
+    # each prop's shadow, on the panel it stands on, in art pixels
+    shade = {n: np.zeros((ch, cw), bool) for n in sc["panels"]}
+    tint = {n: np.zeros((ch, cw), bool) for n in sc["panels"]}  # seen through a prop's glass
+    placed = []
+    for pr in sc.get("props", []):
+        folder = ROOT / pr["prop"]
+        o = json.loads((folder / "prop.json").read_text())["orientations"][pr["along"]]
+        on = pr.get("on", "floor")
+        f = pr["foot"]  # [u, v] on the floor, [u, z] on the hoop wall, [v, z] on the side wall
+        base = {"floor": (f[0], f[1], 0.0), "wall-hoop": (f[0], 0.0, f[1]), "wall-side": (0.0, f[0], f[1])}[on]
+        fx, fy = court_px(*base)
+        at = [fx - o["foot"][0], fy - o["foot"][1]]
+        placed.append((pr, folder, o, on, f, base, at))
+        ax, ay = at[0] // k, at[1] // k
+        for key, layer in (("shadow", shade), ("glass", tint)):
+            if not o.get(key):
+                continue
+            sh = np.asarray(Image.open(folder / o[key]).convert("RGBA"))[::k, ::k, 3] > 0
+            ys, xs = np.nonzero(sh)
+            ok = (ys + ay >= 0) & (ys + ay < ch) & (xs + ax >= 0) & (xs + ax < cw)
+            layer[on][ys[ok] + ay, xs[ok] + ax] = True
     for name, q in sc["panels"].items():
         pas = dict(np.load(passes / f"{name}.npz"))
-        rgb, alpha = bake_panel(sc, name, pas, light, palette)
+        rgb, alpha = bake_panel(sc, name, pas, light, palette, shade[name], tint[name])
         img, x0, y0 = crop(rgb, alpha, k)
         img.save(out / names[name], lossless=True)
         flat.alpha_composite(img, (x0 * k, y0 * k))
@@ -634,23 +870,28 @@ def bake_court(sc, passes, out, light, palette):
             e["hinge"] = [court_px(0, 0), court_px(U, 0) if q["plane"] == "hoop" else court_px(0, V)]
         entries.append(e)
     # props: their own pictures (baked first, on their own), stood at their foot
-    for pr in sc.get("props", []):
-        folder = ROOT / pr["prop"]
-        o = json.loads((folder / "prop.json").read_text())["orientations"][pr["along"]]
-        on = pr.get("on", "floor")
-        f = pr["foot"]  # [u, v] on the floor, [u, z] on the hoop wall, [v, z] on the side wall
-        base = {"floor": (f[0], f[1], 0.0), "wall-hoop": (f[0], 0.0, f[1]), "wall-side": (0.0, f[0], f[1])}[on]
-        fx, fy = court_px(*base)
-        at = [fx - o["foot"][0], fy - o["foot"][1]]
-        flat.alpha_composite(Image.open(folder / o["image"]).convert("RGBA"), tuple(at))
-        entries.append({"id": pr["id"], "kind": "prop", "prop": pr["prop"], "along": pr["along"],
-                        "image": os.path.relpath(folder / o["image"], out), "at": at, "order": len(entries),
+    for pr, folder, o, on, f, base, at in placed:
+        # its shadow is already in the panel under it, so it stands there without one
+        flat.alpha_composite(Image.open(folder / o["bare"]).convert("RGBA"), tuple(at))
+        kind = json.loads((folder / "prop.json").read_text()).get("kind", "prop")
+        image = os.path.relpath(folder / o["bare"], out)
+        if kind == "hoop":
+            # the hoop goes with its court (the spec's hoop.webp and the game's hoop front), copied out of the shared prop
+            shutil.copyfile(folder / o["bare"], out / "hoop.webp")
+            image = "hoop.webp"
+            if o.get("front"):
+                shutil.copyfile(folder / o["front"]["image"], out / "hoop-front.webp")
+                hoop_front = {"image": "hoop-front.webp", "at": [at[0] + o["front"]["at"][0], at[1] + o["front"]["at"][1]]}
+        entries.append({"id": pr["id"], "kind": kind, "prop": pr["prop"], "along": pr["along"],
+                        "image": image, "at": at, "order": len(entries),
                         "on": on, "foot": [round(x, 4) for x in f],
-                        "hinge": [court_px(base[0] + a, base[1] + b, base[2] + c) for a, b, c in o["hinge"]]})
+                        "hinge": [court_px(base[0] + a, base[1] + b, base[2] + c) for a, b, c in turn_pts(o["hinge"], o.get("rot"))]})
     flat.save(out / "court.webp", lossless=True)
     manifest = {"note": sc.get("note", ""), "geometry": geo, "scale": k, "wallHeight": sc["wallHeightPx"] / up,
                 "needs": sorted({e["kind"] + (":" + e["plane"] if e.get("plane") else "") for e in entries if e["kind"] != "prop"}),
                 "image": "court.webp", "panels": entries}
+    if hoop_front:
+        manifest["hoopFront"] = hoop_front
     (out / "panels.json").write_text(json.dumps(manifest, indent=1) + "\n")
     print(f"wrote {len(entries)} panels and court.webp to {out}")
 

@@ -1,0 +1,444 @@
+{
+ "note": "The gym redrawn at clean 2:1 as folding panels (docs/art/isometric.md): its rim (u 4.75, v 1.125) and 3-point line (content/courts.js), with room round the arc for all five 3-point contest racks (content/threes.js RACK_LAYOUT), 1 m of floor outside the court lines on every side, so the floor is 9.5 x 9.5 m (the game's gym is 8.25 x 8.25), 6.5 m walls and a 0.3 m thick floor. Built by tools/pixelart/iso_blender.py, baked by iso_bake.py; the hoop, scoreboard, wall pad, clock, shelf, bench, bag and racks are shared props (art/iso/props/). This is the 3-point contest's version, with its five racks; art/iso/gym/ is the same gym with one rack by the bench.",
+ "geometry": {
+  "origin": {
+   "x": 1200,
+   "y": 1070
+  },
+  "eu": {
+   "x": -120,
+   "y": 60
+  },
+  "ev": {
+   "x": 120,
+   "y": 60
+  },
+  "room": {
+   "u": 9.5,
+   "v": 9.5
+  },
+  "pxPerM": 146.9693845669907,
+  "size": 2400,
+  "rim": [
+   4.75,
+   1.7916666666666665
+  ],
+  "threePointLine": [
+   3.1,
+   3.17,
+   3.33,
+   3.6,
+   3.98,
+   4.25,
+   4.48,
+   4.65,
+   4.73,
+   4.74,
+   4.68,
+   4.59,
+   4.46,
+   4.22,
+   3.97,
+   3.67,
+   3.35,
+   3.19,
+   3.1
+  ],
+  "slab": 0.3,
+  "wallThick": 0.25
+ },
+ "scale": 5,
+ "wallHeight": 6.4639312656778305,
+ "needs": [
+  "floor",
+  "hoop",
+  "wall:hoop",
+  "wall:side"
+ ],
+ "image": "court.webp",
+ "panels": [
+  {
+   "id": "floor",
+   "kind": "floor",
+   "image": "floor.webp",
+   "at": [
+    60,
+    1070
+   ],
+   "order": 0
+  },
+  {
+   "id": "wall-hoop",
+   "kind": "wall",
+   "image": "wall-hoop.webp",
+   "at": [
+    25,
+    90
+   ],
+   "order": 1,
+   "plane": "hoop",
+   "hinge": [
+    [
+     1200,
+     1070
+    ],
+    [
+     60,
+     1640
+    ]
+   ]
+  },
+  {
+   "id": "wall-side",
+   "kind": "wall",
+   "image": "wall-side.webp",
+   "at": [
+    1195,
+    105
+   ],
+   "order": 2,
+   "plane": "side",
+   "hinge": [
+    [
+     1200,
+     1070
+    ],
+    [
+     2340,
+     1640
+    ]
+   ]
+  },
+  {
+   "id": "prop-scoreboard",
+   "kind": "prop",
+   "prop": "art/iso/props/scoreboard",
+   "along": "along-u",
+   "image": "../props/scoreboard/prop-scoreboard-bare-along-u.webp",
+   "at": [
+    820,
+    400
+   ],
+   "order": 3,
+   "on": "wall-hoop",
+   "foot": [
+    1.7,
+    3.4021
+   ],
+   "hinge": [
+    [
+     1165,
+     585
+    ],
+    [
+     825,
+     755
+    ]
+   ]
+  },
+  {
+   "id": "prop-pad",
+   "kind": "prop",
+   "prop": "art/iso/props/pad",
+   "along": "along-u",
+   "image": "../props/pad/prop-pad-bare-along-u.webp",
+   "at": [
+    465,
+    975
+   ],
+   "order": 4,
+   "on": "wall-hoop",
+   "foot": [
+    4.75,
+    0
+   ],
+   "hinge": [
+    [
+     790,
+     1275
+    ],
+    [
+     470,
+     1435
+    ]
+   ]
+  },
+  {
+   "id": "hoop",
+   "kind": "hoop",
+   "prop": "art/iso/props/hoop",
+   "along": "along-u",
+   "image": "hoop.webp",
+   "at": [
+    550,
+    710
+   ],
+   "order": 5,
+   "on": "wall-hoop",
+   "foot": [
+    4.75,
+    2.4
+   ],
+   "hinge": [
+    [
+     760,
+     870
+    ],
+    [
+     500,
+     1000
+    ]
+   ]
+  },
+  {
+   "id": "prop-clock",
+   "kind": "prop",
+   "prop": "art/iso/props/clock",
+   "along": "along-u",
+   "image": "../props/clock/prop-clock-bare-along-u.webp",
+   "at": [
+    185,
+    840
+   ],
+   "order": 6,
+   "on": "wall-hoop",
+   "foot": [
+    8.0,
+    3.9
+   ],
+   "hinge": [
+    [
+     290,
+     950
+    ],
+    [
+     190,
+     1000
+    ]
+   ]
+  },
+  {
+   "id": "prop-shelf",
+   "kind": "prop",
+   "prop": "art/iso/props/shelf",
+   "along": "along-v",
+   "image": "../props/shelf/prop-shelf-bare-along-v.webp",
+   "at": [
+    1995,
+    1250
+   ],
+   "order": 7,
+   "on": "wall-side",
+   "foot": [
+    7.75,
+    1.3
+   ],
+   "hinge": [
+    [
+     2035,
+     1295
+    ],
+    [
+     2225,
+     1390
+    ]
+   ]
+  },
+  {
+   "id": "rack-5",
+   "kind": "prop",
+   "prop": "art/iso/props/rack",
+   "along": "rot-180",
+   "image": "../props/rack/rack-bare-rot-180.webp",
+   "at": [
+    830,
+    1140
+   ],
+   "order": 8,
+   "on": "floor",
+   "foot": [
+    3.0,
+    1.462
+   ],
+   "hinge": [
+    [
+     895,
+     1430
+    ],
+    [
+     1195,
+     1280
+    ]
+   ]
+  },
+  {
+   "id": "prop-bench",
+   "kind": "prop",
+   "prop": "art/iso/props/bench",
+   "along": "along-v",
+   "image": "../props/bench/prop-bench-bare-along-v.webp",
+   "at": [
+    1740,
+    1245
+   ],
+   "order": 9,
+   "on": "floor",
+   "foot": [
+    0.25,
+    6.0
+   ],
+   "hinge": [
+    [
+     1795,
+     1375
+    ],
+    [
+     2035,
+     1495
+    ]
+   ]
+  },
+  {
+   "id": "rack-4",
+   "kind": "prop",
+   "prop": "art/iso/props/rack",
+   "along": "rot-138",
+   "image": "../props/rack/rack-bare-rot-138.webp",
+   "at": [
+    1075,
+    1315
+   ],
+   "order": 10,
+   "on": "floor",
+   "foot": [
+    2.766,
+    3.578
+   ],
+   "hinge": [
+    [
+     1090,
+     1475
+    ],
+    [
+     1510,
+     1465
+    ]
+   ]
+  },
+  {
+   "id": "rack-1",
+   "kind": "prop",
+   "prop": "art/iso/props/rack",
+   "along": "rot-0",
+   "image": "../props/rack/rack-bare-rot-0.webp",
+   "at": [
+    410,
+    1350
+   ],
+   "order": 11,
+   "on": "floor",
+   "foot": [
+    6.5,
+    1.462
+   ],
+   "hinge": [
+    [
+     715,
+     1460
+    ],
+    [
+     415,
+     1610
+    ]
+   ]
+  },
+  {
+   "id": "prop-bag",
+   "kind": "prop",
+   "prop": "art/iso/props/bag",
+   "along": "along-v",
+   "image": "../props/bag/prop-bag-bare-along-v.webp",
+   "at": [
+    2025,
+    1465
+   ],
+   "order": 12,
+   "on": "floor",
+   "foot": [
+    0.4,
+    7.6
+   ],
+   "hinge": [
+    [
+     2055,
+     1530
+    ],
+    [
+     2100,
+     1555
+    ]
+   ]
+  },
+  {
+   "id": "rack-3",
+   "kind": "prop",
+   "prop": "art/iso/props/rack",
+   "along": "rot-98",
+   "image": "../props/rack/rack-bare-rot-98.webp",
+   "at": [
+    1100,
+    1445
+   ],
+   "order": 13,
+   "on": "floor",
+   "foot": [
+    4.285,
+    5.101
+   ],
+   "hinge": [
+    [
+     1105,
+     1585
+    ],
+    [
+     1440,
+     1715
+    ]
+   ]
+  },
+  {
+   "id": "rack-2",
+   "kind": "prop",
+   "prop": "art/iso/props/rack",
+   "along": "rot-42",
+   "image": "../props/rack/rack-bare-rot-42.webp",
+   "at": [
+    760,
+    1470
+   ],
+   "order": 14,
+   "on": "floor",
+   "foot": [
+    6.745,
+    3.588
+   ],
+   "hinge": [
+    [
+     790,
+     1585
+    ],
+    [
+     770,
+     1795
+    ]
+   ]
+  }
+ ],
+ "hoopFront": {
+  "image": "hoop-front.webp",
+  "at": [
+   760,
+   1005
+  ]
+ }
+}

@@ -58,7 +58,8 @@ LIMITS = {
     "arc_error_m": 0.10,          # painted 3-point line vs content/courts.js, mean
     "side_margin_m": 1.5,         # clear floor beside each end of the 3-point arc, to the side edges of the floor
     "back_margin_m": 2.5,         # clear floor behind the top of the arc, to the open (front) edge of the floor
-    "rack_size_m": [1.5, 0.6],    # a ball rack's footprint: along the hoop wall, out from it (the gym's rack)
+    "rack_size_m": [2.5, 0.56],   # a ball rack's footprint, long side by depth (art/iso/props/rack/)
+    "rack_inset_m": 0.1,          # a rack's back end stands this far inside the 3-point line
     "rack_edge_m": 0.2,           # a rack stays this far inside the floor's edges
     "ppm_match": 0.01,            # |eu| and |ev| agree, and pxPerM matches the camera, within 1%
 }
@@ -422,10 +423,11 @@ def rack_layout():
     return json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else []
 
 
-def room_checks(c):
-    """Clear floor round the 3-point arc for racks and props, from content/courts.js alone (no pixels).
+def room_checks(c, rim_uv=None):
+    """Clear floor round the 3-point arc for racks and props, from content/courts.js alone (no pixels), or from a
+    panel set's geometry (rim_uv: the rim's floor point).
     u runs along the hoop wall from the back corner, v out from it; the arc's angle 0 is +u, 90 straight out."""
-    ru, rv = unproject(c, c["rim"]["at"]["x"], c["rim"]["at"]["y"] + c["rim"]["height"] * c["pxPerM"])
+    ru, rv = rim_uv or unproject(c, c["rim"]["at"]["x"], c["rim"]["at"]["y"] + c["rim"]["height"] * c["pxPerM"])
     line = c["threePointLine"]
     pts = [(ru + math.cos(math.radians(k * 10)) * d, rv + math.sin(math.radians(k * 10)) * d) for k, d in enumerate(line)]
     room = c["room"]
@@ -441,21 +443,45 @@ def room_checks(c):
                      f"clear floor behind the top of the arc to the open front edge: {back:.2f} m"))
     racks = rack_layout()
     if racks:
+        # each rack stands inside the arc at its angle, its back end just inside the line, its length pointing at the
+        # hoop (Luke, 14 Nov 2026): on the floor, and clear of the others
         L, D = LIMITS["rack_size_m"]
         e = LIMITS["rack_edge_m"]
-        bad = []
+        bad, rects = [], []
         for i, r in enumerate(racks):
-            ang, past = r["rack"]
+            ang = r["rack"][0]
             k = ang / 10
             j = min(len(line) - 2, int(k))
-            dist = line[j] * (1 - (k - j)) + line[j + 1] * (k - j) + past
-            cu, cv = ru + math.cos(math.radians(ang)) * dist, rv + math.sin(math.radians(ang)) * dist
-            # the rack's long side runs along the hoop wall (art/three-point-contest.md), centred on its point
-            if cu - L / 2 < e or cu + L / 2 > room["u"] - e or cv - D / 2 < e or cv + D / 2 > room["v"] - e:
-                bad.append(f"rack {i + 1} at u {cu:.2f}, v {cv:.2f}")
-        out.append(check("racks fit on the floor", not bad, {"racks": len(racks), "off": len(bad)}, f"{L} x {D} m, {e} m inside the edges",
-                         f"{len(racks) - len(bad)} of {len(racks)} racks (content/threes.js) fit on the floor"
-                         + (": " + "; ".join(bad) + " runs off it" if bad else "")))
+            dist = line[j] * (1 - (k - j)) + line[j + 1] * (k - j) - LIMITS["rack_inset_m"] - L / 2
+            ca, sa = math.cos(math.radians(ang)), math.sin(math.radians(ang))
+            cu, cv = ru + ca * dist, rv + sa * dist
+            if ang < 30 or ang > 150:
+                # a corner rack sits near the baseline and points straight in, its back end just inside the corner's
+                # straight line, its long side 0.05 m behind the rim's middle
+                side = 1 if ang < 90 else -1
+                ca, sa = side, 0.0
+                cu = ru + side * (line[0 if side > 0 else -1] - LIMITS["rack_inset_m"] - L / 2)
+                cv = rv - D / 2 - 0.05
+            corners = [(cu + ca * x - sa * y, cv + sa * x + ca * y) for x in (-L / 2, L / 2) for y in (-D / 2, D / 2)]
+            if any(u < e or u > room["u"] - e or v < e or v > room["v"] - e for u, v in corners):
+                bad.append(f"rack {i + 1} runs off the floor")
+            rects.append((cu, cv, ca, sa))
+        for i in range(len(rects)):
+            for j2 in range(i + 1, len(rects)):
+                (cu, cv, ca, sa), (du, dv, da, ds) = rects[i], rects[j2]
+                # sample rack j's footprint and see if any point falls in rack i's
+                for x in np.linspace(-L / 2, L / 2, 9):
+                    for y in np.linspace(-D / 2, D / 2, 3):
+                        pu, pv = du + da * x - ds * y - cu, dv + ds * x + da * y - cv
+                        if abs(pu * ca + pv * sa) <= L / 2 and abs(-pu * sa + pv * ca) <= D / 2:
+                            bad.append(f"racks {i + 1} and {j2 + 1} overlap")
+                            break
+                    else:
+                        continue
+                    break
+        out.append(check("racks fit on the floor", not bad, {"racks": len(racks), "problems": len(bad)},
+                         f"{L} x {D} m inside the arc, pointing at the hoop, {e} m inside the edges, apart",
+                         f"all {len(racks)} racks (content/threes.js angles) fit inside the arc, apart" if not bad else "; ".join(bad)))
     return out
 
 
@@ -728,7 +754,7 @@ def evaluate(path, court=None, crop=None, kind=None, palette=None, line_ratio=No
 
 def panels_card(path):
     from iso_panels import check_panels
-    checks = check_panels(path, court_def=court_def, evaluate=lambda f, **kw: evaluate(f, **kw))
+    checks = check_panels(path, court_def=court_def, evaluate=lambda f, **kw: evaluate(f, **kw), room_checks=room_checks)
     rel = Path(path).resolve()
     return {"ok": all(c["ok"] for c in checks), "image": str(rel.relative_to(ROOT)) if rel.is_relative_to(ROOT) else str(path),
             "kind": "panels", "checks": checks}
@@ -796,7 +822,7 @@ def badness(name, v):
     if name == "made of panels":
         return None
     if name == "racks fit on the floor":
-        return v["off"]
+        return v.get("problems", v.get("off"))
     if name == "light from the upper left":
         return v["left_wall_L"] - v["right_wall_L"]
     if isinstance(v, (int, float)):

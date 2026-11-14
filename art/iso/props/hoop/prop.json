@@ -1,0 +1,51 @@
+{
+ "note": "The hoop: backboard, rim and net, on the hoop wall. Its foot (0, 0, 0) is on the wall below the rim, at 2.4 m. The game's spacing (content/courts.js): rim 3.05 m up, radius 0.45, the board's front 0.62 m behind the rim's middle. The board is drawn 2.2 m wide and 2.85 to 4.15 m up (Luke, 14 Nov 2026: the game's 3.05 x 2.15 m board looked too big next to real-size props), so the game's board should shrink to match when it uses this art. The board stands 1.18 m off the wall on four arms (the rim's middle 1.79 m out, 1 m of floor behind the baseline), so a court's rim is at v 1.792. The board is glass (part: glass): what's behind it shows through, tinted. The rim's and net's front halves (part: front) are also baked on their own, the hoop front the game draws over a ball dropping through.",
+ "scale": 5,
+ "kind": "hoop",
+ "orientations": {
+  "along-u": {
+   "image": "hoop-along-u.webp",
+   "bare": "hoop-bare-along-u.webp",
+   "shadow": "hoop-shadow-along-u.webp",
+   "glass": "hoop-glass-along-u.webp",
+   "foot": [
+    80,
+    290
+   ],
+   "footprint": [
+    [
+     -1.1,
+     0,
+     0.45
+    ],
+    [
+     1.1,
+     2.2617,
+     1.75
+    ]
+   ],
+   "hinge": [
+    [
+     -1.1,
+     0,
+     0.45
+    ],
+    [
+     1.1,
+     0,
+     0.45
+    ]
+   ],
+   "height": 1.75,
+   "wall": "hoop",
+   "front": {
+    "image": "hoop-front-along-u.webp",
+    "at": [
+     210,
+     295
+    ]
+   }
+  }
+ },
+ "mount": "wall"
+}

@@ -1,0 +1,160 @@
+{
+ "note": "A wall shelf with books, a water bottle and a plant. Its foot (0, 0, 0) is the middle of its brackets' bottom, on the wall.",
+ "mount": "wall",
+ "id": "prop-shelf",
+ "canvas": [
+  70,
+  60
+ ],
+ "origin": [
+  35,
+  48
+ ],
+ "scale": 5,
+ "artPerM": 24,
+ "light": [
+  0.55,
+  0.2,
+  0.81
+ ],
+ "prop": true,
+ "orientations": [
+  "along-u",
+  "along-v"
+ ],
+ "shapes": [
+  {
+   "name": "bracket",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.6,
+    0,
+    0
+   ],
+   "max": [
+    -0.55,
+    0.26,
+    0.2
+   ]
+  },
+  {
+   "name": "bracket",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.55,
+    0,
+    0
+   ],
+   "max": [
+    0.6,
+    0.26,
+    0.2
+   ]
+  },
+  {
+   "name": "shelf",
+   "material": "plank",
+   "shape": "box",
+   "min": [
+    -0.8,
+    0,
+    0.2
+   ],
+   "max": [
+    0.8,
+    0.3,
+    0.25
+   ]
+  },
+  {
+   "name": "book",
+   "material": "book",
+   "shape": "box",
+   "min": [
+    -0.7,
+    0.05,
+    0.25
+   ],
+   "max": [
+    -0.38,
+    0.27,
+    0.31
+   ]
+  },
+  {
+   "name": "book",
+   "material": "bag",
+   "shape": "box",
+   "min": [
+    -0.67,
+    0.07,
+    0.31
+   ],
+   "max": [
+    -0.42,
+    0.25,
+    0.36
+   ]
+  },
+  {
+   "name": "bottle",
+   "material": "bottle",
+   "shape": "box",
+   "min": [
+    -0.12,
+    0.1,
+    0.25
+   ],
+   "max": [
+    -0.04,
+    0.18,
+    0.48
+   ]
+  },
+  {
+   "name": "bottle cap",
+   "material": "book",
+   "shape": "box",
+   "min": [
+    -0.11,
+    0.11,
+    0.48
+   ],
+   "max": [
+    -0.05,
+    0.17,
+    0.52
+   ]
+  },
+  {
+   "name": "pot",
+   "material": "pot",
+   "shape": "box",
+   "min": [
+    0.33,
+    0.07,
+    0.25
+   ],
+   "max": [
+    0.53,
+    0.25,
+    0.42
+   ]
+  },
+  {
+   "name": "plant",
+   "material": "leaf",
+   "shape": "sphere",
+   "centre": [
+    0.43,
+    0.16,
+    0.53
+   ],
+   "r": 0.15,
+   "segments": 10,
+   "rings": 6
+  }
+ ]
+}

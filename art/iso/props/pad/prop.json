@@ -1,0 +1,78 @@
+{
+ "note": "Blue wall padding under a hoop: three panels side by side, 2.7 m wide and 2 m tall. Its foot (0, 0, 0) is the middle of its bottom back edge, on the wall.",
+ "scale": 5,
+ "kind": "prop",
+ "orientations": {
+  "along-u": {
+   "image": "prop-pad-along-u.webp",
+   "bare": "prop-pad-bare-along-u.webp",
+   "shadow": "prop-pad-shadow-along-u.webp",
+   "foot": [
+    165,
+    380
+   ],
+   "footprint": [
+    [
+     -1.35,
+     0,
+     0
+    ],
+    [
+     1.35,
+     0.1,
+     2.0
+    ]
+   ],
+   "hinge": [
+    [
+     -1.35,
+     0,
+     0
+    ],
+    [
+     1.35,
+     0,
+     0
+    ]
+   ],
+   "height": 2.0,
+   "wall": "hoop"
+  },
+  "along-v": {
+   "image": "prop-pad-along-v.webp",
+   "bare": "prop-pad-bare-along-v.webp",
+   "shadow": "prop-pad-shadow-along-v.webp",
+   "foot": [
+    180,
+    380
+   ],
+   "footprint": [
+    [
+     0,
+     -1.35,
+     0
+    ],
+    [
+     0.1,
+     1.35,
+     2.0
+    ]
+   ],
+   "hinge": [
+    [
+     0,
+     -1.35,
+     0
+    ],
+    [
+     0,
+     1.35,
+     0
+    ]
+   ],
+   "height": 2.0,
+   "wall": "side"
+  }
+ },
+ "mount": "wall"
+}

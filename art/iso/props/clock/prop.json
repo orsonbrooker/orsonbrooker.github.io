@@ -1,0 +1,78 @@
+{
+ "note": "A round wall clock, its hands at ten past ten. Its foot (0, 0, 0) is the bottom of its back, on the wall.",
+ "scale": 5,
+ "kind": "prop",
+ "orientations": {
+  "along-u": {
+   "image": "prop-clock-along-u.webp",
+   "bare": "prop-clock-bare-along-u.webp",
+   "shadow": "prop-clock-shadow-along-u.webp",
+   "foot": [
+    55,
+    135
+   ],
+   "footprint": [
+    [
+     -0.42,
+     0.0,
+     0.0
+    ],
+    [
+     0.42,
+     0.08,
+     0.84
+    ]
+   ],
+   "hinge": [
+    [
+     -0.42,
+     0,
+     0.0
+    ],
+    [
+     0.42,
+     0,
+     0.0
+    ]
+   ],
+   "height": 0.84,
+   "wall": "hoop"
+  },
+  "along-v": {
+   "image": "prop-clock-along-v.webp",
+   "bare": "prop-clock-bare-along-v.webp",
+   "shadow": "prop-clock-shadow-along-v.webp",
+   "foot": [
+    65,
+    135
+   ],
+   "footprint": [
+    [
+     0.0,
+     -0.42,
+     0.0
+    ],
+    [
+     0.08,
+     0.42,
+     0.84
+    ]
+   ],
+   "hinge": [
+    [
+     0,
+     -0.42,
+     0.0
+    ],
+    [
+     0,
+     0.42,
+     0.0
+    ]
+   ],
+   "height": 0.84,
+   "wall": "side"
+  }
+ },
+ "mount": "wall"
+}

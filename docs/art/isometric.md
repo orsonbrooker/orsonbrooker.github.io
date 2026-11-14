@@ -124,33 +124,39 @@ A scoreboard is a shared wall prop (`art/iso/props/scoreboard/`), not painted in
 
 ## Room for racks and props
 
-New courts leave clear floor round the court markings for ball racks and similar props (Luke, 14 Nov 2026),
+Every court leaves clear floor round the court markings for ball racks and similar props (Luke, 14 Nov 2026),
 first for the 3-point contest's 5 racks (`content/threes.js` `RACK_LAYOUT`, `art/three-point-contest.md`).
 In the game's floor directions, u runs along the hoop wall and v runs out from it. The sides are the floor's
 two ends along u (the side wall and the open side). The open front edge is the far end along v, behind the
 top of the arc.
 
-- **In the corners a rack runs along the sideline**, not the hoop wall: along the hoop wall it would point
-  across the 3-point line. It's drawn twice (`along-u` and `along-v`), not flipped: a flipped picture would
-  have the light on the wrong side.
+- **Racks stand inside the arc and point at the hoop** (Luke, 14 Nov 2026): the wings and the top at their
+  angle from `RACK_LAYOUT`, their back end 0.1 m inside the 3-point line, their length running straight at the
+  rim. The corner racks sit near the baseline and point straight in, their back end 0.1 m inside the corner's
+  straight line, their long side 0.05 m behind the rim's middle. The rack prop is drawn turned to each angle
+  (`rot-<deg>`, iso_scene.py), lit from the upper left each time, as well as along each wall.
 - **A rack's footprint is 2.5 x 0.56 game metres** (`art/iso/props/rack/`): five of the game's balls in a row,
-  each 16 art px, the game's own ball drawn the size the game draws it. (The gym's painted rack is 1.5 x 0.6
-  with smaller balls.) Racks are centred on their floor point, which stands about 0.35 m past the 3-point line
-  (4/12 m = 0.33 m on the 2:1 grid).
-- **Rule: at least 1.5 m of clear floor beside each end of the 3-point arc**, to both side edges. A corner
-  rack along the sideline needs 0.35 m past the line, half its width (0.28 m) and 0.2 m off the edge: 0.83 m.
-  The rest is the sideline, the coloured edge and slack for its shadow. Check: "room beside the arc" (the arc from `threePointLine`, the floor from
-  `room`).
-- **Rule: at least 2.5 m of clear floor behind the top of the arc**, to the open front edge. A rack there
-  needs about 1.2 m (0.35 m, its 0.56 m depth, 0.2 m off the edge), plus room for the player standing beside it
-  and the floor's edge trim. Check: "room behind the arc".
-- **Rule: every rack in `RACK_LAYOUT` fits on the floor**, its whole footprint at least 0.2 m inside the
-  edges. Check: "racks fit on the floor".
+  each 16 art px, the size the game draws its ball (smaller balls looked bad).
+- **Rule: at least 1.5 m of clear floor beside each end of the 3-point arc**, to both side edges, and **at least
+  2.5 m behind the top of the arc**, to the open front edge: room for players shooting from outside the line, a
+  bench, a bag. Checks: "room beside the arc", "room behind the arc" (the arc from `threePointLine`, the floor
+  from `room`).
+- **Rule: every rack in `RACK_LAYOUT` fits**, all five at once: on the floor, at least 0.2 m inside the edges,
+  and not overlapping each other. Check: "racks fit on the floor". A court made of panels is checked from its
+  own `panels.json` (its scene gives `rim` and `threePointLine`), so new art is checked before the game has it.
+- **Rule: the same floor outside the court lines on every side** (Luke, 14 Nov 2026): behind the baseline (to
+  the hoop wall), beside both sidelines and past the half-court line, with the same blue band (1/3 m) round
+  the lines. The gym has 1 m.
 - Keep the floor under the racks plain: no logos or markings there (`art/arena-court.md`).
 
-**Gym breaks this:** 1.53 m to the side wall but only 0.37 m to the open side, and 2.38 m behind the arc.
-Racks 1 and 2 (the right-hand corner and wing in the art) run off the floor's open side. That's why the
-arena court brief exists.
+**The game's gym breaks this:** 1.53 m to the side wall but only 0.37 m to the open side, and 2.38 m behind the
+arc. **The redrawn gym** (`art/iso/gym/`) keeps the game's 3-point line round the rim, with 1 m of floor outside the
+court lines on every side, so the floor is 9.5 x 9.5 m: 1.57 m and 1.62 m beside the arc, 2.97 m behind it. Its
+picture is 2400 px square (the game's gym is 2048), so the game has to show the bigger picture when it moves to
+it. It comes twice: `art/iso/gym/` for normal games, with one rack along the side wall by the bench, and
+`art/iso/gym-contest/` for the 3-point contest, with all five (same walls and floor, baked from the same Blender
+passes; the props differ, and so do the shadows painted into the floor). The game still draws its racks outside the line (`content/threes.js`); moving them inside is game work, for
+when it uses this art.
 
 ## Courts are made of panels
 
@@ -229,10 +235,37 @@ the wall behind the hoop) painted in, so it's best done as part of a redraw at 2
 **Props are shared.** A prop that can stand on any court (the ball rack) is its own folder,
 `art/iso/props/<name>/` (later `assets/props/<name>/`): a picture for each way it stands (`<name>-along-u.webp`,
 `<name>-along-v.webp`) and `prop.json` (for each: where its foot is in the picture, its footprint, its hinge,
-its height; a wall prop is `"mount": "wall"` and also says which wall each picture is for). **A prop carries
-its own shadow on the floor** (a wall prop's falls on its wall), as pixels of one dark colour at one see-through
-level (`#180826` at 84 of 255), so it looks right on any floor. A court places it with `props` in its scene;
-its `panels.json` entry names the prop and the picture.
+its height; a wall prop is `"mount": "wall"` and also says which wall each picture is for). **A prop's picture
+carries its own shadow on the floor** (a wall prop's falls on its wall), as pixels of one dark colour at one
+see-through level (`#180826` at 84 of 255), so it looks right on any floor. It's also saved without the shadow
+(`<name>-bare-<way>.webp`) and the shadow on its own (`<name>-shadow-<way>.webp`). A court places it with
+`props` in its scene: **the court bake paints each prop's shadow into the floor or wall it falls on**, darkened
+and snapped to the palette like the walls' own shadows, and stands the bare picture there; see-through shadows
+blended over a court make colours off the palette. Its `panels.json` entry names the prop and the picture.
+Props are drawn in the order the scene lists them: wall props first, then floor props from the back.
+
+**The props so far:** the ball rack, the scoreboard, the hoop, blue wall padding (`pad`, 2.7 x 2 m, three
+panels), a round wall clock (`clock`, its face a standing `ring` with `"axis"`), a wall shelf with books, a
+bottle and a plant (`shelf`), a bench with a backpack and a bottle on it (`bench`) and a backpack on the floor
+(`bag`). Each is drawn both ways, lit from the upper left each way.
+
+**The hoop is a shared prop too** (`art/iso/props/hoop/`, `"kind": "hoop"`): backboard, rim and net on the hoop wall,
+sized from `content/courts.js` (rim 3.05 m up, radius 0.45; the board's front 0.62 m behind the rim's middle,
+the board drawn 2.2 m wide and 2.85 to 4.15 m up, smaller than the game's 3.05 x 2.15 m, which looked
+too big next to real-size props; the game's board should shrink to match). The board stands 1.18 m off the wall on four arms, so the rim's middle is 1.79 m out, with 1 m of floor
+behind the baseline (the game's gym has 1.125, with the board almost on the wall). **The board is see-through
+glass** (`"part": "glass"`): only its frame, target and two light streaks are drawn; through the rest, the hoop's
+own arms are tinted in its bake, and its picture is left see-through there with a mask (`<name>-glass-<way>.webp`)
+so the court bake tints the wall behind (mixed a third of the way to `#afd1e0`, then snapped to the palette). Its parts marked `"part": "front"` (the rim's and net's front halves) are also baked on their
+own: the hoop front the game draws over a ball dropping through. A court copies both out as `hoop.webp` and
+`hoop-front.webp`, and `panels.json` says where the front goes (`hoopFront`). The net is painted as one-pixel
+strings with see-through between.
+The whole gym (`art/iso/gym/`) is built this way: its rim and 3-point line are the game's (the floor markings
+take `arc`, the line's distance from the hoop every 10 degrees, and `rings` [u, v, inner, outer, v from (, v
+to)], with `dashes` for a dashed ring), plus hash marks, the free-throw circle's dashed inner half, the centre
+circle's half on this side of the half-court line (1.25 m radius, clear of the 3-point line), a roof truss along the side wall, a 0.3 m thick floor (`slab`, its
+edge showing on the open sides; the floor panel is that much taller) and 0.25 m thick walls (`wallThick`: each
+wall's top and open end show, in the top trim's colours; the wall panels are that much bigger).
 
 ## Light
 

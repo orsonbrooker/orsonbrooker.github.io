@@ -8,11 +8,23 @@ on a court, or where it hangs on a wall: the middle of its bottom back edge) at 
 each lit from the upper left on its own, so a corner rack isn't a mirrored picture with the light on the wrong
 side.
 """
+import math
 
 ORIENTATIONS = {
     "along-u": lambda p: [p[0], p[1], p[2]],
     "along-v": lambda p: [p[1], p[0], p[2]],
 }
+
+
+def turned(deg):
+    """rot-<deg>: a floor prop turned so its length points `deg` degrees round from +u towards +v (a ball rack
+    pointing at the hoop). Boxes keep their own min and max and get "rot" (Blender turns them); points turn."""
+    c, s = math.cos(math.radians(deg)), math.sin(math.radians(deg))
+    return lambda p: [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]]
+
+
+def orientation(name):
+    return ORIENTATIONS[name] if name in ORIENTATIONS else turned(float(name[4:]))
 
 
 def expand_prop(sc):
@@ -23,18 +35,28 @@ def expand_prop(sc):
     out["panels"] = {}
     out["shapes"] = []
     for name in sc.get("orientations", list(ORIENTATIONS)):
-        f = ORIENTATIONS[name]
+        f = orientation(name)
         out["panels"][name] = {"kind": "prop", "on": sc.get("mount", "floor"), "foot": [0, 0]}
+        if any(s.get("part") == "front" for s in sc["shapes"]):
+            # the parts in front of the ball's path through the hoop (the rim's and net's front halves) on their own too
+            out["panels"][name + "-front"] = {"kind": "prop", "on": sc.get("mount", "floor"), "foot": [0, 0], "front": True}
+        if any(s.get("part") == "glass" for s in sc["shapes"]):
+            # a glass board on its own, so what's behind it can show through
+            out["panels"][name + "-glass"] = {"kind": "prop", "on": sc.get("mount", "floor"), "foot": [0, 0], "glass": True}
         for s in sc["shapes"]:
-            t = dict(s, panel=name)
+            t = dict(s, panel=name + {"front": "-front", "glass": "-glass"}.get(s.get("part"), ""))
             if s.get("face") == "wall":  # a wall prop's front: on the hoop wall standing along u, the side wall along v
                 t["face"] = "hoop" if name == "along-u" else "side"
-            if s["shape"] == "box":
+            if s["shape"] == "box" and name.startswith("rot-"):
+                t["rot"] = float(name[4:])
+            elif s["shape"] == "box":
                 a, b = f(s["min"]), f(s["max"])
                 t["min"] = [min(x, y) for x, y in zip(a, b)]
                 t["max"] = [max(x, y) for x, y in zip(a, b)]
-            elif s["shape"] in ("sphere", "ball"):
+            elif s["shape"] in ("sphere", "ball", "ring", "net"):
                 t["centre"] = f(s["centre"])
+                if s.get("axis") in ("x", "y") and name == "along-v":
+                    t["axis"] = "x" if s["axis"] == "y" else "y"
             elif s["shape"] == "poly":
                 t["points"] = [f(p) for p in s["points"]]
             out["shapes"].append(t)

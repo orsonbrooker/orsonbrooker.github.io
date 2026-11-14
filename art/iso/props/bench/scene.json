@@ -1,0 +1,251 @@
+{
+ "note": "A gym bench with a backpack and a water bottle on it, its back to the wall it stands along. Its foot (0, 0) is the middle of its footprint.",
+ "id": "prop-bench",
+ "canvas": [
+  90,
+  75
+ ],
+ "origin": [
+  45,
+  48
+ ],
+ "scale": 5,
+ "artPerM": 24,
+ "light": [
+  0.55,
+  0.2,
+  0.81
+ ],
+ "prop": true,
+ "orientations": [
+  "along-u",
+  "along-v"
+ ],
+ "shapes": [
+  {
+   "name": "seat",
+   "material": "plank",
+   "shape": "box",
+   "min": [
+    -1.0,
+    -0.2,
+    0.38
+   ],
+   "max": [
+    1.0,
+    0.2,
+    0.45
+   ]
+  },
+  {
+   "name": "back",
+   "material": "plank",
+   "shape": "box",
+   "min": [
+    -1.0,
+    -0.2,
+    0.62
+   ],
+   "max": [
+    1.0,
+    -0.14,
+    0.84
+   ]
+  },
+  {
+   "name": "leg",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.8300000000000001,
+    -0.17,
+    0
+   ],
+   "max": [
+    -0.77,
+    -0.11,
+    0.38
+   ]
+  },
+  {
+   "name": "leg",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.8300000000000001,
+    0.11,
+    0
+   ],
+   "max": [
+    -0.77,
+    0.17,
+    0.38
+   ]
+  },
+  {
+   "name": "foot rail",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.8300000000000001,
+    -0.17,
+    0.05
+   ],
+   "max": [
+    -0.77,
+    0.17,
+    0.1
+   ]
+  },
+  {
+   "name": "back post",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -0.8300000000000001,
+    -0.2,
+    0.45
+   ],
+   "max": [
+    -0.77,
+    -0.14,
+    0.62
+   ]
+  },
+  {
+   "name": "leg",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.77,
+    -0.17,
+    0
+   ],
+   "max": [
+    0.8300000000000001,
+    -0.11,
+    0.38
+   ]
+  },
+  {
+   "name": "leg",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.77,
+    0.11,
+    0
+   ],
+   "max": [
+    0.8300000000000001,
+    0.17,
+    0.38
+   ]
+  },
+  {
+   "name": "foot rail",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.77,
+    -0.17,
+    0.05
+   ],
+   "max": [
+    0.8300000000000001,
+    0.17,
+    0.1
+   ]
+  },
+  {
+   "name": "back post",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.77,
+    -0.2,
+    0.45
+   ],
+   "max": [
+    0.8300000000000001,
+    -0.14,
+    0.62
+   ]
+  },
+  {
+   "name": "backpack",
+   "material": "bag",
+   "shape": "box",
+   "min": [
+    0.3,
+    -0.12,
+    0.45
+   ],
+   "max": [
+    0.64,
+    0.12,
+    0.84
+   ]
+  },
+  {
+   "name": "backpack top",
+   "material": "bag",
+   "shape": "box",
+   "min": [
+    0.34,
+    -0.1,
+    0.84
+   ],
+   "max": [
+    0.6,
+    0.1,
+    0.89
+   ]
+  },
+  {
+   "name": "pocket",
+   "material": "bag",
+   "shape": "box",
+   "min": [
+    0.37,
+    0.12,
+    0.5
+   ],
+   "max": [
+    0.57,
+    0.16,
+    0.7
+   ]
+  },
+  {
+   "name": "bottle",
+   "material": "bottle",
+   "shape": "box",
+   "min": [
+    -0.42,
+    -0.04,
+    0.45
+   ],
+   "max": [
+    -0.34,
+    0.04,
+    0.7
+   ]
+  },
+  {
+   "name": "bottle cap",
+   "material": "book",
+   "shape": "box",
+   "min": [
+    -0.41,
+    -0.03,
+    0.7
+   ],
+   "max": [
+    -0.35,
+    0.03,
+    0.74
+   ]
+  }
+ ]
+}

@@ -1,0 +1,76 @@
+{
+ "note": "A gym bench with a backpack and a water bottle on it, its back to the wall it stands along. Its foot (0, 0) is the middle of its footprint.",
+ "scale": 5,
+ "kind": "prop",
+ "orientations": {
+  "along-u": {
+   "image": "prop-bench-along-u.webp",
+   "bare": "prop-bench-bare-along-u.webp",
+   "shadow": "prop-bench-shadow-along-u.webp",
+   "foot": [
+    150,
+    200
+   ],
+   "footprint": [
+    [
+     -1.0,
+     -0.2,
+     0
+    ],
+    [
+     1.0,
+     0.2,
+     0.89
+    ]
+   ],
+   "hinge": [
+    [
+     -1.0,
+     -0.2,
+     0
+    ],
+    [
+     1.0,
+     -0.2,
+     0
+    ]
+   ],
+   "height": 0.89
+  },
+  "along-v": {
+   "image": "prop-bench-along-v.webp",
+   "bare": "prop-bench-bare-along-v.webp",
+   "shadow": "prop-bench-shadow-along-v.webp",
+   "foot": [
+    150,
+    200
+   ],
+   "footprint": [
+    [
+     -0.2,
+     -1.0,
+     0
+    ],
+    [
+     0.2,
+     1.0,
+     0.89
+    ]
+   ],
+   "hinge": [
+    [
+     -0.2,
+     -1.0,
+     0
+    ],
+    [
+     -0.2,
+     1.0,
+     0
+    ]
+   ],
+   "height": 0.89
+  }
+ },
+ "mount": "floor"
+}

@@ -76,7 +76,7 @@ def _on_grid(x, k):
     return abs(x / k - round(x / k)) < 1e-6
 
 
-def check_panels(manifest_path, court_def=None, evaluate=None):
+def check_panels(manifest_path, court_def=None, evaluate=None, room_checks=None):
     """Returns a list of checks (the same shape as iso_eval's). `court_def(id)` loads a court; `evaluate(path)`
     scores one image (iso_eval.evaluate) for the per-panel pixel rules."""
     mp = Path(manifest_path)
@@ -162,7 +162,14 @@ def check_panels(manifest_path, court_def=None, evaluate=None):
         if p["kind"] not in ("floor", "wall"):
             continue
         q = _quad(g, p, H)
+        T, sl = g.get("wallThick", 0), g.get("slab", 0)
+        if p["kind"] == "wall" and T:  # a thick wall: its top and its open end show behind the face
+            U, V = g["room"]["u"], g["room"]["v"]
+            q = q + ([_p(g, -T, -T, H), _p(g, -T, 0, H), _p(g, U, -T, H), _p(g, U, -T, -sl), _p(g, U, 0, -sl)]
+                     if p.get("plane") == "hoop" else [_p(g, -T, 0, H), _p(g, -T, V, H), _p(g, -T, V, -sl), _p(g, 0, V, -sl)])
         want = (min(x for x, _ in q), min(y for _, y in q), max(x for x, _ in q), max(y for _, y in q))
+        if p["kind"] == "floor" and g.get("slab"):  # the floor's thick edge shows below its open sides, outlined
+            want = want[:3] + (want[3] + g["slab"] * g["pxPerM"] + k,)
         a = imgs[p["id"]][..., 3] > 0
         ys, xs = np.nonzero(a)
         if not len(xs):
@@ -259,6 +266,10 @@ def check_panels(manifest_path, court_def=None, evaluate=None):
                 probs.append(f"{p['id']}: art pixel {cell:.2f} px, not {k}")
         checks.append(_check("panels are clean pixel art", not probs, probs, f"hard edges, {k} px art pixels",
                              "every panel has hard edges at the set's scale" if not probs else "; ".join(probs)))
+
+    # 6b. room for racks round the 3-point line, when the court says where its hoop and line are
+    if g.get("threePointLine") and g.get("rim") and room_checks:
+        checks.extend(room_checks({"room": g["room"], "threePointLine": g["threePointLine"]}, rim_uv=g["rim"]))
 
     # 7. laid out at their places, the panels add up to the flat court
     if m.get("image") and (mp.parent / m["image"]).exists():
