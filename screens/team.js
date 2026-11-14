@@ -102,8 +102,10 @@ export function chooseTeam(note = "", player = null) {
       resolve(myTeam());
     });
     document.body.append(dialog);
+    dialog.tabIndex = -1;
     dialog.showModal();
-    dialog.querySelector('[aria-pressed="true"]')?.focus();
+    // Their team, or (none chosen yet) no team at all: showModal would ring the first, KINGS, as if picked.
+    (dialog.querySelector('[aria-pressed="true"]') ?? dialog).focus();
   });
 }
 

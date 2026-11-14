@@ -2292,6 +2292,10 @@ header p {
   overflow-y: auto;
 }
 
+.team-dialog:focus {
+  outline: none;
+}
+
 .team-why,
 .team-make {
   margin: 0 0 12px;
