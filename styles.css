@@ -2296,3 +2296,51 @@ header p {
 .lb-team-players .lb-unnamed {
   opacity: 0.7;
 }
+
+/* Choose a game, once they've chosen a player: who they play as, and their team. Tap either to change. */
+.mode-who {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: -4px 0 12px;
+}
+
+.mode-who[hidden] {
+  display: none;
+}
+
+.panel .mode-who .my-team {
+  margin: 0;
+}
+
+.panel .mode-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 14px 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 11px;
+}
+
+.mode-player img {
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+
+/* The team's kit on a team button: a light edge, so dark kits show on the dark button. */
+.panel .my-team .team-kit {
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 2px;
+}
+
+.panel .my-team .team-kit span {
+  width: 9px;
+  height: 20px;
+}

@@ -7,6 +7,7 @@
 // the player (colours.teamId).
 
 import { API } from "../api.js";
+import { TEAMS } from "../shared/teams.js";
 import { deviceId } from "../leaderboard.js";
 
 const KEPT = "orson-hoops-community-teams";
@@ -107,27 +108,46 @@ export const teamStanding = (key, mode, range) => post("/players", { key, mode, 
 
 // The team this device plays for when it plays as Orson or someone else's approved player (who have no
 // team of their own here): chosen the first time it plays (screens/team.js). Its own players wear the
-// team picked for them in the builder.
+// team picked for them in the builder. It travels with saved progress (shared/save.js `team`), with
+// when it was chosen, so the latest choice wins; forgetting it (a team that's gone) is a choice too.
 const MY_TEAM = "orson-hoops-my-team";
+
+/** The device's team as kept: { name, key?, at } ("" for none chosen, or forgotten). */
+export function myTeamSaved() {
+  try {
+    const t = JSON.parse(localStorage.getItem(MY_TEAM) ?? "null");
+    if (!t || typeof t.name !== "string") return { name: "", at: 0 };
+    return { name: t.name, ...(typeof t.key === "string" && /^c\d{1,10}$/.test(t.key) ? { key: t.key } : {}), at: Number.isFinite(t.at) ? t.at : 0 };
+  } catch {
+    return { name: "", at: 0 };
+  }
+}
+
+/** Keeps the device's team as saved progress brought it (progress.js). */
+export function keepMyTeamSaved(t) {
+  try {
+    localStorage.setItem(MY_TEAM, JSON.stringify(t));
+  } catch {
+    // Storage blocked.
+  }
+}
 
 /** The device's team: { name, key? } (key for a community team), or null if it hasn't chosen one. */
 export function myTeam() {
-  try {
-    const t = JSON.parse(localStorage.getItem(MY_TEAM) ?? "null");
-    return t && typeof t.name === "string" && t.name && (t.key === undefined || /^c\d{1,10}$/.test(t.key)) ? { name: t.name, ...(t.key ? { key: t.key } : {}) } : null;
-  } catch {
-    return null;
-  }
+  const { name, key } = myTeamSaved();
+  return name ? { name, ...(key ? { key } : {}) } : null;
 }
 
 /** Sets (or, with null, forgets) the device's team: an official team or a kept community team. */
 export function setMyTeam(t) {
-  try {
-    if (t) localStorage.setItem(MY_TEAM, JSON.stringify(t.key ? { name: t.name, key: t.key } : { name: t.name }));
-    else localStorage.removeItem(MY_TEAM);
-  } catch {
-    // Storage blocked: they choose again next visit.
-  }
+  keepMyTeamSaved(t ? { name: t.name, ...(t.key ? { key: t.key } : {}), at: Date.now() } : { name: "", at: Date.now() });
+}
+
+/** The device's team's name and home kit (for Orson's jersey), if it's one this device knows. */
+export function myTeamKit() {
+  const t = myTeam();
+  const found = t && (t.key ? keptTeam(t.key) : TEAMS.find((o) => o.name === t.name));
+  return found ? { name: found.name, home: found.home } : null;
 }
 
 /**
@@ -136,7 +156,8 @@ export function setMyTeam(t) {
  */
 export async function goneTeams() {
   const before = keptTeams().filter((t) => t.member !== false);
-  if (!before.length) return [];
+  const unknown = myTeam()?.key && !keptTeam(myTeam().key); // chosen on another device (saved progress)
+  if (!before.length && !unknown) return [];
   const { teams, offline } = await refreshTeams();
   if (offline) return [];
   return before.filter((b) => !teams.some((t) => t.key === b.key && t.member !== false)).map(({ key, name }) => ({ key, name }));

@@ -17,14 +17,14 @@ import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { setUpTouchControls } from "./play/controls.js";
 import { COURTS, court, useCourt } from "./play/court.js";
-import { characters, faceHoop, loadImage, loadRoster, playerFiles, reloadMyPlayers, sheet } from "./play/players.js";
+import { characters, dressOrson, faceHoop, loadImage, loadRoster, playerFiles, reloadMyPlayers, sheet } from "./play/players.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play/react.js";
 import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js";
 import { canDunk, checkDecided, shoot, startDunk, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
 import { DEBUG, PHASES, canShoot, mode, player, setAnim, setSeed, state, steer } from "./play/state.js";
 import { $, charPick, page, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
-import { changeMyTeam, openModes, openSelect, refreshPicker, selectBack, selectCharacter, setMode, showTitle, startTeam } from "./screens/menus.js";
+import { changeMyTeam, changePlayer, changeTeamFromModes, openModes, openSelect, pickMode, refreshPicker, selectBack, selectCharacter, showTitle, startTeam } from "./screens/menus.js";
 import { checkTeams } from "./screens/team.js";
 import { setGameVersion } from "./screens/over.js";
 import { closeBoard, closeHelp, openBoard, toggleBoard, toggleHelp, wireBoardTabs } from "./screens/panels.js";
@@ -114,11 +114,9 @@ for (const el of Object.values(screens).filter((el) => el !== screens.title))
   el.addEventListener("pointerdown", (e) => e.stopPropagation());
 $("mode-back").addEventListener("click", showTitle);
 $("change-mode").addEventListener("click", openModes);
-for (const card of screens.modes.querySelectorAll("[data-mode]"))
-  card.addEventListener("click", () => {
-    setMode(card.dataset.mode);
-    openSelect(true); // then choose a player
-  });
+for (const card of screens.modes.querySelectorAll("[data-mode]")) card.addEventListener("click", () => pickMode(card.dataset.mode));
+$("mode-player").addEventListener("click", changePlayer);
+$("mode-team").addEventListener("click", changeTeamFromModes);
 $("select-back").addEventListener("click", selectBack);
 $("my-team").addEventListener("click", changeMyTeam);
 $("again").addEventListener("click", () => {
@@ -214,6 +212,7 @@ async function boot() {
   onProgress(() => (art.ballSprites = makeBallSprites(ballLook())));
   // Players made on their other devices (saved progress) join the picker.
   onSave(() => reloadMyPlayers().then(refreshPicker));
+  onSave(() => dressOrson()); // the team chosen on another device (screens/team.js)
   refreshProgress();
   showTitle();
   checkTeams().then(refreshPicker); // a community team they were on may have gone (screens/team.js)

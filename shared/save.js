@@ -11,12 +11,15 @@
 //   players: [{ id, name, base, colours, pronoun?, build?, gear?, sent? }]   made in the builder, newest first
 //   gone: [id]                                   players removed, so a merge doesn't bring them back
 //   nickname: { name, at }                       the leaderboard nickname, and when it was typed (ms)
+//   team: { name, key?, at }                     the team the device plays for as Orson (key: a community
+//                                                team), and when it was chosen (ms); name "" is none
 // }
 
 import { MODES, lowWins } from "./rules.js";
 
 /** @typedef {{ id: string, name: string, base: string, colours: Record<string, string>, pronoun?: "he" | "she", build?: { height: number, bulk: number }, gear?: Record<string, string>, sent?: true }} SavedPlayer */
-/** @typedef {{ bests: Record<string, number>, daily: { done: string, last: string, days: number }, players: SavedPlayer[], gone: string[], nickname: { name: string, at: number } }} Save */
+/** @typedef {{ name: string, key?: string, at: number }} SavedTeam */
+/** @typedef {{ bests: Record<string, number>, daily: { done: string, last: string, days: number }, players: SavedPlayer[], gone: string[], nickname: { name: string, at: number }, team: SavedTeam }} Save */
 
 export const MAX_SAVED_PLAYERS = 6;
 const MAX_GONE = 50;
@@ -93,7 +96,12 @@ export function tidySave(raw) {
   const n = obj(s.nickname);
   const name = text(n.name, MAX_NAME);
   const nickname = NICKNAME.test(name) ? { name, at: Math.floor(num(n.at, 1e14)) } : { name: "", at: 0 };
-  return { bests, daily, players, gone, nickname };
+  const t = obj(s.team);
+  const teamName = text(t.name, MAX_TEAM).toUpperCase();
+  /** @type {SavedTeam} */
+  const team = /^[A-Z0-9 ]*$/.test(teamName) ? { name: teamName, at: Math.floor(num(t.at, 1e14)) } : { name: "", at: 0 };
+  if (team.name && typeof t.key === "string" && /^c\d{1,10}$/.test(t.key)) team.key = t.key; // a community team (worker/src/teams.ts)
+  return { bests, daily, players, gone, nickname, team: { name: team.name, ...(team.key ? { key: team.key } : {}), at: team.at } };
 }
 
 /** @type {(mode: typeof MODES[number], a: number, b: number) => number} */
@@ -127,7 +135,8 @@ export function mergeSaves(a, b) {
   }
   const players = [...byId.values()].sort((p, q) => Number(q.id.slice(2)) - Number(p.id.slice(2))).slice(0, MAX_SAVED_PLAYERS);
   const nickname = b.nickname.at > a.nickname.at ? b.nickname : a.nickname;
-  return { bests, daily, players, gone, nickname };
+  const team = b.team.at > a.team.at ? b.team : a.team; // the team chosen most recently
+  return { bests, daily, players, gone, nickname, team };
 }
 
 /** Whether two tidy saves are the same (so nothing needs writing). @type {(a: Save, b: Save) => boolean} */

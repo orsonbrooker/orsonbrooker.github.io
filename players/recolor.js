@@ -183,7 +183,9 @@ function hairRanks(loadedBase) {
 // TRIM_REACH pixels from any jersey pixel. Worked out once per sheet, like the hair's ranks.
 const shortsCache = new Map();
 function shortsMask(loadedBase) {
-  const { atlasImg, regionsData } = loadedBase;
+  const { atlasImg, regionsData, meta } = loadedBase;
+  // (a smaller copy of a sheet reaches as far on the body: fewer pixels)
+  const reach = meta?.fullRes && meta.res ? Math.max(1, Math.round((TRIM_REACH * meta.res) / meta.fullRes)) : TRIM_REACH;
   const key = atlasImg.src || atlasImg;
   if (!shortsCache.has(key)) {
     const { data: reg, width: w, height: h } = regionsData;
@@ -192,10 +194,10 @@ function shortsMask(loadedBase) {
       for (let x = 0; x < w; x++) {
         if (reg[(y * w + x) * 4] !== TEAM) continue;
         let near = false;
-        for (let dy = -TRIM_REACH; dy <= TRIM_REACH && !near; dy++) {
+        for (let dy = -reach; dy <= reach && !near; dy++) {
           const yy = y + dy;
           if (yy < 0 || yy >= h) continue;
-          for (let dx = -TRIM_REACH; dx <= TRIM_REACH; dx++) {
+          for (let dx = -reach; dx <= reach; dx++) {
             const xx = x + dx;
             if (xx >= 0 && xx < w && reg[(yy * w + xx) * 4] === JERSEY) {
               near = true;
