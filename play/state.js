@@ -37,7 +37,7 @@ export const ANIM_FPS = { idle: 3, turn: 20, dribble: 14, gather: 24, release: 1
 export const PHASES = {
   loading: ["title"],
   title: ["modes"],
-  modes: ["select", "modes"],
+  modes: ["select", "modes", "playing"],
   select: ["playing", "turn", "modes", "select"],
   playing: ["ending", "turn", "playing"],
   turn: ["playing", "turn", "ending"],

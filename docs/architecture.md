@@ -530,7 +530,8 @@ app, and edit any of its fields.
 stateDiagram-v2
   [*] --> Title
   Title --> ChooseGame: tap or Space
-  ChooseGame --> ChoosePlayer
+  ChooseGame --> ChoosePlayer: the first time, or HORSE
+  ChooseGame --> Playing: a player chosen before
   ChoosePlayer --> Playing
   ChoosePlayer --> Turn: HORSE, 2 to 4 players, Start
   Turn --> Playing: I'm ready (the leader picks a spot)
