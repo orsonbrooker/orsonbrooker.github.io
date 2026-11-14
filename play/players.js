@@ -159,10 +159,10 @@ async function withKit(meta, img, entry, colours = {}, twin) {
   return { meta, img };
 }
 
-async function loadCharacter(id, size = null) {
-  const key = keyOf(id, size);
+// `entry` and `key`: another look of a player (Orson as he's drawn, for the leaderboard: boardBody).
+async function loadCharacter(id, size = null, look = null, key = keyOf(id, size)) {
   if (!characters.loaded.has(key)) {
-    const entry = characters.list.find((c) => c.id === id) ?? characters.list[0];
+    const entry = look ?? characters.list.find((c) => c.id === id) ?? characters.list[0];
     const font = document.fonts?.load('16px "Press Start 2P"').catch(() => {}); // for printing the number
     const progress = new Progress();
     characters.progress.set(key, progress);
@@ -376,6 +376,7 @@ const facing = new Map(); // base + colours -> the face being drawn
 export function setFace(img, c) {
   if (!c.base) {
     img.src = c.thumb;
+    if (c.colours && !c.tryingColours) dressedFace(img, c); // Orson in the device's team (dressInTeam)
     return;
   }
   const key = c.base + JSON.stringify(c.colours);
@@ -406,10 +407,42 @@ export function setFace(img, c) {
     .catch(() => {});
 }
 
+// Orson's face in the team's kit he wears: the top of his first standing frame, as builder players' faces are
+// cut (players/recolor.js thumbnail), from his sheet in that kit.
+function dressedFace(img, c) {
+  const key = c.id + JSON.stringify(c.colours);
+  img.dataset.face = key;
+  if (faces.has(key)) return void (img.src = faces.get(key));
+  if (!facing.has(key)) {
+    const p = loadCharacter(c.id, sizeFor(c)).then(({ meta, img: sheetImg }) => {
+      const [x, y, w, h] = meta.frames.idle[0];
+      const headH = Math.round(h * 0.45);
+      const side = Math.max(w, headH);
+      const canvas = Object.assign(document.createElement("canvas"), { width: 96, height: 96 });
+      const k = 96 / side;
+      canvas.getContext("2d").drawImage(sheetImg, x, y, w, headH, ((side - w) / 2) * k, (side - headH) * k, w * k, headH * k);
+      faces.set(key, canvas.toDataURL());
+      return faces.get(key);
+    });
+    p.catch(() => facing.delete(key));
+    facing.set(key, p);
+  }
+  facing
+    .get(key)
+    .then((url) => {
+      if (img.dataset.face === key) img.src = url;
+    })
+    .catch(() => {});
+}
+
+// How a player looks on the leaderboard, which shows everyone's games: not in this device's team (dressInTeam),
+// which is only who this device plays for. Orson as he's drawn; an approved player in the kit they were sent in.
+const boardLook = (c) => (c.id === "orson" && !c.tryingColours ? { ...c, colours: undefined } : c.sentColours ? { ...c, colours: c.sentColours } : c);
+
 // Leaderboard rows show the face of who they played as.
 export function boardFace(row, img) {
   const c = characters.list.find((p) => p.id === row.player);
-  if (c) return setFace(img, c);
+  if (c) return setFace(img, boardLook(c));
   img.src = characters.list[0].thumb;
   // Players made on someone's device: their own colours, or the body's own if none were sent.
   if (row.base) setFace(img, { thumb: img.src, base: row.base, colours: row.colours ?? {} });
@@ -418,14 +451,21 @@ export function boardFace(row, img) {
 // The whole player standing, for the card a leaderboard row opens.
 export async function boardBody(row) {
   const c = characters.list.find((p) => p.id === row.player);
-  if (!c && row.base) {
+  // An approved player in this device's team: shown in the kit they were sent in (boardLook), drawn like a
+  // player this device doesn't know.
+  const sent = c?.sentColours && c.colours !== c.sentColours ? c.sentColours : null;
+  if ((!c || sent) && row.base) {
     // only the one frame, recoloured (thumbnail-sized work, not the whole sheet)
     const base = (await loadBases()).find((b) => b.id === row.base);
     const loaded = await loadBase(base, "/", pickSize(base, gameScale(stageWidth())));
-    return recolor(loaded, row.colours ?? {}, loaded.meta.frames.idle[0].slice(0, 4));
+    return recolor(loaded, sent ?? row.colours ?? {}, loaded.meta.frames.idle[0].slice(0, 4));
   }
   const entry = c ?? characters.list[0];
-  const { meta, img } = await loadCharacter(entry.id, sizeFor(entry));
+  const size = sizeFor(entry);
+  // Orson in a team's kit (dressInTeam): his sheet as he's drawn, kept apart from the one he plays in.
+  const { meta, img } = await (entry.id === "orson" && entry.colours && !entry.tryingColours
+    ? loadCharacter("orson", size, boardLook(entry), keyOf("orson-plain", size))
+    : loadCharacter(entry.id, size));
   const [x, y, w, h] = meta.frames.idle[0];
   const canvas = Object.assign(document.createElement("canvas"), { width: w, height: h });
   canvas.getContext("2d").drawImage(img, x, y, w, h, 0, 0, w, h);
