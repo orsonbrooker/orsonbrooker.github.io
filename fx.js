@@ -1,7 +1,7 @@
 // Pixel art effects from pixelfx (vendor/pixelfx, MIT), drawn as chunky pixels over the court.
 // Each effect pixel covers SCALE x SCALE court pixels. Every effect gets its own small frame round where it
 // is, so only the pixels near an effect are composited each frame.
-import { createFrame, clearFrame, createFx, composite } from "./vendor/pixelfx/src/core/index.js";
+import { createFrame, clearFrame, createFx } from "./vendor/pixelfx/src/core/index.js";
 import * as fireworkBurst from "./vendor/pixelfx/src/fx/explosions/firework-burst.js";
 import * as collectBurst from "./vendor/pixelfx/src/fx/pickups/collect-burst.js";
 import * as ballFire from "./effects/ball-fire.js";
@@ -23,6 +23,38 @@ export const PALETTES = {
 };
 
 const seed = () => (Math.random() * 1e6) | 0;
+
+// An effect's frame into its ImageData, the same as pixelfx's composite() over nothing, but faster: a pixel
+// with no light is its colour as it is (a Uint32 in RGBA byte order), so only lit pixels need working out
+// (with pixelfx's maths for light over colour). Returns false when the frame is empty, so the caller can
+// skip drawing it.
+const out32 = new WeakMap();
+export function toPixels(frame, image) {
+  let o = out32.get(image);
+  if (!o) out32.set(image, (o = new Uint32Array(image.data.buffer)));
+  const d = image.data, C = frame.color, L = frame.light, n = frame.w * frame.h;
+  let any = 0;
+  for (let i = 0; i < n; i++) {
+    const c = C[i], l = L[i] & 0xffffff;
+    any |= c | l;
+    if (!l) {
+      o[i] = c;
+      continue;
+    }
+    let r = c & 255, g = (c >>> 8) & 255, b = (c >>> 16) & 255, a = c >>> 24;
+    const lr = l & 255, lg = (l >>> 8) & 255, lb = (l >>> 16) & 255;
+    if (a < 255) {
+      const pa = a / 255, pr = r * pa + lr, pg = g * pa + lg, pb = b * pa + lb;
+      const na = Math.min(1, Math.max(pa, Math.max(lr, lg, lb) / 255));
+      if (na > 0) { r = Math.min(255, pr / na); g = Math.min(255, pg / na); b = Math.min(255, pb / na); a = na * 255; }
+    } else {
+      r = Math.min(255, r + lr); g = Math.min(255, g + lg); b = Math.min(255, b + lb);
+    }
+    const j = i * 4;
+    d[j] = r; d[j + 1] = g; d[j + 2] = b; d[j + 3] = a;
+  }
+  return any !== 0;
+}
 
 export function createFxLayer() {
   let live = [];
@@ -57,7 +89,7 @@ export function createFxLayer() {
   function drawOne(ctx, e, layer) {
     clearFrame(e.frame);
     e.fx.draw(e.frame, layer);
-    composite(e.frame, e.image.data);
+    if (!toPixels(e.frame, e.image)) return; // nothing drawn in this layer
     e.g.putImageData(e.image, 0, 0);
     const left = Math.round(e.x / SCALE) - e.bx;
     const top = Math.round(e.y / SCALE) - e.by;

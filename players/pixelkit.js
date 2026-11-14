@@ -32,6 +32,7 @@ export function ramp(colour) {
 // like the builder's players (players/recolor.js), in the game's pixel font sized to fit, but on a
 // layer FINE times finer than the art (`kit.fine`, for a smaller sheet's twin), drawn over the frame.
 // Load the font first.
+const slotsCache = new WeakMap(); // image -> { meta, slots }
 export function paletteSwap(img, meta, colours, kit) {
   const c = Object.assign(document.createElement("canvas"), { width: img.width, height: img.height });
   const g = c.getContext("2d", { willReadFrequently: true });
@@ -44,13 +45,24 @@ export function paletteSwap(img, meta, colours, kit) {
     ramp(colour).forEach((rgb, t) => (pal[meta.palette[part][t]] = rgb));
   }
   const d = data.data;
-  const slots = new Int16Array(c.width * c.height).fill(-1);
-  for (let i = 0; i < d.length; i += 4) {
-    if (!d[i + 3]) continue;
-    const slot = slotOf.get((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
-    if (slot === undefined) continue;
-    slots[i / 4] = slot;
-    [d[i], d[i + 1], d[i + 2]] = pal[slot];
+  // each pixel's slot, worked out once for an image (the builder repaints the same twin at every change)
+  let slots = slotsCache.get(img)?.meta === meta ? slotsCache.get(img).slots : null;
+  if (!slots) {
+    slots = new Int16Array(c.width * c.height).fill(-1);
+    for (let i = 0; i < d.length; i += 4) {
+      if (!d[i + 3]) continue;
+      const slot = slotOf.get((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
+      if (slot !== undefined) slots[i / 4] = slot;
+    }
+    slotsCache.set(img, { meta, slots });
+  }
+  for (let p = 0; p < slots.length; p++) {
+    const slot = slots[p];
+    if (slot < 0) continue;
+    const rgb = pal[slot];
+    d[p * 4] = rgb[0];
+    d[p * 4 + 1] = rgb[1];
+    d[p * 4 + 2] = rgb[2];
   }
   g.putImageData(data, 0, 0);
   if (kit && meta.palette.jersey && meta.palette.team) {
@@ -190,7 +202,16 @@ function printLayers(meta, slots, sheetW, pal, kit) {
 // The jersey in a frame without its stray bits (an eye, a speck): 1 for each pixel of a connected
 // patch of at least `min` pixels, frame-relative. An arm across his back can split the jersey in
 // two, and the number belongs on both pieces.
+// (kept for each slots array, which paletteSwap keeps for each image: it doesn't change with the colours)
+const patchCache = new WeakMap(); // slots -> Map(frame and min -> patches)
 function jerseyPatches(slots, sheetW, jerseyTone, fx, fy, fw, fh, min) {
+  let known = patchCache.get(slots);
+  if (!known) patchCache.set(slots, (known = new Map()));
+  const key = `${sheetW},${[...jerseyTone.keys()]},${fx},${fy},${fw},${fh},${min}`;
+  if (!known.has(key)) known.set(key, findPatches(slots, sheetW, jerseyTone, fx, fy, fw, fh, min));
+  return known.get(key);
+}
+function findPatches(slots, sheetW, jerseyTone, fx, fy, fw, fh, min) {
   const lab = new Int32Array(fw * fh).fill(-1);
   const sizes = [];
   for (let y = 0; y < fh; y++)

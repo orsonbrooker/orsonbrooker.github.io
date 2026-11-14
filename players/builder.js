@@ -935,6 +935,8 @@ function twinPrints() {
 }
 
 let repaintQueued = false;
+// The last coloured sheet with its gear on, so a change of height or build only re-stretches it.
+let dressedFor = null;
 function repaint() {
   if (repaintQueued) return;
   repaintQueued = true;
@@ -943,12 +945,17 @@ function repaint() {
     if (!current) return; // the body is still loading: chooseBase() paints when it's in
     if (current.video) {
       // their gear on, then their height and build
-      const img = recolor(current, colours);
-      const dressed = wearGear({ meta: current.meta, img, prints: twinPrints(), regions: current.regionsData }, worn, colours);
-      img.pixels = null; // (only needed by wearGear)
-      sheet = stretchSheet(dressed, dressed.regions, build);
+      const key = JSON.stringify(colours);
+      const d = dressedFor;
+      if (!d || d.base !== current || d.twin !== current.twin || d.worn !== worn || d.key !== key) {
+        const img = recolor(current, colours, undefined, { keep: true });
+        const dressed = wearGear({ meta: current.meta, img, prints: twinPrints(), regions: current.regionsData }, worn, colours);
+        img.pixels = null; // (only needed by wearGear)
+        dressedFor = { base: current, twin: current.twin, worn, key, dressed };
+      }
+      sheet = stretchSheet(dressedFor.dressed, dressedFor.dressed.regions, build);
     } else {
-      sheet = { meta: current.meta, img: recolor(current, colours), prints: null };
+      sheet = { meta: current.meta, img: recolor(current, colours, undefined, { keep: true }), prints: null };
       sheet.img.pixels = null;
     }
     showName();
