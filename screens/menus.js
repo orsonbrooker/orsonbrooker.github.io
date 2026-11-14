@@ -14,7 +14,7 @@ import { mode, modes, setPhase, state } from "../play/state.js";
 import { removeMyPlayer } from "../players/recolor.js";
 import { $, charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js";
 import { showDaily } from "../screens/over.js";
-import { chooseTeam, needsTeam, swatch } from "../screens/team.js";
+import { chooseTeam, needsTeam, swatch, teamOf } from "../screens/team.js";
 import { flagOn } from "../flags.js";
 import { myTeam, myTeamKit } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
@@ -113,27 +113,28 @@ function showWho() {
   const who = $("mode-player");
   who.replaceChildren(face, Object.assign(document.createElement("span"), { textContent: c.name })); // a kid's player's name: text only
   who.setAttribute("aria-label", `Playing as ${c.name}. Change player`);
-  const t = myTeam();
+  // Their own player's team, or (Orson and approved players) the device's.
+  const t = teamOf(c);
   const teamButton = $("mode-team");
   teamButton.hidden = !flagOn("teams");
-  dressTeamButton(teamButton);
-  teamButton.append(Object.assign(document.createElement("span"), { textContent: t ? t.name : "Choose your team" })); // may be a kid's: text only
+  dressTeamButton(teamButton, t?.kit);
+  teamButton.append(Object.assign(document.createElement("span"), { textContent: t?.name || "Choose your team" })); // may be a kid's: text only
+  teamButton.setAttribute("aria-label", t?.name ? `${c.mine ? `${c.name}'s team` : "Team"}: ${t.name}. Change team` : "Choose your team");
 }
 
-// A team button starts with the team's home kit (jersey, shorts, trim), or the team icon before one's chosen.
-function dressTeamButton(button) {
-  const kit = myTeamKit();
+// A team button starts with the kit (jersey, shorts, trim), or the team icon before one's chosen.
+function dressTeamButton(button, kit = myTeamKit()?.home) {
   button.replaceChildren();
-  if (kit) button.append(swatch(kit.home));
+  if (kit) button.append(swatch(kit));
   else button.insertAdjacentHTML("afterbegin", icon("players"));
 }
 
 /** Change player from Choose a game, then back to it. */
 export const changePlayer = () => openSelect("modes");
 
-/** Change team from Choose a game. */
+/** Change team from Choose a game: their own player's, or the device's for Orson and approved players. */
 export async function changeTeamFromModes() {
-  await chooseTeam();
+  await chooseTeam("", characters.list.find((p) => p.id === characters.selected));
   showWho();
 }
 
