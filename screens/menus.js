@@ -14,9 +14,9 @@ import { mode, modes, setPhase, state } from "../play/state.js";
 import { removeMyPlayer } from "../players/recolor.js";
 import { $, charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js";
 import { showDaily } from "../screens/over.js";
-import { chooseTeam, needsTeam } from "../screens/team.js";
+import { chooseTeam, needsTeam, swatch } from "../screens/team.js";
 import { flagOn } from "../flags.js";
-import { myTeam } from "../players/community.js";
+import { myTeam, myTeamKit } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
 
@@ -115,9 +115,16 @@ function showWho() {
   const t = myTeam();
   const teamButton = $("mode-team");
   teamButton.hidden = !flagOn("teams");
-  teamButton.replaceChildren();
-  teamButton.insertAdjacentHTML("afterbegin", icon("players"));
+  dressTeamButton(teamButton);
   teamButton.append(Object.assign(document.createElement("span"), { textContent: t ? t.name : "Choose your team" })); // may be a kid's: text only
+}
+
+// A team button starts with the team's home kit (jersey, shorts, trim), or the team icon before one's chosen.
+function dressTeamButton(button) {
+  const kit = myTeamKit();
+  button.replaceChildren();
+  if (kit) button.append(swatch(kit.home));
+  else button.insertAdjacentHTML("afterbegin", icon("players"));
 }
 
 /** Change player from Choose a game, then back to it. */
@@ -214,8 +221,7 @@ function showMyTeam() {
   button.hidden = !flagOn("teams") || !!team;
   if (button.hidden) return;
   const t = myTeam();
-  button.replaceChildren();
-  button.insertAdjacentHTML("afterbegin", icon("players"));
+  dressTeamButton(button);
   button.append(Object.assign(document.createElement("span"), { textContent: t ? `Team: ${t.name}` : "Choose your team" })); // may be a kid's: text only
 }
 

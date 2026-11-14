@@ -2333,3 +2333,14 @@ header p {
   border-radius: 4px;
   image-rendering: pixelated;
 }
+
+/* The team's kit on a team button: a light edge, so dark kits show on the dark button. */
+.panel .my-team .team-kit {
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 2px;
+}
+
+.panel .my-team .team-kit span {
+  width: 9px;
+  height: 20px;
+}

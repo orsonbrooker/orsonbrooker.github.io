@@ -17,7 +17,7 @@ const el = (tag, props = {}, ...children) => {
   node.append(...children);
   return node;
 };
-const swatch = (kit) => el("span", { className: "team-kit" }, ...["jersey", "shorts", "trim"].map((p) => el("span", { style: `background:${kit[p]}` })));
+export const swatch = (kit) => el("span", { className: "team-kit" }, ...["jersey", "shorts", "trim"].map((p) => el("span", { style: `background:${kit[p]}` })));
 
 /** Whether a game as this player needs the device to choose a team first. */
 export const needsTeam = (player, gameMode) => flagOn("teams") && !player?.mine && !gameMode.passAndPlay && !!gameMode.bestKey && !myTeam();
