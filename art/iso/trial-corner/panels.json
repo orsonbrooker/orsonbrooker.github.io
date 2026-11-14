@@ -1,0 +1,139 @@
+{
+ "note": "Trial: one gym corner redrawn at clean 2:1 as folding panels (docs/art/isometric.md). Built by tools/pixelart/iso_blender.py, baked by iso_bake.py; the rack and the scoreboard are shared props (art/iso/props/).",
+ "geometry": {
+  "origin": {
+   "x": 520,
+   "y": 1000
+  },
+  "eu": {
+   "x": -120,
+   "y": 60
+  },
+  "ev": {
+   "x": 120,
+   "y": 60
+  },
+  "room": {
+   "u": 4.0,
+   "v": 4.5
+  },
+  "pxPerM": 146.9693845669907,
+  "size": 1100
+ },
+ "scale": 5,
+ "wallHeight": 6.4639312656778305,
+ "needs": [
+  "floor",
+  "wall:hoop",
+  "wall:side"
+ ],
+ "image": "court.webp",
+ "panels": [
+  {
+   "id": "floor",
+   "kind": "floor",
+   "image": "floor.webp",
+   "at": [
+    45,
+    1000
+   ],
+   "order": 0
+  },
+  {
+   "id": "wall-hoop",
+   "kind": "wall",
+   "image": "wall-hoop.webp",
+   "at": [
+    35,
+    50
+   ],
+   "order": 1,
+   "plane": "hoop",
+   "hinge": [
+    [
+     520,
+     1000
+    ],
+    [
+     40,
+     1240
+    ]
+   ]
+  },
+  {
+   "id": "wall-side",
+   "kind": "wall",
+   "image": "wall-side.webp",
+   "at": [
+    515,
+    50
+   ],
+   "order": 2,
+   "plane": "side",
+   "hinge": [
+    [
+     520,
+     1000
+    ],
+    [
+     1060,
+     1270
+    ]
+   ]
+  },
+  {
+   "id": "rack-1",
+   "kind": "prop",
+   "prop": "art/iso/props/rack",
+   "along": "along-v",
+   "image": "../props/rack/rack-along-v.webp",
+   "at": [
+    595,
+    990
+   ],
+   "order": 3,
+   "on": "floor",
+   "foot": [
+    0.5,
+    2.6667
+   ],
+   "hinge": [
+    [
+     660,
+     1100
+    ],
+    [
+     960,
+     1250
+    ]
+   ]
+  },
+  {
+   "id": "scoreboard",
+   "kind": "prop",
+   "prop": "art/iso/props/scoreboard",
+   "along": "along-u",
+   "image": "../props/scoreboard/prop-scoreboard-along-u.webp",
+   "at": [
+    120,
+    340
+   ],
+   "order": 4,
+   "on": "wall-hoop",
+   "foot": [
+    1.875,
+    3.4021
+   ],
+   "hinge": [
+    [
+     465,
+     525
+    ],
+    [
+     125,
+     700
+    ]
+   ]
+  }
+ ]
+}

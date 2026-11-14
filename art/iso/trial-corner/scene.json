@@ -1,0 +1,447 @@
+{
+ "note": "Trial: one gym corner redrawn at clean 2:1 as folding panels (docs/art/isometric.md). Built by tools/pixelart/iso_blender.py, baked by iso_bake.py; the rack and the scoreboard are shared props (art/iso/props/).",
+ "scale": 5,
+ "artPerM": 24,
+ "canvas": [
+  220,
+  310
+ ],
+ "origin": [
+  104,
+  200
+ ],
+ "room": {
+  "u": 4.0,
+  "v": 4.5
+ },
+ "wallHeightPx": 190,
+ "light": [
+  0.55,
+  0.2,
+  0.81
+ ],
+ "markings": [
+  {
+   "what": "blue out-of-bounds edge along the baseline and sideline, 0.25 m wide",
+   "material": "blue",
+   "rects": [
+    [
+     0.75,
+     0.75,
+     4.0,
+     1.0
+    ],
+    [
+     0.75,
+     0.75,
+     1.0,
+     4.5
+    ]
+   ]
+  },
+  {
+   "what": "baseline and sideline, 1/12 m wide (2 px)",
+   "material": "line",
+   "rects": [
+    [
+     1.0,
+     1.0,
+     4.0,
+     1.0833333333333333
+    ],
+    [
+     1.0,
+     1.0,
+     1.0833333333333333,
+     4.5
+    ]
+   ]
+  },
+  {
+   "what": "the 3-point line's straight corner part",
+   "material": "line",
+   "rects": [
+    [
+     1.6666666666666667,
+     1.0833333333333333,
+     1.75,
+     4.5
+    ]
+   ]
+  }
+ ],
+ "panels": {
+  "floor": {
+   "kind": "floor"
+  },
+  "wall-hoop": {
+   "kind": "wall",
+   "plane": "hoop"
+  },
+  "wall-side": {
+   "kind": "wall",
+   "plane": "side"
+  }
+ },
+ "props": [
+  {
+   "id": "rack-1",
+   "prop": "art/iso/props/rack",
+   "along": "along-v",
+   "foot": [
+    0.5,
+    2.6666666666666665
+   ]
+  },
+  {
+   "id": "scoreboard",
+   "prop": "art/iso/props/scoreboard",
+   "along": "along-u",
+   "on": "wall-hoop",
+   "foot": [
+    1.875,
+    3.402069087198859
+   ]
+  }
+ ],
+ "shapes": [
+  {
+   "name": "floor",
+   "panel": "floor",
+   "material": "wood",
+   "shape": "poly",
+   "points": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     4.0,
+     0,
+     0
+    ],
+    [
+     4.0,
+     4.5,
+     0
+    ],
+    [
+     0,
+     4.5,
+     0
+    ]
+   ]
+  },
+  {
+   "name": "hoop wall",
+   "panel": "wall-hoop",
+   "material": "brick",
+   "shape": "poly",
+   "points": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     4.0,
+     0,
+     0
+    ],
+    [
+     4.0,
+     0,
+     6.463931265677831
+    ],
+    [
+     0,
+     0,
+     6.463931265677831
+    ]
+   ],
+   "face": "hoop"
+  },
+  {
+   "name": "side wall",
+   "panel": "wall-side",
+   "material": "brick",
+   "shape": "poly",
+   "points": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     4.5,
+     0
+    ],
+    [
+     0,
+     4.5,
+     6.463931265677831
+    ],
+    [
+     0,
+     0,
+     6.463931265677831
+    ]
+   ],
+   "face": "side"
+  },
+  {
+   "name": "skirting",
+   "panel": "wall-hoop",
+   "material": "skirting",
+   "shape": "box",
+   "min": [
+    0,
+    0,
+    0
+   ],
+   "max": [
+    4.0,
+    0.02,
+    0.17
+   ],
+   "face": "hoop"
+  },
+  {
+   "name": "top trim",
+   "panel": "wall-hoop",
+   "material": "cap",
+   "shape": "box",
+   "min": [
+    0,
+    0,
+    6.243931265677832
+   ],
+   "max": [
+    4.0,
+    0.05,
+    6.463931265677831
+   ],
+   "face": "hoop"
+  },
+  {
+   "name": "skirting",
+   "panel": "wall-side",
+   "material": "skirting",
+   "shape": "box",
+   "min": [
+    0,
+    0.02,
+    0
+   ],
+   "max": [
+    0.02,
+    4.5,
+    0.17
+   ],
+   "face": "side"
+  },
+  {
+   "name": "top trim",
+   "panel": "wall-side",
+   "material": "cap",
+   "shape": "box",
+   "min": [
+    0,
+    0.05,
+    6.243931265677832
+   ],
+   "max": [
+    0.05,
+    4.5,
+    6.463931265677831
+   ],
+   "face": "side"
+  },
+  {
+   "name": "pennant",
+   "panel": "wall-hoop",
+   "material": "pennant",
+   "shape": "poly",
+   "points": [
+    [
+     1.4,
+     0.06,
+     2.75
+    ],
+    [
+     1.4,
+     0.06,
+     2.3
+    ],
+    [
+     2.5,
+     0.06,
+     2.55
+    ]
+   ],
+   "face": "hoop",
+   "hang": 0.06,
+   "hoist": 0.12
+  },
+  {
+   "name": "banner",
+   "panel": "wall-side",
+   "material": "banner",
+   "shape": "poly",
+   "points": [
+    [
+     0.06,
+     0.7,
+     3.45
+    ],
+    [
+     0.06,
+     1.5,
+     3.45
+    ],
+    [
+     0.06,
+     1.5,
+     2.7
+    ],
+    [
+     0.06,
+     1.1,
+     2.45
+    ],
+    [
+     0.06,
+     0.7,
+     2.7
+    ]
+   ],
+   "face": "side",
+   "hang": 0.06,
+   "badge": [
+    0.06,
+    1.1,
+    3.0
+   ]
+  },
+  {
+   "name": "banner rod",
+   "panel": "wall-side",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.0,
+    0.62,
+    3.45
+   ],
+   "max": [
+    0.08,
+    1.58,
+    3.5
+   ],
+   "face": "side"
+  },
+  {
+   "name": "glass",
+   "panel": "wall-side",
+   "material": "glass",
+   "shape": "poly",
+   "points": [
+    [
+     0.01,
+     2.25,
+     3.5
+    ],
+    [
+     0.01,
+     4.0,
+     3.5
+    ],
+    [
+     0.01,
+     4.0,
+     4.7
+    ],
+    [
+     0.01,
+     2.25,
+     4.7
+    ]
+   ],
+   "face": "side",
+   "panes": [
+    4,
+    2
+   ]
+  },
+  {
+   "name": "frame",
+   "panel": "wall-side",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    0,
+    2.17,
+    4.7
+   ],
+   "max": [
+    0.06,
+    4.08,
+    4.78
+   ],
+   "face": "side"
+  },
+  {
+   "name": "frame",
+   "panel": "wall-side",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    0,
+    2.17,
+    3.42
+   ],
+   "max": [
+    0.06,
+    2.25,
+    4.7
+   ],
+   "face": "side"
+  },
+  {
+   "name": "frame",
+   "panel": "wall-side",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    0,
+    4.0,
+    3.42
+   ],
+   "max": [
+    0.06,
+    4.08,
+    4.7
+   ],
+   "face": "side"
+  },
+  {
+   "name": "sill",
+   "panel": "wall-side",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    0,
+    2.11,
+    3.36
+   ],
+   "max": [
+    0.13,
+    4.14,
+    3.42
+   ],
+   "face": "side"
+  }
+ ]
+}

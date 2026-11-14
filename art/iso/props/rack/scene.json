@@ -1,0 +1,265 @@
+{
+ "note": "A ball rack for the 3-point contest: a prop any court can stand on its floor. Its foot (0, 0) is the middle of its footprint. Balls are the game's own ball sprite (engine/draw.js) at 16 art px: BALL_R (0.23 m) on the floor's scale, the size the game draws its ball.",
+ "prop": true,
+ "scale": 5,
+ "artPerM": 24,
+ "canvas": [
+  120,
+  110
+ ],
+ "origin": [
+  60,
+  70
+ ],
+ "light": [
+  0.55,
+  0.2,
+  0.81
+ ],
+ "orientations": [
+  "along-u",
+  "along-v"
+ ],
+ "shapes": [
+  {
+   "name": "post",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -1.25,
+    -0.25,
+    0
+   ],
+   "max": [
+    -1.19,
+    -0.19,
+    0.72
+   ]
+  },
+  {
+   "name": "post",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -1.25,
+    0.19,
+    0
+   ],
+   "max": [
+    -1.19,
+    0.25,
+    0.72
+   ]
+  },
+  {
+   "name": "post",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    1.19,
+    -0.25,
+    0
+   ],
+   "max": [
+    1.25,
+    -0.19,
+    0.72
+   ]
+  },
+  {
+   "name": "post",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    1.19,
+    0.19,
+    0
+   ],
+   "max": [
+    1.25,
+    0.25,
+    0.72
+   ]
+  },
+  {
+   "name": "rail",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -1.25,
+    -0.25,
+    0.14
+   ],
+   "max": [
+    1.25,
+    -0.19,
+    0.2
+   ]
+  },
+  {
+   "name": "rail",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -1.25,
+    0.19,
+    0.14
+   ],
+   "max": [
+    1.25,
+    0.25,
+    0.2
+   ]
+  },
+  {
+   "name": "end rail",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -1.25,
+    -0.25,
+    0.14
+   ],
+   "max": [
+    -1.19,
+    0.25,
+    0.2
+   ]
+  },
+  {
+   "name": "end rail",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    1.19,
+    -0.25,
+    0.14
+   ],
+   "max": [
+    1.25,
+    0.25,
+    0.2
+   ]
+  },
+  {
+   "name": "rail",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -1.25,
+    -0.25,
+    0.46
+   ],
+   "max": [
+    1.25,
+    -0.19,
+    0.52
+   ]
+  },
+  {
+   "name": "rail",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -1.25,
+    0.19,
+    0.46
+   ],
+   "max": [
+    1.25,
+    0.25,
+    0.52
+   ]
+  },
+  {
+   "name": "end rail",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    -1.25,
+    -0.25,
+    0.46
+   ],
+   "max": [
+    -1.19,
+    0.25,
+    0.52
+   ]
+  },
+  {
+   "name": "end rail",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    1.19,
+    -0.25,
+    0.46
+   ],
+   "max": [
+    1.25,
+    0.25,
+    0.52
+   ]
+  },
+  {
+   "name": "ball",
+   "shape": "ball",
+   "centre": [
+    -0.96,
+    0,
+    0.5871
+   ],
+   "r": 0.23,
+   "look": "normal",
+   "turn": 0.3
+  },
+  {
+   "name": "ball",
+   "shape": "ball",
+   "centre": [
+    -0.48,
+    0,
+    0.5871
+   ],
+   "r": 0.23,
+   "look": "normal",
+   "turn": 1.2
+  },
+  {
+   "name": "ball",
+   "shape": "ball",
+   "centre": [
+    0.0,
+    0,
+    0.5871
+   ],
+   "r": 0.23,
+   "look": "normal",
+   "turn": 2.1
+  },
+  {
+   "name": "ball",
+   "shape": "ball",
+   "centre": [
+    0.48,
+    0,
+    0.5871
+   ],
+   "r": 0.23,
+   "look": "normal",
+   "turn": 3.0
+  },
+  {
+   "name": "ball",
+   "shape": "ball",
+   "centre": [
+    0.96,
+    0,
+    0.5871
+   ],
+   "r": 0.23,
+   "look": "money",
+   "turn": 3.9
+  }
+ ]
+}

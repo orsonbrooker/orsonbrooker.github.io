@@ -1,0 +1,263 @@
+{
+ "note": "A wall scoreboard any court can hang on either wall. Its foot (0, 0, 0) is the middle of its bottom back edge, on the wall. The face is painted in its own pixels (tools/pixelart/iso_bake.py scoreface): windows with unlit digit segments, which the game lights, and labels. prop.json says where each digit's segments are.",
+ "scale": 5,
+ "orientations": {
+  "along-u": {
+   "image": "prop-scoreboard-along-u.webp",
+   "foot": [
+    175,
+    270
+   ],
+   "footprint": [
+    [
+     -1.4167,
+     0,
+     0
+    ],
+    [
+     1.4167,
+     0.12,
+     1.2247
+    ]
+   ],
+   "hinge": [
+    [
+     -1.4167,
+     0,
+     0
+    ],
+    [
+     1.4167,
+     0,
+     0
+    ]
+   ],
+   "height": 1.2247,
+   "wall": "hoop",
+   "face": {
+    "start": [
+     1.3333333333333333,
+     0.06804138174397717
+    ],
+    "reading": -1,
+    "size": [
+     64,
+     32
+    ],
+    "segments": {
+     "a": [
+      0,
+      13,
+      8,
+      15
+     ],
+     "g": [
+      0,
+      6,
+      8,
+      8
+     ],
+     "d": [
+      0,
+      0,
+      8,
+      2
+     ],
+     "f": [
+      0,
+      7,
+      2,
+      15
+     ],
+     "b": [
+      6,
+      7,
+      8,
+      15
+     ],
+     "e": [
+      0,
+      0,
+      2,
+      7
+     ],
+     "c": [
+      6,
+      0,
+      8,
+      7
+     ]
+    },
+    "digit": [
+     8,
+     15
+    ],
+    "windows": [
+     {
+      "id": "score",
+      "cells": [
+       [
+        5,
+        5
+       ],
+       [
+        15,
+        5
+       ],
+       [
+        25,
+        5
+       ]
+      ]
+     },
+     {
+      "id": "time",
+      "cells": [
+       [
+        41,
+        5
+       ],
+       [
+        51,
+        5
+       ]
+      ]
+     }
+    ],
+    "colours": {
+     "lit": "#d0553c",
+     "unlit": "#532837"
+    }
+   }
+  },
+  "along-v": {
+   "image": "prop-scoreboard-along-v.webp",
+   "foot": [
+    190,
+    270
+   ],
+   "footprint": [
+    [
+     0,
+     -1.4167,
+     0
+    ],
+    [
+     0.12,
+     1.4167,
+     1.2247
+    ]
+   ],
+   "hinge": [
+    [
+     0,
+     -1.4167,
+     0
+    ],
+    [
+     0,
+     1.4167,
+     0
+    ]
+   ],
+   "height": 1.2247,
+   "wall": "side",
+   "face": {
+    "start": [
+     -1.3333333333333333,
+     0.06804138174397717
+    ],
+    "reading": 1,
+    "size": [
+     64,
+     32
+    ],
+    "segments": {
+     "a": [
+      0,
+      13,
+      8,
+      15
+     ],
+     "g": [
+      0,
+      6,
+      8,
+      8
+     ],
+     "d": [
+      0,
+      0,
+      8,
+      2
+     ],
+     "f": [
+      0,
+      7,
+      2,
+      15
+     ],
+     "b": [
+      6,
+      7,
+      8,
+      15
+     ],
+     "e": [
+      0,
+      0,
+      2,
+      7
+     ],
+     "c": [
+      6,
+      0,
+      8,
+      7
+     ]
+    },
+    "digit": [
+     8,
+     15
+    ],
+    "windows": [
+     {
+      "id": "score",
+      "cells": [
+       [
+        5,
+        5
+       ],
+       [
+        15,
+        5
+       ],
+       [
+        25,
+        5
+       ]
+      ]
+     },
+     {
+      "id": "time",
+      "cells": [
+       [
+        41,
+        5
+       ],
+       [
+        51,
+        5
+       ]
+      ]
+     }
+    ],
+    "colours": {
+     "lit": "#d0553c",
+     "unlit": "#532837"
+    }
+   }
+  }
+ },
+ "mount": "wall"
+}

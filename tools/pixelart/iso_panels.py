@@ -8,7 +8,10 @@ A panel set is a folder per court, assets/courts/<court id>/, holding:
   wall-hoop.webp   the hoop wall (the plane v = 0), with what's painted on it
   wall-side.webp   the side wall (the plane u = 0)
   hoop.webp        backboard, rim and net
-  prop-<name>.webp each prop on its own (prop-bench, prop-scoreboard, ...); racks are rack-<n>.webp
+  prop-<name>.webp each prop on its own (prop-bench, prop-scoreboard, ...); racks are rack-<n>.webp. A shared prop
+                   (the ball rack, art/iso/props/rack/) isn't copied in: its entry's image is a path to the prop's
+                   own picture (rack-along-v.webp), and it carries its shadow (on the floor, or on the wall for a
+                   wall prop like the scoreboard, prop-scoreboard-along-u.webp) as see-through pixels
   court.webp       the panels laid out flat: the picture the game shows until the fold-up intro exists
 
 panels.json:
@@ -19,6 +22,8 @@ panels.json:
     "scale": 5,                        court pixels per art pixel
     "wallHeight": 4.0,                 game metres, both walls
     "image": "court.webp",             the flat court the panels must add up to
+    "needs": ["floor", "wall:hoop"],   optional, for part of a court: the panels it covers (default: floor,
+                                       both walls and the hoop)
     "panels": [
       {"id": "floor", "kind": "floor", "image": "floor.webp", "at": [x, y], "order": 0},
       {"id": "wall-hoop", "kind": "wall", "plane": "hoop", "image": "wall-hoop.webp", "at": [x, y], "order": 1,
@@ -87,7 +92,10 @@ def check_panels(manifest_path, court_def=None, evaluate=None):
 
     # 1. the panels are there, each on its own layer
     have = {(p["kind"], p.get("plane")) for p in panels}
-    missing = [f"{kind} ({plane})" if plane else kind for kind, plane in REQUIRED - have]
+    need = REQUIRED
+    if m.get("needs"):  # a part of a court (a trial corner, say) lists what it covers
+        need = {(n.split(":")[0], n.split(":")[1] if ":" in n else None) for n in m["needs"]}
+    missing = [f"{kind} ({plane})" if plane else kind for kind, plane in need - have]
     loose = [p["id"] for p in panels if p["kind"] in ("hoop", "prop") and p.get("on") not in byid]
     no_file = [p["id"] for p in panels if not (mp.parent / p["image"]).exists()]
     checks.append(_check("panels present", not missing and not loose and not no_file,
@@ -118,7 +126,7 @@ def check_panels(manifest_path, court_def=None, evaluate=None):
     hand = []
     want_name = {"floor": lambda p: p["image"] == "floor.webp", "hoop": lambda p: p["image"] == "hoop.webp",
                  "wall": lambda p: p["image"] == f"wall-{p.get('plane')}.webp",
-                 "prop": lambda p: p["image"].startswith(("prop-", "rack-")) and p["image"].endswith(".webp")}
+                 "prop": lambda p: Path(p["image"]).name.startswith(("prop-", "rack-")) and p["image"].endswith(".webp")}
     names = [p["id"] for p in panels if not want_name[p["kind"]](p)]
     if names:
         hand.append("file names not as the spec says: " + ", ".join(names))
@@ -190,7 +198,7 @@ def check_panels(manifest_path, court_def=None, evaluate=None):
         x1, _ = end(1)
         n = max(2, int(abs(x1 - x0) / k))
         worst = 0.0
-        for i in range(1, n):  # stop short of the ends, where the corner pixels belong to both
+        for i in range(2, n - 1):  # stop an art pixel short of the ends, where the corner pixels belong to both
             x, y = end(i / n)
             wy, fy = edge_y(walls[plane], x, True), edge_y(floor, x, False)
             if wy is None or fy is None:
@@ -263,8 +271,9 @@ def check_panels(manifest_path, court_def=None, evaluate=None):
             h, w = a.shape[:2]
             region = comp[y:y + h, x:x + w]
             src = a[: region.shape[0], : region.shape[1]]
-            on = src[..., 3] > 0
-            region[on] = src[on]
+            sa = src[..., 3:] / 255  # laid over what's under it (a prop's see-through shadow blends)
+            region[..., :3] = src[..., :3] * sa + region[..., :3] * (1 - sa)
+            region[..., 3:] = np.maximum(region[..., 3:], src[..., 3:])
         both = (flat[..., 3] > 0) | (comp[..., 3] > 0)
         diff = (np.abs(flat[..., :3] - comp[..., :3]).sum(-1) > 24) | ((flat[..., 3] > 0) != (comp[..., 3] > 0))
         share = float(diff[both].mean()) if both.any() else 0.0

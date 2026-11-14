@@ -69,6 +69,12 @@ class IsoEval(unittest.TestCase):
         bad = {k: v["detail"] for k, v in checks.items() if not v["ok"]}
         self.assertEqual(bad, {})
 
+    def test_exact_grid_is_not_read_as_half(self):
+        # clean art on an exact 5 px grid repeats just as well at 2.5 px; the eval must say 5
+        for k in (3, 5, 6):
+            _, card = score(block(scale=k))
+            self.assertAlmostEqual(card["grid"]["cell"], k, delta=0.02)
+
     def test_native_size_is_read_as_is(self):
         checks, card = score(block(scale=1))
         self.assertTrue(card["grid"]["native"])
@@ -89,6 +95,43 @@ class IsoEval(unittest.TestCase):
         im = block(scale=1).resize((49 * 4, 61 * 4), Image.BILINEAR)
         checks, _ = score(im, kind="prop")
         self.assertFalse(checks["hard edges"]["ok"])
+
+    def test_flat_shadow_is_allowed_on_props(self):
+        # a prop carries its floor shadow: one dark colour at one see-through level is fine, a soft fade isn't
+        a = np.array(block(scale=1))
+        h, w = a.shape[:2]
+        out = np.zeros((h + 8, w + 8, 4), np.uint8)
+        out[h - 4:h + 8, 4:w + 8] = (24, 8, 38, 84)
+        out[:h, :w][a[..., 3] > 0] = a[a[..., 3] > 0]
+        im = Image.fromarray(out).resize(((w + 8) * 4, (h + 8) * 4), Image.NEAREST)
+        checks, _ = score(im, kind="prop")
+        self.assertTrue(checks["hard edges"]["ok"], checks["hard edges"]["detail"])
+        out[h - 4:h + 8, 4:w + 8, 3] = np.linspace(20, 120, w + 4).astype(np.uint8)
+        out[:h, :w][a[..., 3] > 0] = a[a[..., 3] > 0]
+        checks, _ = score(Image.fromarray(out).resize(((w + 8) * 4, (h + 8) * 4), Image.NEAREST), kind="prop")
+        self.assertFalse(checks["hard edges"]["ok"])
+
+    def test_game_ball_is_left_out_of_outline_rules(self):
+        # the game's own ball sprite is round with seams meeting its edge; drawn next to the block it mustn't fail it
+        import iso_bake as B
+        a = np.array(block(scale=1))
+        h, w = a.shape[:2]
+        out = np.zeros((h, w + 40, 4), np.uint8)
+        out[:, :w] = a
+        for i, x in enumerate((w + 2, w + 20)):
+            out[10:28, x:x + 18] = B.ball_sprite(18, "normal", i * 0.9)
+        checks, _ = score(Image.fromarray(out).resize(((w + 40) * 4, h * 4), Image.NEAREST), kind="prop")
+        self.assertTrue(checks["outlines one pixel wide"]["ok"], checks["outlines one pixel wide"]["detail"])
+        self.assertTrue(checks["lines match the camera"]["ok"], checks["lines match the camera"]["detail"])
+
+    def test_one_way_lines_are_read_one_way(self):
+        # a wall prop has lines only along its wall (its sides are a few pixels deep): the faint other way isn't
+        # read as a wrong slope. The baked scoreboard, both ways round.
+        for o in ("along-u", "along-v"):
+            card, _ = E.evaluate(E.ROOT / f"art/iso/props/scoreboard/prop-scoreboard-{o}.webp", kind="prop", line_ratio=0.5)
+            c = {x["name"]: x for x in card["checks"]}["lines match the camera"]
+            self.assertTrue(c["ok"], c["detail"])
+            self.assertEqual(len(c["value"]), 1, c["detail"])
 
     def test_stray_pixels_fail(self):
         a = np.array(block(scale=1))

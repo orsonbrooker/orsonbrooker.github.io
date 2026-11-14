@@ -1,0 +1,71 @@
+{
+ "note": "A ball rack for the 3-point contest: a prop any court can stand on its floor. Its foot (0, 0) is the middle of its footprint. Balls are the game's own ball sprite (engine/draw.js) at 16 art px: BALL_R (0.23 m) on the floor's scale, the size the game draws its ball.",
+ "scale": 5,
+ "orientations": {
+  "along-u": {
+   "image": "rack-along-u.webp",
+   "foot": [
+    185,
+    200
+   ],
+   "footprint": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     0.25,
+     0.72
+    ]
+   ],
+   "hinge": [
+    [
+     -1.25,
+     -0.25,
+     0
+    ],
+    [
+     1.25,
+     -0.25,
+     0
+    ]
+   ],
+   "height": 0.72
+  },
+  "along-v": {
+   "image": "rack-along-v.webp",
+   "foot": [
+    185,
+    200
+   ],
+   "footprint": [
+    [
+     -0.25,
+     -1.25,
+     0
+    ],
+    [
+     0.25,
+     1.25,
+     0.72
+    ]
+   ],
+   "hinge": [
+    [
+     -0.25,
+     -1.25,
+     0
+    ],
+    [
+     -0.25,
+     1.25,
+     0
+    ]
+   ],
+   "height": 0.72
+  }
+ },
+ "mount": "floor"
+}

@@ -1,6 +1,6 @@
 {
  "from": "assets/court.webp",
- "note": "the 32 main colours of court.webp at its own size (made by iso_eval.py --make-palette); new isometric art uses these",
+ "note": "the 32 main colours of court.webp at its own size (made by iso_eval.py --make-palette); new isometric art uses these. After them, the game's own ball colours (engine/draw.js at rack size, from iso_bake.ball_colours): the ball keeps its colours wherever it's drawn",
  "colours": [
   "#6e3b3c",
   "#793540",
@@ -33,7 +33,23 @@
   "#400c22",
   "#532837",
   "#a5788e",
-  "#a67a8d"
+  "#a67a8d",
+  "#3a1a10",
+  "#4a2211",
+  "#4a2c08",
+  "#5b2a12",
+  "#623b08",
+  "#7a4a08",
+  "#843a18",
+  "#93610e",
+  "#b5501d",
+  "#c48412",
+  "#de6d2b",
+  "#ea8642",
+  "#f0b424",
+  "#f39a55",
+  "#f8d76c",
+  "#fff3a6"
  ],
  "share": [
   0.0274,
@@ -68,5 +84,6 @@
   0.0603,
   0.167,
   0.1567
- ]
+ ],
+ "ball_from": 32
 }

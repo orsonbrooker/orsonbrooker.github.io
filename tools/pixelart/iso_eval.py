@@ -148,6 +148,16 @@ def period_phase(profile, lo=1.5, hi=16.0):
         if abs(z[k]) / total > best[0]:
             best = (abs(z[k]) / total, float(chunk[k]), z[k])
     s, p, z = best
+    # art on an exact whole-pixel grid repeats just as strongly at a half or a third of its pixel size (every
+    # edge is also on those finer grids): take the biggest whole multiple that repeats as strongly
+    for mult in range(6, 1, -1):
+        q = p * mult
+        if q > hi:
+            continue
+        zq = (np.exp(-2j * np.pi * x / q) * d).sum()
+        if abs(zq) / total >= 0.9 * s:
+            p, z, s = q, zq, abs(zq) / total
+            break
     phase = (-np.angle(z) / (2 * np.pi) * p) % p
     return float(p), float(phase), float(s)
 
@@ -264,6 +274,11 @@ def line_angles(lab_l, opaque):
         out[side] = float(slopes[i]) if prom[i] > 0.02 and longest[i] >= 12 else None
         out[side + "_longest"] = int(longest[i])
         out[side + "_peak"] = round(float(prom[i]), 3)
+    # a thing with lines only one way (a wall prop: its face runs along the wall, its sides are a few pixels deep;
+    # a rack's end rails) has no real lines the other way: what's there is too faint to read a slope from
+    hi, lo = sorted(("right", "left"), key=lambda k: -out[k + "_peak"])
+    if out[hi] is not None and out[hi + "_peak"] > 0.15 and out[lo + "_peak"] < 0.25 * out[hi + "_peak"]:
+        out[lo] = None
     return out
 
 
@@ -304,8 +319,10 @@ def outline_lines(lab, opaque):
     return line, thick
 
 
-def outline_checks(lab, opaque):
+def outline_checks(lab, opaque, skip=None):
     m, thick = outline_lines(lab, opaque)
+    if skip is not None:  # pixels left out of the count (the game's own ball, which isn't drawn to these rules)
+        m, thick = m & ~skip, thick & ~skip
     # a pixel is thick only if it's thick across both ways it's crossed (a line seen along its length isn't)
     total = int(m.sum())
     if total == 0:
@@ -502,6 +519,16 @@ def check(name, ok, value, limit, detail):
     return {"name": name, "ok": bool(ok), "value": value, "limit": limit, "detail": detail}
 
 
+def game_ball_colours():
+    """The game's own ball colours (engine/draw.js), listed after the gym's in art/iso/palette.json from `ball_from`."""
+    f = ISO / "palette.json"
+    if not f.exists():
+        return np.zeros((0, 3), int)
+    p = json.loads(f.read_text())
+    cols = p["colours"][p.get("ball_from", len(p["colours"])):]
+    return np.array([[int(h[i:i + 2], 16) for i in (1, 3, 5)] for h in cols], int).reshape(-1, 3)
+
+
 def evaluate(path, court=None, crop=None, kind=None, palette=None, line_ratio=None):
     target = LIMITS["line_ratio"] if line_ratio is None else line_ratio
     img = Image.open(path).convert("RGBA")
@@ -523,6 +550,10 @@ def evaluate(path, court=None, crop=None, kind=None, palette=None, line_ratio=No
     nop = native[..., 3] >= 128
     nlab = srgb_to_lab(native[..., :3])
     pts = nlab[nop]
+    # the game's ball, wherever it's drawn (a rack of balls): its own sprite, round with seams, so it's left out of
+    # the line and outline checks
+    bc = game_ball_colours()
+    ball = nop & (native[..., :3].astype(int)[..., None, :] == bc[None, None]).all(-1).any(-1) if len(bc) else np.zeros_like(nop)
 
     checks = []
     cell = grid["cell"]
@@ -546,7 +577,7 @@ def evaluate(path, court=None, crop=None, kind=None, palette=None, line_ratio=No
                         f"{len(shifted)} of {len(tiles)} busy tiles sit off the image's grid by over a quarter cell"))
 
     # 2. lines
-    line_mask = nop
+    line_mask = nop & ~ball
     if court:
         # on a court, measure the floor only (walls and furniture have their own lines)
         c = court_def(court)
@@ -555,7 +586,7 @@ def evaluate(path, court=None, crop=None, kind=None, palette=None, line_ratio=No
         det = eu["x"] * ev["y"] - ev["x"] * eu["y"]
         du, dv = gx - o["x"], gy - o["y"]
         fu, fv = (du * ev["y"] - ev["x"] * dv) / det, (eu["x"] * dv - du * eu["y"]) / det
-        line_mask = nop & (fu > 0.2) & (fv > 0.2) & (fu < c["room"]["u"] - 0.2) & (fv < c["room"]["v"] - 0.2)
+        line_mask = nop & ~ball & (fu > 0.2) & (fv > 0.2) & (fu < c["room"]["u"] - 0.2) & (fv < c["room"]["v"] - 0.2)
     la = line_angles(nlab[..., 0], line_mask)
     if la["right"] is None and la["left"] is None:
         checks.append(check("lines match the camera", True, None, f"{target} +/- {LIMITS['line_ratio_tol']}", "no long diagonal lines to measure"))
@@ -585,7 +616,7 @@ def evaluate(path, court=None, crop=None, kind=None, palette=None, line_ratio=No
                         f"{len(shifted_r)} of {len(rp)} colour ramps move hue from shadow to light" if rp else "no ramps of 3+ shades found"))
 
     # 4. outlines and stray pixels
-    total, thick, doubled, thick_m, doubled_m = outline_checks(nlab, nop)
+    total, thick, doubled, thick_m, doubled_m = outline_checks(nlab, nop, ball)
     checks.append(check("outlines one pixel wide", thick <= LIMITS["outline_thick_share"], round(float(thick), 3), LIMITS["outline_thick_share"],
                         f"{thick:.0%} of {total} dark line pixels are in a line 2 to 4 pixels thick"))
     if total:
@@ -603,9 +634,21 @@ def evaluate(path, court=None, crop=None, kind=None, palette=None, line_ratio=No
                         f"{int(stray.sum())} lone pixels ({per:.1f} per 1000)"))
 
     if kind == "prop":
-        soft = ((alpha > 0) & (alpha < 255)).sum() / max(1, (alpha > 0).sum())
+        part = (alpha > 0) & (alpha < 255)
+        shadow = 0
+        if part.any():
+            # a prop's shadow on the floor is allowed: one dark colour at one see-through level, hard-edged
+            # (docs/art/isometric.md, "Props carry their shadow")
+            keys = rgba[part][:, :4].astype(np.int64) @ np.array([1 << 24, 1 << 16, 1 << 8, 1])
+            vals, counts = np.unique(keys, return_counts=True)
+            top = vals[counts.argmax()]
+            r, g, b = (top >> 24) & 255, (top >> 16) & 255, (top >> 8) & 255
+            if srgb_to_lab(np.array([[r, g, b]], float))[0, 0] < 25:
+                shadow = int(counts.max())
+        soft = (part.sum() - shadow) / max(1, (alpha > 0).sum())
         checks.append(check("hard edges", soft <= LIMITS["soft_edge_share"], round(float(soft), 4), LIMITS["soft_edge_share"],
-                            f"{soft:.1%} of visible pixels are partly see-through"))
+                            f"{soft:.1%} of visible pixels are partly see-through"
+                            + (f" (besides its shadow, {shadow} pixels of one dark colour)" if shadow else "")))
 
     marks = {"stray": stray, "thick": thick_m, "doubled": doubled_m}
     arc = None
