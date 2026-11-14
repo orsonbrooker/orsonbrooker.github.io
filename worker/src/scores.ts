@@ -56,8 +56,8 @@ const FEATURE_FROM = {
 	movingGreen: "2026-11-07 00:53:00",
 	// The 3-point contest (racks of five, a money ball last in each).
 	threePointContest: "2026-11-07 00:53:00",
-	// Top teams (teams.ts): only games from here on count for a team. Set it to when it goes live.
-	teams: "2026-11-13 00:00:00",
+	// Top teams (teams.ts): only games from here on count for a team.
+	teams: "2026-11-14 10:42:00",
 };
 export const hadFeature = (createdAt: unknown, feature: keyof typeof FEATURE_FROM) => String(createdAt) >= FEATURE_FROM[feature];
 export const featureFrom = (feature: keyof typeof FEATURE_FROM) => FEATURE_FROM[feature];
