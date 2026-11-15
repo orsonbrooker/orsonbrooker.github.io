@@ -1332,6 +1332,7 @@ function openDone() {
   void doneSheet.offsetHeight; // lay it out below the screen first, so it slides up
   document.body.classList.add("finishing");
   if (!turnstileStarted) setupTurnstile();
+  prepareSoon(0); // the game's sheet for them, made while they type a nickname
 }
 function closeDone() {
   if (doneSheet.open) doneSheet.close();
@@ -1420,7 +1421,7 @@ async function setupTurnstile() {
 // things, so pressing Play doesn't wait for it; Play waits for one that's nearly done.
 let preparing = null;
 let prepareTimer = 0;
-function prepareSoon() {
+function prepareSoon(wait = 1200) {
   clearTimeout(prepareTimer);
   prepareTimer = setTimeout(() => {
     if (!current) return;
@@ -1428,7 +1429,7 @@ function prepareSoon() {
     const p = (preparing ?? Promise.resolve()).then(() => prepareBuilt(entry)).catch(() => {}); // one at a time
     preparing = p;
     p.finally(() => preparing === p && (preparing = null));
-  }, 1200);
+  }, wait);
 }
 
 // What's saved with a player: their colours (with the team's name) and, for a kid from video, their size and gear.
