@@ -552,10 +552,15 @@ The game and the Worker use the same scoring rules from `shared/rules.js` (`reco
 `ballPoints`, `FIRE_RULES`, modes), so the server recounts a game exactly as the game scored it. The checks in
 the middle are `checkGame` and `oddFlags` in `worker/src/scoring.ts`.
 
-The Leaderboard screen shows each board's top 10 (`GET /api/scores`, cached briefly). When this device's best
-row is further down, the game also asks `POST /api/scores/around` (the device id in the body, never the URL,
-limited per IP like the preview) and shows "Your place": that row with the two above and two below, under the
-top 10 (`drawNear` in `leaderboard.js`).
+The Leaderboard screen shows each board's top 10 (`GET /api/scores`, cached briefly). When this device's best game
+on that board (from the games it sent, kept in the browser) is further down, the game also asks
+`GET /api/scores/around?mode&range&score` and shows "Your place": the two players above and below that score, with
+its own row between them (`drawNear` in `leaderboard.js`). No device id is sent, so the answer is the same for
+everyone asking about that score and is cached briefly too (`cache.ts`), and it's limited per IP. Neither it nor the
+game-over preview reads the board: `nearScore` in `worker/src/scores.ts` counts the scores better than it (at most
+2000; further down, it doesn't give a place), reads the 30 nearest scores each way on the `scores_mode_score` index,
+then those players' bests on `scores_device`. On a board of 20,000 games that's a few hundred rows a miss, where
+reading the board was about 86,000.
 
 In the admin's Scores tab a score can be hidden, kept, or renamed: a new nickname (checked like a player's
 own) goes on every game by that device and player, since the board shows them as one row. Names someone

@@ -213,8 +213,10 @@ export function showRoundResult(box, round) {
       say(message, "");
       send.disabled = !nickname;
       if (!out || out.kept) return;
-      where.textContent = out.rank === 1 ? "Top of the board this week!" : `You'd be #${out.rank} this week!`;
-      rankEl.textContent = out.rank;
+      // (rank 0: far down a big board, where the server doesn't work the place out: just them)
+      where.textContent = out.rank === 1 ? "Top of the board this week!" : out.rank ? `You'd be #${out.rank} this week!` : "That's on the board this week!";
+      rankEl.textContent = out.rank || "";
+      if (!out.board.length) return list.replaceChildren(you);
       list.replaceChildren(
         ...out.board.map((row) => {
           if (row.you) return you;
@@ -267,6 +269,7 @@ export function showRoundResult(box, round) {
         }
         save(MY_SCORES, [out.id, ...load(MY_SCORES, [])].slice(0, 50));
         game.id = out.id; // so their own list doesn't count it twice
+        game.nickname = nickname; // for their own row on the leaderboard ("Your place")
         save(MY_GAMES, games);
         editing = false;
         drawName();
@@ -340,14 +343,12 @@ export async function renderBoard(list, note, range, mode, faceFor, bodyFor) {
   };
   if (seen.has(key)) draw(seen.get(key));
   else if (!list.children.length) note.textContent = "Loading…";
-  // their own best place, when it's below the top 10 (asked alongside; shown once both are in)
-  const near = fetch(`${API}/scores/around`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mode, range, device: deviceId() }),
-  })
-    .then((res) => (res.ok ? res.json() : { rows: [] }))
-    .then((out) => out.rows ?? [])
+  // Their own best on this board (from the games this device sent), and where it is when that's below the top 10:
+  // asked by score, so the answer is cached for everyone asking about that score (asked alongside the board).
+  const own = myBest(mode, range);
+  const near = (own ? fetch(`${API}/scores/around?mode=${mode}&range=${range}&score=${own.score}`) : Promise.resolve(null))
+    .then((res) => (res?.ok ? res.json() : null))
+    .then((out) => (out && out.rank > BOARD_TOP ? [...out.above, { ...own, rank: out.rank, you: true }, ...out.below] : []))
     .catch(() => []);
   let scores;
   try {
@@ -367,6 +368,15 @@ export async function renderBoard(list, note, range, mode, faceFor, bodyFor) {
   seen.set(key, scores);
   nearSeen.set(key, nearRows);
   if (JSON.stringify(before) !== JSON.stringify([scores, nearRows])) draw(scores);
+}
+
+// This device's best game on one board (sent from here, this week or all time), with how it looks, or null.
+const BOARD_TOP = 10; // rows the board shows (worker/src/scores.ts BOARD_SIZE)
+function myBest(mode, range) {
+  const sent = load(MY_GAMES, []).filter((g) => g.id && (g.mode ?? "timed") === mode && (range === "all" || g.at > Date.now() - WEEK_MS));
+  if (!sent.length) return null;
+  const best = sent.reduce((a, b) => ((lowWins(mode) ? b.score < a.score : b.score > a.score) ? b : a));
+  return { ...best, nickname: best.nickname || load(NICKNAME, "") || "You" };
 }
 
 // Below the top 10: a gap, then their own best place with the two above and two below (theirs marked).

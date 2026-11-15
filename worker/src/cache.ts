@@ -18,6 +18,8 @@ export function cacheKey(request: Request, url: URL): Cached | null {
 	const path = url.pathname;
 	const q = url.searchParams;
 	if (path === "/api/scores") return { key: boardKey(url.origin, modeOf(q.get("mode")), q.get("range") === "all"), ttl: 30 };
+	// a place on a board, asked about by score (scores.ts aroundScore): the same for everyone asking about it
+	if (path === "/api/scores/around") return { key: `${boardKey(url.origin, modeOf(q.get("mode")), q.get("range") === "all").replace("/api/scores?", "/api/scores/around?")}&score=${Math.trunc(Number(q.get("score"))) || 0}`, ttl: 30 };
 	if (path === "/api/teams") return { key: teamsKey(url.origin, modeOf(q.get("mode")), q.get("range") === "all"), ttl: 30 };
 	if (path === "/api/teams/list") return { key: url.origin + path, ttl: 60 };
 	const team = path.match(/^\/api\/teams\/([^/]{1,40})\/players$/);

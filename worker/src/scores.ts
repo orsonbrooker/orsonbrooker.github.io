@@ -20,7 +20,7 @@ import { checkTurnstile, clean, forgetBlockedNames, hash, ipKey, isUnfriendly, j
 import type { Env } from "./util.ts";
 
 const SCORES_PER_DAY = 40;
-const AROUND_PER_DAY = 1000; // once per board opened from a device outside the top 10
+const AROUND_PER_DAY = 1000; // a board opened from a device outside the top 10 (the edge cache answers repeats)
 const PREVIEWS_PER_DAY = 1000; // one per game, plus one per pause while typing a name; a class shares an IP
 
 // On the leaderboard each device has one row per player it plays as (a built-in one, or one made
@@ -259,11 +259,11 @@ export async function renameScores(env: Env, id: number, nickname: unknown): Pro
 }
 
 // One mode's board: each player on a device appears once, with its best game and its latest
-// nickname. `mine` marks the rows for one device (and one player, if given).
+// nickname.
 type BoardRow = { id: number | null; nickname: string; score: number; player?: string; base?: string | null; colours: unknown; rank?: number; you?: boolean; mine?: number };
-async function boardRows(env: Env, mode: Mode, week: boolean, limit: number, mine?: { device: string; player?: string }) {
+async function boardRows(env: Env, mode: Mode, week: boolean, limit: number) {
 	const rows = await env.DB.prepare(
-		`SELECT id, score, player, base, colours${mine ? `, (device = ?2${mine.player ? " AND player = ?3" : ""}) AS mine` : ""},
+		`SELECT id, score, player, base, colours,
 		   (SELECT x.nickname FROM scores x WHERE x.device = t.device AND x.player = t.player AND x.status = 'shown' ORDER BY x.id DESC LIMIT 1) AS nickname
 		 FROM (
 		   SELECT id, score, player, base, colours, device,
@@ -271,7 +271,7 @@ async function boardRows(env: Env, mode: Mode, week: boolean, limit: number, min
 		   FROM scores WHERE status = 'shown' AND mode = ?1 ${week ? `AND ${WEEK}` : ""}
 		 ) t WHERE n = 1 ORDER BY score ${order(mode)}, id LIMIT ${limit}`,
 	)
-		.bind(mode, ...(mine ? [mine.device, ...(mine.player ? [mine.player] : [])] : []))
+		.bind(mode)
 		.all<BoardRow & { colours: string | null }>();
 	return rows.results.map((r) => ({ ...r, colours: r.colours ? JSON.parse(r.colours) : null }));
 }
@@ -296,11 +296,74 @@ export async function leaderboard(env: Env, url: URL): Promise<Response> {
 	return json({ scores }, 200, 30);
 }
 
+// Where a score lands on one mode's board, without reading the board: how many players have a better best (its
+// place is one more), and up to `n` players each side of it, each with their best and latest nickname. It reads in
+// score order on the scores_mode_score index: the players better than it (a count), the nearest few dozen scores
+// each way, then those players' bests (on the scores_device index). `skip` leaves one device's player out (the one
+// asking, at game over). Further down than NEAR_COUNT better scores, it doesn't say: rank null, no rows.
+// Players level with the score count below it.
+type Near = { rank: number | null; above: BoardRow[]; below: BoardRow[] }; // rank null: too far down to work out
+async function nearScore(env: Env, mode: Mode, week: boolean, score: number, n: number, skip?: { device: string; player: string }): Promise<Near> {
+	const low = lowWins(mode);
+	const better = low ? "<" : ">";
+	const worse = low ? ">" : "<";
+	const when = week ? `AND ${WEEK}` : "";
+	const notSkipped = skip ? "AND NOT (device = ?3 AND player = ?4)" : "";
+	const binds = [mode, score, ...(skip ? [skip.device, skip.player] : [])];
+	const nearest = (op: string, way: string) =>
+		env.DB.prepare(`SELECT device, player FROM scores WHERE mode = ?1 AND status = 'shown' AND score ${op} ?2 ${when} ${notSkipped} ORDER BY score ${way} LIMIT ${NEAR_ROWS}`)
+			.bind(...binds)
+			.all<{ device: string; player: string }>();
+	const [count, up, down] = await Promise.all([
+		// (at most NEAR_COUNT scores better than it are read: further down than that, its place isn't worked out)
+		env.DB.prepare(
+			`SELECT COUNT(DISTINCT k) AS n, COUNT(*) AS seen FROM (SELECT device || ' ' || player AS k FROM scores WHERE mode = ?1 AND status = 'shown' AND score ${better} ?2 ${when} ${notSkipped} LIMIT ${NEAR_COUNT})`,
+		)
+			.bind(...binds)
+			.first<{ n: number; seen: number }>(),
+		nearest(better, low ? "DESC" : "ASC"),
+		nearest(worse, low ? "ASC" : "DESC"),
+	]);
+	if ((count?.seen ?? 0) >= NEAR_COUNT) return { rank: null, above: [], below: [] };
+	const players = [...new Map([...up.results, ...down.results].map((r) => [`${r.device} ${r.player}`, r])).values()];
+	const rank = (count?.n ?? 0) + 1;
+	if (!players.length) return { rank, above: [], below: [] };
+	// those players' bests (on the scores_device index), as the board shows them
+	const devices = [...new Set(players.map((r) => r.device))];
+	const bests = await env.DB.prepare(
+		`SELECT id, score, player, base, colours, device,
+		   (SELECT x.nickname FROM scores x WHERE x.device = t.device AND x.player = t.player AND x.status = 'shown' ORDER BY x.id DESC LIMIT 1) AS nickname
+		 FROM (
+		   SELECT id, score, player, base, colours, device,
+		     ROW_NUMBER() OVER (PARTITION BY device, player ORDER BY score ${order(mode)}, id) AS n
+		   FROM scores INDEXED BY scores_device WHERE status = 'shown' AND mode = ?1 ${when} AND device IN (${devices.map((_, i) => `?${i + 2}`).join(", ")})
+		 ) t WHERE n = 1`,
+	)
+		.bind(mode, ...devices)
+		.all<BoardRow & { device: string; colours: string | null }>();
+	const wanted = new Set(players.map((r) => `${r.device} ${r.player}`));
+	const rows = bests.results
+		.filter((r) => wanted.has(`${r.device} ${r.player}`))
+		.map(({ device: _device, ...r }) => ({ ...r, colours: r.colours ? JSON.parse(r.colours) : null }));
+	const isBetter = (a: number) => (low ? a < score : a > score);
+	const isWorse = (a: number) => (low ? a > score : a < score);
+	const boardOrder = (a: BoardRow, b: BoardRow) => (low ? a.score - b.score : b.score - a.score) || (a.id ?? 0) - (b.id ?? 0);
+	const above = rows.filter((r) => isBetter(r.score)).sort(boardOrder).slice(-n);
+	const below = rows.filter((r) => isWorse(r.score)).sort(boardOrder).slice(0, n);
+	return {
+		rank,
+		above: above.map((r, i) => ({ ...r, rank: rank - above.length + i })),
+		below: below.map((r, i) => ({ ...r, rank: rank + 1 + i })),
+	};
+}
+const NEAR_ROWS = 30; // scores read each way from the one asked about (a player's lower scores can take some)
+const NEAR_COUNT = 2000; // the most scores better than it that are counted for its place
+
 // As a game ends: where it would land this week, or that their earlier best this week stays, so
 // the game only offers the leaderboard for a new best. Nothing is saved.
 export async function previewScore(request: Request, env: Env): Promise<Response> {
 	const body = await readJson(request);
-	// It reads the whole week's board, so it's limited too (generously: it's asked once or twice a game).
+	// Asked once or twice a game, so it's limited per IP too.
 	await rateLimit(request, env, "preview", PREVIEWS_PER_DAY, "That's a lot of games for one day! Try again tomorrow.");
 	const nickname = await scoreNickname(env, body);
 	const device = clean(body.device, 64);
@@ -311,50 +374,34 @@ export async function previewScore(request: Request, env: Env): Promise<Response
 	await requireModeOut(env, mode);
 	const player = clean(body.player, 40) || "orson";
 	const deviceHash = await boardOf(env, device);
-	const [rows, sent] = await Promise.all([
-		boardRows(env, mode, true, 500, { device: deviceHash, player }),
-		// Their scores already on the board this week, for their own list (the device's id stays private).
-		env.DB.prepare(`SELECT id, score, created_at FROM scores WHERE device = ? AND player = ? AND mode = ? AND status = 'shown' AND ${WEEK} ORDER BY score ${order(mode)}, id LIMIT 10`)
-			.bind(deviceHash, player, mode)
-			.all(),
-	]);
-
-	const old = rows.find((r) => r.mine);
+	// Their scores already on the board this week, best first: for their own list (the device's id stays private),
+	// and whether their earlier best this week stays.
+	const sent = await env.DB.prepare(`SELECT id, score, created_at FROM scores WHERE device = ? AND player = ? AND mode = ? AND status = 'shown' AND ${WEEK} ORDER BY score ${order(mode)}, id LIMIT 10`)
+		.bind(deviceHash, player, mode)
+		.all<{ id: number; score: number; created_at: string }>();
+	const old = sent.results[0];
 	const better = (a: number, b: number) => (lowWins(mode) ? a < b : a > b);
 	const kept = !!old && !better(score, old.score); // their earlier best this week stays
-	let board: BoardRow[] = rows.filter((r) => !r.mine || kept);
-	if (!kept) {
-		const at = board.findIndex((r) => better(score, r.score));
-		board.splice(at < 0 ? board.length : at, 0, { id: null, nickname, score, colours: null });
-	}
-	board = board.map((r, i) => ({ ...r, rank: i + 1, you: r.mine ? true : r.id === null, mine: undefined }));
+	if (kept) return json({ sent: sent.results, kept, best: old.score, rank: 0, board: [] });
 	// Them with the two above and two below (five rows near the top or bottom of the board).
-	const at = board.findIndex((r) => r.you);
-	const end = Math.min(board.length, Math.max(0, at - 2) + 5);
-	return json({
-		sent: sent.results,
-		kept,
-		best: kept ? old.score : score,
-		rank: at + 1,
-		board: board.slice(Math.max(0, end - 5), end),
-	});
+	const near = await nearScore(env, mode, true, score, 4, { device: deviceHash, player });
+	if (near.rank === null) return json({ sent: sent.results, kept, best: score, rank: 0, board: [] }); // far down the board
+	const up = Math.min(near.above.length, Math.max(2, 4 - near.below.length));
+	const down = Math.min(near.below.length, 4 - up);
+	const you: BoardRow = { id: null, nickname, score, colours: null, rank: near.rank, you: true };
+	return json({ sent: sent.results, kept, best: score, rank: near.rank, board: [...near.above.slice(near.above.length - up), you, ...near.below.slice(0, down)] });
 }
 
-// The leaderboard screen shows the top 10; a device with a player further down also sees its best place there,
-// with the two above and two below. Nothing comes back when it's in the top 10 already or not on the board. It
-// reads the whole board for one device (so it can't be cached), so it's limited per IP like the preview.
-export async function aroundMe(request: Request, env: Env): Promise<Response> {
-	const body = await readJson(request);
+// The leaderboard screen shows the top 10; a player further down also sees their place there, with the two above
+// and two below. The game asks with its own best score on that board (kept on the device: no device id is sent),
+// so the answer is the same for everyone asking about that score, and is cached (cache.ts). Limited per IP too.
+export async function aroundScore(request: Request, env: Env, url: URL): Promise<Response> {
 	await rateLimit(request, env, "around", AROUND_PER_DAY, "That's a lot of looking for one day! Try again tomorrow.");
-	const device = clean(body.device, 64);
-	if (device.length < 16) throw new HttpError(400, "Bad request.");
-	const mode = modeOf(body.mode);
-	const rows = await boardRows(env, mode, body.range !== "all", 1000, { device: await boardOf(env, device) });
-	const at = rows.findIndex((r) => r.mine);
-	if (at < BOARD_SIZE) return json({ rows: [] });
-	const from = Math.max(BOARD_SIZE, at - 2); // never a row the top 10 already shows
-	const near = rows.slice(from, at + 3).map((r, i) => ({ ...r, rank: from + 1 + i, you: !!r.mine, mine: undefined }));
-	return json({ rows: near });
+	const mode = modeOf(url.searchParams.get("mode"));
+	const score = Number(url.searchParams.get("score"));
+	if (!Number.isInteger(score) || score < 0 || score > (mode === "around" ? 6 * 36000 : 1000)) throw new HttpError(400, "Bad request.");
+	const near = await nearScore(env, mode, url.searchParams.get("range") !== "all", score, 2);
+	return json(near, 200, 30);
 }
 
 // One leaderboard game, for the card shown when someone's row is tapped. Stats come from the shot
