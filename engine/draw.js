@@ -83,6 +83,10 @@ function makeBallSprite(turn, look = BALL_LOOKS[NORMAL], sideways = false) {
   const R = size / 2 - 0.5;
   const edge = rgb(look.edge);
   const seamC = rgb(look.seam);
+  // (the plain look's colours, worked out once rather than for every pixel)
+  const plain = !look.rainbow && !look.panels && [rgb(look.main), rgb(look.shine), rgb(look.shade)];
+  const shine = rgb(look.shine);
+  const panels = look.panels?.map(rgb);
   // A seam crosses a pixel when its line falls between the pixel's corners: one pixel wide however
   // it's turned. Lines: across = 0 (over the top), across = +-SIDE_SEAM (the sides), down = 0 (the middle).
   const corner = (x, y) => onBall((x - 0.5 - mid) / R, (y - 0.5 - mid) / R, turn, sideways);
@@ -103,17 +107,13 @@ function makeBallSprite(turn, look = BALL_LOOKS[NORMAL], sideways = false) {
         light = hsl(hue, 0.9, 0.72);
         dark = hsl(hue, 0.8, 0.38);
       } else if (look.panels) {
-        base = rgb(look.panels[py < -0.33 ? 0 : py < 0.33 ? 1 : 2]);
+        base = panels[py < -0.33 ? 0 : py < 0.33 ? 1 : 2];
         light = mixRgb(base, [255, 255, 255], 0.35);
         dark = mixRgb(base, [0, 0, 0], 0.3);
-      } else {
-        base = rgb(look.main);
-        light = rgb(look.shine);
-        dark = rgb(look.shade);
-      }
+      } else [base, light, dark] = plain;
       let col = lit > 0.86 ? mixRgb(base, light, 0.55) : lit > 0.42 ? base : lit > 0.16 ? dark : mixRgb(dark, edge, 0.4);
       // a small highlight where the light hits straight on
-      if (lit > 0.985) col = rgb(look.shine);
+      if (lit > 0.985) col = shine;
       const cs = [corner(x, y), corner(x + 1, y), corner(x, y + 1), corner(x + 1, y + 1)];
       const across = cs.map((p) => p[0]);
       const down = cs.map((p) => p[1]);
@@ -142,19 +142,24 @@ export const makeBallFrames = (look) => {
 export const ballPicture = (look) => makeBallSprite(0, look);
 
 /** The frame for a ball travelling towards `heading` (0 to ROLL_HEADINGS, see rollAxis) on the court, turned
- * `turn` radians forward (negative: backspin). Each heading's frames are made the first time it's needed. */
+ * `turn` radians forward (negative: backspin). Each frame is made the first time it's needed. */
 export function rollFrame(frames, turn, heading) {
   const h = ((Math.round(heading) % ROLL_HEADINGS) + ROLL_HEADINGS) % ROLL_HEADINGS;
   frames.rolls ??= [];
-  const set = (frames.rolls[h] ??= Array.from({ length: BALL_FRAMES }, (_, i) => makeBallSprite((i / BALL_FRAMES) * Math.PI * 2, frames.look, rollAxis(h))));
+  const set = (frames.rolls[h] ??= []);
   const k = (((turn / (Math.PI * 2)) % 1) + 1) % 1;
-  return set[Math.floor(k * BALL_FRAMES) % BALL_FRAMES];
+  const i = Math.floor(k * BALL_FRAMES) % BALL_FRAMES;
+  return (set[i] ??= makeBallSprite((i / BALL_FRAMES) * Math.PI * 2, frames.look, rollAxis(h)));
 }
 
-/** Makes every heading's frames for these sprites (makeBallSprites) one heading at a time while the page is idle,
- * so a ball heading a new way mid-game doesn't stop to draw 16 frames (rollFrame). */
+/** Makes every heading's frames for these sprites (makeBallSprites) one frame at a time while the page is idle,
+ * so a ball heading a new way mid-game doesn't stop to draw its frames (rollFrame). */
 export function warmRollFrames(sprites) {
-  const jobs = Object.values(sprites).flatMap((frames) => Array.from({ length: ROLL_HEADINGS }, (_, h) => () => rollFrame(frames, 0, h)));
+  // (each kind's own frames first: touching sprites[kind] makes a money or rainbow ball's)
+  const jobs = Object.keys(sprites).flatMap((kind) => [
+    () => sprites[kind],
+    ...Array.from({ length: ROLL_HEADINGS * BALL_FRAMES }, (_, n) => () => rollFrame(sprites[kind], ((n % BALL_FRAMES) / BALL_FRAMES) * Math.PI * 2, Math.floor(n / BALL_FRAMES))),
+  ]);
   const idle = globalThis.requestIdleCallback ?? ((f) => setTimeout(f, 50));
   const next = () => {
     jobs.shift()?.();
@@ -171,9 +176,16 @@ export function ballFrame(frames, turn, sideways = false) {
 }
 
 // One spinning set of frames for each kind of ball. `normal`: the look of an everyday ball (their ball
-// style from the shop); money and rainbow balls always look the same, so they stand out.
+// style from the shop); money and rainbow balls always look the same, so they stand out. The everyday
+// ball's are made now; the others the first time they're needed (warmRollFrames makes them while the page
+// is idle), so the game starts sooner.
 export function makeBallSprites(normal = BALL_LOOKS[NORMAL]) {
-  return { [NORMAL]: makeBallFrames(normal), [MONEY]: makeBallFrames(BALL_LOOKS[MONEY]), [RAINBOW]: makeBallFrames(BALL_LOOKS[RAINBOW]) };
+  const sprites = { [NORMAL]: makeBallFrames(normal) };
+  for (const kind of [MONEY, RAINBOW]) {
+    let frames = null;
+    Object.defineProperty(sprites, kind, { enumerable: true, get: () => (frames ??= makeBallFrames(BALL_LOOKS[kind])) });
+  }
+  return sprites;
 }
 
 // ---------- On the court ----------
