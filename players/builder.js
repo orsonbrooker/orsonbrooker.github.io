@@ -1136,6 +1136,7 @@ function showTurning() {
   started = performance.now();
   turnLeft.hidden = turnRight.hidden = sidesOf(current.meta.frames).length < 2;
 }
+let drawn = null; // what the preview shows now (draw)
 function draw(now) {
   requestAnimationFrame(draw);
   if (!sheet) return;
@@ -1170,6 +1171,12 @@ function draw(now) {
   const s = Math.max(0.05, Math.min((canvas.height - 26 * dpr) / tallest, 1.3 * dpr * (0.6 / res)));
   const groundX = canvas.width / 2;
   const groundY = Math.min(canvas.height - 14 * dpr, canvas.height / 2 + (tallest * s) / 2);
+  // The pose changes about a dozen times a second, the screen 60: draw only when something on the stage
+  // has changed (a new frame, colours, size, the stage, a ball in the air), not the same picture again.
+  const same = drawn && drawn.img === sheet.img && drawn.prints === sheet.prints && drawn.x === x && drawn.y === y && drawn.s === s &&
+    drawn.w === canvas.width && drawn.h === canvas.height && !flight && !lastHeld === !drawn.held && drawn.shotGone === shotGone;
+  if (same && !(lastHeld && step.anim.startsWith("release"))) return;
+  drawn = { img: sheet.img, prints: sheet.prints, x, y, s, w: canvas.width, h: canvas.height, held: !!lastHeld, shotGone };
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "rgba(45, 20, 35, 0.35)";
   ctx.beginPath();
