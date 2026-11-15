@@ -15,13 +15,12 @@ import { pickPhrase } from "../phrases.js";
 import { characters, faceHoop, frameCount, hasMove, useCharacter } from "../play/players.js";
 import { addPopup, confettiBurst, pixelFx } from "../play/react.js";
 import { ANIM_FPS, player, setAnim, setPhase, state } from "../play/state.js";
-import { howTo, showScreen } from "../screens/base.js";
+import { $, howTo, showScreen } from "../screens/base.js";
 import { ballPoints } from "../shared/rules.js";
 import { usingKeys } from "../ui/keys.js";
 
 const REPLAY_SPEED = 0.4; // game speed during a replay
 const HOLD_AFTER = 1.6; // seconds to stay on the court after the shot is decided
-const FONT = '"Press Start 2P", monospace';
 const CALM = matchMedia("(prefers-reduced-motion: reduce)");
 
 // ---------- Recording ----------
@@ -92,7 +91,11 @@ export async function startReplay() {
   for (const b of state.balls) b.trail?.stop();
   state.balls = [];
   state.popups = [];
-  state.banner = null;
+  // REPLAY flashing on the hoop wall's LED screen (play/scene.js), and who's shooting and how to skip on a sign
+  // at the bottom (styles.css .replay-tag, shown in the replay phase)
+  state.banner = { text: "REPLAY", color: "#ff4d4d", age: 0, big: false, flash: true, duration: Infinity };
+  $("replay-who").textContent = characters.list.find((c) => c.id === shot.who)?.name ?? ""; // a kid's player's name: text only
+  $("replay-skip").textContent = howTo("Tap to skip", "Space to skip", "Tap or Space to skip");
   state.streak = shot.streak;
   state.timeScale = REPLAY_SPEED;
   player.u = shot.at.u;
@@ -177,6 +180,7 @@ export function endReplay() {
   replay = null;
   for (const b of state.balls) b.trail?.stop();
   state.balls = [];
+  state.banner = null;
   state.timeScale = 1;
   state.streak = restore.streak;
   player.u = restore.u;
@@ -200,37 +204,4 @@ export function checkReplays() {
     for (let i = 0; i < 240 * 5 && !b.scored && b.bounces === 0; i++) stepBall(b, 1 / 240, none);
     return { made: shot.made, again: b.scored, same: b.scored === shot.made };
   });
-}
-
-// ---------- Drawing ----------
-
-// Over the court during a replay: bars top and bottom like on TV, "REPLAY" with a blinking light, and
-// who's shooting.
-export function drawReplay(ctx) {
-  if (!replay) return;
-  const bar = 150;
-  ctx.save();
-  ctx.fillStyle = "rgba(20, 10, 18, 0.72)";
-  ctx.fillRect(0, 0, COURT_PX, bar);
-  ctx.fillRect(0, COURT_PX - bar, COURT_PX, bar);
-  ctx.textBaseline = "middle";
-  ctx.font = `72px ${FONT}`;
-  ctx.textAlign = "left";
-  if (Math.floor(performance.now() / 500) % 2 === 0) {
-    ctx.fillStyle = "#ff4d4d";
-    ctx.fillRect(70, bar / 2 - 26, 52, 52);
-  }
-  ctx.fillStyle = "#fff";
-  ctx.fillText("REPLAY", 150, bar / 2 + 4);
-  // Who's shooting, top right; the sound buttons sit in the bottom right corner.
-  const name = characters.list.find((c) => c.id === replay.shot.who)?.name ?? "";
-  ctx.textAlign = "right";
-  ctx.font = `56px ${FONT}`;
-  ctx.fillStyle = "#ffe066";
-  ctx.fillText(name.toUpperCase().slice(0, 14), COURT_PX - 70, bar / 2 + 4);
-  ctx.textAlign = "left";
-  ctx.font = `40px ${FONT}`;
-  ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-  ctx.fillText(`SLOW MO · ${howTo("TAP TO SKIP", "SPACE TO SKIP", "TAP TO SKIP")}`, 70, COURT_PX - bar / 2 + 4);
-  ctx.restore();
 }

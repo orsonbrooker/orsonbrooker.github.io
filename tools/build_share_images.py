@@ -88,25 +88,13 @@ def home():
     return img
 
 
-# ---------- Shootaround: the court with the game's logo ----------
-
-def logo(s, size, angle=4):
-    """The title screen's tilted logo: angle in degrees, anticlockwise (rising to the right)."""
-    f = font(size)
-    l, t, r, b = f.getbbox(s, stroke_width=6)
-    layer = Image.new('RGBA', (r - l + 40, b - t + 40))
-    d = ImageDraw.Draw(layer)
-    d.text((20 - l + 8, 20 - t + 8), s, font=f, fill=INK, stroke_width=6, stroke_fill=INK)
-    d.text((20 - l, 20 - t), s, font=f, fill=ORANGE, stroke_width=6, stroke_fill=INK)
-    return layer.rotate(angle, resample=Image.BICUBIC, expand=True)
-
+# ---------- Shootaround: the gym on its street, with its billboard ----------
 
 def shootaround():
     card = Image.open(path('assets/games/shootaround.webp')).convert('RGBA')
     card = card.resize((W, round(card.height * W / card.width)), Image.LANCZOS)
     img = card.crop((0, (card.height - H) // 2, W, (card.height - H) // 2 + H))
-    mark = logo('SHOOTAROUND', 72)
-    img.alpha_composite(mark, ((W - mark.width) // 2, 18))
+    # (no logo on top: the gym's billboard says SHOOTAROUND)
     s = "Can you beat Orson's high score?"
     width = font(24).getlength(s)
     panel(img, (int((W - width) / 2) - 28, 538, int((W + width) / 2) + 28, 598), 12)

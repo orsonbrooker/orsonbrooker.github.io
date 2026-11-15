@@ -28,15 +28,15 @@
 //                      and its picture with 0, 1, ... 5 balls left (modes/threes.js draws them)
 //   scoreboard         (pixel-art courts) the wall scoreboard the game lights: where its prop stands on the hoop wall
 //                      (foot: u and height, metres) and its face (art/iso/props/scoreboard/prop.json), drawn by
-//                      engine/pixelboard.js. Courts without it use the old painted board (content/looks.js BOARD_ART)
+//                      engine/pixelboard.js.
 
 import GYM_ART from "./courts/gym.js"; // the scoreboard and contest racks, from the bake (tools/pixelart/iso_export.py)
 
-// The first gym, painted (until 2026): kept to compare against, from ?debug only.
+// The first gym, painted (until 2026): not played any more. Its numbers stay as the reference the isometric art
+// check measures against (tools/pixelart/iso_eval.py, art/iso/testset.json: assets/court.webp).
 const OLD_GYM = {
   id: "gym-old",
   name: "Gym (old art)",
-  test: true,
   image: "assets/court.webp",
   hoopFront: "assets/hoop-front.webp",
   hoopFrontAt: { x: 515, y: 735 },
@@ -88,15 +88,20 @@ const GYM = {
   // LED screens (engine/ledboard.js): the announcer's calls along the top of the hoop wall, and "Tap to play"
   // flashing on the shut box's front left wall, under the billboard
   led: { plane: "hoop", u: [7.9, 0.35], z: [5.0, 6.15], out: 0.122 },
+  // HORSE's letters (engine/letterboard.js): a board on the side wall under the windows, from banner to banner,
+  // wide enough for a 12-letter name and the five tiles (5.2 m: 124 art pixels)
+  horseBoard: { plane: "side", at: 0.02, v: [1.66, 6.86], z: [1.6, 3.25] },
   titleLed: { plane: "side", at: 9.8, v: [2.9, 9.5], z: [4.85, 5.95] },
 };
 
 export const COURTS = {
   gym: GYM,
-  "gym-old": OLD_GYM,
   // Test courts: the same gym, to try the physics settings before there's art for a new court.
   "gym-low-gravity": { ...GYM, id: "gym-low-gravity", name: "Gym (low gravity)", test: true, physics: { gravity: 3.7, wind: null } },
   "gym-windy": { ...GYM, id: "gym-windy", name: "Gym (windy)", test: true, physics: { gravity: 9.81, wind: { u: 1.5, v: 0 } } },
 };
 
 export const DEFAULT_COURT = "gym";
+
+/** Courts only the art check reads (tools/pixelart/iso_eval.py --court), never played. */
+export const REFERENCE_COURTS = { "gym-old": OLD_GYM };

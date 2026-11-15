@@ -27,18 +27,4 @@ export const BALL_LOOKS = {
 // Shown over the player (and called out) while the ball in his hands is a bonus ball.
 export const BALL_BADGES = { [MONEY]: { text: "MONEY BALL x2", color: "#ffd700", call: "moneyBall" }, [RAINBOW]: { text: "RAINBOW BALL +5", color: "#ff86e6", call: "rainbowBall" } };
 
-// The wall scoreboard, in its own skewed coordinates (x runs along the wall, y straight down).
-export const BOARD_ART = {
-  origin: { x: 753.3, y: 446.7 },
-  slope: -0.53,
-  area: { x: 745, y: 315, w: 260, h: 275 }, // court pixels the scoreboard can touch
-  face: "#2d3238",
-  window: "#281a2e",
-  lit: "#ff4d4d",
-  unlit: "rgba(255, 77, 77, 0.12)",
-  label: "#e8eef0",
-  left: { label: "SCORE", labelAt: [57, 46], cover: [12, 26, 88, 34], window: [18, 71, 78, 64] },
-  right: { label: "TIME", labelAt: [190, 46], cover: [142, 26, 96, 34], window: [149, 69, 83, 69] },
-};
-
 export const CONFETTI_COLORS = ["#ffd700", "#ff6b6b", "#7cf0ff", "#ffffff", "#c77dff", "#3ddc84"];

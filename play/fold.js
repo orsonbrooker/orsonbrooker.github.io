@@ -110,16 +110,26 @@ export function showShut() {
   box.onOpen = null;
 }
 
-/** START: opens it. */
+// Opened long ago: the walls down on the street, nothing moving (reduced motion, and after a game).
+const LONG_AGO = -1e12;
+
+/** START: opens it (with reduced motion, straight to open). */
 export function openBox() {
   if (box.start !== Infinity) return;
-  box.start = CALM.matches ? -Infinity : performance.now();
+  box.start = CALM.matches ? LONG_AGO : performance.now();
   const go = box.onOpen;
   box.onOpen = null;
   go?.();
 }
 
-/** Takes it away (out of a game). */
+/** After a game (game over and its replay): left open as the game left it, or open at once if it was shut. */
+export function keepOpen() {
+  if (box.start !== Infinity) return;
+  box.start = LONG_AGO;
+  box.onOpen = null;
+}
+
+/** Takes it away (a new court, before its box is shown). */
 export function setOpen() {
   box.start = -Infinity;
   box.onOpen = null;

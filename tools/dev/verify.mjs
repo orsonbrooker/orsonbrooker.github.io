@@ -211,6 +211,37 @@ async function pages() {
 
 // ---------- play ----------
 
+// The instant replay after a game, at each size: it plays (phase "replay"), drawn like the game itself (the
+// street and the gym's folded walls round the court, play/fold.js keepOpen, not the court on its own), with its
+// sign (who's shooting, how to skip) and nothing left of the old TV bars; then it goes back to game over.
+const REPLAY_CHECK = `
+  const street = document.querySelector("canvas.box-layer");
+  const sx = street.width >> 1;
+  const drawn = street.getContext("2d").getImageData(sx, 2, 1, 1).data[3] > 0; // the street's sky, top middle
+  const tag = document.querySelector(".replay-tag");
+  return JSON.stringify({ phase: window.game.state.phase, street: drawn, tag: !!tag && getComputedStyle(tag).display !== "none" && tag.textContent.trim().length > 0, banner: window.game.state.banner?.text ?? null });`;
+async function checkReplay(tab, mode, out) {
+  if (await tab.run(`return document.getElementById("replay").hidden`)) return record(`${mode} replay`, true, "(no basket this game, so no replay)");
+  for (const [size, vp] of Object.entries({ ...SIZES, "ipad sideways": { width: 1180, height: 820, scale: 1, mobile: true } })) {
+    await tab.viewport(vp.width, vp.height, vp);
+    await wait(600);
+    await tab.run(`document.getElementById("replay").click(); return 1;`);
+    await wait(1800);
+    const file = join(out, `${mode}-replay-${size}.png`);
+    await tab.screenshot(file);
+    const got = JSON.parse(await tab.run(REPLAY_CHECK));
+    for (let i = 0; i < 30 && (await tab.run(`return window.game.state.phase`)) === "replay"; i++) await wait(500);
+    const back = await tab.run(`return window.game.state.phase`);
+    const notes = [];
+    if (got.phase !== "replay") notes.push(`Replay didn't play (phase "${got.phase}")`);
+    if (!got.street) notes.push("no street round the court: the replay is drawing the court on its own");
+    if (!got.tag) notes.push("no replay sign (who's shooting, how to skip)");
+    if (got.banner !== "REPLAY") notes.push(`the LED doesn't say REPLAY (${got.banner})`);
+    if (back !== "over") notes.push(`after the replay: phase "${back}", not game over`);
+    record(`${mode} replay @ ${size}`, !notes.length, notes.join("\n"), [file]);
+  }
+}
+
 async function play() {
   const modes = (rest[0] ?? "timed,survival,around,threes").split(",");
   if (!listening(8787)) console.log("warning: nothing is listening on 8787, so scores can't be sent (start the local Worker, see CLAUDE.md)");
@@ -246,6 +277,8 @@ async function play() {
       const lay = await tab.run(LAYOUT_CHECK);
       record(`${mode} game over screen @ phone`, !lay.small.length && !lay.sideways,
         [lay.small.length && `tap targets under ${MIN_TAP}px:\n  ${lay.small.join("\n  ")}`, lay.sideways && `sideways scroll: ${lay.wide.join(", ")}`].filter(Boolean).join("\n"), [over]);
+      await checkReplay(tab, mode, out);
+      await tab.viewport(vp.width, vp.height, vp);
     }
     await tab.close();
   } finally { chrome.stop(); srv.stop(); }

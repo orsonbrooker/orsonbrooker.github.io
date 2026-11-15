@@ -1,16 +1,15 @@
 // Draws the court each frame (the player, the balls, the hoop, the timing bar, calls and effects) and
 // keeps the score shown under the court and on the wall scoreboard up to date.
 
-import { BOARD_ART } from "../content/looks.js";
 import { createLedBoard } from "../engine/ledboard.js";
 import { createPixelScoreboard } from "../engine/pixelboard.js";
 import { drawArtLab } from "../play/artlab.js";
-import { boxKey, boxShowing, drawBox, drawStreet, hasPanels, onBox, openBox, opening, setOpen, showShut, waiting } from "../play/fold.js";
+import { boxKey, boxShowing, drawBox, drawStreet, hasPanels, keepOpen, onBox, openBox, opening, showShut, waiting } from "../play/fold.js";
 import { BALL_R, COURT_PX, EV, HOOP_FRONT_AT, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, court, project } from "../engine/court.js";
-import { ROLL_HEADINGS, ballFrame, createWallScoreboard, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow, rollFrame } from "../engine/draw.js";
+import { ROLL_HEADINGS, ballFrame, drawBadge, drawBanner, drawConfetti, drawCourtLines, drawHintBubble, drawPopups, drawShadow, rollFrame } from "../engine/draw.js";
 import { currentFrame, frameCount, liftNow, recheckSheet, sheet } from "../play/players.js";
 import { fireLevel, nextBallBadge, nextBallKind, pixelFx, timingWindow, zoneCenter } from "../play/react.js";
-import { drawReplay, replayGreen } from "../play/replay.js";
+import { replayGreen } from "../play/replay.js";
 import { DEBUG, JUMP_APEX, JUMP_FRAME_TIME, hints, mode, player, state } from "../play/state.js";
 import { howTo, stage, tapToPlay } from "../screens/base.js";
 import { NORMAL } from "../shared/rules.js";
@@ -39,7 +38,6 @@ export function resize() {
 
 const scoreEl = document.getElementById("score");
 const timeEl = document.getElementById("time");
-const wallScoreboard = createWallScoreboard();
 let scoreboardDirty = true;
 // A pixel-art court's scoreboard (engine/pixelboard.js), made for the court being played.
 let pixelBoard = null;
@@ -62,7 +60,7 @@ function renderScoreboard() {
       pixelBoardCourt = court;
     }
     pixelBoard.draw(left, right);
-  } else wallScoreboard.draw(left, right);
+  }
   scoreboardDirty = false;
 }
 
@@ -75,7 +73,7 @@ const gamePage = document.getElementById("game-page");
 function showCourtArt() {
   // out of a game the gym stands shut (the title and the menus), except behind a finished game and its replay
   if (loadingScene && (IN_GAME.has(state.phase) || !court.panels)) dropLoading();
-  if (OPEN_AFTER.has(state.phase)) setOpen();
+  if (OPEN_AFTER.has(state.phase)) keepOpen(); // the gym open on its street, walls down, as the game left it
   else if (!IN_GAME.has(state.phase)) showShut();
   // zoomed in on a tall screen once the box opens (styles.css .zoomed)
   gamePage?.classList.toggle("zoomed", boxShowing() && !waiting());
@@ -495,10 +493,7 @@ function placeControls() {
 
 function drawScoreboard() {
   if (scoreboardDirty || (court.scoreboard && pixelBoardCourt !== court)) renderScoreboard();
-  if (!court.scoreboard) {
-    ctx.drawImage(wallScoreboard.canvas, BOARD_ART.area.x, BOARD_ART.area.y);
-    return;
-  }
+  if (!court.scoreboard) return;
   const smooth = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
   const { canvas: c, x, y, scale } = pixelBoard;
@@ -527,7 +522,7 @@ function drawLed() {
     ledStart = performance.now();
   }
   ledFor = b;
-  if (!ledShowing()) ledMessage = null;
+  if (!ledShowing() || (!b && ledMessage?.flash)) ledMessage = null; // (a flashing one, like REPLAY, stops when its call goes)
   if (led.draw(ledMessage, (performance.now() - ledStart) / 1000)) ledMessage = null;
   const smooth = ctx.imageSmoothingEnabled;
   ctx.imageSmoothingEnabled = false;
@@ -661,6 +656,7 @@ export function render() {
   showCourtArt();
   drawScoreboard();
   drawLed();
+  mode().drawWall?.(ctx);
   renderStreet();
   renderBox();
   placeStart();
@@ -696,6 +692,5 @@ export function render() {
     ctx.fillStyle = `rgba(255, 255, 255, ${state.flash * 0.6})`;
     ctx.fillRect(0, 0, COURT_PX, COURT_PX);
   }
-  if (state.phase === "replay") drawReplay(ctx);
   if (DEBUG) drawCourtLines(ctx);
 }

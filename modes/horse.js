@@ -13,7 +13,8 @@
 
 import { sound } from "../audio.js";
 import { HORSE_LAYOUT, HORSE_WORD } from "../content/horse.js";
-import { LINE_CLEARANCE, RIM, ROOM_U, ROOM_V, isThreePointSpot, project, threePointRadius } from "../engine/court.js";
+import { LINE_CLEARANCE, RIM, ROOM_U, ROOM_V, court, isThreePointSpot, project, threePointRadius } from "../engine/court.js";
+import { createLetterBoard } from "../engine/letterboard.js";
 import { characters, faceHoop, preloadCharacter, useCharacter } from "../play/players.js";
 import { addPopup, announce, pixelFx } from "../play/react.js";
 import { updateHud } from "../play/scene.js";
@@ -221,9 +222,23 @@ function drawFloor(ctx) {
   ctx.restore();
 }
 
-// Everyone's letters, top left over the wall: a name and five tiles each, the shooter marked.
+// Everyone's letters on the gym's side wall, part of the art (engine/letterboard.js): a name and five tiles each,
+// the shooter's name yellow. A court without a place for it gets them over the court, top left (drawOver).
+let board = null;
+let boardCourt = null;
+function drawWall(ctx) {
+  if (!court.horseBoard || !["playing", "turn", "ending", "over", "replay"].includes(state.phase) || !game.players.length) return;
+  if (boardCourt !== court) [board, boardCourt] = [createLetterBoard(court), court];
+  const shooter = state.phase === "playing" ? game.shooter : -1;
+  board.draw(game.players.map((p, i) => ({ name: p.name, letters: p.letters, out: !isIn(i) })), shooter, HORSE_WORD);
+  const smooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(board.canvas, board.x, board.y, board.canvas.width * board.scale, board.canvas.height * board.scale);
+  ctx.imageSmoothingEnabled = smooth;
+}
+
 function drawOver(ctx) {
-  if (!["playing", "turn", "ending"].includes(state.phase) || !game.players.length) return;
+  if (court.horseBoard || !["playing", "turn", "ending"].includes(state.phase) || !game.players.length) return;
   // Big enough to read on a phone, where the whole court is under 400 pixels wide.
   const row = 100;
   const tile = 84;
@@ -287,6 +302,7 @@ export default {
   zoneShift: () => (state.phase === "playing" ? game.zone : 0),
   rumble: () => 0,
   drawFloor,
+  drawWall,
   drawOver,
 
   hud: () => (game.players.length ? [`${name(game.shooter)} to shoot`, standings()] : ["HORSE", "2 to 4 players"]),

@@ -8,7 +8,7 @@
 // long for the screen scrolls across it once (with reduced motion, it shows a few words at a time instead). The
 // gym's front left wall has one too, flashing "Tap to play" on the title (play/scene.js).
 
-const GLYPHS = {
+export const GLYPHS = {
   A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"],
   B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
   C: ["01110", "10001", "10000", "10000", "10000", "10001", "01110"],
@@ -83,7 +83,12 @@ const rgb = (hex) => [1, 3, 5].map((n) => parseInt(hex.slice(n, n + 2), 16));
  * `scale` times bigger, smoothing off. draw() returns whether the message has finished showing. A `flash` message
  * never finishes: it flashes on and off, a page of words at a time when it's too long to fit.
  */
-export function createLedBoard(court, spec, k = 5) {
+/**
+ * A flat face on a wall of `court` (`spec` as for createLedBoard), as art pixels: `fw` x `fh` face pixels (r along it
+ * in reading order, c down from its top), the art pixels that can show it (`w` x `h` from art pixel `ax`, `ay`), and
+ * `cell`: which face pixel each of those shows (c * fw + r), or -1. Also used by engine/letterboard.js.
+ */
+export function wallFace(court, spec, k = 5) {
   const { origin: o, eu, ev, pxPerM } = court;
   const [z0, z1] = spec.z;
   const side = spec.plane === "side";
@@ -123,6 +128,11 @@ export function createLedBoard(court, spec, k = 5) {
       const c = Math.floor((z1 - z) * up); // c counts down from the top: rows of text read top to bottom
       if (r >= 0 && r < fw && c >= 0 && c < fh) cell[j * w + i] = c * fw + r;
     }
+  return { fw, fh, ax, ay, w, h, cell };
+}
+
+export function createLedBoard(court, spec, k = 5) {
+  const { fw, fh, ax, ay, w, h, cell } = wallFace(court, spec, k);
   const canvas = Object.assign(document.createElement("canvas"), { width: w, height: h });
   const g = canvas.getContext("2d");
   const img = g.createImageData(w, h);

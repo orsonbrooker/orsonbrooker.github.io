@@ -305,7 +305,11 @@ Terms used across the code:
   kind (`state.replayShots`, never sent). The physics has a fixed step and balls don't touch each other, so
   stepping the same start again gives the same flight exactly; `window.game.checkReplays()` in `?debug`
   re-flies every shot and checks each goes in or out as it did. A replay changes nothing about the score,
-  the shot log or what's sent.
+  the shot log or what's sent. It's drawn exactly as the game is: the gym stays open on its street after a game
+  (`keepOpen` in `play/fold.js`), REPLAY flashes on the hoop wall's LED, and a sign at the bottom says who's
+  shooting and how to skip (`.replay-tag`). `node tools/dev/verify.mjs play` plays each replay at phone, iPad (both
+  ways up) and desktop size and checks it's drawn in the street, with its sign and REPLAY, and goes back to game
+  over.
 - **Saved progress and coins:** coins are earned only by playing, never bought: 1 a basket, 2 while on fire,
   5 for a money or rainbow ball that goes in (`coinsFor` in `shared/rules.js`). As a game ends (not in
   `?debug`) the game sends it to `POST /api/progress/games` with its start token and shot log; the Worker
@@ -407,7 +411,8 @@ new court needs its own art, and a look at the Around the World spots (`content/
 round the hoop by angle and distance.
 
 The gym (`gym`) is pixel art built in Blender (`art/iso/gym/`, see `docs/art/isometric.md`): 2400 court pixels,
-a smaller glass board, one rack by the bench. The first, painted gym is kept as the test court `gym-old`. Its
+a smaller glass board, one rack by the bench. The first, painted gym isn't played any more: its numbers stay as
+`REFERENCE_COURTS["gym-old"]` in `content/courts.js`, only for the art check (`tools/pixelart/iso_eval.py`). Its
 `contest` gives the 3-point contest its own look: while the contest is played (`contestArt` in `modes/threes.js`),
 `play/scene.js` swaps the court picture for the contest one (`art/iso/gym-contest/`: the racks' shadows in the
 floor, no racks), and `modes/threes.js` draws each rack from its baked picture for the number of balls left
@@ -418,7 +423,7 @@ gym shut on its street in one picture at art pixels, placed exactly where the ga
 takes it away once it has drawn (`dropLoading` in `play/scene.js`). The title's words are on the gym itself: the
 billboard on its roof says Shootaround, and an LED sign on its left wall shows the loading bar and then flashes Tap
 to play (`titleSign` in `play/scene.js`, `engine/ledboard.js`); the page's own title and Tap to play stay for screen
-readers, and show as they are only on a test court without the sign (`gym-old` in `?debug`).
+readers, and show as they are only on a court without the sign, or if the game couldn't load.
 
 **The box opening** (`play/fold.js`). The gym also comes shut as a box (`panels`: `assets/courts/gym/panels.json`,
 written by `tools/pixelart/iso_export.py` from `art/iso/gym-box/`: the thick front walls from outside, the roof, and
@@ -439,7 +444,7 @@ the joystick on the left and the shoot button on the right, standing up off them
 the sides of the floor slab so the gym stands on it. On a tall screen the court zooms in as the box opens, until
 the corners of the court's lines touch the sides of the screen (`.zoomed` in `styles.css`). Reduced motion opens it
 at once. A pixel-art court gives `scoreboard` (where the scoreboard prop hangs and its
-face, from the prop's `prop.json`) instead of the old painted board (`BOARD_ART` in `content/looks.js`):
+face, from the prop's `prop.json`):
 `engine/pixelboard.js` works out which art pixels of the court show each face pixel, and repaints them with the
 mode's labels (a 3x5 pixel font) and lit digit segments whenever the score changes.
 It can also give `led`, a long LED screen along the top of the hoop wall: `engine/ledboard.js` repaints its art
@@ -447,6 +452,10 @@ pixels the same way, and the announcer's calls (`state.banner`) light up on it i
 can be seen, scrolling once across it when they're too long (a few words at a time with reduced motion). While
 the box is shut or opening, or on a court without one, the call is drawn big over the court instead
 (`drawBanner` in `engine/draw.js`).
+HORSE's letters are on the side wall too (`horseBoard`, `engine/letterboard.js`): a board under the windows with
+each player's name and five tiles, the ones they've got lit red and the shooter's name yellow, repainted on the
+court's art pixels the same way (`wallFace` in `engine/ledboard.js`). It's drawn by the mode's `drawWall` hook,
+behind the players.
 
 ## Player attributes
 

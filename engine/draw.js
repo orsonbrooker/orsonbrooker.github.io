@@ -2,7 +2,7 @@
 // big call banner, score popups, confetti, the hint bubble, the bonus ball badge, the wall
 // scoreboard's lit digits, the debug lines, and finding a player's shoes in their sprite sheet.
 
-import { BALL_LOOKS, BOARD_ART } from "../content/looks.js";
+import { BALL_LOOKS } from "../content/looks.js";
 import { BOARD, COURT_PX, RIM, RIM_R, ROOM_U, ROOM_V, project, threePointRadius } from "../engine/court.js";
 import { MONEY, NORMAL, RAINBOW } from "../shared/rules.js";
 
@@ -315,68 +315,6 @@ export function drawCourtLines(ctx) {
     i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y);
   });
   ctx.stroke();
-}
-
-// ---------- Wall scoreboard ----------
-
-const SEGMENTS = ["abcdef", "bc", "abdeg", "abcdg", "bcfg", "acdfg", "acdefg", "abc", "abcdefg", "abcdfg"];
-
-function drawDigit(g, digit, x, y, w, h, t) {
-  const half = h / 2;
-  const rects = {
-    a: [x + t, y, w - 2 * t, t],
-    b: [x + w - t, y + t, t, half - 1.5 * t],
-    c: [x + w - t, y + half + t / 2, t, half - 1.5 * t],
-    d: [x + t, y + h - t, w - 2 * t, t],
-    e: [x, y + half + t / 2, t, half - 1.5 * t],
-    f: [x, y + t, t, half - 1.5 * t],
-    g: [x + t, y + half - t / 2, w - 2 * t, t],
-  };
-  for (const [seg, r] of Object.entries(rects)) {
-    g.fillStyle = SEGMENTS[digit].includes(seg) ? BOARD_ART.lit : BOARD_ART.unlit;
-    g.fillRect(...r);
-  }
-}
-
-function drawPanel(g, panel, value) {
-  const [cx, cy, cw, ch] = panel.cover;
-  g.fillStyle = BOARD_ART.face;
-  g.fillRect(cx, cy, cw, ch);
-  g.fillStyle = BOARD_ART.label;
-  g.fillText(panel.label, ...panel.labelAt);
-
-  const [wx, wy, ww, wh] = panel.window;
-  g.fillStyle = BOARD_ART.window;
-  g.fillRect(wx, wy, ww, wh);
-  const digits = String(Math.min(999, value)).padStart(2, "0").split("").map(Number);
-  const gap = digits.length > 2 ? 5 : 8;
-  const w = digits.length > 2 ? 20 : 28;
-  const h = 50;
-  const total = digits.length * w + (digits.length - 1) * gap;
-  digits.forEach((d, i) => drawDigit(g, d, wx + (ww - total) / 2 + i * (w + gap), wy + (wh - h) / 2, w, h, 6));
-}
-
-// The scoreboard on the wall, drawn into its own canvas (only when it changes) to lay over the
-// court at BOARD_ART.area. Each side is [label, value], like ["SCORE", 12] and ["TIME", 45].
-export function createWallScoreboard() {
-  const canvas = document.createElement("canvas");
-  canvas.width = BOARD_ART.area.w;
-  canvas.height = BOARD_ART.area.h;
-  return {
-    canvas,
-    draw([leftLabel, left], [rightLabel, right]) {
-      const g = canvas.getContext("2d");
-      const { origin, slope, area } = BOARD_ART;
-      g.setTransform(1, 0, 0, 1, 0, 0);
-      g.clearRect(0, 0, area.w, area.h);
-      g.setTransform(1, slope, 0, 1, origin.x - area.x, origin.y - area.y);
-      g.font = `16px ${FONT}`;
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      drawPanel(g, { ...BOARD_ART.left, label: leftLabel }, left);
-      drawPanel(g, { ...BOARD_ART.right, label: rightLabel }, right);
-    },
-  };
 }
 
 // ---------- Sprite sheets ----------

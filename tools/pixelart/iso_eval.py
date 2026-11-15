@@ -409,7 +409,7 @@ def ramps(palette_lab):
 # ---------- court geometry ----------
 
 def court_def(cid):
-    js = f"import('{(ROOT / 'content' / 'courts.js').as_uri()}').then(m=>console.log(JSON.stringify(m.COURTS[{json.dumps(cid)}] || null)))"
+    js = f"import('{(ROOT / 'content' / 'courts.js').as_uri()}').then(m=>console.log(JSON.stringify(m.COURTS[{json.dumps(cid)}] || m.REFERENCE_COURTS?.[{json.dumps(cid)}] || null)))"
     r = subprocess.run(["node", "--input-type=module", "-e", js], capture_output=True, text=True, check=True)
     c = json.loads(r.stdout)
     if not c:

@@ -65,6 +65,8 @@
         <button id="mute" type="button" aria-label="Mute sound"><span data-icon="sound"></span></button>
       </div>
 
+      <!-- During a replay (play/replay.js): who's shooting and how to skip; REPLAY itself is on the hoop wall's LED. -->
+      <p class="replay-tag" aria-live="polite"><span class="replay-dot" aria-hidden="true"></span><b id="replay-who"></b> <span>Slow mo</span> <span id="replay-skip"></span></p>
       <div class="stage" id="stage" tabindex="0" aria-label="Basketball game. Press Space or tap to turn to the hoop, hold to jump, let go to shoot.">
         <img class="court" alt="" width="2400" height="2400" src="assets/courts/gym/court.webp" />
         <canvas id="game"></canvas>

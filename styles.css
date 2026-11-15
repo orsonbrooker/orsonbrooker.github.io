@@ -2725,7 +2725,6 @@ body:has(#mode-screen:not([hidden])) .corner {
   --sign: #1e1430;
   --sign-deep: #160d24;
   --ink-line: #2b1622;
-  --teal: #3fc9b0;
   --hot: #ff8c42;
   --lit: #ffe066;
 }
@@ -2882,7 +2881,7 @@ body:has(.panel-screen:not([hidden])) .corner {
 }
 
 .panel-screen .menu-label {
-  color: var(--teal);
+  color: var(--info); /* a label, not tappable: grey */
   text-transform: uppercase;
 }
 
@@ -3172,7 +3171,7 @@ body:has(.panel-screen:not([hidden])) .corner {
   background: none;
   box-shadow: none;
   border: 0;
-  color: var(--pick);
+  color: var(--info); /* a label, not tappable: grey */
   font-size: clamp(9px, 2.4vw, 12px);
   text-align: center;
   text-transform: uppercase;
@@ -3547,4 +3546,56 @@ body:has(.panel-screen:not([hidden])) .corner {
 .panel .over-actions #got-idea:focus-visible {
   border-color: var(--pick);
   box-shadow: 0 0 0 3px var(--ink-line), 0 0 0 7px rgba(255, 224, 102, 0.35), 0 0 22px rgba(255, 224, 102, 0.8);
+}
+
+/* The instant replay (play/replay.js): REPLAY flashes on the hoop wall's LED; this sign at the bottom says who's
+   shooting and how to skip, an information sign (grey) like the headings. */
+.replay-tag {
+  display: none;
+}
+
+.game-page[data-phase="replay"] .replay-tag {
+  position: fixed;
+  left: 50%;
+  bottom: max(18px, env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 14px 8px;
+  border: 3px solid var(--info);
+  border-radius: 6px;
+  background: var(--sign);
+  box-shadow: 0 0 0 3px var(--ink-line), 4px 6px 0 3px rgba(24, 8, 38, 0.7);
+  color: #e9ccbb;
+  font-family: var(--pixel);
+  font-size: clamp(9px, 2.4vw, 13px);
+  text-transform: uppercase;
+  white-space: nowrap;
+  translate: -50% 0;
+  pointer-events: none;
+}
+
+.replay-tag b {
+  color: var(--main);
+}
+
+.replay-dot {
+  width: 0.9em;
+  height: 0.9em;
+  background: #ff4d4d;
+  animation: replay-blink 1s steps(1) infinite;
+}
+
+@keyframes replay-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .replay-dot {
+    animation: none;
+  }
 }
