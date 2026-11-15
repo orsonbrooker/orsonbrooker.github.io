@@ -3820,7 +3820,8 @@ body:has(.panel-screen:not([hidden])) .corner {
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
-.mode-top {
+/* Choose a game and Choose your player: the heading, with who's playing or the team, stays at the top */
+.sheet-top {
   position: sticky;
   top: 0;
   z-index: 2;
@@ -3829,15 +3830,19 @@ body:has(.panel-screen:not([hidden])) .corner {
 }
 
 /* a dark backdrop only once the sheet has scrolled under it (screens/base.js marks it .scrolled) */
-#mode-screen.scrolled .mode-top {
+.panel-screen.scrolled .sheet-top {
   /* solid behind the buttons, fading out under them, the whole width of the screen */
   border-image: linear-gradient(#180826 calc(100% - 10px), rgba(24, 8, 38, 0)) fill 0 / / 0 100vw;
 }
 
-#mode-screen .mode-top .select-head {
+.sheet-top .select-head {
   position: static;
   margin-bottom: 8px;
   background: none;
+}
+
+.sheet-top > .my-team {
+  margin: 0 auto;
 }
 
 /* the player and the team side by side; a long team name is cut short rather than taking a second row */

@@ -12,8 +12,13 @@ export const stage = $("stage");
 // The whole page around the court: it takes presses too, and carries the phase for the CSS.
 export const page = $("game-page");
 export const screens = { pause: $("pause-screen"), menu: $("menu-screen"), title: $("title-screen"), select: $("select-screen"), modes: $("mode-screen"), turn: $("turn-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen"), shop: $("shop-screen") };
-// Choose a game keeps its heading and who's playing at the top; they get a backdrop once the cards scroll under them.
-screens.modes.addEventListener("scroll", () => screens.modes.classList.toggle("scrolled", screens.modes.scrollTop > 0), { passive: true });
+// Choose a game and Choose your player keep their heading at the top (with who's playing, or the team); it gets a
+// backdrop once what's below scrolls under it. A card the arrow keys move to scrolls into view below it, not under it.
+for (const sheet of [screens.modes, screens.select]) {
+  sheet.addEventListener("scroll", () => sheet.classList.toggle("scrolled", sheet.scrollTop > 0), { passive: true });
+  const top = sheet.querySelector(".sheet-top");
+  new ResizeObserver(() => (sheet.style.scrollPaddingTop = `${top.offsetHeight}px`)).observe(top);
+}
 export const tapToPlay = $("tap-to-play");
 export const charPick = $("char-pick");
 
