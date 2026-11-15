@@ -9,6 +9,23 @@
   --sheet: #3a1f2e; /* a full-screen sheet: the panel colour, solid */
   --accent: #f08a3c;
   --pixel: "Press Start 2P", ui-monospace, monospace;
+  /* Signs over the city, on every page: outlines in four colours, one job each (see "The city sheets"). */
+  --tap: #3fc9b0; /* you can tap it */
+  --main: #ff8c42; /* the one main thing to do */
+  --pick: #ffe066; /* selected or focused, your own */
+  --info: #877e8f; /* just showing something */
+  --sign: #1e1430;
+  --sign-deep: #160d24;
+  --ink-line: #2b1622;
+  --night: #1d1029; /* behind the city picture */
+  --sign-bg: linear-gradient(var(--sign), var(--sign-deep));
+  --drop: 4px 5px 0 3px rgba(24, 8, 38, 0.7);
+  --drop-pressed: 1px 2px 0 2px rgba(24, 8, 38, 0.7);
+  --glow-tap: 0 0 0 3px var(--ink-line), 0 0 10px rgba(63, 201, 176, 0.4), inset 0 0 10px rgba(63, 201, 176, 0.15);
+  --glow-main: 0 0 0 3px var(--ink-line), 0 0 18px rgba(255, 140, 66, 0.7), inset 0 0 14px rgba(255, 140, 66, 0.3);
+  --glow-pick: 0 0 0 3px var(--ink-line), 0 0 0 6px rgba(255, 224, 102, 0.3), 0 0 20px rgba(255, 224, 102, 0.75),
+    inset 0 0 12px rgba(255, 224, 102, 0.25);
+  --glow-info: 0 0 0 3px var(--ink-line);
 }
 
 * {
@@ -26,6 +43,23 @@ body {
     max(16px, env(safe-area-inset-left));
   -webkit-text-size-adjust: 100%;
   touch-action: manipulation;
+}
+
+/* Every page but the game (which has the city itself) floats over the gym shut on its street, dimmed. */
+body:not(.game-body) {
+  background-color: var(--night);
+}
+
+body:not(.game-body)::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(rgba(24, 8, 38, 0.84), rgba(24, 8, 38, 0.74) 40%, rgba(24, 8, 38, 0.9)),
+    url("/assets/courts/gym/loading.webp") 50% 30% / cover no-repeat,
+    var(--night);
+  image-rendering: pixelated;
 }
 
 /* Pixel icons (ui/icons.js) take the text colour and sit on the text line. */
@@ -68,18 +102,31 @@ body {
   gap: 6px;
   min-height: 44px; /* big enough to tap */
   padding: 8px 10px;
+  border: 3px solid transparent;
   border-radius: 6px;
-  color: #fff;
+  color: #e8fff9;
   text-decoration: none;
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
-.site-nav a:hover,
-.site-nav a[aria-current="page"] {
-  background: var(--panel);
+.site-nav a:hover {
+  border-color: var(--tap);
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap);
 }
 
+/* the page you're on: lit yellow */
 .site-nav a[aria-current="page"] {
-  color: var(--accent);
+  border-color: var(--pick);
+  background: var(--sign-bg);
+  box-shadow: var(--glow-pick);
+  color: var(--pick);
+}
+
+.site-nav a:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick);
 }
 
 .site-nav ul {
@@ -109,6 +156,19 @@ body {
 
 header {
   text-align: center;
+}
+
+/* a page's heading: a lit sign, as on the game's screens */
+header h1 {
+  width: fit-content;
+  margin: 12px auto 14px;
+  padding: 12px 18px 10px;
+  border: 3px solid var(--info);
+  border-radius: 6px;
+  background: var(--sign);
+  box-shadow: var(--glow-info), var(--drop);
+  color: var(--main);
+  text-shadow: 3px 3px 0 var(--ink-line);
 }
 
 h1 {
@@ -837,30 +897,54 @@ body:has(#mode-screen:not([hidden])) .corner {
   width: 100%;
   height: 100%;
   padding: 8px 6px 10px;
-  border: 3px solid transparent;
+  border: 3px solid var(--tap);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), var(--drop);
+  color: #e8fff9;
   font-size: 9px;
   text-decoration: none;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
   overflow-wrap: anywhere;
+  transition: transform 0.1s;
 }
 
 .char-pick .card:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: linear-gradient(#2a1d40, var(--sign-deep));
 }
 
-/* Same for players: the highlight moves with the arrow keys rather than adding a second one. */
-.char-pick .card[aria-pressed="true"],
-.char-pick .card:focus {
-  border-color: var(--accent);
-  background: rgba(240, 138, 60, 0.25);
-  outline: none;
+.char-pick .card:active {
+  transform: translate(3px, 3px);
+  box-shadow: var(--glow-tap), var(--drop-pressed);
 }
 
-.char-pick:has(.card:focus) .card[aria-pressed="true"]:not(:focus) {
-  border-color: transparent;
-  background: rgba(255, 255, 255, 0.1);
+/* Their player (or, in HORSE, everyone playing) is a real choice: it shows for touch too, a yellow edge and
+   glow, flat. The keyboard's focus is the card lifted as well, and only for the keyboard (ui/keys.js). */
+.char-pick .card[aria-pressed="true"] {
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), var(--drop);
+  color: var(--pick);
+}
+
+:root[data-input="keys"] .char-pick .card:focus-visible {
+  z-index: 1;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), var(--drop);
+  color: var(--pick);
+  transform: translateY(-3px);
+}
+
+.char-pick .card:focus-visible {
+  outline: none; /* the highlight above is its focus */
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .char-pick .card,
+  :root .char-pick .card:is([aria-pressed="true"], :focus-visible, :active) {
+    transition: none;
+    transform: none;
+  }
 }
 
 .char-pick img {
@@ -900,10 +984,10 @@ body:has(#mode-screen:not([hidden])) .corner {
   width: 26px;
   height: 26px;
   padding: 0;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--ink-line);
   border-radius: 50%;
   background: #fff;
-  color: var(--ink);
+  color: var(--ink-line);
 }
 
 .char-pick .edit {
@@ -927,15 +1011,17 @@ body:has(#mode-screen:not([hidden])) .corner {
 }
 
 .char-pick .make-player {
-  border: 3px dashed rgba(255, 255, 255, 0.5);
-  background: transparent;
-  color: var(--accent);
+  border: 3px dashed var(--tap);
+  background: rgba(22, 13, 36, 0.6);
+  box-shadow: none;
+  color: var(--tap);
 }
 
 .char-pick .make-player .icon {
   width: 40px;
   height: 40px;
   margin: 0;
+  color: var(--tap);
 }
 
 /* ---------- Pass and play (HORSE) ---------- */
@@ -954,17 +1040,6 @@ body:has(#mode-screen:not([hidden])) .corner {
   transform: translate(-50%, -50%);
 }
 
-/* Several are picked at once, so every chosen card stays marked wherever the focus is. */
-.char-pick.team .card[aria-pressed="true"],
-.char-pick.team:has(.card:focus) .card[aria-pressed="true"]:not(:focus) {
-  border-color: #ffe066;
-  background: rgba(255, 224, 102, 0.18);
-}
-
-.char-pick.team .card:focus {
-  border-color: var(--accent);
-}
-
 .char-pick .order {
   position: absolute;
   top: 4px;
@@ -973,11 +1048,12 @@ body:has(#mode-screen:not([hidden])) .corner {
   place-items: center;
   width: 26px;
   height: 26px;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--ink-line);
   border-radius: 50%;
-  background: #ffe066;
-  color: var(--ink);
+  background: var(--pick);
+  color: var(--ink-line);
   font-size: 11px;
+  text-shadow: none;
 }
 
 .panel .team-note {
@@ -1069,10 +1145,11 @@ body:has(#mode-screen:not([hidden])) .corner {
   width: min(100%, 320px);
   aspect-ratio: 1;
   margin: 0 auto;
+  border: 3px solid var(--info);
   border-radius: 8px;
-  background-color: #2b1622;
+  background-color: var(--sign-deep);
   background-repeat: no-repeat;
-  box-shadow: 3px 3px 0 var(--ink);
+  box-shadow: var(--glow-info), var(--drop);
   overflow: hidden;
 }
 
@@ -1083,10 +1160,11 @@ body:has(#mode-screen:not([hidden])) .corner {
   width: 40px;
   height: 40px;
   padding: 0;
-  border: 3px solid var(--ink);
+  border: 3px solid var(--ink-line);
   border-radius: 50%;
   background: #fff;
-  color: var(--ink);
+  box-shadow: 0 0 0 2px var(--tap), 0 0 10px rgba(63, 201, 176, 0.6);
+  color: var(--ink-line);
   font-size: 12px;
   transform: translate(-50%, -50%);
 }
@@ -1096,13 +1174,14 @@ body:has(#mode-screen:not([hidden])) .corner {
 }
 
 .panel .spot-map .spot[aria-pressed="true"] {
-  background: #ffe066;
-  outline: 4px solid #fff;
+  background: var(--pick);
+  box-shadow: 0 0 0 3px var(--pick), 0 0 16px rgba(255, 224, 102, 0.85);
   transform: translate(-50%, -50%) scale(1.2);
 }
 
 .panel .spot-map .spot:focus-visible {
-  outline: 4px solid var(--pick); /* yellow: what has focus */
+  outline: none;
+  box-shadow: 0 0 0 3px var(--pick), 0 0 0 6px rgba(255, 224, 102, 0.35), 0 0 16px rgba(255, 224, 102, 0.85);
 }
 
 .panel .spot-map .spot:disabled {
@@ -1129,12 +1208,14 @@ body:has(#mode-screen:not([hidden])) .corner {
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
+  border: 2px solid rgba(135, 126, 143, 0.6);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--sign-deep);
 }
 
 .horse-letters li.up {
-  outline: 2px solid #ffe066;
+  border-color: var(--pick);
+  box-shadow: 0 0 10px rgba(255, 224, 102, 0.45);
 }
 
 .horse-letters li.out {
@@ -1273,13 +1354,30 @@ body:has(#mode-screen:not([hidden])) .corner {
   min-height: 44px;
   margin: 4px 0 8px;
   padding: 8px 12px 8px 6px;
+  border: 3px solid var(--tap);
   border-radius: 6px;
-  background: var(--panel);
-  color: #fff;
+  background: var(--sign-bg);
+  color: #e8fff9;
   font-family: var(--pixel);
   font-size: 10px;
   text-decoration: none;
-  box-shadow: 3px 3px 0 var(--ink);
+  text-shadow: 2px 2px 0 var(--ink-line);
+  box-shadow: var(--glow-tap), var(--drop);
+}
+
+.back-link:hover {
+  background: linear-gradient(#2a1d40, var(--sign-deep));
+}
+
+.back-link:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), var(--drop);
+}
+
+.back-link:active {
+  transform: translate(3px, 3px);
+  box-shadow: var(--glow-tap), var(--drop-pressed);
 }
 
 /* ---------- Home page ---------- */
@@ -1301,35 +1399,38 @@ body:has(#mode-screen:not([hidden])) .corner {
   width: clamp(90px, 22vw, 150px);
   height: auto;
   image-rendering: pixelated;
-  filter: drop-shadow(4px 4px 0 rgba(43, 22, 34, 0.35));
+  filter: drop-shadow(4px 4px 0 rgba(24, 8, 38, 0.6));
 }
 
+/* What Orson says: a sign with a grey edge. */
 .intro-bubble {
   position: relative;
   max-width: 520px;
   margin-bottom: clamp(80px, 22vw, 170px);
   padding: 16px 18px;
-  border-radius: 10px;
-  background: var(--panel);
-  box-shadow: 4px 4px 0 var(--ink);
+  border: 3px solid var(--info);
+  border-radius: 8px;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-info), var(--drop);
 }
 
 /* The bubble's tail points at Orson. */
 .intro-bubble::before {
   content: "";
   position: absolute;
-  left: -14px;
+  left: -17px;
   bottom: 18px;
   border: 8px solid transparent;
-  border-right: 8px solid var(--panel);
-  border-bottom-color: var(--panel);
+  border-right: 8px solid var(--info);
+  border-bottom-color: var(--info);
 }
 
 .intro-bubble h1 {
   margin: 0 0 10px;
-  color: var(--accent);
+  color: var(--main);
   text-transform: none;
   font-size: clamp(16px, 4vw, 30px);
+  text-shadow: 3px 3px 0 var(--ink-line);
 }
 
 .intro-bubble p {
@@ -1339,11 +1440,20 @@ body:has(#mode-screen:not([hidden])) .corner {
   line-height: 1.8;
 }
 
+/* a label on a small grey-edged sign, so it reads over the city */
 .home-heading {
-  margin: 0 0 12px;
+  width: fit-content;
+  margin: 0 0 14px;
+  padding: 8px 12px 6px;
+  border: 3px solid var(--info);
+  border-radius: 6px;
+  background: var(--sign);
+  box-shadow: var(--glow-info), var(--drop);
+  color: var(--info);
   font-family: var(--pixel);
   font-size: clamp(11px, 2vw, 14px);
-  text-shadow: 2px 2px 0 var(--ink);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
 .tiles {
@@ -1366,34 +1476,41 @@ body:has(#mode-screen:not([hidden])) .corner {
   }
 }
 
+/* Each tile is a sign you can tap: teal, yellow when it's the one under the pointer or focused. */
 .tile {
   display: flex;
   height: 100%;
+  border: 3px solid var(--tap);
   border-radius: 8px;
-  background: var(--panel);
+  background: var(--sign-bg);
   color: #fff;
   font-family: var(--pixel);
   font-size: 10px;
   line-height: 1.7;
   text-decoration: none;
-  box-shadow: 4px 4px 0 var(--ink);
+  box-shadow: var(--glow-tap), var(--drop);
   overflow: hidden;
 }
 
-.tile:hover {
-  outline: 3px solid var(--accent);
+.tile:hover,
+.tile:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), var(--drop);
 }
 
 .tile:active {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0 var(--ink);
+  transform: translate(3px, 3px);
+  box-shadow: var(--glow-tap), var(--drop-pressed);
 }
 
 .tile strong {
   display: block;
   margin-bottom: 4px;
-  color: var(--accent);
+  color: var(--main);
   font-size: 13px;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
 .tile-game {
@@ -1404,6 +1521,8 @@ body:has(#mode-screen:not([hidden])) .corner {
   width: 100%;
   height: auto;
   display: block;
+  image-rendering: pixelated;
+  border-bottom: 3px solid var(--ink-line);
 }
 
 .tile-body {
@@ -1418,17 +1537,27 @@ body:has(#mode-screen:not([hidden])) .corner {
   font-size: 18px;
 }
 
+/* Play: the main thing to do, an orange sign. */
 .tile-go {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 44px;
+  min-height: 48px;
   margin-top: 4px;
   padding: 8px 14px 8px 8px;
+  border: 3px solid var(--main);
   border-radius: 6px;
-  background: var(--accent);
-  color: var(--ink);
+  background: linear-gradient(#4a1f18, var(--ink-line));
+  box-shadow: var(--glow-main), var(--drop);
+  color: var(--pick);
   font-size: 12px;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
+}
+
+a.tile-go:active {
+  transform: translate(3px, 3px);
+  box-shadow: var(--glow-main), var(--drop-pressed);
 }
 
 .tile-soon {
@@ -1438,8 +1567,8 @@ body:has(#mode-screen:not([hidden])) .corner {
   gap: 6px;
   padding: 20px;
   text-align: center;
-  border: 3px dashed rgba(255, 255, 255, 0.4);
-  background: rgba(43, 22, 34, 0.4);
+  border: 3px dashed var(--tap);
+  background: rgba(22, 13, 36, 0.6);
   box-shadow: none;
 }
 
@@ -1447,7 +1576,7 @@ body:has(#mode-screen:not([hidden])) .corner {
 .tile-soon > [data-icon] .icon {
   width: 40px;
   height: 40px;
-  color: var(--accent);
+  color: var(--pick);
 }
 
 .tile-link {
@@ -1459,7 +1588,7 @@ body:has(#mode-screen:not([hidden])) .corner {
 .tile-link .icon {
   width: 32px;
   height: 32px;
-  color: var(--accent);
+  color: var(--tap);
 }
 
 /* ---------- Game page ---------- */
@@ -1657,20 +1786,22 @@ body:has(#mode-screen:not([hidden])) .corner {
 
 /* ---------- Yes/no questions (ui/confirm.js) ---------- */
 
+/* A sign panel with a grey edge over the dimmed screen: the question in orange, Cancel a teal sign, the
+   yes an orange one. The safe choice starts focused (yellow). Also the team picker (screens/team.js). */
 .confirm-dialog {
   width: min(92vw, 420px);
   padding: 20px;
-  border: 0;
-  border-radius: 10px;
-  background: #3a1f2e;
+  border: 3px solid var(--info);
+  border-radius: 8px;
+  background: var(--sign-bg);
   color: #fff;
   font-family: var(--pixel);
   text-align: center;
-  box-shadow: 6px 6px 0 var(--ink);
+  box-shadow: var(--glow-info), 6px 8px 0 3px rgba(24, 8, 38, 0.75);
 }
 
 .confirm-dialog::backdrop {
-  background: rgba(43, 22, 34, 0.6);
+  background: rgba(24, 8, 38, 0.72);
 }
 
 .confirm-dialog[open] {
@@ -1687,7 +1818,8 @@ body:has(#mode-screen:not([hidden])) .corner {
   margin: 0 0 10px;
   font-size: 15px;
   line-height: 1.5;
-  color: var(--accent);
+  color: var(--main);
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
 .confirm-detail {
@@ -1707,29 +1839,36 @@ body:has(#mode-screen:not([hidden])) .corner {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-height: 48px;
   padding: 10px 16px;
-  border: 0;
+  border: 3px solid var(--tap);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
+  background: var(--sign-bg);
+  color: #e8fff9;
   font: inherit;
   font-size: 11px;
-  box-shadow: 3px 3px 0 var(--ink);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
+  box-shadow: var(--glow-tap), var(--drop);
   cursor: pointer;
 }
 
 .confirm-actions .primary {
-  background: #d63a3a;
+  border-color: var(--main);
+  background: linear-gradient(#4a1f18, var(--ink-line));
+  box-shadow: var(--glow-main), var(--drop);
+  color: var(--pick);
 }
 
 .confirm-actions button:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--ink);
+  transform: translate(3px, 3px);
+  box-shadow: var(--glow-tap), var(--drop-pressed);
 }
 
 .confirm-actions button:focus-visible {
-  outline: 3px solid #fff;
-  outline-offset: 2px;
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), var(--drop);
 }
 
 .confirm-actions .icon {
@@ -2233,8 +2372,8 @@ body:has(#mode-screen:not([hidden])) .corner {
   gap: 0.15em;
   margin: 16px 0 0;
   font-size: clamp(56px, 16vw, 120px);
-  color: #fff;
-  text-shadow: 6px 6px 0 var(--ink);
+  color: var(--pick);
+  text-shadow: 6px 6px 0 var(--ink-line), 0 0 18px rgba(255, 224, 102, 0.55);
 }
 
 .lost-ball {
@@ -2245,7 +2384,7 @@ body:has(#mode-screen:not([hidden])) .corner {
     linear-gradient(90deg, transparent 46%, var(--ink) 46% 54%, transparent 54%),
     linear-gradient(transparent 46%, var(--ink) 46% 54%, transparent 54%),
     radial-gradient(circle at 35% 30%, #ffb27a 0 12%, #e8742c 13%);
-  box-shadow: 6px 6px 0 var(--ink);
+  box-shadow: 6px 6px 0 var(--ink-line);
   animation: lost-bounce 0.9s cubic-bezier(0.3, 0, 0.7, 1) infinite alternate;
 }
 
@@ -2258,10 +2397,18 @@ body:has(#mode-screen:not([hidden])) .corner {
   }
 }
 
+/* the call, on a lit sign */
 .lost h1 {
-  margin: 12px 0 8px;
-  color: var(--accent);
-  font-size: clamp(22px, 6vw, 40px);
+  width: fit-content;
+  margin: 14px auto 12px;
+  padding: 12px 18px 10px;
+  border: 3px solid var(--info);
+  border-radius: 6px;
+  background: var(--sign);
+  box-shadow: var(--glow-info), var(--drop);
+  color: var(--main);
+  font-size: clamp(20px, 6vw, 36px);
+  text-shadow: 3px 3px 0 var(--ink-line);
 }
 
 .lost-line {
@@ -2269,16 +2416,18 @@ body:has(#mode-screen:not([hidden])) .corner {
   margin: 0 auto 16px;
   font-size: clamp(10px, 2vw, 14px);
   line-height: 1.8;
-  text-shadow: 2px 2px 0 var(--ink);
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
+/* the little court, in a sign's frame */
 .lost-court {
   width: 100%;
   max-width: 560px;
   height: auto;
-  border-radius: 10px;
+  border: 4px solid var(--info);
+  border-radius: 8px;
   background: linear-gradient(#8d5b48, #a46a50 70%);
-  box-shadow: 6px 6px 0 var(--ink);
+  box-shadow: var(--glow-info), 6px 8px 0 3px rgba(24, 8, 38, 0.75);
   image-rendering: pixelated;
   cursor: pointer;
   touch-action: manipulation;
@@ -2291,7 +2440,8 @@ body:has(#mode-screen:not([hidden])) .corner {
 }
 
 .lost-hint {
-  color: #ffe066;
+  color: var(--info); /* information: grey */
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
 .lost-tally {
@@ -2311,17 +2461,31 @@ body:has(#mode-screen:not([hidden])) .corner {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-height: 52px;
   padding: 12px 16px;
-  border-radius: 6px;
   font-size: 12px;
   text-decoration: none;
-  box-shadow: 3px 3px 0 var(--ink);
+  text-transform: uppercase;
 }
 
 .lost-home {
-  min-height: 44px;
-  background: var(--panel);
-  color: #fff;
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), var(--drop);
+  color: #e8fff9;
+  text-shadow: 2px 2px 0 var(--ink-line);
+}
+
+.lost-home:active {
+  transform: translate(3px, 3px);
+  box-shadow: var(--glow-tap), var(--drop-pressed);
+}
+
+.lost-actions a:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), var(--drop);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2567,13 +2731,26 @@ body:has(#mode-screen:not([hidden])) .corner {
   min-height: 44px;
   margin: -4px auto 12px;
   padding: 8px 14px;
-  border: 0;
+  border: 3px solid var(--tap);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), var(--drop);
+  color: #e8fff9;
   font: inherit;
   font-size: 11px;
+  text-shadow: 2px 2px 0 var(--ink-line);
   cursor: pointer;
+}
+
+.panel :is(.my-team, .mode-player):active {
+  transform: translate(3px, 3px);
+  box-shadow: var(--glow-tap), var(--drop-pressed);
+}
+
+.panel :is(.my-team, .mode-player):focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), var(--drop);
 }
 
 .panel .my-team[hidden] {
@@ -2605,7 +2782,7 @@ body:has(#mode-screen:not([hidden])) .corner {
 .team-make {
   display: block;
   margin: 14px 0 0;
-  color: var(--accent);
+  color: var(--tap);
 }
 
 .team-choices {
@@ -2621,18 +2798,28 @@ body:has(#mode-screen:not([hidden])) .corner {
   gap: 6px 8px;
   min-height: 48px;
   padding: 8px 10px;
-  border: 2px solid transparent;
+  border: 3px solid var(--tap);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: #e8fff9;
   font: inherit;
   font-size: 11px;
   text-align: left;
   cursor: pointer;
 }
 
-.team-choice[aria-pressed="true"] {
-  border-color: var(--accent);
+.team-choice:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--glow-tap);
+}
+
+.team-choice[aria-pressed="true"],
+.team-choice:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick);
+  color: var(--pick);
 }
 
 .team-choice-name {
@@ -2680,11 +2867,13 @@ body:has(#mode-screen:not([hidden])) .corner {
   gap: 8px;
   min-height: 44px;
   padding: 4px 14px 4px 6px;
-  border: 0;
+  border: 3px solid var(--tap);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), var(--drop);
+  color: #e8fff9;
   font-size: 11px;
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
 .mode-player img {
@@ -2716,17 +2905,11 @@ body:has(#mode-screen:not([hidden])) .corner {
    Every full-screen sheet (menus, pause, game over, the leaderboard, help, the shop) floats over the city like
    Choose a game: the scene dimmed behind, the heading a lit sign, buttons glowing arcade signs (orange for the
    main thing to do, teal for the rest), lists on dark LED panels. One highlight colour: yellow, for what's
-   selected or focused. Laid out for a phone held upright and an iPad held sideways. */
+   selected or focused. Laid out for a phone held upright and an iPad held sideways. The colours are the
+   tokens at the top of this file, shared with the website's own pages. */
 :root {
-  --tap: #3fc9b0;
-  --main: #ff8c42;
-  --pick: #ffe066;
-  --info: #877e8f;
-  --sign: #1e1430;
-  --sign-deep: #160d24;
-  --ink-line: #2b1622;
-  --hot: #ff8c42;
-  --lit: #ffe066;
+  --hot: var(--main);
+  --lit: var(--pick);
 }
 
 .panel-screen {

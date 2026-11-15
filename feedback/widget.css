@@ -5,8 +5,6 @@
 .fb-dialog,
 .builder {
   --fb-ink: var(--ink, #2b1622);
-  --fb-panel: var(--panel, rgba(43, 22, 34, 0.86));
-  --fb-accent: var(--accent, #f08a3c);
   --fb-pixel: var(--pixel, "Press Start 2P", ui-monospace, monospace);
 }
 
@@ -18,62 +16,98 @@
   margin: 16px auto 0;
 }
 
+/* Buttons are signs (styles.css): teal to tap, orange for the main thing to do, pushed down when pressed. */
 .fb-button {
   min-height: 44px; /* big enough to tap */
   font-family: var(--fb-pixel);
   font-size: 11px;
   line-height: 1.4;
-  border: 0;
+  border: 3px solid var(--tap);
   border-radius: 6px;
-  padding: 12px 14px;
-  background: var(--fb-panel);
-  color: #fff;
+  padding: 10px 14px;
+  background: var(--sign-bg);
+  color: #e8fff9;
   text-decoration: none;
+  text-shadow: 2px 2px 0 var(--ink-line);
   cursor: pointer;
-  box-shadow: 3px 3px 0 var(--fb-ink);
+  box-shadow: var(--glow-tap), var(--drop);
+}
+
+.fb-button:hover {
+  background: linear-gradient(#2a1d40, var(--sign-deep));
 }
 
 .fb-button:active {
-  transform: translate(2px, 2px);
-  box-shadow: 1px 1px 0 var(--fb-ink);
+  transform: translate(3px, 3px);
+  box-shadow: var(--glow-tap), var(--drop-pressed);
 }
 
-.fb-primary,
+.fb-primary {
+  border-color: var(--main);
+  background: linear-gradient(#4a1f18, var(--ink-line));
+  box-shadow: var(--glow-main), var(--drop);
+  color: var(--pick);
+}
+
+.fb-primary:hover {
+  background: linear-gradient(#5a2a1c, var(--ink-line));
+}
+
+.fb-primary:active {
+  box-shadow: var(--glow-main), var(--drop-pressed);
+}
+
+/* the chosen filter: a switch lit yellow */
 .fb-tabs .fb-button[aria-selected="true"] {
-  background: var(--fb-accent);
-  color: var(--fb-ink);
+  border-color: var(--pick);
+  background: var(--pick);
+  box-shadow: var(--glow-pick), var(--drop);
+  color: var(--ink-line);
+  text-shadow: none;
+}
+
+.fb-button:focus-visible,
+.fb-vote:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), var(--drop);
 }
 
 /* Suggest-an-idea dialog */
 
+/* a sign panel over the dimmed page */
 .fb-dialog {
   width: min(92vw, 460px);
-  border: 0;
+  border: 3px solid var(--info);
   border-radius: 8px;
   padding: 20px;
-  background: #3a1f2e;
+  background: var(--sign-bg);
   color: #fff;
-  box-shadow: 6px 6px 0 var(--fb-ink);
+  box-shadow: var(--glow-info), 6px 8px 0 3px rgba(24, 8, 38, 0.75);
 }
 
 .fb-dialog::backdrop {
-  background: rgba(43, 22, 34, 0.6);
+  background: rgba(24, 8, 38, 0.72);
 }
 
 .fb-dialog h2 {
   font-family: var(--fb-pixel);
   font-size: 16px;
-  color: var(--fb-accent);
+  color: var(--main);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
   margin: 0 0 12px;
 }
 
 .fb-dialog label {
   display: block;
+  color: var(--info); /* a label: grey */
   font-family: var(--fb-pixel);
   font-size: 10px;
   margin: 12px 0 6px;
 }
 
+/* Typing boxes: dark LED fields with a grey edge, yellow while you type in them (also the builder's). */
 .fb-dialog textarea,
 .fb-dialog input,
 .fb-dialog select {
@@ -81,8 +115,20 @@
   font: inherit;
   font-size: 16px; /* 16px stops iOS zooming in on focus */
   padding: 10px;
-  border: 2px solid var(--fb-ink);
+  border: 3px solid var(--info);
   border-radius: 4px;
+  background: #0f0a18;
+  color: #fff;
+}
+
+.fb-dialog :is(textarea, input, select):focus {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: 0 0 0 3px var(--ink-line), 0 0 14px rgba(255, 224, 102, 0.55);
+}
+
+.fb-dialog ::placeholder {
+  color: rgba(255, 255, 255, 0.45);
 }
 
 .fb-dialog textarea {
@@ -137,31 +183,38 @@
   }
 }
 
+/* Each column: a dark LED panel with a grey edge. */
 .fb-column {
-  background: var(--fb-panel);
+  border: 3px solid var(--info);
   border-radius: 8px;
   padding: 12px;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-info), var(--drop);
 }
 
 .fb-column h2 {
   font-family: var(--fb-pixel);
   font-size: 11px;
   margin: 2px 0 12px;
+  color: var(--main);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
 .fb-planned h2 { color: #7cf0ff; }
 .fb-done h2 { color: #3ddc84; }
 
+/* An idea: a small sign on the panel. */
 .fb-card {
   display: flex;
   gap: 10px;
   align-items: flex-start;
-  background: #fff;
-  color: var(--fb-ink);
+  border: 2px solid rgba(135, 126, 143, 0.6);
   border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
   padding: 10px;
   margin-bottom: 10px;
-  box-shadow: 3px 3px 0 var(--fb-ink);
 }
 
 .fb-card-body {
@@ -190,6 +243,7 @@
   padding: 3px 8px 3px 4px;
   border-radius: 4px;
   background: #fff1c2;
+  color: var(--ink-line);
   font-family: var(--fb-pixel);
   font-size: 8px;
 }
@@ -200,8 +254,10 @@
   color: #d08a00;
 }
 
+/* the most wanted: a gold edge */
 .fb-top {
-  box-shadow: 0 0 0 3px #ffe066, 3px 3px 0 3px var(--fb-ink);
+  border-color: #ffd23f;
+  box-shadow: 0 0 12px rgba(255, 210, 63, 0.35);
 }
 
 .fb-top-chip {
@@ -227,30 +283,36 @@
 .fb-more {
   width: 100%;
   font-size: 9px;
-  background: rgba(255, 255, 255, 0.12);
 }
 
 .fb-chip {
   display: inline-block;
   font-family: var(--fb-pixel);
   font-size: 8px;
-  background: var(--fb-ink);
+  background: rgba(135, 126, 143, 0.35);
   color: #fff;
   border-radius: 4px;
   padding: 4px 6px;
   margin-bottom: 6px;
 }
 
+/* A vote: a teal button; their own vote lit yellow. */
 .fb-vote {
   font-family: var(--fb-pixel);
   font-size: 11px;
   min-width: 52px;
-  min-height: 44px;
-  border: 2px solid var(--fb-ink);
+  min-height: 48px;
+  border: 3px solid var(--tap);
   border-radius: 6px;
-  background: #fff;
-  color: var(--fb-ink);
+  background: var(--sign-bg);
+  color: #e8fff9;
+  box-shadow: var(--glow-tap), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
   cursor: pointer;
+}
+
+.fb-vote:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--glow-tap);
 }
 
 .fb-vote {
@@ -269,7 +331,10 @@
 }
 
 .fb-vote[aria-pressed="true"] {
-  background: var(--fb-accent);
+  border-color: var(--pick);
+  background: var(--pick);
+  box-shadow: var(--glow-pick), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: var(--ink-line);
 }
 
 .fb-empty,
@@ -309,7 +374,7 @@
   background: #ffd6d6;
   color: #7a1010;
   font-weight: bold;
-  box-shadow: 3px 3px 0 var(--fb-ink);
+  box-shadow: 0 0 0 3px var(--ink-line);
 }
 
 .fb-message.fb-error .icon {

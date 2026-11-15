@@ -1,12 +1,12 @@
 /* Player builder page: one screen that never scrolls; its panel does. Phone: the preview on top, the
    panel, then the tabs at the bottom where thumbs reach (on the Character tab the cards are the preview).
-   Tablet and up: the preview on the left, tabs and panel on the right. Colours come from styles.css. */
+   Tablet and up: the preview on the left, tabs and panel on the right. Colours come from styles.css: like the
+   game's screens, everything is a sign over the city, teal to tap, orange for the main thing (Done), yellow
+   for what's picked or focused, grey for what only shows something. */
 
 .builder-page {
   /* the form styles (feedback/widget.css), for the Done button and sheet outside .builder too */
   --fb-ink: var(--ink);
-  --fb-panel: var(--panel);
-  --fb-accent: var(--accent);
   --fb-pixel: var(--pixel);
   height: 100vh;
   height: 100dvh;
@@ -36,12 +36,20 @@
   margin: 0;
 }
 
+/* the heading: a lit sign in the middle */
 .builder-top h1 {
-  flex: 1;
+  flex: none;
   min-width: 0;
-  margin: 0;
-  font-size: clamp(12px, 2.4vw, 20px);
+  margin: 0 auto;
+  padding: 10px 14px 8px;
+  border: 3px solid var(--info);
+  border-radius: 6px;
+  background: var(--sign);
+  box-shadow: var(--glow-info), var(--drop);
+  color: var(--main);
+  font-size: clamp(12px, 2.2vw, 18px);
   text-align: center;
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
 .builder-done {
@@ -82,8 +90,13 @@
   flex-direction: column;
   align-items: center;
   padding: 6px 6px 4px;
-  border-radius: 10px;
-  background: radial-gradient(ellipse 70% 40% at 50% 92%, rgba(240, 138, 60, 0.18), transparent 70%), var(--sheet);
+  border: 3px solid var(--info);
+  border-radius: 8px;
+  /* a stage: a soft spotlight on the player */
+  background:
+    radial-gradient(ellipse 55% 50% at 50% 55%, rgba(255, 224, 102, 0.12), transparent 70%),
+    var(--sign-bg);
+  box-shadow: var(--glow-info), var(--drop);
 }
 
 /* The preview fills the stage, so a shot can fly to its edge; builder.js keeps the player no bigger
@@ -110,22 +123,29 @@
   translate: 0 -50%;
   display: grid;
   place-items: center;
-  width: 44px;
+  width: 48px;
   height: 56px;
-  border: 0;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), var(--drop);
+  color: #e8fff9;
   cursor: pointer;
 }
 
 .turn-button:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(#2a1d40, var(--sign-deep));
+}
+
+.turn-button:active {
+  translate: 3px calc(-50% + 3px);
+  box-shadow: var(--glow-tap), var(--drop-pressed);
 }
 
 .turn-button:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), var(--drop);
 }
 
 .turn-button.left {
@@ -145,7 +165,9 @@
   font-size: 11px;
   min-height: 1.4em;
   margin: 2px 0 0;
-  color: var(--accent);
+  color: var(--pick);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
 .builder-panel {
@@ -155,23 +177,26 @@
   overscroll-behavior: contain;
   margin-top: 8px;
   padding: 14px 12px 18px;
-  border-radius: 10px 10px 0 0;
-  background: var(--sheet);
+  border: 3px solid var(--info);
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: var(--sign-bg);
 }
 
 /* The tabs: a bar of four equal buttons, inset to line up with the panel's content (its 12px sides).
-   The open one is filled and outlined like the other picked things on the page, with an orange label. */
+   Each is a small teal sign; the open one is lit yellow, like the other picked things on the page. */
 .builder-tabs {
   flex: none;
   order: 3;
   display: grid;
   grid-auto-columns: minmax(0, 1fr);
   grid-auto-flow: column; /* 4 tabs, or 3 without Body (the videokids flag) */
-  gap: 6px;
-  padding: 8px 12px;
-  background: var(--sheet);
-  border-top: 2px solid rgba(255, 255, 255, 0.14);
-  border-radius: 0 0 10px 10px;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border: 3px solid var(--info);
+  border-radius: 0 0 8px 8px;
+  background: var(--sign-deep);
+  box-shadow: var(--drop);
 }
 
 .builder-tabs button {
@@ -181,14 +206,16 @@
   justify-content: center;
   gap: 4px;
   min-width: 0;
-  min-height: 52px;
+  min-height: 56px;
   padding: 6px 2px;
-  border: 2px solid transparent;
-  border-radius: 8px;
-  background: none;
-  color: rgba(255, 255, 255, 0.75);
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: #e8fff9;
   font-family: var(--pixel);
-  font-size: clamp(7px, 2vw, 8px); /* "Character" fits a quarter of a small phone */
+  font-size: clamp(7px, 2vw, 8px); /* "Character" fits a quarter of a small phone (not in capitals) */
+  text-shadow: 2px 2px 0 var(--ink-line);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -199,18 +226,21 @@
 }
 
 .builder-tabs button:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: linear-gradient(#2a1d40, var(--sign-deep));
 }
 
-.builder-tabs button[aria-selected="true"] {
-  border-color: #fff;
-  background: rgba(255, 255, 255, 0.18);
-  color: var(--accent);
+.builder-tabs button:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--glow-tap);
 }
 
+.builder-tabs button[aria-selected="true"],
 .builder-tabs button:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
+  outline: none;
+  border-color: var(--pick);
+  background: linear-gradient(#3a3014, var(--sign-deep));
+  box-shadow: var(--glow-pick), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: var(--pick);
 }
 
 @media (max-width: 699px) {
@@ -219,6 +249,21 @@
   }
   .builder[data-tab="character"] .builder-panel {
     margin-top: 0;
+  }
+}
+
+/* On most phones "Character" only fits inside its tab's outline with the tabs closer together, and on the
+   smallest at 6px. */
+@media (max-width: 429px) {
+  .builder-tabs {
+    gap: 4px;
+    padding-inline: 8px;
+  }
+}
+
+@media (max-width: 359px) {
+  .builder-tabs button {
+    font-size: 6px;
   }
 }
 
@@ -236,23 +281,28 @@
   .builder-tabs {
     grid-column: 2;
     grid-row: 1;
-    padding: 10px 12px 8px;
-    border-top: 0;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.14);
-    border-radius: 10px 10px 0 0;
+    padding: 12px 12px 10px;
+    border-bottom: 0;
+    border-radius: 8px 8px 0 0;
+    box-shadow: none;
   }
   .builder-panel {
     grid-column: 2;
     margin: 0;
-    border-radius: 0 0 10px 10px;
+    border-bottom: 3px solid var(--info);
+    border-radius: 0 0 8px 8px;
+    box-shadow: var(--drop);
   }
 }
 
+/* labels: grey, the colour for what only shows something (they can't be tapped) */
 .pane-title,
 .mini-label {
   font-family: var(--pixel);
   font-size: 9px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--info);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
   margin: 0 0 10px;
 }
 
@@ -270,8 +320,8 @@
   z-index: 1;
   margin: -14px -12px 12px;
   padding: 12px 12px 10px;
-  background: var(--sheet);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.14);
+  background: var(--sign);
+  border-bottom: 3px solid rgba(135, 126, 143, 0.5);
 }
 
 .part-chips {
@@ -283,27 +333,31 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 44px;
+  min-height: 48px;
   padding: 0 14px;
-  border: 2px solid transparent;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: #e8fff9;
   font-family: var(--pixel);
   font-size: 9px;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
   cursor: pointer;
 }
 
 .part-chip[aria-checked="true"] {
-  border-color: #fff;
-  background: rgba(255, 255, 255, 0.2);
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: var(--pick);
 }
 
 .part-chip .dot {
   width: 18px;
   height: 18px;
   border-radius: 4px;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--ink-line);
 }
 
 /* Colours: big enough to tap (44px across at least). In one row where there's room (desktop), else
@@ -326,14 +380,23 @@
   min-width: 44px;
   height: 44px;
   padding: 0;
-  border: 3px solid rgba(0, 0, 0, 0.25);
-  border-radius: 8px;
+  border: 3px solid var(--ink-line);
+  border-radius: 6px;
+  box-shadow: 2px 3px 0 1px rgba(24, 8, 38, 0.7);
   cursor: pointer;
 }
 
-.swatch[aria-pressed="true"] {
-  border-color: #fff;
-  box-shadow: 0 0 0 2px var(--ink);
+.swatch:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+/* the colour they have: a yellow ring round it */
+.swatch[aria-pressed="true"],
+.swatch:focus-visible {
+  outline: none;
+  border-color: var(--ink-line);
+  box-shadow: 0 0 0 3px var(--pick), 0 0 14px rgba(255, 224, 102, 0.7);
 }
 
 .character-wall {
@@ -366,16 +429,33 @@
   gap: 4px;
   min-width: 0;
   padding: 6px 4px 8px;
-  border: 3px solid transparent;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background:
+    radial-gradient(ellipse 60% 18% at 50% 84%, rgba(63, 201, 176, 0.18), transparent 70%),
+    var(--sign-bg);
+  box-shadow: var(--glow-tap), 3px 4px 0 2px rgba(24, 8, 38, 0.7);
+  color: #e8fff9;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
   cursor: pointer;
 }
 
-.character-card[aria-pressed="true"] {
-  border-color: #fff;
-  background: rgba(255, 255, 255, 0.2);
+.character-card:active {
+  transform: translate(2px, 3px);
+  box-shadow: var(--glow-tap);
+}
+
+/* the one they have: lit yellow, with a spotlight */
+.character-card[aria-pressed="true"],
+.character-card:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  background:
+    radial-gradient(ellipse 60% 18% at 50% 84%, rgba(255, 224, 102, 0.3), transparent 70%),
+    linear-gradient(#2e2340, var(--sign-deep));
+  box-shadow: var(--glow-pick), 3px 4px 0 2px rgba(24, 8, 38, 0.7);
+  color: var(--pick);
 }
 
 .character-card[aria-pressed="true"]::after {
@@ -385,10 +465,11 @@
   left: 5px;
   padding: 3px 4px;
   border-radius: 3px;
-  background: #fff;
-  color: var(--ink);
+  background: var(--pick);
+  color: var(--ink-line);
   font-family: var(--pixel);
   font-size: 6px;
+  text-shadow: none;
 }
 
 .card-art {
@@ -409,10 +490,11 @@
   right: 5px;
   padding: 3px 4px;
   border-radius: 3px;
-  background: var(--accent);
-  color: var(--ink);
+  background: var(--main);
+  color: var(--ink-line);
   font-family: var(--pixel);
   font-size: 6px;
+  text-shadow: none;
 }
 
 /* ---------- Team ---------- */
@@ -470,18 +552,23 @@
   gap: 8px;
   min-height: 52px;
   padding: 0 14px 0 8px;
-  border: 3px solid transparent;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: #e8fff9;
   font-family: var(--pixel);
   font-size: 9px;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
-.kit-choice[aria-checked="true"] {
-  border-color: #fff;
-  background: rgba(255, 255, 255, 0.2);
+.kit-choice[aria-checked="true"],
+.kit-choice:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: var(--pick);
 }
 
 /* A kit: jersey, shorts and trim. */
@@ -493,7 +580,7 @@
 .kit span {
   width: 12px;
   height: 22px;
-  border: 2px solid var(--ink);
+  border: 2px solid var(--ink-line);
   border-radius: 3px;
 }
 
@@ -526,17 +613,26 @@
   gap: 12px;
   min-height: 56px;
   padding: 6px 12px;
-  border: 3px solid transparent;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: #e8fff9;
   text-align: left;
   cursor: pointer;
 }
 
-.team-pick[aria-pressed="true"] {
-  border-color: #fff;
-  background: rgba(255, 255, 255, 0.2);
+.team-pick:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--glow-tap);
+}
+
+.team-pick[aria-pressed="true"],
+.team-pick:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: var(--pick);
 }
 
 /* The name (and a community team's badge) drops under the kits when there isn't room beside them. */
@@ -573,13 +669,20 @@
   justify-content: center;
   gap: 8px;
   min-height: 52px;
-  border: 2px dashed rgba(255, 255, 255, 0.6);
-  border-radius: 8px;
-  background: none;
-  color: #fff;
+  border: 3px dashed var(--tap);
+  border-radius: 6px;
+  background: rgba(22, 13, 36, 0.6);
+  color: var(--tap);
   font-family: var(--pixel);
   font-size: 9px;
+  text-transform: uppercase;
   cursor: pointer;
+}
+
+.make-team:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  color: var(--pick);
 }
 
 #team-editor {
@@ -631,13 +734,26 @@
   gap: 6px;
 }
 
+/* typing boxes: dark LED fields, yellow while you type in them */
 .builder-page input[type="text"] {
   width: 100%;
   font: inherit;
   font-size: 16px;
   padding: 10px;
-  border: 2px solid var(--ink);
+  border: 3px solid var(--info);
   border-radius: 6px;
+  background: #0f0a18;
+  color: #fff;
+}
+
+.builder-page input[type="text"]:focus {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: 0 0 0 3px var(--ink-line), 0 0 14px rgba(255, 224, 102, 0.55);
+}
+
+.builder-page input[type="text"]::placeholder {
+  color: rgba(255, 255, 255, 0.45);
 }
 
 /* ---------- Done ---------- */
@@ -646,7 +762,7 @@
   position: fixed;
   inset: 0;
   z-index: 20;
-  background: rgba(20, 8, 16, 0.6);
+  background: rgba(24, 8, 38, 0.72);
 }
 
 .builder-done-sheet {
@@ -660,8 +776,11 @@
   max-height: 90dvh;
   overflow-y: auto;
   padding: 14px max(16px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
-  border-radius: 16px 16px 0 0;
-  background: var(--sheet);
+  border: 3px solid var(--info);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-info);
   transform: translateY(102%);
   transition: transform 0.25s;
 }
@@ -702,18 +821,29 @@
   font-family: var(--pixel);
   font-size: 13px;
   font-weight: 400;
+  color: var(--main);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
 .icon-close {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  width: 48px;
+  height: 48px;
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: #e8fff9;
   cursor: pointer;
+}
+
+.icon-close:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: var(--pick);
 }
 
 .builder-done-sheet .fb-hint {
@@ -739,9 +869,11 @@
   align-items: center;
   gap: 4px;
   padding: 6px 10px;
-  border-radius: 16px;
-  background: var(--ink);
-  color: #f2cf3d;
+  border: 3px solid #ffd23f;
+  border-radius: 999px;
+  background: var(--sign);
+  box-shadow: 0 0 10px rgba(255, 210, 63, 0.4);
+  color: var(--pick);
   font-family: var(--pixel);
   font-size: 9px;
 }
@@ -764,7 +896,7 @@
   gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 2px;
+  padding: 4px 4px 2px;
 }
 
 .slot-chips::-webkit-scrollbar {
@@ -773,27 +905,33 @@
 
 .slot-chip {
   flex: none;
-  min-height: 40px;
+  min-height: 44px;
+  margin: 0 0 6px;
   padding: 0 14px;
-  border: 2px solid transparent;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: #e8fff9;
   font-family: var(--pixel);
   font-size: 8px;
+  text-transform: uppercase;
   cursor: pointer;
 }
 
-.slot-chip[aria-selected="true"] {
-  border-color: #fff;
-  background: rgba(255, 255, 255, 0.2);
+.slot-chip[aria-selected="true"],
+.slot-chip:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: var(--pick);
 }
 
 .slot-empty {
   width: 40px;
   height: 40px;
   margin: 4px;
-  border: 2px dashed rgba(255, 255, 255, 0.5);
+  border: 2px dashed var(--info);
   border-radius: 6px;
 }
 
@@ -822,16 +960,25 @@
   gap: 6px;
   min-width: 0;
   padding: 10px 4px 8px;
-  border: 3px solid transparent;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: var(--sign-bg);
+  box-shadow: var(--glow-tap), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: #e8fff9;
   cursor: pointer;
 }
 
-.ball-card[aria-pressed="true"] {
-  border-color: #fff;
-  background: rgba(255, 255, 255, 0.2);
+.ball-card:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--glow-tap);
+}
+
+.ball-card[aria-pressed="true"],
+.ball-card:focus-visible {
+  outline: none;
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), 2px 3px 0 2px rgba(24, 8, 38, 0.7);
+  color: var(--pick);
 }
 
 .ball-card canvas {
@@ -853,7 +1000,7 @@
   align-items: center;
   gap: 3px;
   min-height: 14px;
-  color: #f2cf3d;
+  color: var(--pick);
   font-family: var(--pixel);
   font-size: 7px;
 }
@@ -877,8 +1024,10 @@
   justify-items: center;
   gap: 10px;
   padding: 22px 16px 18px;
-  border-radius: 10px;
-  background: var(--ink);
+  border: 3px solid var(--info);
+  border-radius: 8px;
+  background: var(--sign-deep);
+  box-shadow: var(--glow-info);
   text-align: center;
 }
 
@@ -892,6 +1041,8 @@
   font-family: var(--pixel);
   font-size: 12px;
   font-weight: 400;
+  color: var(--main);
+  text-transform: uppercase;
 }
 
 .buy-price {
@@ -899,7 +1050,7 @@
   align-items: center;
   gap: 6px;
   margin: 0;
-  color: #f2cf3d;
+  color: var(--pick);
   font-family: var(--pixel);
   font-size: 14px;
 }
@@ -912,10 +1063,6 @@
 .buy-panel .editor-actions {
   width: 100%;
   max-width: 360px;
-}
-
-.buy-panel .fb-button:not(.fb-primary) {
-  background: rgba(255, 255, 255, 0.16);
 }
 
 /* ---------- Body ---------- */
@@ -934,6 +1081,9 @@
 .steps-row > label {
   font-family: var(--pixel);
   font-size: 10px;
+  color: var(--info);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
 }
 
 .pixel-slider {
@@ -960,7 +1110,7 @@
   height: 100%;
 }
 
-/* The bar: dark, filled with white up to the handle. */
+/* The bar: a dark LED strip, lit teal up to the handle. */
 .pixel-slider .track::before {
   content: "";
   position: absolute;
@@ -970,9 +1120,9 @@
   height: 10px;
   margin-top: -5px;
   background:
-    linear-gradient(#fff, #fff) 0 0 / calc(var(--thumb) / 2 + var(--i) * (100% - var(--thumb)) / 4) 100% no-repeat,
-    rgba(0, 0, 0, 0.45);
-  box-shadow: 0 0 0 2px var(--ink);
+    linear-gradient(var(--tap), var(--tap)) 0 0 / calc(var(--thumb) / 2 + var(--i) * (100% - var(--thumb)) / 4) 100% no-repeat,
+    var(--sign-deep);
+  box-shadow: 0 0 0 2px var(--ink-line), 0 0 10px rgba(63, 201, 176, 0.45);
 }
 
 /* One notch per step, standing up from the bar. */
@@ -1013,9 +1163,9 @@
   width: var(--thumb);
   height: 36px;
   margin-top: 6px;
-  border: 3px solid var(--ink);
+  border: 3px solid var(--ink-line);
   border-radius: 0;
-  background: var(--accent);
+  background: var(--pick);
   box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.25), 3px 3px 0 rgba(0, 0, 0, 0.4);
 }
 
@@ -1023,14 +1173,14 @@
   width: var(--thumb);
   height: 36px;
   box-sizing: border-box;
-  border: 3px solid var(--ink);
+  border: 3px solid var(--ink-line);
   border-radius: 0;
-  background: var(--accent);
+  background: var(--pick);
   box-shadow: inset -4px -4px 0 rgba(0, 0, 0, 0.25), 3px 3px 0 rgba(0, 0, 0, 0.4);
 }
 
 .pixel-slider input:focus-visible {
-  outline: 3px solid #fff;
+  outline: 3px solid var(--pick);
   outline-offset: 2px;
 }
 
@@ -1113,8 +1263,9 @@
   align-items: center;
   gap: 8px 12px;
   padding: 10px 12px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
+  border: 3px solid var(--info);
+  border-radius: 6px;
+  background: var(--sign-deep);
 }
 
 .code-box .mini-label {
@@ -1127,6 +1278,7 @@
   font-size: 14px;
   font-weight: 400;
   letter-spacing: 0.1em;
+  color: var(--pick);
 }
 
 .team-state {
