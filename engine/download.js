@@ -77,8 +77,9 @@ export async function fetchBlob(url, onBytes) {
 
 /**
  * Loads an image, reporting its bytes to `progress` (a Progress, optional). It's decoded before it's
- * handed back (off the main thread where the browser can), so drawing it first doesn't stall a frame.
- * Without a Progress it loads the plain way, which the browser can start sooner.
+ * handed back (off the main thread where the browser can), so drawing it first doesn't stall a frame: with
+ * a Progress, as an ImageBitmap (an <img> where that can't be made). Without a Progress it loads the
+ * plain way, as an <img>, which the browser can start sooner.
  */
 export async function loadImage(src, progress) {
   const img = new Image();
@@ -86,6 +87,18 @@ export async function loadImage(src, progress) {
   let blobUrl = null;
   if (progress) {
     const blob = await fetchBlob(src, progress.part(src));
+    // An ImageBitmap where the browser has them: decoded off the main thread and kept decoded, where an <img>
+    // drawn into a canvas the first time is decoded again on the main thread (most of a second for a big
+    // sheet on a phone).
+    if (typeof createImageBitmap === "function") {
+      try {
+        const bitmap = await createImageBitmap(blob);
+        bitmap.sourceUrl = src;
+        return bitmap;
+      } catch {
+        // some browsers turn down some images: the plain way below
+      }
+    }
     blobUrl = URL.createObjectURL(blob);
   }
   img.src = blobUrl ?? src;
