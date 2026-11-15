@@ -15,12 +15,12 @@
   <body>
     <nav class="site-nav" data-site-nav></nav>
 
-    <main class="lost">
+    <main class="lost" data-keys="grid">
       <p class="lost-code" aria-hidden="true"><span>4</span><span class="lost-ball"></span><span>4</span></p>
       <h1 id="lost-call">Airball!</h1>
       <p class="lost-line" id="lost-line">This page missed the hoop completely. It isn't here.</p>
 
-      <canvas id="lost-court" class="lost-court" width="240" height="140" role="img" aria-label="Orson shooting at a hoop and missing"></canvas>
+      <button type="button" class="lost-shot" id="lost-shot" aria-label="Take another shot"><canvas id="lost-court" class="lost-court" width="240" height="140" role="img" aria-label="Orson shooting at a hoop and missing"></canvas></button>
       <p class="lost-hint" id="lost-hint">Tap to take another shot</p>
       <p class="lost-tally" id="lost-tally"></p>
 
@@ -231,7 +231,8 @@
         if (!still) requestAnimationFrame(frame);
       }
 
-      canvas.addEventListener("click", () => {
+      // The court is a button: a tap, Enter or Space takes another shot.
+      document.getElementById("lost-shot").addEventListener("click", () => {
         if (still) {
           // No animation: just call a new shot.
           const kind = Math.random() < 0.22 ? "swish" : Math.random() < 0.5 ? "clank" : "airball";

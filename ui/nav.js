@@ -9,6 +9,7 @@
 import { IN_APP } from "../api.js";
 import "./flag-preview.js"; // a ?flags= test preview on any page lasts for the tab
 import { fillIcons, icon } from "../ui/icons.js";
+import "./keys.js"; // the arrow keys and focus, the same on every page
 
 const LINKS = [
   { href: "/games/shootaround/", label: "Play", icon: "play" },
@@ -23,6 +24,7 @@ if (IN_APP) for (const nav of document.querySelectorAll("[data-site-nav]")) nav.
 
 for (const nav of document.querySelectorAll("[data-site-nav]")) {
   nav.setAttribute("aria-label", "Site");
+  nav.dataset.keys = "row"; // the arrow keys move along it (ui/keys.js)
   nav.innerHTML = `
     <a class="site-nav-home" href="/">${icon("home")}<span>Orson Brooker</span></a>
     <ul>

@@ -2421,16 +2421,39 @@ a.tile-go:active {
 
 /* the little court, in a sign's frame */
 .lost-court {
+  display: block;
   width: 100%;
   max-width: 560px;
   height: auto;
-  border: 4px solid var(--info);
+  border: 4px solid var(--tap); /* a tap takes another shot: teal */
   border-radius: 8px;
   background: linear-gradient(#8d5b48, #a46a50 70%);
-  box-shadow: var(--glow-info), 6px 8px 0 3px rgba(24, 8, 38, 0.75);
+  box-shadow: var(--glow-tap), 6px 8px 0 3px rgba(24, 8, 38, 0.75);
   image-rendering: pixelated;
   cursor: pointer;
   touch-action: manipulation;
+}
+
+/* the court is a button (a tap, Enter or Space shoots): it looks like the court */
+.lost-shot {
+  display: block;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+}
+
+.lost-shot:focus-visible {
+  outline: none;
+}
+
+.lost-shot:focus-visible .lost-court {
+  border-color: var(--pick);
+  box-shadow: var(--glow-pick), 6px 8px 0 3px rgba(24, 8, 38, 0.75);
 }
 
 .lost-hint,

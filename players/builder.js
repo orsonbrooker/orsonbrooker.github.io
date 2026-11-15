@@ -121,13 +121,6 @@ for (const t of tabs) {
     if (t.dataset.tab !== "gear") cancelBall();
     showTab(t.dataset.tab);
   });
-  t.addEventListener("keydown", (e) => {
-    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
-    if (!step) return;
-    const next = tabs[(tabs.indexOf(t) + step + tabs.length) % tabs.length];
-    next.focus();
-    showTab(next.dataset.tab);
-  });
 }
 
 // ---------- Swatches ----------
@@ -747,23 +740,24 @@ function paintTeams() {
     const groups = rest.length > 4 ? `${rest.slice(0, 4)}-${rest.slice(4)}` : rest;
     code.value = codeTyped = raw ? `T${rest ? `-${groups}` : ""}` : "";
   });
-  const go = button({ className: "fb-button fb-primary", id: "team-join" }, "Join");
+  const go = el("button", { type: "submit", className: "fb-button fb-primary", id: "team-join" }, "Join");
   const join = () =>
     runTeam(go, async () => {
       wearTeam(await joinTeam({ code: code.value }), "home");
       codeTyped = "";
     }, "Joined!");
-  go.addEventListener("click", join);
-  code.addEventListener("keydown", (e) => e.key === "Enter" && (e.preventDefault(), join()));
+  // a form, so Enter in the box joins (the browser's own)
+  const joinForm = el("form", { className: "field" }, el("label", { className: "mini-label", htmlFor: "team-code" }, "Got a code from a friend?"), el("div", { className: "code-row" }, code, go));
+  joinForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    join();
+  });
   list.replaceChildren(
     ...(yours.length ? [section("Your teams", ...yours)] : []),
     ...(openRows.length ? [section("Teams made by players", ...openRows)] : []),
     official,
     section("New team", make),
-    section(
-      "Join a team",
-      el("label", { className: "field" }, el("span", { className: "mini-label" }, "Got a code from a friend?"), el("div", { className: "code-row" }, code, go)),
-    ),
+    section("Join a team", joinForm),
   );
 }
 
@@ -1250,31 +1244,27 @@ function flightAt(f, now) {
 
 // ---------- Done: nickname, play or send ----------
 
-const scrim = $("scrim");
-let opener = null;
+// A <dialog>: the browser puts focus on the nickname, keeps it in, closes it on Escape and gives focus
+// back to Done.
+const doneSheet = $("done-sheet");
 function openDone() {
-  opener = document.activeElement;
-  form.hidden = scrim.hidden = false;
-  void form.offsetHeight; // lay it out below the screen first, so it slides up
+  doneSheet.showModal();
+  void doneSheet.offsetHeight; // lay it out below the screen first, so it slides up
   document.body.classList.add("finishing");
   if (!turnstileStarted) setupTurnstile();
-  nameInput.focus({ preventScroll: true });
 }
 function closeDone() {
-  document.body.classList.remove("finishing");
-  form.hidden = scrim.hidden = true;
-  opener?.focus?.({ preventScroll: true });
+  if (doneSheet.open) doneSheet.close();
 }
+doneSheet.addEventListener("close", () => document.body.classList.remove("finishing"));
+// a tap on the dimmed page round it closes it (the sheet itself is all form)
+doneSheet.addEventListener("click", (e) => e.target === doneSheet && closeDone());
 $("done-open").addEventListener("click", () => {
   cancelBall();
   if (needTeam()) return;
   openDone();
 });
 $("done-close").addEventListener("click", closeDone);
-scrim.addEventListener("click", closeDone);
-form.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeDone();
-});
 
 // ---------- Friendly words ----------
 // Names are checked as they're typed (the server checks again when sending).

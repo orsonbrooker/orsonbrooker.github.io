@@ -31,28 +31,28 @@
   </head>
   <body class="builder-page">
     <nav class="site-nav" data-site-nav></nav>
-    <header class="builder-top">
+    <header class="builder-top" data-keys="grid">
       <a class="back-link" data-back-link href="/games/shootaround/"></a>
       <h1>Make your player</h1>
       <button type="button" class="fb-button fb-primary builder-done" id="done-open"><span data-icon="check"></span>Done</button>
     </header>
 
     <main class="builder" id="builder" data-tab="character">
-      <div class="builder-stage">
+      <div class="builder-stage" data-keys="grid">
         <canvas id="preview" width="400" height="512" aria-label="Your player"></canvas>
         <button type="button" class="turn-button left" id="turn-left" aria-label="Turn them left" hidden><span data-icon="back"></span></button>
         <button type="button" class="turn-button right" id="turn-right" aria-label="Turn them right" hidden><span data-icon="next"></span></button>
         <p class="builder-name"><span id="preview-name"></span></p>
       </div>
 
-      <nav class="builder-tabs" role="tablist" aria-label="Make your player">
+      <nav class="builder-tabs" role="tablist" aria-label="Make your player" data-keys="row">
         <button type="button" role="tab" id="tab-character" aria-controls="pane-character" data-tab="character"><span data-icon="player"></span>Character</button>
         <button type="button" role="tab" id="tab-body" aria-controls="pane-body" data-tab="body"><span data-icon="size"></span>Body</button>
         <button type="button" role="tab" id="tab-team" aria-controls="pane-team" data-tab="team"><span data-icon="jersey"></span>Team</button>
         <button type="button" role="tab" id="tab-gear" aria-controls="pane-gear" data-tab="gear"><span data-icon="shoe"></span>Gear</button>
       </nav>
 
-      <div class="builder-panel" id="panel">
+      <div class="builder-panel" id="panel" data-keys="grid">
         <section id="pane-character" role="tabpanel" aria-labelledby="tab-character" data-pane="character">
           <div class="look">
             <p class="pane-title">Your colours</p>
@@ -129,13 +129,15 @@
       </div>
     </main>
 
-    <div class="builder-scrim" id="scrim" hidden></div>
-    <form class="builder-done-sheet" id="form" role="dialog" aria-modal="true" aria-labelledby="done-title" hidden>
+    <!-- Done: a real dialog, so the browser takes focus in (to the nickname), keeps it there, closes it on
+         Escape and gives focus back to Done (ui/keys.js). -->
+    <dialog class="builder-done-sheet" id="done-sheet" aria-labelledby="done-title" data-keys="grid">
+    <form id="form">
       <div class="done-head">
         <h2 id="done-title">Ready to play?</h2>
         <button type="button" class="icon-close" id="done-close" aria-label="Keep making"><span data-icon="close"></span></button>
       </div>
-      <label class="field"><span class="mini-label">Nickname</span><input id="name" type="text" maxlength="12" autocomplete="off" required placeholder="Up to 12 letters" /></label>
+      <label class="field"><span class="mini-label">Nickname</span><input id="name" type="text" maxlength="12" autocomplete="off" required placeholder="Up to 12 letters" autofocus /></label>
       <p class="fb-hint">Just a nickname, please. No real names or schools.</p>
       <button type="button" class="fb-button fb-primary" id="play"><span data-icon="play"></span>Play as them now!</button>
       <p class="fb-hint">Saved on this device, so only you can see them.</p>
@@ -144,6 +146,7 @@
       <p class="fb-message" id="message" role="status"></p>
       <button type="submit" class="fb-button" id="send">Send to Orson for everyone</button>
     </form>
+    </dialog>
 
     <script type="module" src="../players/builder.js"></script>
     <script type="module" src="../ui/nav.js"></script>
