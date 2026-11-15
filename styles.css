@@ -653,6 +653,7 @@ body:has(#mode-screen:not([hidden])) .corner {
   }
   .mode-card:last-child:nth-child(odd) {
     grid-column: auto;
+    justify-self: stretch; /* it fills its cell like the rest (centred, a card sized by its row has no width) */
     width: auto;
   }
 }
