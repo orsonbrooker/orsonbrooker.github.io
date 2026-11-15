@@ -10,6 +10,6 @@ for (const f of ["CNAME", "404.html", "lab", "players", "ideas", "sitemap.xml", 
 // The app opens on the game. The menu's Home link comes back here too.
 writeFileSync(
   "dist-app/index.html",
-  '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta http-equiv="refresh" content="0; url=/games/shootaround/index.html"><title>Shootaround</title><body style="background:#a6798e">\n',
+  '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta http-equiv="refresh" content="0; url=/games/shootaround/index.html"><title>Shootaround</title><body style="background:#5f5d77">\n',
 );
 console.log("dist-app ready");

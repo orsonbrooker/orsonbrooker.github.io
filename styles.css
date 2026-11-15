@@ -3,7 +3,7 @@
 @import "@fontsource/press-start-2p/400.css";
 
 :root {
-  --bg: #a6798e;
+  --bg: #5f5d77; /* the street's road grey, also the browser bars (theme-color) */
   --ink: #2b1622;
   --panel: rgba(43, 22, 34, 0.86);
   --sheet: #3a1f2e; /* a full-screen sheet: the panel colour, solid */
@@ -13,7 +13,7 @@
   --tap: #3fc9b0; /* you can tap it */
   --main: #ff8c42; /* the one main thing to do */
   --pick: #ffe066; /* selected or focused, your own */
-  --info: #877e8f; /* just showing something */
+  --info: #5f5d77; /* just showing something */
   --sign: #1e1430;
   --sign-deep: #160d24;
   --ink-line: #2b1622;
@@ -47,7 +47,7 @@ body {
 
 /* Every page but the game (which has the city itself) floats over the gym shut on its street, dimmed. */
 body:not(.game-body) {
-  background-color: var(--night);
+  background-color: var(--bg);
 }
 
 body:not(.game-body)::before {
