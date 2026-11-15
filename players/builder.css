@@ -854,6 +854,39 @@
   margin: 0;
 }
 
+/* Under Play: a quiet way into sending them to Orson (a tap, so teal), big enough to tap. */
+.done-more {
+  justify-self: center;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: var(--tap);
+  font: inherit;
+  font-size: 15px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+:root[data-input="keys"] .done-more:focus-visible {
+  outline: 3px solid var(--pick);
+  outline-offset: 2px;
+  color: var(--pick);
+}
+
+.done-more[hidden],
+.send-step[hidden] {
+  display: none;
+}
+
+.send-step {
+  display: grid;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 2px dashed rgba(255, 255, 255, 0.18);
+}
+
 /* ---------- Gear ---------- */
 
 .gear-head {

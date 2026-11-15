@@ -4,13 +4,14 @@
 //   Body:      height and build (kids made from video).
 //   Team:      a team from the list or one of your own, its home or away kit, and your number.
 //   Gear:      what a kid from video wears (one item per slot), shoe colour and the ball.
-// Done opens a sheet with the nickname, "Play as them now" and "Send to Orson".
+// Done opens a sheet with the nickname and "Play as them now"; under it, a step to send them to Orson.
 // Players wait for approval in /admin before they show up in the game's player picker.
 //
 // Open with ?base=curly&skin=c98c5f&hair=26222a&jersey=d63a3a&team=2b2b2f&shoes=f2f2ef&number=7&teamName=KINGS&name=Ace
 // to preload a look (&shorts=… too; &height=1&bulk=-0.5 starts a kid from video at a size).
 // &gear=beanie,stripes tries gear on a kid from video (content/gear.json), saved with the player for the game.
 
+import { usingKeys } from "../ui/keys.js";
 import { API } from "../api.js";
 import { flagOn } from "../flags.js";
 import { markField, say } from "../ui/form.js";
@@ -1331,7 +1332,6 @@ function openDone() {
   doneSheet.showModal();
   void doneSheet.offsetHeight; // lay it out below the screen first, so it slides up
   document.body.classList.add("finishing");
-  if (!turnstileStarted) setupTurnstile();
   prepareSoon(0); // the game's sheet for them, made while they type a nickname
 }
 function closeDone() {
@@ -1346,6 +1346,17 @@ $("done-open").addEventListener("click", () => {
   openDone();
 });
 $("done-close").addEventListener("click", closeDone);
+// Sending them to Orson: a step of its own under Play, opened only by a kid who wants it, so the robot
+// check (Turnstile) loads only then.
+const sendOpen = $("send-open");
+sendOpen.addEventListener("click", () => {
+  sendOpen.hidden = true;
+  sendOpen.setAttribute("aria-expanded", "true");
+  $("send-step").hidden = false;
+  if (!turnstileStarted) setupTurnstile();
+  if (usingKeys()) send.focus({ preventScroll: true }); // (the link they pressed is gone; on touch, no focus ring)
+  $("send-step").scrollIntoView({ block: "nearest" });
+});
 
 // ---------- Friendly words ----------
 // Names are checked as they're typed (the server checks again when sending).
@@ -1493,6 +1504,7 @@ play.addEventListener("click", async () => {
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
+  if ($("send-step").hidden) return play.click(); // Enter in the nickname plays, unless they're sending
   if (stillLoading() || needTeam() || needName()) return;
   if (!token) {
     say(message, "Please finish the robot check first.", { error: true });

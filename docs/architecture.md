@@ -254,7 +254,8 @@ Terms used across the code:
   jersey, shorts and trim; plus the player's number. With the `teams` flag: community teams too, below) and *Gear* (shoe colour, and the shop's ball styles
   through `progress.js`: owned ones are picked straight away, others are tried on in a kid from video's hands
   with Buy or Cancel covering the gear). *Done* opens a sheet with
-  the nickname, "Play as them now" and "Send to Orson". The cards load every body in the background. Own players have an edit pencil in the game's picker:
+  the nickname and "Play as them now" (nothing is sent, so no robot check); under it, "Want everyone to play as
+  them?" opens the step that sends them to Orson, and only then loads Turnstile. The cards load every body in the background. Own players have an edit pencil in the game's picker:
   `/players/?edit=<id>` loads them (body, colours, team and kit, number, size) and saving keeps their id, even
   under a new name; one already sent (`sent` in the save) is told that sending again sends the new look. A send carries the own
   player's id and the device id (as `local_key`, a keyed hash), so sending the same player again replaces its

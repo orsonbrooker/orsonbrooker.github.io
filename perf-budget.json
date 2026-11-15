@@ -1,5 +1,5 @@
 {
-  "note": "Limits for `node tools/dev/verify.mjs perf`: frame work in ms at 4x slower CPU on a 390x844 phone screen, sizes in KB gzipped, first-load KB in the first 6 s. Seeded from the numbers on 2026-11-13 plus headroom; lower them as things get faster, never raise them without saying why. The goal (not checked yet) is play p95 under 12 ms. Raised on 2026-11-15 for the new gym and city menus (Luke accepted it): the menu-sign CSS in the shared styles.css on every page, the game's new JS, and /players/ (it imports content/courts.js). Only sizes that went over were raised, to today's plus 10%. firstLoad is left as it was: its measurement reads about 1 KB, which is wrong, so it mustn't set the budget until it's fixed. Raised on 2026-11-15 for the keyboard (Luke accepted it): ui/keys.js loads with the site bar on every page, so / , /ideas/ and /404.html's JS went to today's plus 10%. On 2026-11-16 the builder's colouring went into slices (players/slices.js): builderSwitch, builderColour and doneToPlayable added (time until shown, ms, and the longest the page froze: nothing in the builder over about 100 ms; Done's 250 allows the game's own first paint of its court), and builderChange and builderStep lowered from 2951 and 2433 to 300 (now about 130).",
+  "note": "Limits for `node tools/dev/verify.mjs perf`: frame work in ms at 4x slower CPU on a 390x844 phone screen, sizes in KB gzipped, first-load KB in the first 6 s. Seeded from the numbers on 2026-11-13 plus headroom; lower them as things get faster, never raise them without saying why. The goal (not checked yet) is play p95 under 12 ms. Raised on 2026-11-15 for the new gym and city menus (Luke accepted it): the menu-sign CSS in the shared styles.css on every page, the game's new JS, and /players/ (it imports content/courts.js). Only sizes that went over were raised, to today's plus 10%. firstLoad is left as it was: its measurement reads about 1 KB, which is wrong, so it mustn't set the budget until it's fixed. Raised on 2026-11-15 for the keyboard (Luke accepted it): ui/keys.js loads with the site bar on every page, so / , /ideas/ and /404.html's JS went to today's plus 10%. On 2026-11-16 the builder's colouring went into slices (players/slices.js): builderSwitch, builderColour and doneToPlayable added (time until shown, ms, and the longest the page froze: nothing in the builder over about 100 ms; Done's 250 allows the game's own first paint of its court), and builderChange and builderStep lowered from 2951 and 2433 to 300 (now about 130). Raised on 2026-11-16, for now (Luke accepted it): CSS on /games/shootaround/ and /ideas/ (13.64 KB, the shared styles.css) and /players/ (17.71 KB, the Done sheet's send step) had crept just over; set to today's plus about 2%, to trim later.",
   "frames": {
     "play": {
       "p50": 8.7,
@@ -35,15 +35,15 @@
     },
     "/games/shootaround/": {
       "js": 120.5,
-      "css": 13.5
+      "css": 13.9
     },
     "/players/": {
       "js": 54.1,
-      "css": 17.4
+      "css": 18.1
     },
     "/ideas/": {
       "js": 8.0,
-      "css": 13.5
+      "css": 13.9
     },
     "/lab/": {
       "js": 24.5,
