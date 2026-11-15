@@ -546,6 +546,11 @@
   gap: 8px;
 }
 
+/* no team picked yet: no kits to choose between */
+.kit-picker[hidden] {
+  display: none;
+}
+
 .kit-choice {
   display: inline-flex;
   align-items: center;
