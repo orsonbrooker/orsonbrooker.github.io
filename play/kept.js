@@ -5,17 +5,33 @@
 // visit then only decodes one image. If anything changed, the name changes and it's built again.
 // Kept here only, on this device, like the rest of the player.
 
+import { runSliced } from "../players/slices.js";
+
 const CODE = "__PLAYER_CODE__"; // vite.config.js: a hash of players/*.js, play/players.js and this file
 const CACHE = "built-players";
 const MAX = 6; // players kept; the oldest go first
 
 const usable = () => typeof caches !== "undefined" && !!globalThis.crypto?.subtle && !CODE.startsWith("__"); // not in `npm run dev`
 
+// (keys in a fixed order, so the same player is the same name whichever page made it)
+const sorted = (v) => (Array.isArray(v) ? v.map(sorted) : v && typeof v === "object" ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])])) : v);
+
 async function address(key) {
-  const bytes = new TextEncoder().encode(JSON.stringify([CODE, key]));
+  const bytes = new TextEncoder().encode(JSON.stringify([CODE, sorted(key)]));
   const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
   const hex = [...hash.slice(0, 16)].map((b) => b.toString(16).padStart(2, "0")).join("");
   return new URL(`/built-player/${hex}/`, location.origin).href; // only a name in the cache, never fetched
+}
+
+/** Whether a player is kept already (without decoding it). */
+export async function isKept(key) {
+  if (!usable()) return false;
+  try {
+    const at = await address(key);
+    return !!(await (await caches.open(CACHE)).match(at + "meta"));
+  } catch {
+    return false;
+  }
 }
 
 /** A kept player ({ meta, img }), or null. */
@@ -34,14 +50,17 @@ export async function keptPlayer(key) {
   }
 }
 
-/** Keeps a built player for next time, when the page is idle. Its number and team name (`img.prints`,
- * drawn finer than the art) are drawn into the kept sheet, as a kid's gear already does. */
-export function keepPlayer(key, { meta, img }) {
-  if (!usable()) return;
-  const later = window.requestIdleCallback ?? ((f) => setTimeout(f, 2000));
-  later(async () => {
+/** Keeps a built player for next time, when the page is idle (or `now`, resolving once it's kept: the
+ * builder, about to open the game). Its number and team name (`img.prints`, drawn finer than the art) are
+ * drawn into the kept sheet, as a kid's gear already does. */
+export function keepPlayer(key, { meta, img }, { now = false } = {}) {
+  if (!usable()) return Promise.resolve();
+  const later = now ? (f) => f() : window.requestIdleCallback ?? ((f) => setTimeout(f, 2000));
+  return new Promise((done) => later(async () => {
     try {
-      const blob = await new Promise((resolve, reject) => flat(meta, img).toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob"))), "image/webp", 1));
+      const sheet = await runSliced(flatSteps(meta, img));
+      // PNG: kept exactly (WebP, even at its best, changes the soft edges of a kid from video)
+      const blob = await new Promise((resolve, reject) => sheet.toBlob((b) => (b ? resolve(b) : reject(new Error("toBlob"))), "image/png"));
       const cache = await caches.open(CACHE);
       const at = await address(key);
       await cache.put(at + "sheet", new Response(blob, { headers: { "Content-Type": blob.type } }));
@@ -52,11 +71,12 @@ export function keepPlayer(key, { meta, img }) {
     } catch {
       // Full, or private browsing: it's built again next time.
     }
-  });
+    done();
+  }));
 }
 
-// The sheet with its number and team name drawn in.
-function flat(meta, img) {
+// The sheet with its number and team name drawn in (a print at a time: players/slices.js).
+function* flatSteps(meta, img) {
   if (img.toBlob && !img.prints?.size) return img;
   const c = Object.assign(document.createElement("canvas"), { width: img.width, height: img.height });
   const g = c.getContext("2d");
@@ -68,6 +88,7 @@ function flat(meta, img) {
       if (!print || done.has(print)) continue;
       done.add(print);
       g.drawImage(print, 0, 0, print.width, print.height, x, y, w, h);
+      yield;
     }
   return c;
 }

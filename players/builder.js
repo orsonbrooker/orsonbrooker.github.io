@@ -18,11 +18,13 @@ import { fillIcons, icon } from "../ui/icons.js";
 import { ballFrame, ballPicture, makeBallSprites } from "../engine/draw.js";
 import { buyBall, hasProgress, onProgress, owns, progress, refreshProgress, useBall } from "../progress.js";
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../shared/shop.js";
-import { paletteSwap } from "../players/pixelkit.js";
-import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, readyGear, wearGear } from "../players/gear.js";
+import { paletteSwapSliced } from "../players/pixelkit.js";
+import { loadTwin, prepareBuilt } from "../players/built.js";
+import { Stale, runSliced } from "../players/slices.js";
+import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, readyGear, wearGearSliced } from "../players/gear.js";
 import { stretchedReleases, stretchFrame } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
-import { DEFAULT_TEAM, loadBase, loadBases, loadStill, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer, teamPicked, useDrawnKids } from "../players/recolor.js";
+import { DEFAULT_TEAM, loadBase, loadBases, loadStill, myPlayers, PALETTES, PARTS, pickSize, recolor, recolorSliced, saveMyPlayer, teamPicked, useDrawnKids } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
 import { changeTeam, joinTeam, keptTeam, keptTeams, leaveTeam, listedTeams, makeTeam, myTeam, refreshTeams, setMyTeam } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
@@ -236,11 +238,23 @@ function cardFrame(b, i, cache) {
   return c;
 }
 
+// The preview's repaint (repaint, below): the one running now, whether another's due after it, and the body
+// it last finished painting.
+let painting = null;
+let paintAgain = false;
+let paintedBody = null; // the body the preview's whole sheet has been painted for (its shades worked out)
+// Waits until the repaints running now (and any they lead to) have finished.
+async function painted() {
+  while (painting) await painting;
+}
+
 // The chosen card plays its idle loop from the preview's sheet (the others are stills).
 let chosenFrames = { of: null, frames: new Map() };
 
 function paintCard(card, i = 0) {
-  const chosen = current?.id === card.base.id;
+  // (the chosen card plays from the preview's sheet once that's painted: until then, its still, so drawing
+  // a frame never works out a whole new sheet on the spot)
+  const chosen = current?.id === card.base.id && paintedBody === current;
   if (chosen && chosenFrames.of !== current) {
     for (const c of chosenFrames.frames.values()) letGo(c);
     chosenFrames = { of: current, frames: new Map() };
@@ -264,12 +278,19 @@ function paintCards() {
     for (const c of chosenFrames.frames.values()) letGo(c);
     chosenFrames.frames.clear();
   }
-  for (const card of cards.values()) {
-    const chosen = card.base.id === current?.id;
-    card.button.setAttribute("aria-pressed", String(chosen));
-    paintCard(card, chosen ? cardTick : 0);
-  }
+  for (const card of cards.values()) card.button.setAttribute("aria-pressed", String(card.base.id === current?.id));
+  // their pictures a few at a time (players/slices.js), so a colour change doesn't freeze a phone; a newer
+  // paint takes over from an older one
+  const run = ++cardsRun;
+  const steps = (function* () {
+    for (const card of cards.values()) {
+      paintCard(card, card.base.id === current?.id ? cardTick : 0);
+      yield;
+    }
+  })();
+  runSliced(steps, () => run === cardsRun).catch(() => {});
 }
+let cardsRun = 0;
 
 // The cards are still pictures in your colours; the one you chose plays a slow idle loop while the
 // Character tab is open.
@@ -376,7 +397,8 @@ async function chooseBase(base) {
   if (card?.loaded) card.bar.hidden = true; // (and one still waiting for its turn shows the chosen body: paintCard)
   if (ticket !== choosing) return; // they chose another one while this was loading
   current = next;
-  if (base.video && current.meta.printsFrom) current.twin ??= await loadTwin(current.meta.printsFrom).catch(() => null);
+  // a video kid's pixel-art twin, whose jersey faces print the number and team name (as in the game)
+  if (base.video && current.meta.printsFrom) current.twin ??= await loadTwin(current.meta.printsFrom).then(([pm, pimg]) => ({ pm, pimg })).catch(() => null);
   heightInput.disabled = bulkInput.disabled = !current.video;
   showTurning();
   $("size-hint").hidden = !!current.video;
@@ -396,6 +418,8 @@ let wearToken = 0;
 async function paintWear() {
   const box = $("wear");
   const token = ++wearToken;
+  await painted(); // its pictures are drawn from the painted sheet (not worked out from scratch, all at once)
+  if (token !== wearToken) return;
   const kid = current?.video && flagOn("gear") ? current.id : null;
   const made = kid ? await madeFor(kid, "/", gearTest).catch(() => ({})) : {}; // a ?gear= link shows every item made
   if (token !== wearToken) return; // a newer paint started
@@ -1021,28 +1045,16 @@ function showSteps(frames, facing = null) {
     });
 }
 
-// A video kid's pixel-art twin, whose jersey faces print the number and team name (as in the game).
-const twins = new Map();
-function loadTwin({ atlas, meta }) {
-  if (!twins.has(meta)) {
-    const img = new Promise((resolve, reject) => Object.assign(new Image(), { onload() { resolve(this); }, onerror: reject, src: "/" + atlas }));
-    const p = Promise.all([fetch("/" + meta).then((r) => r.json()), img]).then(([pm, pimg]) => ({ pm, pimg }));
-    p.catch(() => twins.delete(meta));
-    twins.set(meta, p);
-  }
-  return twins.get(meta);
-}
-
-// A video kid's number and team name for each of their frames, from the twin's jersey faces.
-function twinPrints() {
-  if (!current.twin) return null;
+// A video kid's number and team name for each of their frames, from the twin's jersey faces (a slice at a time).
+async function twinPrints(body, colours, wanted) {
+  if (!body.twin) return null;
   const parts = Object.fromEntries(PARTS.filter((p) => colours[p]).map((p) => [p, colours[p]]));
   // (a smaller sheet's number is printed less finely: still at least as fine as its art)
-  const scale = current.meta.fullRes ? current.meta.res / current.meta.fullRes : 1;
+  const scale = body.meta.fullRes ? body.meta.res / body.meta.fullRes : 1;
   const kitText = { number: colours.number ?? "", team: colours.teamName ?? DEFAULT_TEAM, fine: scale < 0.7 ? 2 : scale < 0.9 ? 3 : undefined };
-  const layers = paletteSwap(current.twin.pimg, current.twin.pm, parts, kitText).printLayers ?? new Map();
+  const layers = (await paletteSwapSliced(body.twin.pimg, body.twin.pm, parts, kitText, wanted)).printLayers ?? new Map();
   const prints = new Map();
-  for (const [key, pixelKey] of Object.entries(current.meta.printsFrom.frames)) if (layers.has(pixelKey)) prints.set(key, layers.get(pixelKey));
+  for (const [key, pixelKey] of Object.entries(body.meta.printsFrom.frames)) if (layers.has(pixelKey)) prints.set(key, layers.get(pixelKey));
   return prints;
 }
 
@@ -1052,44 +1064,66 @@ function letGo(old, ...keep) {
   if (old instanceof HTMLCanvasElement && !keep.includes(old)) old.width = old.height = 0;
 }
 
-let repaintQueued = false;
 // The last coloured sheet with its gear on, so a change of height or build only re-stretches it.
 let dressedFor = null;
+// The preview (and the chosen card) in their body, colours, gear, height and build. The colouring runs a
+// slice at a time (players/slices.js), so the page never freezes on a phone; one at a time, and anything
+// that changes while it runs is painted straight after (a newer body stops an older one's work).
 function repaint() {
-  if (repaintQueued) return;
-  repaintQueued = true;
-  requestAnimationFrame(() => {
-    repaintQueued = false;
-    if (!current) return; // the body is still loading: chooseBase() paints when it's in
-    if (current.video) {
-      // their gear on, then their height and build
-      const key = JSON.stringify(colours);
-      const d = dressedFor;
-      if (!d || d.base !== current || d.twin !== current.twin || d.worn !== worn || d.key !== key) {
-        const img = recolor(current, colours, undefined, { keep: true });
-        const dressed = wearGear({ meta: current.meta, img, prints: twinPrints(), regions: current.regionsData }, worn, colours);
-        img.pixels = null; // (only needed by wearGear)
-        if (d) letGo(d.dressed.img, img, dressed.img);
-        dressedFor = { base: current, twin: current.twin, worn, key, dressed };
+  if (painting) {
+    paintAgain = true;
+    return;
+  }
+  painting = paintNow()
+    .catch((err) => err instanceof Stale || console.error(err))
+    .finally(() => {
+      painting = null;
+      if (paintAgain) {
+        paintAgain = false;
+        repaint();
       }
-      // their height and build: each frame stretched as the preview first shows it (not the whole sheet at
-      // once, which froze a phone for seconds on every step of the slider)
-      const d2 = dressedFor.dressed;
-      const plain = !+build.height && !+build.bulk;
-      const before = sheet;
-      sheet = plain ? d2 : { ...d2, meta: { ...d2.meta, ...stretchedReleases(d2.meta, build) }, stretch: { build: { ...build }, frames: new Map() } };
-      for (const f of before?.stretch?.frames.values() ?? []) letGo(f.img);
-      if (before && !before.stretch && before.img !== d2.img) letGo(before.img, d2.img); // a drawn body's sheet before
-    } else {
-      const before = sheet;
-      sheet = { meta: current.meta, img: recolor(current, colours, undefined, { keep: true }), prints: null };
-      sheet.img.pixels = null;
-      if (before && !before.stretch && before !== dressedFor?.dressed) letGo(before.img, sheet.img);
-      for (const f of before?.stretch?.frames.values() ?? []) letGo(f.img);
+    });
+}
+
+async function paintNow() {
+  await new Promise((resolve) => requestAnimationFrame(resolve)); // (changes in the same moment, painted once)
+  const body = current;
+  if (!body) return; // the body is still loading: chooseBase() paints when it's in
+  const cols = { ...colours };
+  const wanted = () => current === body && !paintAgain;
+  if (body.video) {
+    // their gear on, then their height and build
+    const key = JSON.stringify(cols);
+    const d = dressedFor;
+    if (!d || d.base !== body || d.twin !== body.twin || d.worn !== worn || d.key !== key) {
+      const wornNow = worn;
+      const img = await recolorSliced(body, cols, undefined, { keep: true, wanted });
+      const dressed = await wearGearSliced({ meta: body.meta, img, prints: await twinPrints(body, cols, wanted), regions: body.regionsData }, wornNow, cols, wanted);
+      img.pixels = null; // (only needed by wearGear)
+      if (d) letGo(d.dressed.img, img, dressed.img);
+      dressedFor = { base: body, twin: body.twin, worn: wornNow, key, dressed };
     }
-    showName();
-    paintCards();
-  });
+    // their height and build: each frame stretched as the preview first shows it (not the whole sheet at
+    // once, which froze a phone for seconds on every step of the slider)
+    const d2 = dressedFor.dressed;
+    const plain = !+build.height && !+build.bulk;
+    const before = sheet;
+    sheet = plain ? d2 : { ...d2, meta: { ...d2.meta, ...stretchedReleases(d2.meta, build) }, stretch: { build: { ...build }, frames: new Map() } };
+    for (const f of before?.stretch?.frames.values() ?? []) letGo(f.img);
+    if (before && !before.stretch && before.img !== d2.img) letGo(before.img, d2.img); // a drawn body's sheet before
+  } else {
+    const img = await recolorSliced(body, cols, undefined, { keep: true, wanted });
+    img.pixels = null;
+    const before = sheet;
+    sheet = { meta: body.meta, img, prints: null };
+    if (before && !before.stretch && before !== dressedFor?.dressed) letGo(before.img, sheet.img);
+    for (const f of before?.stretch?.frames.values() ?? []) letGo(f.img);
+  }
+  paintedBody = body;
+  performance.mark("builder-painted"); // (verify perf times body switches and colour changes by it)
+  showName();
+  paintCards();
+  prepareSoon();
 }
 
 function showName() {
@@ -1382,6 +1416,21 @@ async function setupTurnstile() {
   }
 }
 
+// The sheet the game will draw for them, made ahead (players/built.js) a moment after they stop changing
+// things, so pressing Play doesn't wait for it; Play waits for one that's nearly done.
+let preparing = null;
+let prepareTimer = 0;
+function prepareSoon() {
+  clearTimeout(prepareTimer);
+  prepareTimer = setTimeout(() => {
+    if (!current) return;
+    const entry = look();
+    const p = (preparing ?? Promise.resolve()).then(() => prepareBuilt(entry)).catch(() => {}); // one at a time
+    preparing = p;
+    p.finally(() => preparing === p && (preparing = null));
+  }, 1200);
+}
+
 // What's saved with a player: their colours (with the team's name) and, for a kid from video, their size and gear.
 const look = () => ({
   base: current.id,
@@ -1416,9 +1465,22 @@ function needName() {
 }
 
 // Play straight away: save to this device and jump into the game as them.
-play.addEventListener("click", () => {
+const playLabel = play.lastChild.textContent;
+// (back from the game, a phone shows this page as it was left: Play ready again, not still "Getting them ready")
+addEventListener("pageshow", (e) => {
+  if (!e.persisted) return;
+  play.disabled = false;
+  play.lastChild.textContent = playLabel;
+});
+play.addEventListener("click", async () => {
   if (rude || stillLoading() || needTeam() || needName()) return;
   const id = saveMyPlayer({ ...ownPlayer, name: nameInput.value.trim(), ...look() });
+  // the game's sheet for them, made now if it isn't already (a slice at a time: the page stays live)
+  clearTimeout(prepareTimer);
+  play.disabled = true;
+  play.lastChild.textContent = "Getting them ready…";
+  await preparing; // (one for an earlier look finishes first: they're made one at a time)
+  await prepareBuilt(look()).catch(() => {});
   try {
     localStorage.setItem("orson-hoops-character", JSON.stringify(id));
     localStorage.setItem("orson-hoops-chosen", "true"); // straight into a game, no player select

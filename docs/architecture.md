@@ -104,7 +104,7 @@ flowchart LR
 | Leaderboard | `leaderboard.js` | Start tokens, the end-of-round board, sending scores, the board and player cards. |
 | Sound | `audio.js`, `phrases.js`, `assets/voice/`, `assets/sfx/` | Music that builds, synthesised effects, recorded bounces, a sneaker squeak and footsteps (`tools/build_sfx.py` packs `art/sfx/`), announcer clips (device voice as fallback); lines about the player in he and she versions. |
 | Effects | `fx.js`, `effects/`, `vendor/pixelfx/` | Chunky pixel effects layer over the court. |
-| Players | `assets/characters/`, `players/recolor.js`, `players/builder.js`, `players/pixelkit.js`, `players/stretch.js` | Built-in sprites; builder bodies recoloured from region maps; sheets made from video (Orson): which way he faces the hoop from each spot (`faceHoop()` in `play/players.js`), his number and team name warped onto a face on his jersey (`pixelkit.js`). |
+| Players | `assets/characters/`, `players/recolor.js`, `players/builder.js`, `players/built.js`, `players/pixelkit.js`, `players/stretch.js`, `players/slices.js` | Built-in sprites; builder bodies recoloured from region maps; sheets made from video (Orson): which way he faces the hoop from each spot (`faceHoop()` in `play/players.js`), his number and team name warped onto a face on his jersey (`pixelkit.js`). The work over a whole sheet (recolouring, the number, gear, height and build) is written once as steps (`slices.js`) and run either straight through or a slice of about 25 ms at a time with the page let in between, so a phone never freezes on a body, a colour or Play; the same code either way, so the same pixels. A builder player made ready for the game (`built.js`) is shared by the game and the builder, which makes it ahead while the kid is still choosing. Sprite sheets decode to ImageBitmaps, off the main thread (`loadImage` in `engine/download.js`). |
 | Shared UI | `ui/` | Nav (the site bar on every page but the game), icons, styled dialogs, form helpers. |
 | Ideas widget | `feedback/` | The "Got an idea?" button on each page. |
 | Server address | `api.js` | Where the API is: this site's `/api`, the local Worker on localhost, or the live site from the iOS app. |
@@ -819,11 +819,13 @@ flowchart LR
   goes with every prompt as a look reference, so an item can't change shape within a move. A frame Flow
   didn't paint borrows the item from the closest frame facing the same way. Hats hide the hair above them
   (`"hides": "hair"`), so Buns' buns go under a cap or beanie.
-- **Kept between visits** (`play/kept.js`): building a kid from video in a player's colours, gear and size
-  takes 3-8 s on a phone, so the finished sheet (number and team name drawn in) and its frame list go in
-  Cache Storage (`built-players`, the newest 6), named by a hash of the sheet size and that size's sheets'
-  stamps, the colours, build, gear (with each layer's stamp, from that size's gear index) and the code that
-  builds players (filled in by `vite.config.js`). The frame list carries where the feet are in every frame
+- **Kept between visits** (`play/kept.js`): building a builder player in their colours, gear and size takes
+  seconds on a phone, so the finished sheet (number and team name drawn in, as a PNG: WebP changes a video
+  kid's soft edges) and its frame list go in Cache Storage (`built-players`, the newest 6). The builder makes
+  and keeps it ahead (`prepareBuilt` in `players/built.js`, a moment after the last change; Play waits for
+  one that's nearly done), so the game finds it ready. It's named by a hash of the sheet size and that size's
+  sheets' stamps, the colours, build, gear (with each layer's stamp, from that size's gear index) and the code that
+  builds players (filled in by `vite.config.js`), with keys in a fixed order so either page names it the same. The frame list carries where the feet are in every frame
   (from the region map, if not stretched), so a kept player needs no region map. A later visit decodes that
   one image off the main thread instead of downloading and building.
 - **Moves:** their sheets add `start` (picking the dribble back up) and `recover` (arms down after a shot),
