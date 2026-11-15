@@ -153,10 +153,16 @@ export function stretchSheet({ meta, img, prints }, regions, build = {}) {
       const m = made.get(key);
       return [...at.get(key), m.w, m.h, f[4] - m.dx, f[5] - m.dy];
     });
-  // the ball leaves the hands higher (or lower) and further out with them
+  return { meta: { ...meta, ...stretchedReleases(meta, { height, bulk }), frames, balls, feet, printsFrom: undefined }, img: sheet, prints: null };
+}
+
+/** Where the ball leaves the hands for a height and build: higher (or lower) and further out with them. */
+export function stretchedReleases(meta, build = {}) {
+  const height = Math.max(-1, Math.min(1, +build.height || 0));
+  const bulk = Math.max(-1, Math.min(1, +build.bulk || 0));
   const ky = 1 + height * HEIGHT_STEP, kx = 1 + bulk * BULK_STEP;
   const move = ([x, y]) => [Math.round(x * kx), Math.round(y * ky)];
   const releaseOffsets = meta.releaseOffsets && Object.fromEntries(Object.entries(meta.releaseOffsets).map(([k, v]) => [k, move(v)]));
   const releaseOffset = meta.releaseOffset && move(meta.releaseOffset);
-  return { meta: { ...meta, frames, balls, feet, releaseOffsets, releaseOffset, printsFrom: undefined }, img: sheet, prints: null };
+  return { releaseOffsets, releaseOffset };
 }

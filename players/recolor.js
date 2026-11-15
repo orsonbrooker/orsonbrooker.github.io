@@ -169,6 +169,13 @@ export function loadStill(full, root = "/", size = null, progress = null) {
   return stills.get(key);
 }
 
+// A rectangle of a sheet's pixels (`px`, `width` across) as ImageData.
+function cropped(px, width, [x, y, w, h]) {
+  const out = new ImageData(w, h);
+  for (let r = 0; r < h; r++) out.data.set(px.subarray(((y + r) * width + x) * 4, ((y + r) * width + x + w) * 4), r * w * 4);
+  return out;
+}
+
 function pixels(img, rect = [0, 0, img.width, img.height]) {
   const [x, y, w, h] = rect;
   const c = document.createElement("canvas");
@@ -176,7 +183,9 @@ function pixels(img, rect = [0, 0, img.width, img.height]) {
   c.height = h;
   const g = c.getContext("2d", { willReadFrequently: true });
   g.drawImage(img, x, y, w, h, 0, 0, w, h);
-  return g.getImageData(0, 0, w, h);
+  const data = g.getImageData(0, 0, w, h);
+  c.width = c.height = 0; // let it go now: iPhones cap a page's canvas memory, and a canvas past the cap stays blank
+  return data;
 }
 
 const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
@@ -193,7 +202,7 @@ function hairRanks(loadedBase) {
   if (!rankCache.has(key)) {
     const W = regionsData.width;
     const reg = regionsData.data;
-    const px = pixels(atlasImg, [0, 0, W, regionsData.height]).data;
+    const px = keptPixels(loadedBase) ?? pixels(atlasImg, [0, 0, W, regionsData.height]).data;
     const isHair = (i) => (reg[i * 4] === HAIR ? HAIR : 0);
     const sheet = shadeRanks([{ px, region: isHair }])[HAIR];
     const rects = new Map();
@@ -272,6 +281,9 @@ function paintPixel(d, i, plan) {
 // The builder's last whole sheet (recolor's `keep`), so the next colour change redoes only the regions it
 // changes: the sheet's own pixels, each region's pixels, what each region was last painted for, and the result.
 let kept = null;
+// The kept sheet's own pixels, if it's this base's (so reading them again from the image, which is slow on a
+// phone, isn't needed), else null.
+const keptPixels = (loadedBase) => (kept?.base === loadedBase ? kept.src : null);
 function keptFor(loadedBase, W, H) {
   if (kept?.base === loadedBase) return kept;
   kept = null; // (let the last body's go first)
@@ -299,7 +311,8 @@ export function recolor(loadedBase, colours, rect, { keep = false } = {}) {
   const atlasW = loadedBase.regionsData.width;
   const whole = keep && !rect && w === atlasW && h === loadedBase.regionsData.height;
   const k = whole ? keptFor(loadedBase, w, h) : null;
-  const src = k ? new ImageData(w, h) : pixels(loadedBase.atlasImg, [x, y, w, h]);
+  const own = !k && keptPixels(loadedBase); // the builder's sheet, already read: a rectangle of it is copied
+  const src = k ? new ImageData(w, h) : own ? cropped(own, full[2], [x, y, w, h]) : pixels(loadedBase.atlasImg, [x, y, w, h]);
   const plans = {};
   for (const [id, name] of Object.entries(REGIONS)) {
     const target = colours[name];

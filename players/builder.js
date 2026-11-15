@@ -20,7 +20,7 @@ import { buyBall, hasProgress, onProgress, owns, progress, refreshProgress, useB
 import { BALL_STYLES, DEFAULT_BALL, ballStyle } from "../shared/shop.js";
 import { paletteSwap } from "../players/pixelkit.js";
 import { GEAR, SLOTS, gearParam, itemArt, loadGear, madeFor, readyGear, wearGear } from "../players/gear.js";
-import { stretchFrame, stretchSheet } from "../players/stretch.js";
+import { stretchedReleases, stretchFrame } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
 import { DEFAULT_TEAM, loadBase, loadBases, loadStill, myPlayers, PALETTES, PARTS, pickSize, recolor, saveMyPlayer, teamPicked, useDrawnKids } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
@@ -241,7 +241,10 @@ let chosenFrames = { of: null, frames: new Map() };
 
 function paintCard(card, i = 0) {
   const chosen = current?.id === card.base.id;
-  if (chosen && chosenFrames.of !== current) chosenFrames = { of: current, frames: new Map() };
+  if (chosen && chosenFrames.of !== current) {
+    for (const c of chosenFrames.frames.values()) letGo(c);
+    chosenFrames = { of: current, frames: new Map() };
+  }
   const b = chosen ? current : card.loaded;
   if (!b) return;
   const g = card.canvas.getContext("2d");
@@ -254,7 +257,11 @@ function paintCards() {
   const key = cardKey();
   if (key !== cardsKey) {
     cardsKey = key;
-    for (const card of cards.values()) card.frames.clear();
+    for (const card of cards.values()) {
+      for (const c of card.frames.values()) letGo(c);
+      card.frames.clear();
+    }
+    for (const c of chosenFrames.frames.values()) letGo(c);
     chosenFrames.frames.clear();
   }
   for (const card of cards.values()) {
@@ -1039,6 +1046,12 @@ function twinPrints() {
   return prints;
 }
 
+// Frees a canvas that's been replaced (not one of `keep`): iPhones cap a page's canvas memory and leave a
+// canvas past the cap blank, and a dropped canvas only counts as freed once it's collected.
+function letGo(old, ...keep) {
+  if (old instanceof HTMLCanvasElement && !keep.includes(old)) old.width = old.height = 0;
+}
+
 let repaintQueued = false;
 // The last coloured sheet with its gear on, so a change of height or build only re-stretches it.
 let dressedFor = null;
@@ -1056,12 +1069,23 @@ function repaint() {
         const img = recolor(current, colours, undefined, { keep: true });
         const dressed = wearGear({ meta: current.meta, img, prints: twinPrints(), regions: current.regionsData }, worn, colours);
         img.pixels = null; // (only needed by wearGear)
+        if (d) letGo(d.dressed.img, img, dressed.img);
         dressedFor = { base: current, twin: current.twin, worn, key, dressed };
       }
-      sheet = stretchSheet(dressedFor.dressed, dressedFor.dressed.regions, build);
+      // their height and build: each frame stretched as the preview first shows it (not the whole sheet at
+      // once, which froze a phone for seconds on every step of the slider)
+      const d2 = dressedFor.dressed;
+      const plain = !+build.height && !+build.bulk;
+      const before = sheet;
+      sheet = plain ? d2 : { ...d2, meta: { ...d2.meta, ...stretchedReleases(d2.meta, build) }, stretch: { build: { ...build }, frames: new Map() } };
+      for (const f of before?.stretch?.frames.values() ?? []) letGo(f.img);
+      if (before && !before.stretch && before.img !== d2.img) letGo(before.img, d2.img); // a drawn body's sheet before
     } else {
+      const before = sheet;
       sheet = { meta: current.meta, img: recolor(current, colours, undefined, { keep: true }), prints: null };
       sheet.img.pixels = null;
+      if (before && !before.stretch && before !== dressedFor?.dressed) letGo(before.img, sheet.img);
+      for (const f of before?.stretch?.frames.values() ?? []) letGo(f.img);
     }
     showName();
     paintCards();
@@ -1157,9 +1181,23 @@ function draw(now) {
     }
     t -= s.length;
   }
-  const frame = step.list[Math.floor(t * step.fps) % step.list.length];
+  let frame = step.list[Math.floor(t * step.fps) % step.list.length];
   if (!frame) return;
+  // a stretched body (height and build): that frame, stretched once and kept (with its print and ball)
+  let stretched = null;
+  if (sheet.stretch) {
+    const key = `${frame[0]},${frame[1]},${frame[2]},${frame[3]}`;
+    stretched = sheet.stretch.frames.get(key);
+    if (!stretched) {
+      const [fx, fy] = frame;
+      const m = stretchFrame(sheet.img, [fx, fy], sheet.regions, frame, sheet.stretch.build, { print: sheet.prints?.get(`${fx},${fy}`), ball: sheet.meta.balls?.[`${fx},${fy}`] });
+      stretched = { img: m.canvas, frame: [0, 0, m.w, m.h, frame[4] - m.dx, frame[5] - m.dy], ball: m.ball };
+      sheet.stretch.frames.set(key, stretched);
+    }
+    frame = stretched.frame;
+  }
   const [x, y, w, h, ox, oy] = frame;
+  const art = stretched ? stretched.img : sheet.img;
   const meta = sheet.meta;
   const res = meta.res;
 
@@ -1173,10 +1211,10 @@ function draw(now) {
   const groundY = Math.min(canvas.height - 14 * dpr, canvas.height / 2 + (tallest * s) / 2);
   // The pose changes about a dozen times a second, the screen 60: draw only when something on the stage
   // has changed (a new frame, colours, size, the stage, a ball in the air), not the same picture again.
-  const same = drawn && drawn.img === sheet.img && drawn.prints === sheet.prints && drawn.x === x && drawn.y === y && drawn.s === s &&
+  const same = drawn && drawn.img === art && drawn.prints === sheet.prints && drawn.x === x && drawn.y === y && drawn.s === s &&
     drawn.w === canvas.width && drawn.h === canvas.height && !flight && !lastHeld === !drawn.held && drawn.shotGone === shotGone;
   if (same && !(lastHeld && step.anim.startsWith("release"))) return;
-  drawn = { img: sheet.img, prints: sheet.prints, x, y, s, w: canvas.width, h: canvas.height, held: !!lastHeld, shotGone };
+  drawn = { img: art, prints: sheet.prints, x, y, s, w: canvas.width, h: canvas.height, held: !!lastHeld, shotGone };
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = "rgba(45, 20, 35, 0.35)";
   ctx.beginPath();
@@ -1189,7 +1227,7 @@ function draw(now) {
   const shooting = /^(gather|jump|release)/.test(step.anim);
   if (!shooting) shotGone = false;
   // once it's left their hands, a later frame of the shot that still has it doesn't bring it back
-  const held = shotGone ? null : meta.balls?.[`${x},${y}`];
+  const held = shotGone ? null : stretched ? stretched.ball : meta.balls?.[`${x},${y}`];
   if (held) {
     const d = 2 * held[2] * s * 1.04;
     ctx.drawImage(ball(held), at[0] + held[0] * s - d / 2, at[1] + held[1] * s - d / 2, d, d);
@@ -1208,9 +1246,10 @@ function draw(now) {
   } else if (!shooting) lastHeld = null;
   const flying = flight && flightAt(flight, now);
   if (flying && !flying.front) ctx.drawImage(flying.img, flying.x - flying.r, flying.y - flying.r, 2 * flying.r, 2 * flying.r);
-  ctx.drawImage(sheet.img, x, y, w, h, at[0], at[1], w * s, h * s);
-  // a kid from video: their number and team name, printed finer than the art (as in the game)
-  const print = sheet.prints?.get(`${x},${y}`);
+  ctx.drawImage(art, x, y, w, h, at[0], at[1], w * s, h * s);
+  // a kid from video: their number and team name, printed finer than the art (as in the game; a stretched
+  // frame has it already)
+  const print = stretched ? null : sheet.prints?.get(`${x},${y}`);
   if (print) ctx.drawImage(print, 0, 0, print.width, print.height, at[0], at[1], w * s, h * s);
   // a shot coming toward us flies in front of them
   if (flying?.front) ctx.drawImage(flying.img, flying.x - flying.r, flying.y - flying.r, 2 * flying.r, 2 * flying.r);
