@@ -1,5 +1,5 @@
 {
-  "note": "Limits for `node tools/dev/verify.mjs perf`: frame work in ms at 4x slower CPU on a 390x844 phone screen, sizes in KB gzipped, first-load KB in the first 6 s. Seeded from the numbers on 2026-11-13 plus headroom; lower them as things get faster, never raise them without saying why. The goal (not checked yet) is play p95 under 12 ms.",
+  "note": "Limits for `node tools/dev/verify.mjs perf`: frame work in ms at 4x slower CPU on a 390x844 phone screen, sizes in KB gzipped, first-load KB in the first 6 s. Seeded from the numbers on 2026-11-13 plus headroom; lower them as things get faster, never raise them without saying why. The goal (not checked yet) is play p95 under 12 ms. Raised on 2026-11-15 for the new gym and city menus (Luke accepted it): the menu-sign CSS in the shared styles.css on every page, the game's new JS, and /players/ (it imports content/courts.js). Only sizes that went over were raised, to today's plus 10%. firstLoad is left as it was: its measurement reads about 1 KB, which is wrong, so it mustn't set the budget until it's fixed.",
   "frames": {
     "play": {
       "p50": 8.7,
@@ -19,19 +19,19 @@
   "size": {
     "/": {
       "js": 3.9,
-      "css": 7.6
+      "css": 12.1
     },
     "/games/shootaround/": {
-      "js": 93.4,
-      "css": 8.9
+      "js": 120.5,
+      "css": 13.5
     },
     "/players/": {
-      "js": 39.3,
-      "css": 12.2
+      "js": 54.1,
+      "css": 17.4
     },
     "/ideas/": {
       "js": 6.5,
-      "css": 8.9
+      "css": 13.5
     },
     "/lab/": {
       "js": 24.5,
@@ -39,7 +39,7 @@
     },
     "/404.html": {
       "js": 5.2,
-      "css": 7.6
+      "css": 12.1
     }
   },
   "firstLoad": {
