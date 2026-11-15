@@ -1102,7 +1102,7 @@ body:has(#mode-screen:not([hidden])) .corner {
 }
 
 .panel .spot-map .spot:focus-visible {
-  outline: 4px solid var(--accent);
+  outline: 4px solid var(--pick); /* yellow: what has focus */
 }
 
 .panel .spot-map .spot:disabled {
