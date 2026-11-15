@@ -22,6 +22,7 @@
 //          POST /api/teams/:id      the maker's changes: new code, list or unlist, kit, name
 //          POST /api/scores         a finished game's score, with its shot log (checked, see postScore)
 //          POST /api/scores/preview where a game would land, as it ends (nothing saved)
+//          POST /api/scores/around  this device's best place on a board outside its top 10, two above and below
 //          POST /api/reports        report a leaderboard row's name as unfriendly (to the admin inbox)
 //          POST /api/progress       a device's coins and ball styles (its key in the body)    progress.ts
 //          POST /api/progress/games a finished game earns its coins (checked like a score)
@@ -55,7 +56,7 @@ import { config, deviceOf, listIdeas, submit, vote } from "./ideas.ts";
 import { notify } from "./notify.ts";
 import { createPlayer, listPlayers } from "./players.ts";
 import { buy, claimGame, getProgress, joinCode, pairCode, useBall } from "./progress.ts";
-import { gameToken, leaderboard, postScore, previewScore, reportScore, scoreDetail } from "./scores.ts";
+import { aroundMe, gameToken, leaderboard, postScore, previewScore, reportScore, scoreDetail } from "./scores.ts";
 import { teamRoute } from "./teams.ts";
 import { cors, isAdminPage, isUnfriendly, json } from "./util.ts";
 import type { Env } from "./util.ts";
@@ -128,6 +129,8 @@ async function publicApi(request: Request, env: Env, url: URL): Promise<Response
 			return postScore(request, env);
 		case "POST /api/scores/preview":
 			return previewScore(request, env);
+		case "POST /api/scores/around":
+			return aroundMe(request, env);
 		case "POST /api/reports":
 			return reportScore(request, env, deviceOf(request, url));
 		case "POST /api/progress":

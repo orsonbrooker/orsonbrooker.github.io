@@ -1,0 +1,206 @@
+// A small pixel picture for each game on Choose a game (screens/menus.js), and How to play's pictures: 16x16, drawn here as rows of
+// letters (each one a colour, "." clear) and turned into an SVG of square pixels. Constant strings only.
+
+const COLOURS = {
+  k: "#2b1622", // outline
+  w: "#f9f5f0",
+  g: "#c4bfc8",
+  m: "#877e8f",
+  y: "#ffe066",
+  o: "#de6d2b",
+  p: "#f39a55",
+  d: "#b5501d",
+  r: "#d0553c",
+  b: "#3d5a99",
+  l: "#afd1e0",
+  n: "#3ddc84",
+  e: "#e9ccbb",
+};
+
+const ART = {
+  // a stopwatch
+  timed: [
+    "......kkkk......",
+    "......kyyk......",
+    "....kkkkkkkk.kk.",
+    "...kwwwwwwwwkkk.",
+    "..kwwwwrrwwwwk..",
+    ".kwwwwwkwwwwwgk.",
+    ".kwwwwwkwwwwwgk.",
+    "kwrwwwwkwwwwrwgk",
+    "kwwwwwwkkkkwwwgk",
+    "kwwwwwwwwwwwwwgk",
+    "kwwwwwwwwwwwwwgk",
+    ".kwwwwwwwwwwwgk.",
+    ".kgwwwwrrwwwggk.",
+    "..kggwwwwwwggk..",
+    "...kkggggggkk...",
+    ".....kkkkkk.....",
+  ],
+  // a flame
+  survival: [
+    ".......k........",
+    "......kok.......",
+    "......kook......",
+    ".....kooook..k..",
+    "....koooook.kok.",
+    "...koooyoook.kok",
+    "...kooyyyoookook",
+    "..kooyyyyyoooook",
+    "..koyyywyyyoook.",
+    ".kooyywwwyyyook.",
+    ".koyyywwwwyyyok.",
+    ".koyywwwwwwyyok.",
+    ".kdoyywwwwyyodk.",
+    "..kdooyyyyyodk..",
+    "...kkddddddkk...",
+    ".....kkkkkk.....",
+  ],
+  // a hoop with a ring of spots round it
+  around: [
+    ".....n....n.....",
+    "..n..........n..",
+    "....kkkkkkkk....",
+    "n...kwwwwwwk...n",
+    "....kwkkkkwk....",
+    "....kwkwwkwk....",
+    "n...kwkkkkwk...n",
+    "....kwwwwwwk....",
+    "....kkkkkkkk....",
+    "...kkooooookk...",
+    ".....kwkkwk.....",
+    "n.....kwwk.....n",
+    "......kwwk......",
+    ".......kk.......",
+    "..n..........n..",
+    ".....n....n.....",
+  ],
+  // a rack of balls
+  threes: [
+    "................",
+    "..kkk.kkk.kkk...",
+    ".kopk.kopkkopk..",
+    ".kook.kookkook..",
+    "..kkk.kkk.kkk...",
+    "kkkkkkkkkkkkkkkk",
+    "kmmmmmmmmmmmmmmk",
+    "kkkkkkkkkkkkkkkk",
+    "km.kkk.kkk.kkkmk",
+    "kmkopkkopkkopkmk",
+    "kmkookkookkookmk",
+    "km.kkk.kkk.kkkmk",
+    "kkkkkkkkkkkkkkkk",
+    "kmmmmmmmmmmmmmmk",
+    "km............mk",
+    "kk............kk",
+  ],
+  // a stack of letter tiles, H on top
+  horse: [
+    "kkkkkkkkk.......",
+    "keeeeeeek.......",
+    "keekkkkkkkkk....",
+    "keekeeeeeeek....",
+    "keekekkkkkkkkkkk",
+    "keekekeeeeeeeeek",
+    "keekekeeeeeeeeek",
+    "keekekeebeeebeek",
+    "kkkkekeebeeebeek",
+    "...kekeebbbbbeek",
+    "...kkkeebeeebeek",
+    ".....keebeeebeek",
+    ".....keebeeebeek",
+    ".....keeeeeeeeek",
+    ".....kgggggggggk",
+    ".....kkkkkkkkkkk",
+  ],
+  // a joystick
+  free: [
+    "......kkkk......",
+    ".....krrwrk.....",
+    ".....krrrrk.....",
+    ".....kdrrrk.....",
+    "......kkkk......",
+    ".......mk.......",
+    ".......mk.......",
+    ".......mk.......",
+    "....kkkmkkkk....",
+    "..kkgggggggggkk.",
+    ".kgggwgggggkkggk",
+    ".kmgggggggkrrkmk",
+    ".kmmmgggggkkkmmk",
+    ".kkmmmmmmmmmmmkk",
+    "..kkkkkkkkkkkkk.",
+    "................",
+  ],
+  // How to play, step 1: a finger tapping a big orange button
+  tap: [
+    "......kkk.......",
+    ".....kwwwk......",
+    ".....kwwwk......",
+    ".....kwwwkkk....",
+    ".....kwwwkwwkk..",
+    "..kk.kwwwkwwkwk.",
+    ".kwwkkwwwwwwkwk.",
+    ".kwwwkwwwwwwwwk.",
+    "..kwwwwwwwwwwwk.",
+    "...kwwwwwwwwwk..",
+    "..kkkkwwwwwwkkk.",
+    ".kpoooooooooook.",
+    "kooooooooooooddk",
+    "kdoooooooooodddk",
+    ".kddddddddddddk.",
+    "..kkkkkkkkkkkk..",
+  ],
+  // step 2: a sneaker jumping up
+  jump: [
+    ".......kk.......",
+    "......kyyk......",
+    ".....kyyyyk.....",
+    "....kkkyykkk....",
+    "......kyyk......",
+    "......kkkk......",
+    "................",
+    "......kkkkk.....",
+    ".....kwwwwwk....",
+    ".....kwbbwwk....",
+    ".....kwwwwwkkk..",
+    "....kwwbwwwwwwk.",
+    "...kwwwwwwwwwwk.",
+    "..kkkkkkkkkkkkk.",
+    "..kgggggggggggk.",
+    "...kkkkkkkkkkk..",
+  ],
+  // step 3: the shot bar, let go in the green
+  meter: [
+    "................",
+    ".......kkk......",
+    "......kwwwk.....",
+    ".......kwk......",
+    "........k.......",
+    "kkkkkkkkkkkkkkkk",
+    "krrrooyynnnyyook",
+    "krrrooyynnnyyook",
+    "krrrooyynnnyyook",
+    "kkkkkkkkkkkkkkkk",
+    "................",
+    "........k.......",
+    ".......knk......",
+    "......knnnk.....",
+    ".....kkkkkkk....",
+    "................",
+  ],
+};
+
+/** A picture (a game's, or one for How to play) as an SVG string built only from the constant pictures above, or "". */
+export function modeArt(id, swap = {}) {
+  const rows = ART[id];
+  if (!rows) return "";
+  const colours = { ...COLOURS, ...swap }; // swap: other colours for some letters (a purple or blue flame)
+  let rects = "";
+  rows.forEach((row, y) =>
+    [...row].forEach((ch, x) => {
+      if (colours[ch]) rects += `<rect x="${x}" y="${y}" width="1" height="1" fill="${colours[ch]}"/>`;
+    }),
+  );
+  return `<svg class="mode-art" viewBox="0 0 16 16" shape-rendering="crispEdges" aria-hidden="true">${rects}</svg>`;
+}

@@ -61,7 +61,20 @@ RAMPS = {
     "book": ["#3b3876", "#3d5a99", "#e9ccbb"],
     "slab": ["#532837", "#6e3b3c", "#8b4541", "#a0574b"],
     "clock": ["#403751", "#5f5d77", "#877e8f", "#959cb7"],
+    "roof": ["#403751", "#5f5d77", "#877e8f", "#959cb7"],
+    # the street round a court (art/iso/street)
+    "asphalt": ["#403751", "#5f5d77", "#6b6878", "#e9ccbb"],
+    "pavement": ["#877e8f", "#a8a2b0", "#c4bfc8"],
+    "kerb": ["#5f5d77", "#877e8f", "#a8a2b0", "#c4bfc8"],
+    "tower": ["#403751", "#5f5d77", "#877e8f", "#959cb7", "#a8a2b0"],
+    "tower-brick": ["#532837", "#6e3b3c", "#8b4541", "#a0574b", "#b46d63"],
+    "tower-sand": ["#876066", "#af8a7e", "#c89169", "#d48651", "#e9ccbb"],
+    "trunk": ["#3a1a10", "#5b2a12", "#843a18"],
+    "tower-teal": ["#2e5b5e", "#3f7f7c", "#5fa39a", "#94c9b8", "#cfe8f5"],
+    "billboard": ["#2b1622", "#3b2e5a", "#4b3a72", "#5d4a8a"],  # the SHOOTAROUND billboard's panel, deep purple
 }
+LEAF = ("#3d654c", "#6a9a5b")  # vines and moss on a wall, plants in a window box
+FLOWERS = ("#d0553c", "#f8d76c", "#f9f5f0", "#a5788e")
 # The scoreboard's face: what the game lights is the digits' segments; the art has them unlit.
 FACE = {"face": "#403751", "window": "#180826", "unlit": "#532837", "lit": "#d0553c", "label": "#e9ccbb"}
 OUTLINE = {"wood": "#532837", "blue": "#180826", "line": "#532837", "brick": "#400c22", "skirting": "#1e0418",
@@ -69,7 +82,7 @@ OUTLINE = {"wood": "#532837", "blue": "#180826", "line": "#532837", "brick": "#4
            "pennant": "#180826", "board": "#180826", "scoreface": "#180826",
            "backboard": "#180826", "rim": "#400c22", "pad": "#180826", "plank": "#400c22", "bag": "#1e0418",
            "bag2": "#180826", "leaf": "#180826", "pot": "#400c22", "bottle": "#180826", "book": "#180826",
-           "slab": "#1e0418", "clock": "#180826", "clear": "#180826"}  # the net has none: its strings are one pixel already
+           "slab": "#1e0418", "clock": "#180826", "roof": "#180826", "asphalt": "#180826", "pavement": "#403751", "kerb": "#180826", "tower": "#180826", "tower-brick": "#1e0418", "tower-sand": "#400c22", "tower-teal": "#180826", "billboard": "#180826", "trunk": "#180826", "clear": "#180826"}  # the net has none: its strings are one pixel already
 SHADOW = ("#180826", 84)
 GLASS = ("#afd1e0", 0.35)  # what's seen through a glass board: mixed this much towards this colour, then snapped  # a prop's shadow on the floor: this colour, this opaque (0-255)
 JOINED_M = 0.15  # parts of one material this close in depth are joined (a rail meeting a post): no line between
@@ -231,6 +244,21 @@ def edges(m):
     return (m & ~np.roll(m, 1, axis=0), m & ~np.roll(m, 1, axis=1), m & ~np.roll(m, -1, axis=1), m & ~np.roll(m, -1, axis=0))
 
 
+def hashed(a, b):
+    """A repeatable scramble of two whole-number grids (for wear that looks random but bakes the same every time)."""
+    x = (a * 73856093) ^ (b * 19349663)
+    return np.abs(x ^ (x >> 13)) % 1000003
+
+
+def crack(u, v, cell, every):
+    """A zigzag crack across one in `every` squares of `cell` metres: a one-pixel line."""
+    ci, cj = np.floor(u / cell).astype(np.int64), np.floor(v / cell).astype(np.int64)
+    fu, fv = u / cell - ci, v / cell - cj
+    on = hashed(ci + 7, cj + 3) % every == 0
+    zig = fu - (0.2 + 0.6 * fv) - 0.08 * np.sign(np.sin(fv * 18))
+    return on & (np.abs(zig) < 0.035) & (fv > 0.1) & (fv < 0.9)
+
+
 def paint(sc, panel, pas, light):
     alpha = pas["alpha"] > 0.5
     pos, nrm, ids = pas["pos"], pas["nrm"], pas["id"]
@@ -293,6 +321,14 @@ def paint(sc, panel, pas, light):
             sh = wall_shadow(sc, panel, face, pos, np.array(light)) & m
             out[sh] = R[np.clip(tone[sh] - 2, 1, None)]  # never as dark as an outline
             out[sh & groove] = R[lit + 1]
+            # vines climbing from the foot (`vines`: [along, half width at the foot, top]), ragged at the edges
+            fa, fz = np.floor(along * 24).astype(np.int64), zp
+            for va, vw, vtop in s.get("vines", []):
+                reach = vw * (1 - np.clip(z / vtop, 0, 1)) ** 0.7
+                wob = (hashed(fz // 3, fa // 2 + 5) % 6) / 24 - 0.06
+                on = m & (np.abs(along - va) < reach + wob) & (z < vtop) & (hashed(fa, fz) % 4 != 0)
+                out[on] = hexrgb(LEAF[1])
+                out[on & ((hashed(fa + 3, fz) % 3 == 0) | (along > va + reach * 0.4))] = hexrgb(LEAF[0])
             rgb[m] = out[m]
         elif name in ("banner", "pennant"):
             a, _, c = wall_coords(face, pos)
@@ -414,10 +450,145 @@ def paint(sc, panel, pas, light):
             bars = (np.abs(pa - np.round(pa)) * (a1 - a0) / na < 0.03) | (np.abs(pc - np.round(pc)) * (c1 - c0) / nc < 0.03)
             out[bars] = hexrgb(RAMPS["frame"][3])
             rgb[m] = out[m]
+        elif name == "asphalt":
+            # the road, worn: speckled, darker patches and cracks, a gutter along each kerb, manhole covers
+            # (`holes`), and a dashed line down the middle (`lines`: [axis, at, from, to]) with its paint worn off
+            out = np.broadcast_to(R[1], (h, w, 3)).copy()
+            fu, fv = np.floor(u * 24).astype(np.int64), np.floor(v * 24).astype(np.int64)
+            grain = hashed(fu, fv) % 17
+            out[grain == 0] = R[2]
+            out[grain == 1] = R[0]
+            cu, cv = np.floor(u / 2.5).astype(np.int64), np.floor(v / 2.5).astype(np.int64)
+            patch = hashed(cu, cv) % 7 == 0
+            out[patch & (grain % 3 == 0)] = R[0]
+            out[crack(u, v, 2.5, 5)] = R[0]
+            if s.get("gutter"):
+                axis, lo, hi = s["gutter"]
+                across = u if axis == "u" else v
+                out[(across < lo + 0.35) | (across > hi - 0.35)] = R[0]
+            for axis, at, lo, hi in s.get("lines", []):
+                along, across = (v, u) if axis == "v" else (u, v)
+                dash = (np.abs(across - at) < 0.08) & (along > lo) & (along < hi) & (np.floor(along / 1.5) % 2 == 0)
+                worn = hashed(fu, fv) % 4 == 0
+                out[dash & ~worn] = R[3]
+            for pu, pv, pr in s.get("puddles", []):
+                # two overlapping blobs of standing water, the sky in them, lit along the far edge
+                rr = np.minimum(np.hypot(u - pu, (v - pv) * 1.4), np.hypot(u - pu - pr * 0.8, (v - pv + pr * 0.3) * 1.6) * 1.15)
+                water = rr < pr
+                out[water] = hexrgb("#3d5a99")
+                out[water & (rr > pr * 0.55) & (u + v < pu + pv)] = hexrgb("#7fb3d9")
+                out[water & (rr > pr * 0.82)] = hexrgb("#403751")
+            for gu, gv, axis in s.get("grates", []):
+                a_, c_ = (u - gu, v - gv) if axis == "u" else (v - gv, u - gu)
+                g_ = (np.abs(a_) < 0.4) & (np.abs(c_) < 0.22)
+                out[g_] = R[0]
+                out[g_ & (np.floor(a_ * 12) % 2 == 0) & (np.abs(c_) < 0.17)] = R[2]
+            for hu, hv in s.get("holes", []):
+                rr = np.hypot(u - hu, v - hv)
+                out[rr < 0.38] = R[0]
+                out[(rr < 0.3) & (np.floor((u - hu) * 12) % 2 == 0)] = R[2]
+            rgb[m] = out[m]
+        elif name == "pavement":
+            # square slabs 1 m across, worn: a tone each, some stained, some cracked, weeds in a few joints, and darker
+            # where it meets a building (`near`: [u0, v0, u1, v1], the gym's footprint)
+            ti, tj = np.floor(u).astype(np.int64), np.floor(v).astype(np.int64)
+            hs = hashed(ti, tj)
+            out = R[1 + (hs % 5 == 0)].copy()
+            out[hs % 9 == 4] = R[0]
+            joint = ((ti != np.roll(ti, 1, axis=1)) | (tj != np.roll(tj, 1, axis=1)) | (ti != np.roll(ti, 1, axis=0)) | (tj != np.roll(tj, 1, axis=0))) & np.roll(alpha, 1, axis=0) & np.roll(alpha, 1, axis=1)
+            out[joint] = R[0]
+            out[(hs % 6 == 1) & crack(u, v, 1.0, 1)] = R[0]
+            weed = joint & (hashed(np.floor(u * 6).astype(np.int64), np.floor(v * 6).astype(np.int64)) % 11 == 0)
+            out[weed] = hexrgb("#6a9a5b")
+            if s.get("near"):
+                u0, v0, u1, v1 = s["near"]
+                gap = np.maximum(np.maximum(u0 - u, u - u1), np.maximum(v0 - v, v - v1))
+                out[(gap > 0) & (gap < 0.45)] = R[0]
+            rgb[m] = out[m]
+        elif name.startswith("tower"):
+            # a building down the street. Its walls: brick courses, concrete panels or rendered and speckled; rows of
+            # framed windows with sills from the first floor up (some lit, some with curtains, a few boarded up);
+            # grime along the foot; a flat top a step lighter
+            out = R[band(d, len(R) - 1)].copy()
+            wall = np.abs(nrm[..., 2]) < 0.3
+            facing_u = np.abs(nrm[..., 0]) > 0.7
+            along = np.where(facing_u, v, u)
+            step_dn = R[np.clip(band(d, len(R) - 1) - 1, 0, None)]
+            if name == "tower-brick":
+                course = np.floor(z / 0.25).astype(np.int64)
+                brick = np.floor((along + (course % 2) * 0.25) / 0.5).astype(np.int64)
+                mortar = (course != np.roll(course, 1, axis=0)) | (brick != np.roll(brick, 1, axis=1))
+                out[wall & mortar] = step_dn[wall & mortar]
+            elif name == "tower":
+                pa, pz = np.floor(along / 2.8).astype(np.int64), np.floor(z / 1.8).astype(np.int64)
+                seam = (pa != np.roll(pa, 1, axis=1)) | (pz != np.roll(pz, 1, axis=0))
+                out[wall & seam] = step_dn[wall & seam]
+            else:
+                speck = hashed(np.floor(along * 24).astype(np.int64), np.floor(z * 30).astype(np.int64)) % 9 == 0
+                out[wall & speck] = step_dn[wall & speck]
+            col, flo = np.floor(along / 1.4).astype(np.int64), np.floor(z / 1.8).astype(np.int64)
+            wa, wz = np.mod(along, 1.4), np.mod(z, 1.8)
+            up = wall & (z > 2.4)  # the ground floor is shops and doors (art/iso/street: their own shapes)
+            frame = up & (wa > 0.34) & (wa < 1.06) & (wz > 0.62) & (wz < 1.56)
+            glass = up & (wa > 0.42) & (wa < 0.98) & (wz > 0.7) & (wz < 1.48)
+            sill = up & (wa > 0.3) & (wa < 1.1) & (wz > 0.56) & (wz <= 0.62)
+            out[frame] = R[-1]
+            out[sill] = R[-1]
+            wh = hashed(col, flo + i * 7)
+            out[glass] = hexrgb("#3b3876")
+            out[glass & (wz > 1.2) & (wa < 0.6)] = hexrgb("#3d5a99")  # the sky in the top corner
+            lit = glass & (wh % 6 == 0)
+            out[lit] = hexrgb("#f8d76c")
+            curtain = glass & (wh % 6 == 1) & ((wa < 0.56) | (wa > 0.84))
+            out[curtain] = hexrgb("#d0553c")
+            out[frame & (wh % 13 == 2)] = hexrgb("#843a18")  # boarded up
+            # window boxes of plants under some windows, a few in flower
+            box_ = up & (wa > 0.36) & (wa < 1.04) & (wz > 0.44) & (wz < 0.62) & (wh % 4 == 3)
+            fa_, fz_ = np.floor(along * 24).astype(np.int64), np.floor(z * 24).astype(np.int64)
+            out[box_] = hexrgb(LEAF[0])
+            out[box_ & (hashed(fa_, fz_) % 3 == 0)] = hexrgb(LEAF[1])
+            out[box_ & (hashed(fa_ + 1, fz_) % 7 == 0)] = hexrgb(FLOWERS[0])
+            out[up & (wa > 0.36) & (wa < 1.04) & (wz > 0.4) & (wz <= 0.44) & (wh % 4 == 3)] = hexrgb("#843a18")
+            out[wall & (z < 0.4)] = R[0]  # grime along the foot
+            top = nrm[..., 2] > 0.9
+            out[top] = R[-1]
+            rgb[m] = out[m]
+        elif name == "roof":
+            # a flat roof's membrane: sheets 1.5 m wide running along u, a darker seam between
+            out = np.broadcast_to(R[2], (h, w, 3)).copy()
+            sheet = np.floor(v / 1.5).astype(int)
+            seam = (sheet != np.roll(sheet, 1, axis=0)) & np.roll(alpha, 1, axis=0)
+            out[seam] = R[1]
+            # worn: tar patches and paler repairs, moss in a few spots, grit
+            cu, cv = np.floor(u / 1.7).astype(np.int64), np.floor(v / 1.7).astype(np.int64)
+            hc = hashed(cu + 11, cv + 2)
+            ou, ov = (hc % 7) / 10 + 0.5, (hc // 7 % 7) / 10 + 0.5
+            rr = np.hypot(u - cu * 1.7 - ou, (v - cv * 1.7 - ov) * 1.3)
+            rad = 0.3 + (hc // 49 % 4) * 0.08
+            wob = (hashed(np.floor(u * 24).astype(np.int64) // 3, np.floor(v * 24).astype(np.int64) // 3) % 7) / 40
+            blob = (rr + wob) < rad
+            blob = blob & (rr + wob * 4 < rad * 1.3)
+            out[blob & (hc % 9 == 0)] = R[1]
+            out[blob & (hc % 9 == 1)] = hexrgb("#876066")
+            out[blob & (hc % 9 == 1) & ((rr + wob) > rad - 0.06)] = hexrgb("#6e3b3c")
+            out[blob & (hc % 9 == 2) & (hashed(np.floor(u * 24).astype(np.int64), np.floor(v * 24).astype(np.int64)) % 3 != 0)] = hexrgb(LEAF[0])
+            grit = hashed(np.floor(u * 24).astype(np.int64) + 9, np.floor(v * 24).astype(np.int64)) % 23 == 0
+            out[grit] = R[1]
+            rgb[m] = out[m]
         else:  # boxes (trim, frames, the rack): a step of the ramp by which way the face points
             out = R[band(d, len(R))]
             if name in ("cap", "frame", "rim"):
                 out[nrm[..., 2] > 0.9] = R[-1]  # their tops catch the light
+            if s.get("stripes"):  # an awning: light stripes across it, every 0.4 m along `stripes` ("u" or "v")
+                al = u if s["stripes"] == "u" else v
+                on = np.floor(al * 2.5) % 2 == 0
+                out[on] = hexrgb("#f9f5f0")
+                out[on & (band(d, 3) == 0)] = hexrgb("#e9ccbb")
+            if s.get("flowers"):  # a bush or planter in flower: specks on its lit side
+                fh = hashed(np.floor((u + v) * 24).astype(np.int64), np.floor(z * 24).astype(np.int64))
+                on = (fh % 6 == 0) & (d > 0.1)
+                for k, c in enumerate(FLOWERS):
+                    out[on & (fh // 6 % len(FLOWERS) == k)] = hexrgb(c)
             rgb[m] = out[m]
     return rgb, mat, alpha
 
@@ -853,7 +1024,7 @@ def bake_court(sc, passes, out, light, palette):
         # on the art grid: whole art pixels, then blown up
         return [round(ox + apm * (v_ - u_)) * k, round(oy + apm / 2 * (u_ + v_) - z_ * up) * k]
     U, V = sc["room"]["u"], sc["room"]["v"]
-    names = {"floor": "floor.webp", "wall-hoop": "wall-hoop.webp", "wall-side": "wall-side.webp"}
+    names = {n: f"{n}.webp" for n in sc["panels"]}  # floor, wall-hoop, wall-side (or a box's own panels)
     entries = []
     hoop_front = None
     # each prop's shadow, on the panel it stands on, in art pixels

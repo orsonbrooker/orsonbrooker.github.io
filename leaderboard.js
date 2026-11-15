@@ -334,9 +334,21 @@ let showing = null; // the range asked for last
 export async function renderBoard(list, note, range, mode, faceFor, bodyFor) {
   const key = `${mode} ${range}`;
   showing = key;
-  const draw = (scores) => drawBoard(list, note, range, mode, scores, faceFor, bodyFor);
+  const draw = (scores) => {
+    drawBoard(list, note, range, mode, scores, faceFor, bodyFor);
+    drawNear(list, range, mode, nearSeen.get(key) ?? [], faceFor, bodyFor);
+  };
   if (seen.has(key)) draw(seen.get(key));
   else if (!list.children.length) note.textContent = "Loading…";
+  // their own best place, when it's below the top 10 (asked alongside; shown once both are in)
+  const near = fetch(`${API}/scores/around`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ mode, range, device: deviceId() }),
+  })
+    .then((res) => (res.ok ? res.json() : { rows: [] }))
+    .then((out) => out.rows ?? [])
+    .catch(() => []);
   let scores;
   try {
     const res = await fetch(`${API}/scores?range=${range}&mode=${mode}`);
@@ -349,10 +361,28 @@ export async function renderBoard(list, note, range, mode, faceFor, bodyFor) {
     }
     return;
   }
+  const nearRows = await near;
   if (showing !== key) return; // they've switched tabs since
-  const before = seen.get(key);
+  const before = [seen.get(key), nearSeen.get(key)];
   seen.set(key, scores);
-  if (!before || JSON.stringify(before) !== JSON.stringify(scores)) draw(scores);
+  nearSeen.set(key, nearRows);
+  if (JSON.stringify(before) !== JSON.stringify([scores, nearRows])) draw(scores);
+}
+
+// Below the top 10: a gap, then their own best place with the two above and two below (theirs marked).
+const nearSeen = new Map(); // mode range -> rows
+function drawNear(list, range, mode, rows, faceFor, bodyFor) {
+  if (!rows.length) return;
+  list.append(el("li", { className: "lb-near-gap", textContent: "Your place" }));
+  for (const row of rows) {
+    const li = el("li", { className: row.you ? "lb-near mine" : "lb-near" });
+    const button = el("button", { type: "button", className: "lb-row" });
+    button.append(...rowParts(row, row.rank, faceFor, mode));
+    button.addEventListener("click", () => showScoreCard(row, row.rank, range, mode, bodyFor));
+    li.append(button);
+    if (!row.you) li.append(reportButton(row));
+    list.append(li);
+  }
 }
 
 function drawBoard(list, note, range, mode, scores, faceFor, bodyFor) {

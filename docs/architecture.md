@@ -95,7 +95,7 @@ flowchart LR
 | Game in progress | `play/` | `state.js` the one shared `state` object, the player, shot timing, which mode is on (`mode()`), seeded randomness, which way Free play is being steered (`steering()`); `round.js` starting a game, shooting from the jump, makes and misses, the per-frame update (jogging between spots, and in Free play `steerPlayer()`: the screen direction turned into a court direction, kept on the floor in front of the backboard); `controls.js` Free play's touch joystick and shoot button (pixel circles, only on `pointer: coarse` screens, keeping their touches from the tap-anywhere button); `react.js` calls, popups, confetti, fire and the timing window, bonus balls, daily challenge stats; `scene.js` draws the court and the score; `players.js` the player list, sprite sheets, faces, a higher jump; `court.js` switching courts (measurements, physics, art); `replay.js` instant replays (recording each release, picking the best shot, playing it again). |
 | Modes | `modes/` (`timed.js`, `survival.js`, `around.js`, `horse.js`, `threes.js`, `free.js`, shared `points.js`) | Time attack, Sudden death, Around the World, 3-point contest, HORSE (pass and play, no leaderboard), Free play, one file each with the same shape (listed in `modes/index.js`): start and next spot, clock, make, miss, difficulty, scoreboard text, the result and how it ranks. The rest of the game asks `mode()` instead of checking which mode it is. A mode with a feature flag (see Feature flags) only shows once it's switched on, or with `?flags=` or `?debug`: `modeShown()` in `modes/index.js` hides its card, leaderboard tab and help, and `modeReleased()` keeps a game only tried that way from being sent. The 3-point contest waits for its rack art (brief in `art/three-point-contest.md`); Free play is new. Free play (`ranked: false`) has no clock, no score sent, no daily challenge and no game over; the player moves himself (`freeMove`) and shoots from wherever he stands (within 2 m of the hoop a shot is a dunk: `startDunk()` in `round.js` leaps him up to the rim, slams the ball through and drops him in front of it), and it ends only when they leave (Escape or the back button, to choosing a game). |
 | Moving green zone | `play/zone.js`, `zoneCenter()` in `play/react.js` | A mechanic a mode switches on with `zoneShift()`: the green part of the timing bar moves to a new place each shot (from the seeded "zone" stream), and a release is timed from the green's middle. On in Sudden death (from 5 in a row, further as the run grows), Around the World (gently) and the 3-point contest. |
-| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menu.js` the one menu (the game, then the website's pages, left out in the iOS app); `pause.js` pausing a game (keep playing, start again, quit); `menus.js` title, choose a game, choose a player (or several, for pass and play; once a player's been chosen, choosing a game starts it straight away, and Choose a game shows the player and team to change); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `shop.js` the shop (ball styles, pairing another device); `over.js` game over (the Replay button, the coins a game earned). |
+| Screens | `screens/` | `base.js` showing one screen at a time, sound buttons; `menu.js` the one menu (the game, then the website's pages, left out in the iOS app); `pause.js` pausing a game (keep playing, start again, quit); `menus.js` title, choose a game, choose a player (or several, for pass and play; once a player's been chosen, choosing a game starts it straight away, and Choose a game shows the player and team to change; its cards are glowing arcade signs over the shut gym, each with a pixel picture from `ui/mode-art.js`; every sheet shares that look: the city dimmed behind, and outlines with one job each: teal for anything you can tap, orange for the one main thing to do, yellow for what's selected or focused (and your own row), grey for what only shows something (headings, the score, lists); the leaderboard's top 3 on a podium, and an iPad held sideways gets bigger signs and, on game over, two columns: "The city sheets" in `styles.css`); `horse.js` the turn screen between HORSE shots; `panels.js` help and leaderboard; `shop.js` the shop (ball styles, pairing another device); `over.js` game over (the Replay button, the coins a game earned). |
 | Game content | `content/` | Tables: the courts (`courts.js`), what each player is good at (`attributes.js`), how each fire level and ball looks, the wall scoreboard art, the Around the World spots, the 3-point contest's racks (`threes.js`, with where its art goes), the HORSE spots, Sudden death run calls and end-of-game calls. |
 | Scoring rules | `shared/rules.js` | Fire levels and bonuses, bonus balls, points, modes, recounting a shot log, coins for a game (`coinsFor`). Used by the game and the Worker. |
 | Shop and saved progress | `shared/shop.js`, `shared/save.js`, `progress.js` | The ball styles coins buy (colours drawn in code, prices the Worker checks); what else travels with progress and how two devices' copies merge (shared with the Worker); the game's side of saved progress: this device's key, the last known coins and ball, the progress API. |
@@ -413,18 +413,40 @@ a smaller glass board, one rack by the bench. The first, painted gym is kept as 
 floor, no racks), and `modes/threes.js` draws each rack from its baked picture for the number of balls left
 (`assets/props/rack/`), inside the arc and pointing at the hoop. The spots he shoots from stay `RACK_LAYOUT`'s.
 
-**Folding walls** (`play/fold.js`). The gym is also a set of folding panels (`panels`: `assets/courts/gym/panels.json`,
-written by `tools/pixelart/iso_export.py` from the baked courts). At the start of every game (`startGame` in
-`play/round.js`) the two walls rise from lying flat behind the floor, carrying what hangs on them, and the floor's
-props stand up; the clock and shots wait until they're up (`rising()` in `canShoot` and the clock). In Free play
-the walls only come half way (`HALF_WAY`), the hoop stands on its own post (`art/iso/props/hoop-pole`, and Free
-play's own floor and walls from `art/iso/gym-free/`), and the joystick and shoot button (`play/controls.js`) are
-placed on the walls, turned to lie on them (`placeControls` in `play/scene.js`). While a wall isn't upright the
-court picture is hidden and the scene draws the panels instead: a panel turning about its hinge is the same
-picture under one affine transform. Reduced motion skips the rise. A pixel-art court gives `scoreboard` (where the scoreboard prop hangs and its
+**Loading.** The page starts as `assets/courts/gym/loading.webp` (`games/shootaround/index.html`, preloaded): the
+gym shut on its street in one picture at art pixels, placed exactly where the game then draws the same scene, which
+takes it away once it has drawn (`dropLoading` in `play/scene.js`). The title's words are on the gym itself: the
+billboard on its roof says Shootaround, and an LED sign on its left wall shows the loading bar and then flashes Tap
+to play (`titleSign` in `play/scene.js`, `engine/ledboard.js`); the page's own title and Tap to play stay for screen
+readers, and show as they are only on a test court without the sign (`gym-old` in `?debug`).
+
+**The box opening** (`play/fold.js`). The gym also comes shut as a box (`panels`: `assets/courts/gym/panels.json`,
+written by `tools/pixelart/iso_export.py` from `art/iso/gym-box/`: the thick front walls from outside, the roof, and
+plain walls for the front walls' insides). Out of a game the gym stands shut on its street (the title and the menus; a finished game and its replay show
+the court open). Every game (`startGame` in `play/round.js`) starts with the box shut and
+a big START button lying on one half of its roof, clear of the split, which folds away with that half (`placeStart` in `play/scene.js`); the clock and shots wait (`opening()` in
+`canShoot` and the clock). START, a tap anywhere or Space (`press` in `game.js`) opens it (`openBox`): the roof
+splits in two down the middle, each half folds back over its back wall and drops behind it, and the front walls
+fold down outwards until they lie flat, where they stay for the game; the game's start sound and call wait for
+it. The box is drawn on its own canvas over the whole screen (`.box-layer`, redrawn only when it changes), so the
+walls can lie beyond the court's square, over the court picture, which stays as it is. A flat panel turning about
+its hinge is the same picture under one affine transform; past the angle where the camera sees its other side, a
+front wall shows a plain wall picture moved to the front and a roof half a plain ceiling, and the walls' thickness
+is drawn as flat faces. In Free play the joystick and shoot button (`play/controls.js`) lie on the flat front walls,
+the joystick on the left and the shoot button on the right, standing up off them (`placeControls` in
+`play/scene.js`). While the box shows, the street round the gym and the sky (`art/iso/street/`, written as one picture,
+`assets/courts/gym/street.webp`) are drawn behind the court on another screen-sized canvas, and the street covers
+the sides of the floor slab so the gym stands on it. On a tall screen the court zooms in as the box opens, until
+the corners of the court's lines touch the sides of the screen (`.zoomed` in `styles.css`). Reduced motion opens it
+at once. A pixel-art court gives `scoreboard` (where the scoreboard prop hangs and its
 face, from the prop's `prop.json`) instead of the old painted board (`BOARD_ART` in `content/looks.js`):
 `engine/pixelboard.js` works out which art pixels of the court show each face pixel, and repaints them with the
 mode's labels (a 3x5 pixel font) and lit digit segments whenever the score changes.
+It can also give `led`, a long LED screen along the top of the hoop wall: `engine/ledboard.js` repaints its art
+pixels the same way, and the announcer's calls (`state.banner`) light up on it in 5x7 LED letters while the room
+can be seen, scrolling once across it when they're too long (a few words at a time with reduced motion). While
+the box is shut or opening, or on a court without one, the call is drawn big over the court instead
+(`drawBanner` in `engine/draw.js`).
 
 ## Player attributes
 
@@ -529,6 +551,11 @@ sequenceDiagram
 The game and the Worker use the same scoring rules from `shared/rules.js` (`recountScore`, `ballKind`,
 `ballPoints`, `FIRE_RULES`, modes), so the server recounts a game exactly as the game scored it. The checks in
 the middle are `checkGame` and `oddFlags` in `worker/src/scoring.ts`.
+
+The Leaderboard screen shows each board's top 10 (`GET /api/scores`, cached briefly). When this device's best
+row is further down, the game also asks `POST /api/scores/around` (the device id in the body, never the URL,
+limited per IP like the preview) and shows "Your place": that row with the two above and two below, under the
+top 10 (`drawNear` in `leaderboard.js`).
 
 In the admin's Scores tab a score can be hidden, kept, or renamed: a new nickname (checked like a player's
 own) goes on every game by that device and player, since the board shows them as one row. Names someone

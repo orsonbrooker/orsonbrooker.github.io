@@ -163,13 +163,18 @@ when it uses this art.
 
 ## Courts are made of panels
 
-**Into the game:** `python3 tools/pixelart/iso_export.py art/iso/gym art/iso/gym-contest art/iso/gym-free
-assets/courts/gym content/courts/gym.js` copies the panels and the props' bare pictures into the game with a `panels.json` (where each
-goes and where it folds) that `play/fold.js` reads, and writes `content/courts/gym.js` (the scoreboard and the contest racks, which
+**Into the game:** `python3 tools/pixelart/iso_export.py art/iso/gym art/iso/gym-contest art/iso/gym-box
+assets/courts/gym content/courts/gym.js art/iso/street` copies the closed box's pictures into the game with a `panels.json` (where each
+goes) that `play/fold.js` reads to open the box at the start of a game, and writes `content/courts/gym.js` (the scoreboard and the contest racks, which
 `content/courts.js` imports). Rebake and re-export together.
 
-A court can fold up like a box before a game or round starts, then unfold to show the court (Luke, 14 Nov
-2026). The animation is separate work; the art only has to make it possible. So a new court is drawn as
+**The closed box** (Luke, 15 Nov 2026): `art/iso/gym-box/` is the gym shut, its two front walls (as thick as the
+back walls, from outside: `out-left`, `out-right`) and its roof (`lid`, which the game splits in two down the
+middle; its START button is the game's), plus plain side and hoop walls (`in-left`, `in-right`) the game turns
+into the front walls' insides as they fold down. Its scene is made from the gym's (same room, walls and light).
+
+The panels below came first (Luke, 14 Nov 2026): a court can fold up like a box before a game or round starts, then
+unfold to show the court. The animation is separate work; the art only has to make it possible. So a new court is drawn as
 separate flat panels, each its own image with see-through round it, not one painted picture:
 
 - **the floor**;

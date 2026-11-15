@@ -2,7 +2,7 @@
 // ball's hits and whether each shot went in, and the per-frame update. What differs between modes
 // is asked of the mode being played (modes/index.js).
 
-import { HALF_WAY, riseTo, rising } from "../play/fold.js";
+import { opening, shutBox } from "../play/fold.js";
 import { sound } from "../audio.js";
 import { BALL_BADGES } from "../content/looks.js";
 import { COURT_PX, EU, EV, PX_PER_M, RIM, RIM_R, ROOM_U, ROOM_V, isThreePointSpot, project } from "../engine/court.js";
@@ -70,10 +70,13 @@ export function startGame() {
   setAnim("idle");
   showScreen(null);
   updateHud();
-  sound.gameStart();
-  announce("start", "#ffffff");
-  // the walls rise into place (half way in Free play, where the joystick and shoot button sit on them)
-  riseTo(mode().freeMove ? HALF_WAY : 0);
+  // the court stands shut in its box until START (play/fold.js), then opens
+  shutBox(() => {
+    sound.gameStart();
+    // the call shows once the box is open: drawn on the court, it would peek out from under the folding roof
+    const call = () => (opening() ? requestAnimationFrame(call) : announce("start", "#ffffff"));
+    call();
+  });
   mode().begin?.();
 }
 
@@ -310,11 +313,15 @@ export function checkDecided(b) {
 
 // ---------- Update ----------
 
+// The phases his dribble is heard in: a game and its replay. After one he goes back to dribbling behind the
+// title and the menus (with the new gym shut over him), which mustn't keep bouncing.
+const DRIBBLE_HEARD = new Set(["playing", "ending", "replay"]);
+
 // While he jogs: footsteps twice a stride, the ball's bounce once.
 function jogSounds() {
   const n = frameCount("run");
   const frame = Math.floor(player.t * loopFps("run")) % n;
-  if (frame !== player.lastRunFrame && (frame === 0 || frame === Math.floor(n / 2))) {
+  if (frame !== player.lastRunFrame && (frame === 0 || frame === Math.floor(n / 2)) && DRIBBLE_HEARD.has(state.phase)) {
     sound.step(0.6);
     if (frame === 0) sound.dribble();
   }
@@ -459,7 +466,7 @@ function updatePlayer(dt) {
     case "dribble": {
       // Bounce sound when the ball hits the floor (the first frame of the loop).
       const frame = Math.floor(player.t * loopFps("dribble")) % frameCount("dribble");
-      if (frame === 0 && player.lastDribbleFrame !== 0) sound.dribble();
+      if (frame === 0 && player.lastDribbleFrame !== 0 && DRIBBLE_HEARD.has(state.phase)) sound.dribble();
       player.lastDribbleFrame = frame;
       break;
     }
@@ -496,7 +503,7 @@ function updatePlayer(dt) {
 }
 
 function update(dt) {
-  if (state.phase === "playing" && !rising()) mode().clock(dt); // the clock waits for the walls (play/fold.js)
+  if (state.phase === "playing" && !opening()) mode().clock(dt); // the clock waits for the box to open (play/fold.js)
   else if (state.phase === "turn") mode().betweenTurns?.(dt);
   else if (state.phase === "ending") {
     // Let the last shot's reaction play out before the game-over screen.

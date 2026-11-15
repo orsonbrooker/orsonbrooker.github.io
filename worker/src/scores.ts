@@ -20,6 +20,7 @@ import { checkTurnstile, clean, forgetBlockedNames, hash, ipKey, isUnfriendly, j
 import type { Env } from "./util.ts";
 
 const SCORES_PER_DAY = 40;
+const AROUND_PER_DAY = 1000; // once per board opened from a device outside the top 10
 const PREVIEWS_PER_DAY = 1000; // one per game, plus one per pause while typing a name; a class shares an IP
 
 // On the leaderboard each device has one row per player it plays as (a built-in one, or one made
@@ -258,11 +259,11 @@ export async function renameScores(env: Env, id: number, nickname: unknown): Pro
 }
 
 // One mode's board: each player on a device appears once, with its best game and its latest
-// nickname. `mine` marks the row for one device and player.
+// nickname. `mine` marks the rows for one device (and one player, if given).
 type BoardRow = { id: number | null; nickname: string; score: number; player?: string; base?: string | null; colours: unknown; rank?: number; you?: boolean; mine?: number };
-async function boardRows(env: Env, mode: Mode, week: boolean, limit: number, mine?: { device: string; player: string }) {
+async function boardRows(env: Env, mode: Mode, week: boolean, limit: number, mine?: { device: string; player?: string }) {
 	const rows = await env.DB.prepare(
-		`SELECT id, score, player, base, colours${mine ? ", (device = ?2 AND player = ?3) AS mine" : ""},
+		`SELECT id, score, player, base, colours${mine ? `, (device = ?2${mine.player ? " AND player = ?3" : ""}) AS mine` : ""},
 		   (SELECT x.nickname FROM scores x WHERE x.device = t.device AND x.player = t.player AND x.status = 'shown' ORDER BY x.id DESC LIMIT 1) AS nickname
 		 FROM (
 		   SELECT id, score, player, base, colours, device,
@@ -270,7 +271,7 @@ async function boardRows(env: Env, mode: Mode, week: boolean, limit: number, min
 		   FROM scores WHERE status = 'shown' AND mode = ?1 ${week ? `AND ${WEEK}` : ""}
 		 ) t WHERE n = 1 ORDER BY score ${order(mode)}, id LIMIT ${limit}`,
 	)
-		.bind(mode, ...(mine ? [mine.device, mine.player] : []))
+		.bind(mode, ...(mine ? [mine.device, ...(mine.player ? [mine.player] : [])] : []))
 		.all<BoardRow & { colours: string | null }>();
 	return rows.results.map((r) => ({ ...r, colours: r.colours ? JSON.parse(r.colours) : null }));
 }
@@ -337,6 +338,23 @@ export async function previewScore(request: Request, env: Env): Promise<Response
 		rank: at + 1,
 		board: board.slice(Math.max(0, end - 5), end),
 	});
+}
+
+// The leaderboard screen shows the top 10; a device with a player further down also sees its best place there,
+// with the two above and two below. Nothing comes back when it's in the top 10 already or not on the board. It
+// reads the whole board for one device (so it can't be cached), so it's limited per IP like the preview.
+export async function aroundMe(request: Request, env: Env): Promise<Response> {
+	const body = await readJson(request);
+	await rateLimit(request, env, "around", AROUND_PER_DAY, "That's a lot of looking for one day! Try again tomorrow.");
+	const device = clean(body.device, 64);
+	if (device.length < 16) throw new HttpError(400, "Bad request.");
+	const mode = modeOf(body.mode);
+	const rows = await boardRows(env, mode, body.range !== "all", 1000, { device: await boardOf(env, device) });
+	const at = rows.findIndex((r) => r.mine);
+	if (at < BOARD_SIZE) return json({ rows: [] });
+	const from = Math.max(BOARD_SIZE, at - 2); // never a row the top 10 already shows
+	const near = rows.slice(from, at + 3).map((r, i) => ({ ...r, rank: from + 1 + i, you: !!r.mine, mine: undefined }));
+	return json({ rows: near });
 }
 
 // One leaderboard game, for the card shown when someone's row is tapped. Stats come from the shot

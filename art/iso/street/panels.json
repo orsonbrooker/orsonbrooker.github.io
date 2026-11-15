@@ -1,0 +1,43 @@
+{
+ "note": "The street round the gym, behind it in the game while its box shows (play/fold.js): pavement, two roads meeting at the gym's front corner, trees, lamps, and buildings across the back streets; the sky is painted behind it by tools/pixelart/iso_export.py.",
+ "geometry": {
+  "origin": {
+   "x": 2000,
+   "y": 2670
+  },
+  "eu": {
+   "x": -120,
+   "y": 60
+  },
+  "ev": {
+   "x": 120,
+   "y": 60
+  },
+  "room": {
+   "u": 9.5,
+   "v": 9.5
+  },
+  "pxPerM": 146.9693845669907,
+  "size": 4000,
+  "slab": 0.3,
+  "wallThick": 0.25
+ },
+ "scale": 5,
+ "wallHeight": 6.4639312656778305,
+ "needs": [
+  "box"
+ ],
+ "image": "court.webp",
+ "panels": [
+  {
+   "id": "street",
+   "kind": "box",
+   "image": "street.webp",
+   "at": [
+    0,
+    465
+   ],
+   "order": 0
+  }
+ ]
+}

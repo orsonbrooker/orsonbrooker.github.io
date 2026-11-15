@@ -40,7 +40,11 @@ export const sheet = { sprites: null, atlas: null, shoeRegions: null, prints: nu
 // Which size of a player's sheet the game draws (players/recolor.js pickSize): the smallest that isn't drawn
 // enlarged on this court, else full. Worked out again when the court's size changes (recheckSheet).
 const basesById = new Map(); // the builder bodies, once the roster is in
-const stageWidth = () => document.getElementById("stage")?.getBoundingClientRect().width || innerWidth;
+// (the court as it is out of the zoom on a tall screen while the box is open, styles.css .zoomed: the zoom comes
+// and goes with each game, and switching sheets mid-game would leave the player blank while the new one loads)
+export const ZOOM = 1.22;
+const zoomed = () => document.getElementById("game-page")?.classList.contains("zoomed") && matchMedia("(orientation: portrait)").matches;
+const stageWidth = () => (document.getElementById("stage")?.getBoundingClientRect().width || innerWidth) / (zoomed() ? ZOOM : 1);
 function sizeFor(entry, current) {
   const sizing = entry.base ? basesById.get(entry.base) : entry;
   return sizing ? pickSize(sizing, gameScale(stageWidth()), current) : null;

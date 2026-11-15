@@ -19,11 +19,19 @@ import { flagOn } from "../flags.js";
 import { myTeam, myTeamKit } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
+import { modeArt } from "../ui/mode-art.js";
 import { showLoading } from "../ui/loading-bar.js";
 
 // Modes that aren't out yet (modeShown, modes/index.js): their card, leaderboard tab and help go.
 for (const el of document.querySelectorAll("[data-mode], [data-board-mode], [data-help-mode]"))
   if (!modeShown(el.dataset.mode ?? el.dataset.boardMode ?? el.dataset.helpMode)) el.remove();
+
+// Each game's card and leaderboard tab gets its picture (a constant SVG), and How to play gets its pictures.
+for (const card of document.querySelectorAll(".mode-card[data-mode]")) card.insertAdjacentHTML("afterbegin", modeArt(card.dataset.mode));
+for (const tab of document.querySelectorAll("[data-board-mode]")) tab.insertAdjacentHTML("afterbegin", modeArt(tab.dataset.boardMode));
+// How to play's pictures; the fire levels' flames in their own colours
+const FLAMES = { purple: { o: "#9b5de5", y: "#c77dff", d: "#5a2a8a" }, blue: { o: "#3d8bff", y: "#5ec8ff", d: "#2a4a9a" } };
+for (const el of document.querySelectorAll(".help-panel [data-art]")) el.insertAdjacentHTML("afterbegin", modeArt(el.dataset.art, FLAMES[el.dataset.flame]));
 
 // Picks the mode for the next game (remembered for next time) and shows its best.
 export function setMode(id) {

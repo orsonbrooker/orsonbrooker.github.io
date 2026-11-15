@@ -1,0 +1,107 @@
+{
+ "note": "The gym as a closed box, for the game's opening (play/fold.js): the front walls from outside (out-left, out-right) and the roof (lid: nothing on the split down its middle, from the back corner to the front, so each half folds with what's on it), standing on art/iso/gym/'s floor; and plain walls (in-left, in-right: the side and hoop walls with nothing on them), which the game turns into the front walls' inside faces as they fold down.",
+ "geometry": {
+  "origin": {
+   "x": 1200,
+   "y": 1070
+  },
+  "eu": {
+   "x": -120,
+   "y": 60
+  },
+  "ev": {
+   "x": 120,
+   "y": 60
+  },
+  "room": {
+   "u": 9.5,
+   "v": 9.5
+  },
+  "pxPerM": 146.9693845669907,
+  "size": 2400,
+  "slab": 0.3,
+  "wallThick": 0.25
+ },
+ "scale": 5,
+ "wallHeight": 6.4639312656778305,
+ "needs": [
+  "box",
+  "wall:hoop",
+  "wall:side"
+ ],
+ "image": "court.webp",
+ "panels": [
+  {
+   "id": "in-left",
+   "kind": "wall",
+   "image": "in-left.webp",
+   "at": [
+    1195,
+    120
+   ],
+   "order": 0,
+   "plane": "side",
+   "hinge": [
+    [
+     1200,
+     1070
+    ],
+    [
+     2340,
+     1640
+    ]
+   ]
+  },
+  {
+   "id": "in-right",
+   "kind": "wall",
+   "image": "in-right.webp",
+   "at": [
+    55,
+    120
+   ],
+   "order": 1,
+   "plane": "hoop",
+   "hinge": [
+    [
+     1200,
+     1070
+    ],
+    [
+     60,
+     1640
+    ]
+   ]
+  },
+  {
+   "id": "out-left",
+   "kind": "box",
+   "image": "out-left.webp",
+   "at": [
+    20,
+    700
+   ],
+   "order": 2
+  },
+  {
+   "id": "out-right",
+   "kind": "box",
+   "image": "out-right.webp",
+   "at": [
+    1195,
+    700
+   ],
+   "order": 3
+  },
+  {
+   "id": "lid",
+   "kind": "box",
+   "image": "lid.webp",
+   "at": [
+    0,
+    55
+   ],
+   "order": 4
+  }
+ ]
+}

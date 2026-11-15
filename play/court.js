@@ -6,7 +6,7 @@
 import { COURTS, DEFAULT_COURT } from "../content/courts.js";
 import { court, setCourt } from "../engine/court.js";
 import { setPhysics } from "../engine/physics.js";
-import { loadPanels, setWalls } from "../play/fold.js";
+import { loadPanels, setOpen } from "../play/fold.js";
 import { loadImage } from "../play/players.js";
 import { art } from "../play/scene.js";
 
@@ -19,10 +19,10 @@ export async function useCourt(id = DEFAULT_COURT) {
   const def = COURTS[id];
   if (!def) throw new Error(`No court called "${id}"`);
   const hoopFront = hoopFrontSrc === def.hoopFront ? art.hoopFront : await loadImage(def.hoopFront);
-  loadPanels(def); // its folding panels (play/fold.js), in the background: until they're in, games start with the walls up
+  loadPanels(def); // its box (play/fold.js), in the background: until it's in, games start open
   if (def.contest) loadImage(def.contest.image).catch(() => {}); // ready for the 3-point contest
   setCourt(def);
-  setWalls(0);
+  setOpen();
   setPhysics(def.physics);
   art.hoopFront = hoopFront;
   hoopFrontSrc = def.hoopFront;

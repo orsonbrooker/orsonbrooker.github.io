@@ -211,7 +211,7 @@ header p {
 }
 
 @media (pointer: coarse) {
-  .stage[data-phase="playing"][data-game-mode="free"] .touch-controls {
+  .game-page[data-phase="playing"] .stage[data-game-mode="free"] .touch-controls {
     display: block;
   }
 }
@@ -220,6 +220,41 @@ header p {
   left: max(16px, env(safe-area-inset-left));
   width: 136px;
   height: 136px;
+}
+
+.touch-knob canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.touch-knob .knob-shaft {
+  display: none;
+  inset: 30%;
+  width: 40%;
+  height: 40%;
+}
+
+.on-box .touch-knob .knob-shaft {
+  display: block;
+}
+
+/* lying on the box (play/scene.js): the label on the ball, not under it */
+.touch-shoot.on-box span {
+  bottom: auto;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  background: none;
+}
+
+/* the labels on the box's buttons: white letters with a dark outline and a drop below, like an arcade button */
+.touch-shoot.on-box span,
+.box-start span {
+  color: #f9f5f0;
+  text-shadow:
+    -0.1em 0 0 #2b1622, 0.1em 0 0 #2b1622, 0 -0.1em 0 #2b1622, 0 0.1em 0 #2b1622,
+    -0.1em -0.1em 0 #2b1622, 0.1em -0.1em 0 #2b1622, -0.1em 0.1em 0 #2b1622, 0.1em 0.1em 0 #2b1622,
+    0 0.22em 0 #2b1622;
 }
 
 .touch-knob {
@@ -254,10 +289,91 @@ header p {
   pointer-events: none;
 }
 
-.touch-shoot.down canvas {
+.touch-shoot.down canvas:not(.arcade-art) {
   transform: scale(0.9);
   filter: brightness(0.85);
 }
+
+/* While the game loads: the gym shut on its street (assets/courts/gym/loading.webp, art pixels), placed where the
+   game draws the same scene: its top left is 800 court pixels left of the court's and 1600 above, 4000 x 5400 court
+   pixels in all (the street in assets/courts/gym/panels.json), on a court 2400 across. */
+.court-loading {
+  position: absolute;
+  left: -33.3333%;
+  top: -66.6667%;
+  width: 166.6667%;
+  height: 225%;
+  max-width: none;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+/* The court's box (play/fold.js, play/scene.js): its own canvas over the whole screen, and the START button on
+   its roof, laid on it by play/scene.js. */
+.box-layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.box-start {
+  position: fixed;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+  transform-origin: 50% 50%;
+}
+
+.box-start[hidden] {
+  display: none;
+}
+
+.box-start canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+/* an arcade button's picture (play/scene.js drawArcade: START, and SHOOT on the box), centred on it and turned
+   back to lie level on screen; it draws itself pushed in while pressed */
+.box-start .arcade-art,
+.touch-shoot .arcade-art,
+.touch-stick .arcade-art,
+.touch-stick .knob-art {
+  position: absolute;
+  inset: auto;
+  left: 50%;
+  top: 50%;
+  max-width: none;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.touch-shoot:not(.on-box) .arcade-art,
+.touch-shoot.on-box > canvas:not(.arcade-art),
+.touch-stick:not(.on-box) .arcade-art,
+.touch-stick:not(.on-box) .knob-art,
+.touch-stick.on-box > canvas:not(.arcade-art):not(.knob-art),
+.touch-stick.on-box .touch-knob {
+  display: none;
+}
+
+.box-start span {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--pixel);
+  font-size: inherit;
+  pointer-events: none;
+}
+
 
 /* ---------- Screens over the court ---------- */
 
@@ -314,6 +430,21 @@ header p {
   font-size: clamp(11px, 3cqw, 20px);
   color: #ffe066;
   animation: blink 1.2s steps(1) infinite;
+}
+
+/* The title's words are on the gym itself: Shootaround on its billboard, Tap to play and the loading bar on the
+   LED sign on its wall (play/scene.js titleSign), from the first paint. Kept for screen readers. A court without the
+   sign (a test court in ?debug), or a game that couldn't load, shows them as they are (.off-wall). */
+.tap-to-play.on-wall,
+.title-screen:not(.off-wall) .logo,
+.title-screen:not(.off-wall) .title-bottom {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @keyframes blink {
@@ -377,67 +508,206 @@ header p {
   }
 }
 
-/* Choosing a game: one card each, with your best, and today's challenge above them. */
-.mode-daily {
-  margin: 0 0 12px;
-  padding: 8px 10px;
+/* Choosing a game: glowing arcade signs floating over the city (the closed gym shows through, dimmed), all the
+   same size, each with its picture (ui/mode-art.js), name and best; today's challenge on a green LED strip
+   above them. What each game is stays in the card for screen readers, and in How to play. */
+#mode-screen {
+  background: linear-gradient(rgba(24, 8, 38, 0.78), rgba(24, 8, 38, 0.4) 45%, rgba(24, 8, 38, 0.7));
+}
+
+/* the game's own corner buttons would show through behind the heading */
+body:has(#mode-screen:not([hidden])) .corner {
+  visibility: hidden;
+}
+
+#mode-screen .select-head {
+  background: none;
+}
+
+/* the heading as a sign: dark, with a glowing orange edge */
+#mode-screen .select-head h2 {
+  flex: none;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 10px 16px 8px;
+  border: 3px solid var(--info);
   border-radius: 6px;
-  background: rgba(61, 220, 132, 0.15);
+  background: var(--sign);
+  box-shadow: 0 0 0 3px var(--ink-line), 4px 6px 0 3px rgba(24, 8, 38, 0.7);
+  color: var(--main);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
+}
+
+#mode-screen .select-head::after {
+  content: "";
+  width: 48px; /* balances the back button, so the sign sits in the middle */
+  flex: none;
+}
+
+.mode-daily {
+  margin: 0 0 26px; /* room for the highlight's arrow */
+  padding: 8px 10px;
+  border: 3px solid var(--info);
+  border-radius: 4px;
+  background:
+    radial-gradient(circle, rgba(61, 220, 132, 0.12) 1px, transparent 1.5px) 0 0 / 4px 4px,
+    #0f2318;
+  box-shadow: 0 0 10px rgba(61, 220, 132, 0.25);
   color: #3ddc84;
   font-size: clamp(9px, 1.5vw, 11px);
   line-height: 1.6;
+  text-align: center;
+  text-shadow: 0 0 6px rgba(61, 220, 132, 0.7);
 }
 
 .mode-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+/* an odd one out at the end sits in the middle, the same size as the rest */
+.mode-card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: calc(50% - 7px);
+}
+
+@media (min-width: 560px) {
+  .mode-cards {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .mode-card:last-child:nth-child(odd) {
+    grid-column: auto;
+    width: auto;
+  }
 }
 
 .mode-card {
+  --neon: var(--tap);
+  position: relative;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 14px;
-  border: 3px solid transparent;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.1);
+  aspect-ratio: 1 / 0.92;
+  padding: 12px 8px;
+  border: 4px solid var(--neon);
+  border-radius: 6px;
+  background: linear-gradient(#1e1430, #160d24);
+  box-shadow: 0 0 0 3px #2b1622, 0 0 12px color-mix(in srgb, var(--neon) 45%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--neon) 20%, transparent), 5px 7px 0 3px rgba(24, 8, 38, 0.75);
   color: #fff;
   font: inherit;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
+  transition: transform 0.12s, filter 0.12s;
 }
 
+
+.mode-card .mode-art {
+  width: clamp(56px, 18vw, 88px);
+  height: auto;
+  filter: drop-shadow(2px 2px 0 #2b1622);
+}
+
+.mode-card:active {
+  transform: perspective(700px) rotateX(10deg) rotateY(-16deg) scale(1.03) translateY(0);
+}
+
+/* One highlight, and only one: the focused card (Choose a game focuses their last game when it opens, and the
+   arrow keys and Tab move it), or their last game while nothing is focused. It tips back like a sign turned to
+   face you, lifts, glows yellow and gets a bouncing arrow; the rest dim a little. */
+.mode-card:focus,
+.mode-cards:not(:has(.mode-card:focus)) .mode-card[aria-pressed="true"],
 .mode-card:hover {
-  border-color: var(--accent);
-}
-
-/* One highlight: it starts on their last game and moves with the arrow keys. */
-.mode-card[aria-pressed="true"],
-.mode-card:focus {
+  z-index: 1;
   border-color: #ffe066;
   outline: none;
+  transform: perspective(700px) rotateX(10deg) rotateY(-16deg) scale(1.07) translateY(-4px);
+  filter: none;
+  box-shadow: 0 0 0 3px #2b1622, 0 0 0 7px rgba(255, 224, 102, 0.35), 0 0 28px rgba(255, 224, 102, 0.85),
+    inset 0 0 18px rgba(255, 224, 102, 0.35), 10px 12px 0 3px rgba(24, 8, 38, 0.8);
 }
 
-.mode-cards:has(:focus) .mode-card[aria-pressed="true"]:not(:focus) {
-  border-color: transparent;
-}
-
-.mode-card strong {
-  font-size: clamp(11px, 1.8vw, 14px);
+.mode-card:focus strong,
+.mode-cards:not(:has(.mode-card:focus)) .mode-card[aria-pressed="true"] strong,
+.mode-card:hover strong {
   color: #ffe066;
 }
 
+/* the others step back */
+.mode-cards:has(.mode-card:focus,
+.mode-card:hover) .mode-card:not(:focus,
+:hover),
+.mode-cards:not(:has(.mode-card:focus,
+.mode-card:hover)) .mode-card:not([aria-pressed="true"]) {
+  filter: brightness(0.72) saturate(0.8);
+}
+
+/* a pixel arrow bouncing over the highlighted card */
+.mode-card::after {
+  content: "";
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  width: 20px;
+  height: 14px;
+  margin-left: -10px;
+  background: #ffe066;
+  clip-path: polygon(0 0, 100% 0, 100% 29%, 80% 29%, 80% 57%, 60% 57%, 60% 86%, 40% 86%, 40% 57%, 20% 57%, 20% 29%, 0 29%);
+  filter: drop-shadow(2px 2px 0 #2b1622);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mode-card:focus::after,
+.mode-cards:not(:has(.mode-card:focus)) .mode-card[aria-pressed="true"]::after {
+  opacity: 1;
+  animation: point-down 0.7s steps(2) infinite;
+}
+
+@keyframes point-down {
+  50% {
+    translate: 0 4px;
+  }
+}
+
+.mode-card strong {
+  font-size: clamp(10px, 3vw, 14px);
+  line-height: 1.35;
+  color: var(--neon);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 #2b1622, 0 0 8px color-mix(in srgb, var(--neon) 60%, transparent);
+}
+
+/* what the game is: for screen readers (How to play shows it too) */
 .mode-card span {
-  font-family: system-ui, sans-serif;
-  font-size: 15px;
-  line-height: 1.4;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .mode-card em {
   font-style: normal;
-  font-size: 10px;
-  color: #3ddc84;
+  font-size: clamp(8px, 2.2vw, 10px);
+  line-height: 1.4;
+  color: #e9ccbb;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mode-card {
+    transition: none;
+  }
+  .mode-card::after {
+    animation: none !important;
+  }
 }
 
 .board-tabs.board-modes [aria-selected="true"] {
@@ -946,23 +1216,8 @@ header p {
   height: 1.6em;
 }
 
-.help-panel ol {
-  margin: 0 0 12px;
-  padding-left: 1.6em;
-  text-align: left;
-}
-
-.help-panel li {
-  margin-bottom: 8px;
-}
-
 .help-panel strong {
   color: #ffe066;
-}
-
-.help-panel p {
-  margin: 0 0 14px;
-  text-align: left;
 }
 
 @media (max-width: 520px) {
@@ -1230,6 +1485,24 @@ header p {
 @media (orientation: landscape) {
   .game-page {
     --court: max(min(var(--h), var(--w) - 2 * var(--rail)), 0.85 * min(var(--w), var(--h)));
+  }
+}
+
+/* A tall screen, once the court's box opens (play/scene.js): the court grows until the corners of the court's
+   lines touch the sides of the screen, for more room to play. */
+.game-page .stage {
+  transition: width 0.7s ease-in-out, left 0.7s ease-in-out, top 0.7s ease-in-out;
+}
+
+@media (orientation: portrait) {
+  .game-page.zoomed {
+    --court: calc(var(--w) * 1.22); /* ZOOM in play/players.js */
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-page .stage {
+    transition: none;
   }
 }
 
@@ -2405,4 +2678,832 @@ header p {
 .panel .my-team .team-kit span {
   width: 9px;
   height: 20px;
+}
+
+
+/* ---------- The city sheets ----------
+   Outlines, one job each, on every sheet:
+     teal   (--tap)  you can tap it
+     orange (--main) the one main thing to do on this screen
+     yellow (--pick) what's selected or focused, and your own row
+     grey   (--info) just showing something: headings, the score, lists, the LED strips
+   A game's own colour is in its picture, never its outline.
+   Every full-screen sheet (menus, pause, game over, the leaderboard, help, the shop) floats over the city like
+   Choose a game: the scene dimmed behind, the heading a lit sign, buttons glowing arcade signs (orange for the
+   main thing to do, teal for the rest), lists on dark LED panels. One highlight colour: yellow, for what's
+   selected or focused. Laid out for a phone held upright and an iPad held sideways. */
+:root {
+  --tap: #3fc9b0;
+  --main: #ff8c42;
+  --pick: #ffe066;
+  --info: #877e8f;
+  --sign: #1e1430;
+  --sign-deep: #160d24;
+  --ink-line: #2b1622;
+  --teal: #3fc9b0;
+  --hot: #ff8c42;
+  --lit: #ffe066;
+}
+
+.panel-screen {
+  background: linear-gradient(rgba(24, 8, 38, 0.8), rgba(24, 8, 38, 0.5) 45%, rgba(24, 8, 38, 0.75));
+}
+
+/* the game's own corner buttons would show through */
+body:has(.panel-screen:not([hidden])) .corner {
+  visibility: hidden;
+}
+
+.panel-screen .select-head {
+  background: linear-gradient(rgba(24, 8, 38, 0.92) 70%, rgba(24, 8, 38, 0));
+}
+
+.panel-screen .select-head::after {
+  content: "";
+  width: 48px; /* balances the back button, so the sign sits in the middle */
+  flex: none;
+}
+
+.panel-screen .select-head h2 {
+  flex: none;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 10px 16px 8px;
+  border: 3px solid var(--info);
+  border-radius: 6px;
+  background: var(--sign);
+  box-shadow: 0 0 0 3px var(--ink-line), 4px 6px 0 3px rgba(24, 8, 38, 0.7);
+  color: var(--main);
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
+}
+
+/* the shop's coins sit at the right instead of the balancing gap */
+.shop-panel .select-head::after {
+  display: none;
+}
+
+.panel-screen .screen-back {
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: var(--sign);
+  box-shadow: 0 0 0 2px var(--ink-line), 0 0 10px rgba(63, 201, 176, 0.45);
+  color: #fff;
+}
+
+/* buttons as signs */
+.panel-screen .menu-list button,
+.panel-screen .menu-list a,
+.panel .over-actions button,
+.help-panel .primary,
+.panel-screen .turn-go,
+.panel-screen .pair-card button,
+.panel-screen .team-go button {
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: linear-gradient(var(--sign), var(--sign-deep));
+  box-shadow: 0 0 0 3px var(--ink-line), 0 0 10px rgba(63, 201, 176, 0.4), inset 0 0 10px rgba(63, 201, 176, 0.15),
+    4px 5px 0 3px rgba(24, 8, 38, 0.7);
+  color: #e8fff9;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
+}
+
+.panel-screen .menu-list .primary,
+.panel .over-actions .primary,
+.help-panel .primary,
+.panel-screen .turn-go,
+.panel-screen .team-go .primary {
+  border-color: var(--main);
+  background: linear-gradient(#4a1f18, #2b1622);
+  box-shadow: 0 0 0 3px var(--ink-line), 0 0 18px rgba(255, 140, 66, 0.7), inset 0 0 14px rgba(255, 140, 66, 0.3),
+    4px 5px 0 3px rgba(24, 8, 38, 0.7);
+  color: var(--lit);
+}
+
+.panel-screen .menu-list button:hover,
+.panel-screen .menu-list a:hover,
+.panel-screen .menu-list .primary:hover {
+  background: linear-gradient(#2a1d40, var(--sign-deep));
+}
+
+.panel-screen .menu-list .primary:hover {
+  background: linear-gradient(#5a2a1c, #2b1622);
+}
+
+/* what's focused: yellow, the same as Choose a game */
+.panel-screen .menu-list button:focus-visible,
+.panel-screen .menu-list a:focus-visible,
+.panel .over-actions button:focus-visible,
+.help-panel .primary:focus-visible,
+.panel-screen .screen-back:focus-visible,
+.panel-screen .board-tabs button:focus-visible {
+  outline: none;
+  border-color: var(--lit);
+  box-shadow: 0 0 0 3px var(--ink-line), 0 0 0 7px rgba(255, 224, 102, 0.35), 0 0 22px rgba(255, 224, 102, 0.8);
+}
+
+.panel-screen .menu-pair button[aria-pressed="false"] {
+  opacity: 1;
+  border-color: #5f5d77;
+  box-shadow: 0 0 0 3px var(--ink-line), 4px 5px 0 3px rgba(24, 8, 38, 0.7);
+  color: #959cb7;
+}
+
+/* ---------- Pause and the menu: the main thing big, then the rest in pairs, then music and sound smaller ---------- */
+#pause-screen .menu-list,
+#menu-screen nav.menu-list:not(.menu-site) {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  max-width: 560px;
+  margin-top: clamp(8px, 4vh, 40px);
+}
+
+#pause-screen .menu-list .primary,
+#menu-screen .menu-list .primary {
+  grid-column: 1 / -1;
+  justify-content: center;
+  min-height: 84px;
+  font-size: clamp(14px, 4vw, 22px);
+}
+
+#pause-screen .menu-list .menu-pair,
+#menu-screen .menu-list .menu-pair {
+  grid-column: 1 / -1;
+  width: 80%;
+  margin: 10px auto 0;
+}
+
+#pause-screen .menu-list > button:not(.primary),
+#menu-screen .menu-list > button:not(.primary) {
+  justify-content: center;
+  min-height: 64px;
+}
+
+.panel-screen .menu-pair button {
+  min-height: 48px;
+  font-size: clamp(9px, 2.4vw, 12px);
+}
+
+@media (max-width: 420px) {
+  #pause-screen .menu-list > button:not(.primary) {
+    grid-column: 1 / -1;
+  }
+}
+
+.panel-screen .menu-site {
+  max-width: 560px;
+}
+
+.panel-screen .menu-label {
+  color: var(--teal);
+  text-transform: uppercase;
+}
+
+/* ---------- Game over: the score on a big lit sign; Play again the main sign, then three tiles ---------- */
+.over-score {
+  position: relative;
+  margin: 4px auto 0;
+  padding: 16px 12px 14px;
+  max-width: 460px;
+  border: 4px solid var(--info);
+  border-radius: 8px;
+  background: linear-gradient(var(--sign), var(--sign-deep));
+  box-shadow: 0 0 0 3px var(--ink-line), 6px 8px 0 3px rgba(24, 8, 38, 0.75);
+}
+
+.over-score .final-score {
+  color: var(--lit);
+  text-transform: uppercase;
+}
+
+.over-score #final-score {
+  font-size: clamp(56px, 16vw, 110px);
+  text-shadow: 4px 4px 0 var(--ink-line), 0 0 16px rgba(255, 224, 102, 0.6);
+}
+
+.over-score #over-detail {
+  margin: 6px 0 0;
+  color: #e9ccbb;
+  text-transform: uppercase;
+}
+
+.over-panel .over-daily {
+  margin: 14px auto 0;
+  max-width: 460px;
+  padding: 6px 10px;
+  border: 3px solid var(--info);
+  border-radius: 4px;
+  background: radial-gradient(circle, rgba(61, 220, 132, 0.12) 1px, transparent 1.5px) 0 0 / 4px 4px, #0f2318;
+  color: #3ddc84;
+  text-shadow: 0 0 6px rgba(61, 220, 132, 0.7);
+}
+
+.over-panel .over-daily:empty {
+  display: none;
+}
+
+.panel .over-actions {
+  max-width: 460px;
+  margin: 18px auto 0;
+  gap: 14px;
+}
+
+.panel .over-actions .primary {
+  min-height: 72px;
+  font-size: clamp(14px, 4vw, 20px) !important;
+}
+
+/* Replay, change game and change player: square tiles, the picture over the words */
+.panel .over-actions button:not(.primary,
+#got-idea) {
+  flex: 1 1 0;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  min-height: 86px;
+  padding: 10px 6px;
+  font-size: clamp(8px, 2.3vw, 11px);
+  text-align: center;
+}
+
+.panel .over-actions button:not(.primary,
+#got-idea) .icon {
+  width: 28px;
+  height: 28px;
+  color: var(--lit);
+}
+
+/* Got an idea?: small, at the bottom */
+.panel .over-actions #got-idea {
+  flex: 0 0 100%;
+  justify-content: center;
+  margin: 6px 22% 0;
+  min-height: 44px;
+  border-color: var(--tap);
+  box-shadow: 0 0 0 3px var(--ink-line), 0 0 8px rgba(63, 201, 176, 0.35);
+  color: #e8fff9;
+  font-size: clamp(8px, 2vw, 10px);
+}
+
+.over-panel #got-idea {
+  order: 9;
+}
+
+/* an iPad held sideways (or any wide, short screen): the score on the left, what to do next on the right */
+@media (min-width: 760px) and (orientation: landscape) {
+  .over-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "head head" "score actions" "daily daily" "board board";
+    column-gap: 28px;
+    align-items: start;
+    max-width: 980px;
+  }
+  .over-panel > .select-head { grid-area: head; }
+  .over-panel > .over-score { grid-area: score; width: 100%; margin-top: 0; }
+  .over-panel > .over-actions { grid-area: actions; margin-top: 0; max-width: none; }
+  .over-panel > .over-daily { grid-area: daily; max-width: none; width: 100%; }
+  .over-panel > .over-board { grid-area: board; }
+}
+
+/* ---------- The leaderboard: four game signs (2 x 2 on a phone), small switches, a podium for the top 3 ---------- */
+.board-panel {
+  max-width: 760px;
+}
+
+.panel-screen .board-modes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .panel-screen .board-modes {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}
+
+.panel-screen .board-modes button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 58px;
+  padding: 8px;
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: linear-gradient(var(--sign), var(--sign-deep));
+  box-shadow: 0 0 0 3px var(--ink-line), 0 0 10px rgba(63, 201, 176, 0.35);
+  color: #e8fff9;
+  font-size: clamp(8px, 2.2vw, 11px);
+  line-height: 1.4;
+  text-align: left;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
+}
+
+.panel-screen .board-modes .mode-art {
+  flex: none;
+  width: 30px;
+  height: 30px;
+}
+
+.panel-screen .board-tabs.board-modes [aria-selected="true"] {
+  border-color: var(--lit);
+  background: linear-gradient(#3a3014, var(--sign-deep));
+  box-shadow: 0 0 0 3px var(--ink-line), 0 0 18px rgba(255, 224, 102, 0.7);
+  color: var(--lit);
+}
+
+/* Players / Teams and This week / All time: small switches side by side */
+.panel-screen .board-tabs:not(.board-modes) {
+  display: inline-flex;
+  gap: 0;
+  margin: 2px 6px 14px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--sign-deep);
+  box-shadow: 0 0 0 3px var(--ink-line);
+}
+
+.panel-screen .board-tabs:not(.board-modes) button {
+  flex: none;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: 5px;
+  background: none;
+  color: #959cb7;
+  font-size: clamp(8px, 2.2vw, 10px);
+  text-transform: uppercase;
+}
+
+.panel-screen .board-tabs:not(.board-modes) [aria-selected="true"] {
+  background: var(--lit);
+  color: var(--ink-line);
+}
+
+.board-panel {
+  text-align: center;
+}
+
+/* the list on a dark LED panel; the top 3 stand on a podium above it: 2nd, 1st, 3rd */
+#board-list {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr 1fr;
+  align-items: end;
+  gap: 8px 10px;
+  text-align: left;
+}
+
+#board-list > li {
+  grid-column: 1 / -1;
+  background: var(--sign-deep);
+  border-radius: 0;
+}
+
+#board-list > li:nth-child(4) {
+  border-radius: 8px 8px 0 0;
+  margin-top: 10px;
+}
+
+#board-list > li:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+#board-list > li:nth-child(n + 4) {
+  margin-bottom: -8px; /* rows sit together on one panel */
+  box-shadow: 0 0 0 3px var(--ink-line);
+}
+
+#board-list > li:nth-child(n + 5) {
+  border-top: 1px solid rgba(94, 200, 255, 0.15);
+}
+
+#board-list > li:nth-child(-n + 3) {
+  grid-row: 1;
+  position: relative;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 8px 4px 10px;
+  border: 3px solid var(--info);
+  border-radius: 8px;
+  background: linear-gradient(var(--sign), var(--sign-deep));
+  box-shadow: 0 0 0 3px var(--ink-line), 4px 6px 0 3px rgba(24, 8, 38, 0.7);
+}
+
+#board-list > li:nth-child(1) { --podium: #ffe066; grid-column: 2; min-height: 170px; }
+#board-list > li:nth-child(2) { --podium: #c4bfc8; grid-column: 1; min-height: 140px; }
+#board-list > li:nth-child(3) { --podium: #e08b4c; grid-column: 3; min-height: 120px; }
+
+#board-list > li:nth-child(-n + 3) .lb-row {
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  text-align: center;
+}
+
+#board-list > li:nth-child(-n + 3) .lb-rank {
+  width: auto;
+  text-align: center;
+  color: var(--podium);
+  font-size: 1.4em;
+}
+
+#board-list > li:nth-child(-n + 3) img {
+  width: 56px;
+  height: 56px;
+}
+
+#board-list > li:nth-child(1) img {
+  width: 72px;
+  height: 72px;
+}
+
+#board-list > li:nth-child(-n + 3) .lb-name {
+  max-width: 100%;
+  text-align: center;
+}
+
+#board-list > li:nth-child(-n + 3) .lb-points {
+  color: var(--podium);
+  font-size: 1.3em;
+}
+
+#board-list > li:nth-child(-n + 3) .lb-report {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 36px;
+  height: 36px;
+}
+
+/* below the top 10: their own place, after a gap */
+#board-list > li.lb-near-gap {
+  display: block;
+  margin: 18px 0 -4px;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  border: 0;
+  color: var(--pick);
+  font-size: clamp(9px, 2.4vw, 12px);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+#board-list > li.lb-near-gap + li {
+  border-top: 0;
+  border-radius: 8px 8px 0 0;
+}
+
+#board-list > li.mine {
+  outline: 3px solid var(--pick);
+  outline-offset: -3px;
+}
+
+.panel-screen .board-note {
+  color: #e9ccbb;
+}
+
+/* ---------- How to play: three numbered signs with pictures, the fire levels, a lit card for each game ---------- */
+.help-panel {
+  max-width: 820px;
+  text-align: center;
+}
+
+.panel-screen .help-steps {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 4px 0 18px;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.panel-screen .help-steps li {
+  position: relative;
+  counter-increment: step;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 26px 8px 12px;
+  border: 3px solid var(--info);
+  border-radius: 6px;
+  background: linear-gradient(var(--sign), var(--sign-deep));
+  box-shadow: 0 0 0 3px var(--ink-line), 4px 5px 0 3px rgba(24, 8, 38, 0.7);
+}
+
+.help-steps li { --step: var(--info); }
+
+/* the step's number on a tab at the top */
+.panel-screen .help-steps li::before {
+  content: counter(step);
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  translate: -50% 0;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: var(--step);
+  box-shadow: 0 0 0 3px var(--ink-line);
+  color: var(--ink-line);
+  font-family: var(--pixel);
+  font-size: 14px;
+}
+
+.help-panel .mode-art {
+  width: clamp(52px, 15vw, 96px);
+  height: auto;
+  filter: drop-shadow(2px 2px 0 var(--ink-line));
+}
+
+.panel-screen .help-steps strong {
+  color: #f9f5f0;
+  font-size: clamp(10px, 2.8vw, 15px);
+  line-height: 1.35;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
+}
+
+.panel-screen .help-steps span {
+  font-family: system-ui, sans-serif;
+  font-size: clamp(12px, 2.6vw, 14px);
+  line-height: 1.35;
+  color: #e9ccbb;
+}
+
+/* the fire levels: one strip, three flames */
+.panel-screen .help-fire {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 10px 8px;
+  border: 3px solid var(--info);
+  border-radius: 6px;
+  background: var(--sign-deep);
+  box-shadow: 0 0 0 3px var(--ink-line);
+}
+
+.panel-screen .help-fire p {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 6px;
+  margin: 0;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+  text-align: left;
+}
+
+.help-fire .mode-art {
+  grid-row: 1 / 3;
+  width: clamp(28px, 8vw, 44px) !important;
+}
+
+.panel-screen .help-fire strong {
+  color: #f9f5f0;
+  font-size: clamp(8px, 2.2vw, 12px);
+  text-transform: uppercase;
+}
+
+.panel-screen .help-fire span {
+  color: #ff8c42;
+  font-size: clamp(8px, 2vw, 11px);
+}
+
+.help-fire [data-flame="purple"] span { color: #c77dff; }
+.help-fire [data-flame="blue"] span { color: #5ec8ff; }
+
+/* each game: its picture, its name lit in its colour, what it is */
+.panel-screen .help-modes {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+@media (min-width: 640px) {
+  .panel-screen .help-modes {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.panel-screen .help-modes p {
+  --neon: var(--info);
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto 1fr;
+  column-gap: 12px;
+  margin: 0;
+  padding: 12px;
+  border: 3px solid var(--neon);
+  border-radius: 6px;
+  background: linear-gradient(var(--sign), var(--sign-deep));
+  box-shadow: 0 0 0 3px var(--ink-line);
+  text-align: left;
+}
+
+
+.help-modes .mode-art {
+  grid-row: 1 / 3;
+  width: 48px !important;
+  align-self: start;
+}
+
+.panel-screen .help-modes strong {
+  color: #f9f5f0;
+  text-transform: uppercase;
+  text-shadow: 2px 2px 0 var(--ink-line);
+}
+
+.panel-screen .help-modes span {
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  color: #f9f5f0;
+}
+
+.panel-screen .help-extra {
+  margin: 0 0 6px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(22, 13, 36, 0.85);
+  box-shadow: 0 0 0 2px var(--ink-line);
+  font-family: system-ui, sans-serif;
+  font-size: 14px !important;
+  line-height: 1.4;
+}
+
+.panel-screen .help-panel .primary {
+  display: flex;
+  justify-content: center;
+  width: min(100%, 360px);
+  margin: 16px auto 0;
+  min-height: 64px;
+  font-size: clamp(13px, 3.5vw, 18px);
+}
+
+@media (max-width: 480px) {
+  .panel-screen .help-steps {
+    gap: 8px;
+  }
+  .panel-screen .help-steps li {
+    padding: 24px 4px 10px;
+  }
+}
+
+/* ---------- The shop: balls on lit cards ---------- */
+.panel-screen .ball-card {
+  border: 3px solid var(--tap);
+  border-radius: 6px;
+  background: linear-gradient(var(--sign), var(--sign-deep));
+  box-shadow: 0 0 0 3px var(--ink-line), 0 0 10px rgba(63, 201, 176, 0.35), 4px 5px 0 3px rgba(24, 8, 38, 0.7);
+}
+
+.panel-screen .ball-card strong {
+  text-transform: uppercase;
+}
+
+.panel-screen .ball-card[aria-pressed="true"],
+.panel-screen .ball-card:focus-visible,
+.panel-screen .ball-card:hover {
+  border-color: var(--lit);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ink-line), 0 0 18px rgba(255, 224, 102, 0.7), 4px 5px 0 3px rgba(24, 8, 38, 0.7);
+}
+
+.panel-screen .shop-note,
+.panel-screen .pair-box {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: rgba(22, 13, 36, 0.85);
+  box-shadow: 0 0 0 2px var(--ink-line);
+}
+
+.panel-screen .coin-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: 48px; /* the back button's shape and height */
+  margin: 0;
+  padding: 0 12px;
+  border: 3px solid var(--info);
+  border-radius: 6px;
+  background: var(--sign);
+  box-shadow: 0 0 0 2px var(--ink-line);
+  color: var(--lit);
+}
+
+/* an iPad (or a big screen): everything bigger, so it reads from arm's length and is easy to tap */
+@media (min-width: 760px) {
+  .panel-screen .select-head h2 {
+    font-size: 26px;
+    padding: 12px 22px 10px;
+  }
+  #pause-screen .menu-list,
+#menu-screen nav.menu-list:not(.menu-site),
+.panel-screen .menu-site {
+    max-width: 680px;
+  }
+  #pause-screen .menu-list .primary,
+#menu-screen .menu-list .primary {
+    min-height: 104px;
+    font-size: 26px;
+  }
+  #pause-screen .menu-list > button:not(.primary),
+#menu-screen .menu-list > button:not(.primary),
+.panel-screen .menu-site a {
+    min-height: 80px;
+    font-size: 17px;
+  }
+  .panel-screen .menu-pair button {
+    min-height: 60px;
+    font-size: 14px;
+  }
+  .over-score .final-score {
+    font-size: 22px;
+  }
+  .over-score #over-detail,
+.over-panel .over-coins {
+    font-size: 14px;
+  }
+  .panel .over-actions .primary {
+    min-height: 96px;
+    font-size: 24px !important;
+  }
+  .panel .over-actions button:not(.primary,
+#got-idea) {
+    min-height: 120px;
+    font-size: 13px;
+  }
+  .panel .over-actions button:not(.primary,
+#got-idea) .icon {
+    width: 40px;
+    height: 40px;
+  }
+  .over-panel .over-daily {
+    font-size: 13px;
+  }
+  .board-panel {
+    max-width: 900px;
+  }
+  .panel-screen .board-modes button {
+    min-height: 72px;
+    font-size: 13px;
+  }
+  .panel-screen .board-modes .mode-art {
+    width: 40px;
+    height: 40px;
+  }
+  .panel-screen .board-tabs:not(.board-modes) button {
+    min-height: 48px;
+    font-size: 12px;
+  }
+  #board-list .lb-row {
+    font-size: 15px;
+  }
+  #board-list > li:nth-child(1) { min-height: 220px; }
+  #board-list > li:nth-child(2) { min-height: 185px; }
+  #board-list > li:nth-child(3) { min-height: 160px; }
+  #board-list > li:nth-child(-n + 3) img { width: 72px; height: 72px; }
+  #board-list > li:nth-child(1) img { width: 96px; height: 96px; }
+  #board-list img { width: 44px; height: 44px; }
+  .help-panel {
+    max-width: 960px;
+  }
+  .panel-screen .help-steps span,
+.panel-screen .help-modes span,
+.panel-screen .help-extra {
+    font-size: 16px !important;
+  }
+  .panel-screen .shop-panel {
+    max-width: 900px;
+  }
+  .panel-screen .ball-styles {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 16px;
+  }
+  .panel-screen .ball-card {
+    padding: 14px 8px;
+    font-size: 13px;
+  }
+  .panel-screen .ball-card canvas {
+    width: 72px;
+    height: 72px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel button:active {
+    transform: none;
+  }
 }

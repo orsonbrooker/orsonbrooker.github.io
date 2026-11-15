@@ -151,6 +151,18 @@ export function rollFrame(frames, turn, heading) {
   return set[Math.floor(k * BALL_FRAMES) % BALL_FRAMES];
 }
 
+/** Makes every heading's frames for these sprites (makeBallSprites) one heading at a time while the page is idle,
+ * so a ball heading a new way mid-game doesn't stop to draw 16 frames (rollFrame). */
+export function warmRollFrames(sprites) {
+  const jobs = Object.values(sprites).flatMap((frames) => Array.from({ length: ROLL_HEADINGS }, (_, h) => () => rollFrame(frames, 0, h)));
+  const idle = globalThis.requestIdleCallback ?? ((f) => setTimeout(f, 50));
+  const next = () => {
+    jobs.shift()?.();
+    if (jobs.length) idle(next);
+  };
+  idle(next);
+}
+
 /** The frame for a ball turned `turn` radians (see BALL_FRAMES), rolling over or `sideways`. */
 export function ballFrame(frames, turn, sideways = false) {
   const set = sideways ? frames.side : frames;

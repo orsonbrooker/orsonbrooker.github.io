@@ -1,0 +1,4011 @@
+{
+ "scale": 5,
+ "artPerM": 24,
+ "canvas": [
+  480,
+  480
+ ],
+ "origin": [
+  240,
+  214
+ ],
+ "room": {
+  "u": 9.5,
+  "v": 9.5
+ },
+ "wallHeightPx": 190,
+ "light": [
+  0.55,
+  0.2,
+  0.81
+ ],
+ "slab": 0.3,
+ "wallThick": 0.25,
+ "note": "The gym as a closed box, for the game's opening (play/fold.js): the front walls from outside (out-left, out-right) and the roof (lid: nothing on the split down its middle, from the back corner to the front, so each half folds with what's on it), standing on art/iso/gym/'s floor; and plain walls (in-left, in-right: the side and hoop walls with nothing on them), which the game turns into the front walls' inside faces as they fold down.",
+ "panels": {
+  "in-left": {
+   "kind": "wall",
+   "plane": "side"
+  },
+  "in-right": {
+   "kind": "wall",
+   "plane": "hoop"
+  },
+  "out-left": {
+   "kind": "box"
+  },
+  "out-right": {
+   "kind": "box"
+  },
+  "lid": {
+   "kind": "box"
+  }
+ },
+ "props": [],
+ "shapes": [
+  {
+   "name": "hoop wall",
+   "panel": "in-right",
+   "material": "brick",
+   "shape": "poly",
+   "points": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     9.5,
+     0,
+     0
+    ],
+    [
+     9.5,
+     0,
+     6.463931265677831
+    ],
+    [
+     0,
+     0,
+     6.463931265677831
+    ]
+   ],
+   "face": "hoop"
+  },
+  {
+   "name": "side wall",
+   "panel": "in-left",
+   "material": "brick",
+   "shape": "poly",
+   "points": [
+    [
+     0,
+     0,
+     0
+    ],
+    [
+     0,
+     9.5,
+     0
+    ],
+    [
+     0,
+     9.5,
+     6.463931265677831
+    ],
+    [
+     0,
+     0,
+     6.463931265677831
+    ]
+   ],
+   "face": "side"
+  },
+  {
+   "name": "skirting",
+   "panel": "in-right",
+   "material": "skirting",
+   "shape": "box",
+   "min": [
+    0,
+    0,
+    0
+   ],
+   "max": [
+    9.5,
+    0.02,
+    0.17
+   ],
+   "face": "hoop"
+  },
+  {
+   "name": "top trim",
+   "panel": "in-right",
+   "material": "cap",
+   "shape": "box",
+   "min": [
+    0,
+    0,
+    6.243931265677832
+   ],
+   "max": [
+    9.5,
+    0.05,
+    6.463931265677831
+   ],
+   "face": "hoop"
+  },
+  {
+   "name": "skirting",
+   "panel": "in-left",
+   "material": "skirting",
+   "shape": "box",
+   "min": [
+    0,
+    0.02,
+    0
+   ],
+   "max": [
+    0.02,
+    9.5,
+    0.17
+   ],
+   "face": "side"
+  },
+  {
+   "name": "top trim",
+   "panel": "in-left",
+   "material": "cap",
+   "shape": "box",
+   "min": [
+    0,
+    0.05,
+    6.243931265677832
+   ],
+   "max": [
+    0.05,
+    9.5,
+    6.463931265677831
+   ],
+   "face": "side"
+  },
+  {
+   "name": "front left wall",
+   "panel": "out-left",
+   "material": "brick",
+   "shape": "poly",
+   "face": "side",
+   "points": [
+    [
+     9.75,
+     0,
+     0
+    ],
+    [
+     9.75,
+     9.75,
+     0
+    ],
+    [
+     9.75,
+     9.75,
+     6.463931265677831
+    ],
+    [
+     9.75,
+     0,
+     6.463931265677831
+    ]
+   ],
+   "vines": [
+    [
+     0.9,
+     0.8,
+     4.6
+    ],
+    [
+     9.4,
+     0.6,
+     2.6
+    ],
+    [
+     6.6,
+     0.35,
+     1.2
+    ]
+   ]
+  },
+  {
+   "name": "trim",
+   "panel": "out-left",
+   "material": "cap",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    0,
+    6.243931265677832
+   ],
+   "max": [
+    9.8,
+    9.75,
+    6.463931265677831
+   ]
+  },
+  {
+   "name": "door",
+   "panel": "out-left",
+   "material": "board",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    4.0,
+    0
+   ],
+   "max": [
+    9.79,
+    5.5,
+    2.4
+   ]
+  },
+  {
+   "name": "door frame",
+   "panel": "out-left",
+   "material": "cap",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    3.85,
+    2.4
+   ],
+   "max": [
+    9.83,
+    5.65,
+    2.55
+   ]
+  },
+  {
+   "name": "front right wall",
+   "panel": "out-right",
+   "material": "brick",
+   "shape": "poly",
+   "face": "hoop",
+   "points": [
+    [
+     0,
+     9.75,
+     0
+    ],
+    [
+     9.5,
+     9.75,
+     0
+    ],
+    [
+     9.5,
+     9.75,
+     6.463931265677831
+    ],
+    [
+     0,
+     9.75,
+     6.463931265677831
+    ]
+   ],
+   "vines": [
+    [
+     9.3,
+     0.7,
+     3.4
+    ],
+    [
+     0.7,
+     0.6,
+     5.8
+    ],
+    [
+     3.2,
+     0.3,
+     1.0
+    ]
+   ]
+  },
+  {
+   "name": "trim",
+   "panel": "out-right",
+   "material": "cap",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    0,
+    9.75,
+    6.243931265677832
+   ],
+   "max": [
+    9.5,
+    9.8,
+    6.463931265677831
+   ]
+  },
+  {
+   "name": "window",
+   "panel": "out-right",
+   "material": "frame",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    1.5,
+    9.75,
+    3.6
+   ],
+   "max": [
+    3.0,
+    9.81,
+    4.9
+   ]
+  },
+  {
+   "name": "window glass",
+   "panel": "out-right",
+   "material": "blue",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    1.62,
+    9.75,
+    3.72
+   ],
+   "max": [
+    2.88,
+    9.83,
+    4.78
+   ]
+  },
+  {
+   "name": "window",
+   "panel": "out-right",
+   "material": "frame",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.0,
+    9.75,
+    3.6
+   ],
+   "max": [
+    5.5,
+    9.81,
+    4.9
+   ]
+  },
+  {
+   "name": "window glass",
+   "panel": "out-right",
+   "material": "blue",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.12,
+    9.75,
+    3.72
+   ],
+   "max": [
+    5.38,
+    9.83,
+    4.78
+   ]
+  },
+  {
+   "name": "window",
+   "panel": "out-right",
+   "material": "frame",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    6.5,
+    9.75,
+    3.6
+   ],
+   "max": [
+    8.0,
+    9.81,
+    4.9
+   ]
+  },
+  {
+   "name": "window glass",
+   "panel": "out-right",
+   "material": "blue",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    6.62,
+    9.75,
+    3.72
+   ],
+   "max": [
+    7.88,
+    9.83,
+    4.78
+   ]
+  },
+  {
+   "name": "roof",
+   "panel": "lid",
+   "material": "roof",
+   "shape": "poly",
+   "points": [
+    [
+     -0.25,
+     -0.25,
+     6.463931265677831
+    ],
+    [
+     9.75,
+     -0.25,
+     6.463931265677831
+    ],
+    [
+     9.75,
+     9.75,
+     6.463931265677831
+    ],
+    [
+     -0.25,
+     9.75,
+     6.463931265677831
+    ]
+   ]
+  },
+  {
+   "name": "parapet",
+   "panel": "lid",
+   "material": "cap",
+   "shape": "box",
+   "min": [
+    9.55,
+    -0.25,
+    6.463931265677831
+   ],
+   "max": [
+    9.75,
+    9.75,
+    6.663931265677832
+   ]
+  },
+  {
+   "name": "parapet",
+   "panel": "lid",
+   "material": "cap",
+   "shape": "box",
+   "min": [
+    -0.25,
+    9.55,
+    6.463931265677831
+   ],
+   "max": [
+    9.55,
+    9.75,
+    6.663931265677832
+   ]
+  },
+  {
+   "name": "parapet",
+   "panel": "lid",
+   "material": "cap",
+   "shape": "box",
+   "min": [
+    -0.25,
+    -0.25,
+    6.463931265677831
+   ],
+   "max": [
+    -0.04999999999999999,
+    9.55,
+    6.663931265677832
+   ]
+  },
+  {
+   "name": "parapet",
+   "panel": "lid",
+   "material": "cap",
+   "shape": "box",
+   "min": [
+    -0.04999999999999999,
+    -0.25,
+    6.463931265677831
+   ],
+   "max": [
+    9.55,
+    -0.04999999999999999,
+    6.663931265677832
+   ]
+  },
+  {
+   "name": "air con",
+   "panel": "lid",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    6.0,
+    0.6,
+    6.463931265677831
+   ],
+   "max": [
+    7.6,
+    1.8,
+    7.163931265677832
+   ]
+  },
+  {
+   "name": "fan",
+   "panel": "lid",
+   "material": "board",
+   "shape": "ring",
+   "centre": [
+    6.8,
+    1.2,
+    7.163931265677832
+   ],
+   "r_out": 0.42,
+   "r_in": 0.08,
+   "h": 0.03
+  },
+  {
+   "name": "air con",
+   "panel": "lid",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    0.5,
+    7.7,
+    6.463931265677831
+   ],
+   "max": [
+    1.4,
+    8.6,
+    6.963931265677831
+   ]
+  },
+  {
+   "name": "fan",
+   "panel": "lid",
+   "material": "board",
+   "shape": "ring",
+   "centre": [
+    0.95,
+    8.15,
+    6.963931265677831
+   ],
+   "r_out": 0.3,
+   "r_in": 0.06,
+   "h": 0.03
+  },
+  {
+   "name": "plinth",
+   "panel": "out-left",
+   "material": "slab",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    0,
+    0
+   ],
+   "max": [
+    9.79,
+    3.95,
+    0.45
+   ]
+  },
+  {
+   "name": "plinth",
+   "panel": "out-left",
+   "material": "slab",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    5.55,
+    0
+   ],
+   "max": [
+    9.79,
+    9.75,
+    0.45
+   ]
+  },
+  {
+   "name": "plinth",
+   "panel": "out-right",
+   "material": "slab",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    0,
+    9.75,
+    0
+   ],
+   "max": [
+    9.75,
+    9.79,
+    0.45
+   ]
+  },
+  {
+   "name": "stripe",
+   "panel": "out-left",
+   "material": "banner",
+   "shape": "poly",
+   "face": "side",
+   "points": [
+    [
+     9.77,
+     0,
+     3.0
+    ],
+    [
+     9.77,
+     9.75,
+     3.0
+    ],
+    [
+     9.77,
+     9.75,
+     3.35
+    ],
+    [
+     9.77,
+     0,
+     3.35
+    ]
+   ]
+  },
+  {
+   "name": "stripe",
+   "panel": "out-right",
+   "material": "banner",
+   "shape": "poly",
+   "face": "hoop",
+   "points": [
+    [
+     0,
+     9.77,
+     3.0
+    ],
+    [
+     9.75,
+     9.77,
+     3.0
+    ],
+    [
+     9.75,
+     9.77,
+     3.35
+    ],
+    [
+     0,
+     9.77,
+     3.35
+    ]
+   ]
+  },
+  {
+   "name": "awning",
+   "panel": "out-left",
+   "material": "pad",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    3.6,
+    2.7
+   ],
+   "max": [
+    10.45,
+    5.9,
+    2.85
+   ]
+  },
+  {
+   "name": "awning edge",
+   "panel": "out-left",
+   "material": "cap",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    3.6,
+    2.62
+   ],
+   "max": [
+    10.47,
+    5.9,
+    2.7
+   ]
+  },
+  {
+   "name": "lamp",
+   "panel": "out-left",
+   "material": "metal",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    3.25,
+    2.1
+   ],
+   "max": [
+    9.93,
+    3.45,
+    2.45
+   ]
+  },
+  {
+   "name": "lamp glass",
+   "panel": "out-left",
+   "material": "bottle",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    3.27,
+    1.95
+   ],
+   "max": [
+    9.91,
+    3.43,
+    2.1
+   ]
+  },
+  {
+   "name": "lamp",
+   "panel": "out-left",
+   "material": "metal",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    6.05,
+    2.1
+   ],
+   "max": [
+    9.93,
+    6.25,
+    2.45
+   ]
+  },
+  {
+   "name": "lamp glass",
+   "panel": "out-left",
+   "material": "bottle",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    6.07,
+    1.95
+   ],
+   "max": [
+    9.91,
+    6.23,
+    2.1
+   ]
+  },
+  {
+   "name": "drainpipe",
+   "panel": "out-left",
+   "material": "metal",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    0.35,
+    0
+   ],
+   "max": [
+    9.9,
+    0.5,
+    6.463931265677831
+   ]
+  },
+  {
+   "name": "drainpipe",
+   "panel": "out-right",
+   "material": "metal",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    0.35,
+    9.75,
+    0
+   ],
+   "max": [
+    0.5,
+    9.9,
+    6.463931265677831
+   ]
+  },
+  {
+   "name": "noticeboard",
+   "panel": "out-left",
+   "material": "board",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    7.0,
+    1.1
+   ],
+   "max": [
+    9.8,
+    8.4,
+    2.1
+   ]
+  },
+  {
+   "name": "notice",
+   "panel": "out-left",
+   "material": "book",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    7.15,
+    1.3
+   ],
+   "max": [
+    9.82,
+    7.6,
+    1.9
+   ]
+  },
+  {
+   "name": "notice",
+   "panel": "out-left",
+   "material": "bottle",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    7.75,
+    1.45
+   ],
+   "max": [
+    9.82,
+    8.25,
+    1.95
+   ]
+  },
+  {
+   "name": "hoop board",
+   "panel": "out-left",
+   "material": "frame",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    1.3,
+    3.8
+   ],
+   "max": [
+    9.8,
+    2.6,
+    4.6
+   ]
+  },
+  {
+   "name": "hoop board glass",
+   "panel": "out-left",
+   "material": "bottle",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    1.38,
+    3.88
+   ],
+   "max": [
+    9.82,
+    2.52,
+    4.52
+   ]
+  },
+  {
+   "name": "hoop square",
+   "panel": "out-left",
+   "material": "rim",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    1.75,
+    3.9
+   ],
+   "max": [
+    9.83,
+    2.15,
+    4.15
+   ]
+  },
+  {
+   "name": "hoop arm",
+   "panel": "out-left",
+   "material": "metal",
+   "shape": "box",
+   "face": "side",
+   "min": [
+    9.75,
+    1.9,
+    3.85
+   ],
+   "max": [
+    10.1,
+    2.0,
+    3.95
+   ]
+  },
+  {
+   "name": "outdoor rim",
+   "panel": "out-left",
+   "material": "rim",
+   "shape": "ring",
+   "face": "side",
+   "centre": [
+    10.25,
+    1.95,
+    3.85
+   ],
+   "r_out": 0.23,
+   "r_in": 0.19,
+   "h": 0.04
+  },
+  {
+   "name": "sill",
+   "panel": "out-right",
+   "material": "cap",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    1.45,
+    9.75,
+    3.5
+   ],
+   "max": [
+    3.05,
+    9.89,
+    3.6
+   ]
+  },
+  {
+   "name": "sill",
+   "panel": "out-right",
+   "material": "cap",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    3.95,
+    9.75,
+    3.5
+   ],
+   "max": [
+    5.55,
+    9.89,
+    3.6
+   ]
+  },
+  {
+   "name": "sill",
+   "panel": "out-right",
+   "material": "cap",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    6.45,
+    9.75,
+    3.5
+   ],
+   "max": [
+    8.05,
+    9.89,
+    3.6
+   ]
+  },
+  {
+   "name": "sign",
+   "panel": "out-right",
+   "material": "board",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    3.0,
+    9.75,
+    5.15
+   ],
+   "max": [
+    6.5,
+    9.83,
+    6.15
+   ]
+  },
+  {
+   "name": "sign edge",
+   "panel": "out-right",
+   "material": "cap",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    2.9,
+    9.75,
+    5.05
+   ],
+   "max": [
+    6.6,
+    9.85,
+    5.15
+   ]
+  },
+  {
+   "name": "grille",
+   "panel": "out-right",
+   "material": "frame",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    7.6,
+    9.75,
+    0.8
+   ],
+   "max": [
+    8.8,
+    9.8,
+    1.6
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.9399999999999995,
+    9.75,
+    5.79
+   ],
+   "max": [
+    6.1,
+    9.88,
+    5.95
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.779999999999999,
+    9.75,
+    5.79
+   ],
+   "max": [
+    5.9399999999999995,
+    9.88,
+    5.95
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.619999999999999,
+    9.75,
+    5.79
+   ],
+   "max": [
+    5.779999999999999,
+    9.88,
+    5.95
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.9399999999999995,
+    9.75,
+    5.63
+   ],
+   "max": [
+    6.1,
+    9.88,
+    5.79
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.9399999999999995,
+    9.75,
+    5.47
+   ],
+   "max": [
+    6.1,
+    9.88,
+    5.63
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.619999999999999,
+    9.75,
+    5.47
+   ],
+   "max": [
+    5.779999999999999,
+    9.88,
+    5.63
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.9399999999999995,
+    9.75,
+    5.3100000000000005
+   ],
+   "max": [
+    6.1,
+    9.88,
+    5.470000000000001
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.619999999999999,
+    9.75,
+    5.3100000000000005
+   ],
+   "max": [
+    5.779999999999999,
+    9.88,
+    5.470000000000001
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.9399999999999995,
+    9.75,
+    5.15
+   ],
+   "max": [
+    6.1,
+    9.88,
+    5.3100000000000005
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.779999999999999,
+    9.75,
+    5.15
+   ],
+   "max": [
+    5.9399999999999995,
+    9.88,
+    5.3100000000000005
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.619999999999999,
+    9.75,
+    5.15
+   ],
+   "max": [
+    5.779999999999999,
+    9.88,
+    5.3100000000000005
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.3,
+    9.75,
+    5.79
+   ],
+   "max": [
+    5.46,
+    9.88,
+    5.95
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.9799999999999995,
+    9.75,
+    5.79
+   ],
+   "max": [
+    5.14,
+    9.88,
+    5.95
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.3,
+    9.75,
+    5.63
+   ],
+   "max": [
+    5.46,
+    9.88,
+    5.79
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.9799999999999995,
+    9.75,
+    5.63
+   ],
+   "max": [
+    5.14,
+    9.88,
+    5.79
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.3,
+    9.75,
+    5.47
+   ],
+   "max": [
+    5.46,
+    9.88,
+    5.63
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.14,
+    9.75,
+    5.47
+   ],
+   "max": [
+    5.3,
+    9.88,
+    5.63
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.9799999999999995,
+    9.75,
+    5.47
+   ],
+   "max": [
+    5.14,
+    9.88,
+    5.63
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.14,
+    9.75,
+    5.3100000000000005
+   ],
+   "max": [
+    5.3,
+    9.88,
+    5.470000000000001
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    5.14,
+    9.75,
+    5.15
+   ],
+   "max": [
+    5.3,
+    9.88,
+    5.3100000000000005
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.66,
+    9.75,
+    5.79
+   ],
+   "max": [
+    4.82,
+    9.88,
+    5.95
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.0200000000000005,
+    9.75,
+    5.79
+   ],
+   "max": [
+    4.180000000000001,
+    9.88,
+    5.95
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.66,
+    9.75,
+    5.63
+   ],
+   "max": [
+    4.82,
+    9.88,
+    5.79
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.5,
+    9.75,
+    5.63
+   ],
+   "max": [
+    4.66,
+    9.88,
+    5.79
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.18,
+    9.75,
+    5.63
+   ],
+   "max": [
+    4.34,
+    9.88,
+    5.79
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.0200000000000005,
+    9.75,
+    5.63
+   ],
+   "max": [
+    4.180000000000001,
+    9.88,
+    5.79
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.66,
+    9.75,
+    5.47
+   ],
+   "max": [
+    4.82,
+    9.88,
+    5.63
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.34,
+    9.75,
+    5.47
+   ],
+   "max": [
+    4.5,
+    9.88,
+    5.63
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.0200000000000005,
+    9.75,
+    5.47
+   ],
+   "max": [
+    4.180000000000001,
+    9.88,
+    5.63
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.66,
+    9.75,
+    5.3100000000000005
+   ],
+   "max": [
+    4.82,
+    9.88,
+    5.470000000000001
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.0200000000000005,
+    9.75,
+    5.3100000000000005
+   ],
+   "max": [
+    4.180000000000001,
+    9.88,
+    5.470000000000001
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.66,
+    9.75,
+    5.15
+   ],
+   "max": [
+    4.82,
+    9.88,
+    5.3100000000000005
+   ]
+  },
+  {
+   "name": "letter",
+   "panel": "out-right",
+   "material": "pot",
+   "shape": "box",
+   "face": "hoop",
+   "min": [
+    4.0200000000000005,
+    9.75,
+    5.15
+   ],
+   "max": [
+    4.180000000000001,
+    9.88,
+    5.3100000000000005
+   ]
+  },
+  {
+   "name": "skylight",
+   "panel": "lid",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    4.6,
+    1.4,
+    6.463931265677831
+   ],
+   "max": [
+    6.2,
+    2.9,
+    6.713931265677831
+   ]
+  },
+  {
+   "name": "skylight glass",
+   "panel": "lid",
+   "material": "blue",
+   "shape": "box",
+   "min": [
+    4.75,
+    1.55,
+    6.463931265677831
+   ],
+   "max": [
+    6.05,
+    2.75,
+    6.763931265677831
+   ]
+  },
+  {
+   "name": "pipe",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    1.2,
+    0.1,
+    6.463931265677831
+   ],
+   "max": [
+    6.2,
+    0.3,
+    6.663931265677832
+   ]
+  },
+  {
+   "name": "pipe",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    8.9,
+    0.6,
+    6.463931265677831
+   ],
+   "max": [
+    9.1,
+    6.0,
+    6.663931265677832
+   ]
+  },
+  {
+   "name": "hatch",
+   "panel": "lid",
+   "material": "cap",
+   "shape": "box",
+   "min": [
+    0.3,
+    2.3,
+    6.463931265677831
+   ],
+   "max": [
+    1.3,
+    3.3,
+    6.763931265677831
+   ]
+  },
+  {
+   "name": "aerial",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.35,
+    5.0,
+    6.463931265677831
+   ],
+   "max": [
+    0.45,
+    5.1,
+    8.063931265677832
+   ]
+  },
+  {
+   "name": "planter",
+   "panel": "lid",
+   "material": "plank",
+   "shape": "box",
+   "min": [
+    2.0,
+    0.55,
+    6.463931265677831
+   ],
+   "max": [
+    3.3,
+    1.15,
+    6.813931265677831
+   ]
+  },
+  {
+   "name": "planter",
+   "panel": "lid",
+   "material": "plank",
+   "shape": "box",
+   "min": [
+    3.6,
+    0.55,
+    6.463931265677831
+   ],
+   "max": [
+    4.9,
+    1.15,
+    6.813931265677831
+   ]
+  },
+  {
+   "name": "greens",
+   "panel": "lid",
+   "material": "leaf",
+   "shape": "sphere",
+   "centre": [
+    2.3,
+    0.85,
+    6.883931265677831
+   ],
+   "r": 0.3
+  },
+  {
+   "name": "greens",
+   "panel": "lid",
+   "material": "leaf",
+   "shape": "sphere",
+   "centre": [
+    2.95,
+    0.85,
+    6.883931265677831
+   ],
+   "r": 0.3
+  },
+  {
+   "name": "greens",
+   "panel": "lid",
+   "material": "leaf",
+   "shape": "sphere",
+   "centre": [
+    3.9,
+    0.85,
+    6.883931265677831
+   ],
+   "r": 0.3,
+   "flowers": true
+  },
+  {
+   "name": "greens",
+   "panel": "lid",
+   "material": "leaf",
+   "shape": "sphere",
+   "centre": [
+    4.55,
+    0.85,
+    6.883931265677831
+   ],
+   "r": 0.3,
+   "flowers": true
+  },
+  {
+   "name": "aerial bar",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    0.1,
+    4.95,
+    7.763931265677831
+   ],
+   "max": [
+    0.7,
+    5.15,
+    7.823931265677832
+   ]
+  },
+  {
+   "name": "billboard",
+   "panel": "lid",
+   "material": "billboard",
+   "shape": "box",
+   "min": [
+    7.9,
+    0.4,
+    7.463931265677831
+   ],
+   "max": [
+    8.0,
+    6.6,
+    8.61393126567783
+   ]
+  },
+  {
+   "name": "billboard edge",
+   "panel": "lid",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    7.88,
+    0.36000000000000004,
+    8.61393126567783
+   ],
+   "max": [
+    8.04,
+    6.64,
+    8.673931265677831
+   ]
+  },
+  {
+   "name": "billboard edge",
+   "panel": "lid",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    7.88,
+    0.36000000000000004,
+    7.403931265677832
+   ],
+   "max": [
+    8.04,
+    6.64,
+    7.463931265677831
+   ]
+  },
+  {
+   "name": "catwalk",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.4,
+    7.363931265677832
+   ],
+   "max": [
+    8.4,
+    6.6,
+    7.403931265677832
+   ]
+  },
+  {
+   "name": "billboard leg",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    7.7,
+    0.73,
+    6.463931265677831
+   ],
+   "max": [
+    7.84,
+    0.8700000000000001,
+    7.463931265677831
+   ]
+  },
+  {
+   "name": "billboard brace",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    7.25,
+    0.75,
+    6.463931265677831
+   ],
+   "max": [
+    7.7,
+    0.8500000000000001,
+    6.563931265677831
+   ]
+  },
+  {
+   "name": "billboard leg",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    7.7,
+    3.43,
+    6.463931265677831
+   ],
+   "max": [
+    7.84,
+    3.57,
+    7.463931265677831
+   ]
+  },
+  {
+   "name": "billboard brace",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    7.25,
+    3.45,
+    6.463931265677831
+   ],
+   "max": [
+    7.7,
+    3.55,
+    6.563931265677831
+   ]
+  },
+  {
+   "name": "billboard leg",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    7.7,
+    6.13,
+    6.463931265677831
+   ],
+   "max": [
+    7.84,
+    6.2700000000000005,
+    7.463931265677831
+   ]
+  },
+  {
+   "name": "billboard brace",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    7.25,
+    6.15,
+    6.463931265677831
+   ],
+   "max": [
+    7.7,
+    6.25,
+    6.563931265677831
+   ]
+  },
+  {
+   "name": "lamp arm",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    7.95,
+    1.17,
+    8.673931265677831
+   ],
+   "max": [
+    8.35,
+    1.23,
+    8.73393126567783
+   ]
+  },
+  {
+   "name": "lamp",
+   "panel": "lid",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    8.25,
+    1.0999999999999999,
+    8.63393126567783
+   ],
+   "max": [
+    8.42,
+    1.3,
+    8.753931265677831
+   ]
+  },
+  {
+   "name": "lamp arm",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    7.95,
+    2.6700000000000004,
+    8.673931265677831
+   ],
+   "max": [
+    8.35,
+    2.73,
+    8.73393126567783
+   ]
+  },
+  {
+   "name": "lamp",
+   "panel": "lid",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    8.25,
+    2.6,
+    8.63393126567783
+   ],
+   "max": [
+    8.42,
+    2.8000000000000003,
+    8.753931265677831
+   ]
+  },
+  {
+   "name": "lamp arm",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    7.95,
+    4.17,
+    8.673931265677831
+   ],
+   "max": [
+    8.35,
+    4.23,
+    8.73393126567783
+   ]
+  },
+  {
+   "name": "lamp",
+   "panel": "lid",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    8.25,
+    4.1000000000000005,
+    8.63393126567783
+   ],
+   "max": [
+    8.42,
+    4.3,
+    8.753931265677831
+   ]
+  },
+  {
+   "name": "lamp arm",
+   "panel": "lid",
+   "material": "metal",
+   "shape": "box",
+   "min": [
+    7.95,
+    5.67,
+    8.673931265677831
+   ],
+   "max": [
+    8.35,
+    5.73,
+    8.73393126567783
+   ]
+  },
+  {
+   "name": "lamp",
+   "panel": "lid",
+   "material": "frame",
+   "shape": "box",
+   "min": [
+    8.25,
+    5.6000000000000005,
+    8.63393126567783
+   ],
+   "max": [
+    8.42,
+    5.8,
+    8.753931265677831
+   ]
+  },
+  {
+   "name": "billboard ball",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "sphere",
+   "centre": [
+    8.05,
+    6.55,
+    8.73393126567783
+   ],
+   "r": 0.24
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.6399999999999997,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    0.7699999999999997,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.7699999999999997,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    0.8999999999999997,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.8999999999999997,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    1.0299999999999998,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.6399999999999997,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    0.7699999999999997,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.6399999999999997,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    0.7699999999999997,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.7699999999999997,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    0.8999999999999997,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.8999999999999997,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    1.0299999999999998,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.8999999999999997,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    1.0299999999999998,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.6399999999999997,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    0.7699999999999997,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.7699999999999997,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    0.8999999999999997,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    0.8999999999999997,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    1.0299999999999998,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.1599999999999997,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    1.2899999999999996,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.4199999999999997,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    1.5499999999999998,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.1599999999999997,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    1.2899999999999996,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.4199999999999997,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    1.5499999999999998,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.1599999999999997,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    1.2899999999999996,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.2899999999999996,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    1.4199999999999997,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.4199999999999997,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    1.5499999999999998,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.1599999999999997,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    1.2899999999999996,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.4199999999999997,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    1.5499999999999998,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.1599999999999997,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    1.2899999999999996,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.4199999999999997,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    1.5499999999999998,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.6799999999999997,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    1.8099999999999996,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.8099999999999996,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    1.9399999999999997,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.9399999999999997,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    2.07,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.6799999999999997,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    1.8099999999999996,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.9399999999999997,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    2.07,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.6799999999999997,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    1.8099999999999996,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.9399999999999997,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    2.07,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.6799999999999997,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    1.8099999999999996,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.9399999999999997,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    2.07,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.6799999999999997,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    1.8099999999999996,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.8099999999999996,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    1.9399999999999997,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    1.9399999999999997,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    2.07,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.1999999999999997,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    2.3299999999999996,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.3299999999999996,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    2.46,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.46,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    2.59,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.1999999999999997,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    2.3299999999999996,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.46,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    2.59,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.1999999999999997,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    2.3299999999999996,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.46,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    2.59,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.1999999999999997,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    2.3299999999999996,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.46,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    2.59,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.1999999999999997,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    2.3299999999999996,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.3299999999999996,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    2.46,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.46,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    2.59,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.7199999999999998,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    2.8499999999999996,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.8499999999999996,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    2.9799999999999995,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.9799999999999995,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    3.11,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.8499999999999996,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    2.9799999999999995,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.8499999999999996,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    2.9799999999999995,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.8499999999999996,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    2.9799999999999995,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    2.8499999999999996,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    2.9799999999999995,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.3699999999999997,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    3.5,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.2399999999999998,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    3.3699999999999997,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.5,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    3.63,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.2399999999999998,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    3.3699999999999997,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.3699999999999997,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    3.5,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.5,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    3.63,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.2399999999999998,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    3.3699999999999997,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.5,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    3.63,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.2399999999999998,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    3.3699999999999997,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.5,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    3.63,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.76,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    3.8899999999999997,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.8899999999999997,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    4.02,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.76,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    3.8899999999999997,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.02,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    4.1499999999999995,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.76,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    3.8899999999999997,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.8899999999999997,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    4.02,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.76,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    3.8899999999999997,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.02,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    4.1499999999999995,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    3.76,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    3.8899999999999997,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.02,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    4.1499999999999995,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.279999999999999,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    4.409999999999999,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.409999999999999,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    4.539999999999999,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.539999999999999,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    4.669999999999999,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.279999999999999,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    4.409999999999999,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.539999999999999,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    4.669999999999999,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.279999999999999,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    4.409999999999999,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.539999999999999,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    4.669999999999999,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.279999999999999,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    4.409999999999999,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.539999999999999,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    4.669999999999999,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.279999999999999,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    4.409999999999999,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.409999999999999,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    4.539999999999999,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.539999999999999,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    4.669999999999999,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.799999999999999,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    4.929999999999999,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.059999999999999,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    5.189999999999999,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.799999999999999,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    4.929999999999999,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.059999999999999,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    5.189999999999999,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.799999999999999,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    4.929999999999999,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.059999999999999,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    5.189999999999999,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.799999999999999,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    4.929999999999999,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.059999999999999,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    5.189999999999999,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.799999999999999,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    4.929999999999999,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    4.929999999999999,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    5.059999999999999,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.059999999999999,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    5.189999999999999,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.3199999999999985,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    5.449999999999998,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.709999999999998,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    5.839999999999998,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.3199999999999985,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    5.449999999999998,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.449999999999998,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    5.579999999999998,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.709999999999998,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    5.839999999999998,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.3199999999999985,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    5.449999999999998,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.579999999999998,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    5.709999999999998,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.709999999999998,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    5.839999999999998,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.3199999999999985,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    5.449999999999998,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.709999999999998,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    5.839999999999998,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.3199999999999985,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    5.449999999999998,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.709999999999998,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    5.839999999999998,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.969999999999999,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    6.099999999999999,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    6.099999999999999,
+    8.23393126567783
+   ],
+   "max": [
+    8.08,
+    6.229999999999999,
+    8.36393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.969999999999999,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    6.099999999999999,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    6.229999999999999,
+    8.103931265677831
+   ],
+   "max": [
+    8.08,
+    6.3599999999999985,
+    8.23393126567783
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.969999999999999,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    6.099999999999999,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    6.229999999999999,
+    7.973931265677831
+   ],
+   "max": [
+    8.08,
+    6.3599999999999985,
+    8.103931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.969999999999999,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    6.099999999999999,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    6.229999999999999,
+    7.843931265677831
+   ],
+   "max": [
+    8.08,
+    6.3599999999999985,
+    7.973931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    5.969999999999999,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    6.099999999999999,
+    7.843931265677831
+   ]
+  },
+  {
+   "name": "billboard letter",
+   "panel": "lid",
+   "material": "rim",
+   "shape": "box",
+   "min": [
+    8.0,
+    6.099999999999999,
+    7.7139312656778305
+   ],
+   "max": [
+    8.08,
+    6.229999999999999,
+    7.843931265677831
+   ]
+  }
+ ]
+}

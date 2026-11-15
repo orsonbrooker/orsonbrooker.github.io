@@ -25,32 +25,41 @@ function pixelCircle(size, paint) {
 }
 
 const INK = "#2b1622";
-// The joystick's base: a dark see-through disc with a light rim and a notch at each side.
+// The joystick's base, like an arcade stick's: a black disc, lit along its top left, and a metal collar round
+// the hole the stick comes out of.
 const base = () =>
   pixelCircle(32, (d, x, y) => {
     if (d > 15.6) return null;
-    if (d > 14.2) return INK;
-    if (d > 13) return "rgba(255, 255, 255, 0.55)";
-    const notch = (Math.abs(x) < 1 && Math.abs(y) > 9.5) || (Math.abs(y) < 1 && Math.abs(x) > 9.5);
-    return notch ? "rgba(255, 255, 255, 0.45)" : "rgba(43, 22, 34, 0.45)";
+    if (d > 14.5) return INK;
+    if (d > 8.4) return x + y < -5 && d > 11 ? "#5f5d77" : "#403751";
+    if (d > 7.4) return INK;
+    if (d > 4.4) return x + y < -2 ? "#c4bfc8" : "#877e8f";
+    return INK;
   });
-// The knob: a yellow nub with an outline and a highlight.
+// The knob: a shiny yellow ball, a white glint on its top left.
 const knob = () =>
   pixelCircle(14, (d, x, y) => {
     if (d > 6.6) return null;
-    if (d > 5.4) return INK;
-    if (x + y < -4 && d > 3) return "#fff3b0";
-    return x + y > 4 ? "#e0b830" : "#ffe066";
+    if (d > 5.6) return INK;
+    if (Math.hypot(x + 2, y + 2) < 1.3) return "#f9f5f0";
+    if (x + y < -3 && d > 2.5) return "#fff3a6";
+    if (x + y > 5) return "#c48412";
+    return x + y > 2 ? "#f0b424" : "#f8d76c";
   });
-// The shoot button: a basketball, with its seams.
+// The shoot button: a basketball sitting in a black base.
 const ball = () =>
   pixelCircle(28, (d, x, y) => {
     if (d > 13.6) return null;
-    if (d > 12.2) return INK;
-    const seam = Math.abs(x) < 0.6 || Math.abs(y) < 0.6 || Math.abs(Math.hypot(x + 15, y) - 10.5) < 0.6 || Math.abs(Math.hypot(x - 15, y) - 10.5) < 0.6;
+    if (d > 12.7) return INK;
+    if (d > 10.8) return x + y < -6 ? "#5f5d77" : "#403751";
+    if (d > 9.9) return INK;
+    const k = 12.2 / 9.9; // the seams as drawn on a ball 12.2 across
+    const [bx, by] = [x * k, y * k];
+    const seam = Math.abs(bx) < 0.7 || Math.abs(by) < 0.7 || Math.abs(Math.hypot(bx + 15, by) - 10.5) < 0.7 || Math.abs(Math.hypot(bx - 15, by) - 10.5) < 0.7;
     if (seam) return INK;
-    if (x + y < -9 && d > 7) return "#ffb070";
-    return x + y > 9 ? "#c0561c" : "#e8792b";
+    if (Math.hypot(x + 4, y + 4) < 1.6) return "#fff3a6";
+    if (x + y < -6 && d > 5) return "#f39a55";
+    return x + y > 7 ? "#b5501d" : "#de6d2b";
   });
 
 // Builds the controls into `stage`. press() and release() are the game's button (game.js);
@@ -58,8 +67,13 @@ const ball = () =>
 export function setUpTouchControls({ stage, press, release, setInput }) {
   const stick = Object.assign(document.createElement("div"), { className: "touch-controls touch-stick" });
   stick.setAttribute("aria-hidden", "true"); // keyboards steer with the arrow keys
-  const knobEl = knob();
-  knobEl.className = "touch-knob";
+  // the knob, on a stick (which only shows when the joystick lies on a wall and stands up off it: play/scene.js)
+  const knobEl = Object.assign(document.createElement("div"), { className: "touch-knob" });
+  const shaft = pixelCircle(8, (d, x) => (d > 3.6 ? null : d > 2.6 ? INK : x < -0.5 ? "#c4bfc8" : "#877e8f"));
+  shaft.className = "knob-shaft";
+  const top = knob();
+  top.className = "knob-top";
+  knobEl.append(shaft, top);
   stick.append(base(), knobEl);
 
   const shoot = Object.assign(document.createElement("button"), { type: "button", className: "touch-controls touch-shoot" });
@@ -123,12 +137,14 @@ export function setUpTouchControls({ stage, press, release, setInput }) {
     }
     const dist = Math.hypot(dx, dy);
     knobEl.style.transform = `translate(calc(-50% + ${lx}px), calc(-50% + ${ly}px))`;
+    stick.dataset.knob = `${lx.toFixed(1)},${ly.toFixed(1)}`; // for the stick drawn on a wall (play/scene.js)
     const amount = Math.min(1, Math.hypot(lx, ly) / reach);
     const speed = amount < DEAD_ZONE ? 0 : (amount - DEAD_ZONE) / (1 - DEAD_ZONE);
     steer.stick = dist ? { x: (dx / Math.hypot(dx, dy)) * speed, y: (dy / Math.hypot(dx, dy)) * speed } : { x: 0, y: 0 };
   }
   function letGo() {
     knobEl.style.transform = "";
+    delete stick.dataset.knob;
     steer.stick = { x: 0, y: 0 };
   }
   hold(stick, { down: aim, move: aim, up: letGo });

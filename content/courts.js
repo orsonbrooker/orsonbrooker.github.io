@@ -85,6 +85,10 @@ const GYM = {
     racks: GYM_ART.racks.map((r) => ({ at: r.at, images: ballsLeft(r.way) })),
   },
   scoreboard: GYM_ART.scoreboard,
+  // LED screens (engine/ledboard.js): the announcer's calls along the top of the hoop wall, and "Tap to play"
+  // flashing on the shut box's front left wall, under the billboard
+  led: { plane: "hoop", u: [7.9, 0.35], z: [5.0, 6.15], out: 0.122 },
+  titleLed: { plane: "side", at: 9.8, v: [2.9, 9.5], z: [4.85, 5.95] },
 };
 
 export const COURTS = {

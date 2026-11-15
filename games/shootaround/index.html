@@ -42,7 +42,8 @@
         "gamePlatform": "Web browser"
       }
     </script>
-    <link rel="preload" href="assets/courts/gym/court.webp" as="image" />
+    <link rel="preload" as="image" href="assets/courts/gym/loading.webp" fetchpriority="high" />
+    <link rel="preload" as="image" href="assets/courts/gym/court.webp" />
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="feedback/widget.css" />
   </head>
@@ -65,8 +66,11 @@
       </div>
 
       <div class="stage" id="stage" tabindex="0" aria-label="Basketball game. Press Space or tap to turn to the hoop, hold to jump, let go to shoot.">
-        <img class="court" src="assets/courts/gym/court.webp" alt="" width="2400" height="2400" />
+        <img class="court" alt="" width="2400" height="2400" src="assets/courts/gym/court.webp" />
         <canvas id="game"></canvas>
+        <!-- While the game loads: the gym shut on its street, as the title shows it (play/scene.js takes it away once
+             it draws the scene itself). -->
+        <img class="court-loading" alt="" width="800" height="1080" fetchpriority="high" src="assets/courts/gym/loading.webp" />
 
         <p class="sr-only">Score <span id="score">0</span>, <span id="time">60 seconds left</span></p>
 
@@ -172,9 +176,12 @@
             <button class="screen-back" id="over-close" type="button" aria-label="Close"><span data-icon="close"></span></button>
             <h2 id="over-title">Time's up!</h2>
           </div>
-          <p class="final-score"><span id="final-score">0</span> <span id="final-unit">points</span></p>
-          <p id="over-detail"></p>
-          <p class="over-coins" id="over-coins" aria-live="polite" hidden></p>
+          <!-- the score, as a big lit sign (styles.css .over-score) -->
+          <div class="over-score">
+            <p class="final-score"><span id="final-score">0</span> <span id="final-unit">points</span></p>
+            <p id="over-detail"></p>
+            <p class="over-coins" id="over-coins" aria-live="polite" hidden></p>
+          </div>
           <p class="over-daily" id="over-daily"></p>
           <div class="over-board" id="over-board" hidden></div>
           <div class="over-actions">
@@ -257,19 +264,27 @@
             <button class="screen-back" id="help-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
             <h2>How to play</h2>
           </div>
-          <ol>
-            <li><strong>Tap</strong> (or press Space) to face the hoop. You keep facing it after that.</li>
-            <li><strong>Hold</strong> to jump.</li>
-            <li><strong>Let go</strong> at the top of the jump to shoot. Watch the bar: let go in the green.</li>
+          <!-- The three steps as numbered signs with pictures, the fire levels, then a card for each game
+               (pictures added by screens/menus.js from ui/mode-art.js). -->
+          <ol class="help-steps">
+            <li data-art="tap"><strong>Tap</strong><span>(or press Space) to face the hoop. You keep facing it after that.</span></li>
+            <li data-art="jump"><strong>Hold to jump</strong><span>Keep holding as you go up.</span></li>
+            <li data-art="meter"><strong>Let go in the green</strong><span>at the top of the jump to shoot. Watch the bar!</span></li>
           </ol>
-          <p><strong>Time attack:</strong> score as many points as you can in 60 seconds. Shots from behind the arc are worth 3. Make 3 in a row and you're on fire!</p>
-          <p><strong>Sudden death:</strong> no clock. Keep shooting until you miss. One miss and it's over! Make 5 in a row and the green starts moving, so watch the bar.</p>
-          <p><strong>Around the world:</strong> score from all 7 spots around the key, in order, as fast as you can. Miss and you shoot from the same spot again. The green moves a little each shot.</p>
-          <p><strong>HORSE:</strong> 2 to 4 players on one device. The leader picks a spot and shoots. Make it, and everyone else has to make the same shot or get a letter. Miss, and the lead passes on. Spell HORSE and you're out. Last one left wins! The green moves for every new spot, and matching means the same spot and the same green.</p>
-          <p data-help-mode="threes"><strong>3-point contest:</strong> shoot every ball from 5 racks around the 3-point line in 60 seconds. Every shot is a three, and the last ball in each rack is a gold money ball worth double. The green moves every shot!</p>
-          <p><strong>Free play:</strong> no clock and no score. Move around with the arrow keys or WASD (on a phone or tablet, the joystick) and shoot from anywhere. Get close to the hoop for a slam dunk! Tap pause (or press Escape) to stop.</p>
-          <p>Keep scoring for blue supernova fire at 10 in a row. Watch for a gold money ball (double points) and the rare rainbow ball (5 points)!</p>
-          <p><strong>Instant replay:</strong> after a game, tap Replay to watch your best shot again in slow motion.</p>
+          <div class="help-fire" aria-label="Fire">
+            <p data-art="survival"><strong>3 in a row</strong><span>On fire! +1</span></p>
+            <p data-art="survival" data-flame="purple"><strong>6 in a row</strong><span>Purple fire +2</span></p>
+            <p data-art="survival" data-flame="blue"><strong>10 in a row</strong><span>Supernova +3</span></p>
+          </div>
+          <div class="help-modes">
+            <p data-art="timed"><strong>Time attack</strong><span>Score as many points as you can in 60 seconds. Shots from behind the arc are worth 3.</span></p>
+            <p data-art="survival"><strong>Sudden death</strong><span>No clock. Keep shooting until you miss. Make 5 in a row and the green starts moving, so watch the bar.</span></p>
+            <p data-art="around"><strong>Around the world</strong><span>Score from all 7 spots around the key, in order, as fast as you can. Miss and you shoot from the same spot again. The green moves a little each shot.</span></p>
+            <p data-art="horse"><strong>HORSE</strong><span>2 to 4 players on one device. The leader picks a spot and shoots. Make it, and everyone else has to make the same shot or get a letter. Miss, and the lead passes on. Spell HORSE and you're out. Last one left wins! Matching means the same spot and the same green.</span></p>
+            <p data-art="threes" data-help-mode="threes"><strong>3-point contest</strong><span>Shoot every ball from 5 racks around the 3-point line in 60 seconds. Every shot is a three, and the last ball in each rack is a gold money ball worth double. The green moves every shot!</span></p>
+            <p data-art="free"><strong>Free play</strong><span>No clock and no score. Move with the arrow keys or WASD (on a phone or tablet, the joystick) and shoot from anywhere. Get close to the hoop for a slam dunk! Tap pause (or press Escape) to stop.</span></p>
+          </div>
+          <p class="help-extra">Watch for a gold <strong>money ball</strong> (double points) and the rare <strong>rainbow ball</strong> (5 points)! After a game, tap <strong>Replay</strong> to watch your best shot again in slow motion.</p>
           <button class="primary" id="help-close" type="button">Got it</button>
         </div>
       </div>

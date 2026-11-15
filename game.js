@@ -10,13 +10,14 @@
 
 import { clipFiles, loadSoundClips, loadVoiceClips, sound } from "./audio.js";
 import { isThreePointSpot, project, RIM } from "./engine/court.js";
-import { makeBallSprites } from "./engine/draw.js";
+import { makeBallSprites, warmRollFrames } from "./engine/draw.js";
 import { listenForInput } from "./engine/input.js";
 import { startLoop } from "./engine/loop.js";
 import { load } from "./engine/storage.js";
 import { SUDDEN_DEATH } from "./modes/index.js";
 import { setUpTouchControls } from "./play/controls.js";
 import { COURTS, court, useCourt } from "./play/court.js";
+import { openBox, waiting } from "./play/fold.js";
 import { characters, dressInTeam, faceHoop, loadImage, loadingProgress, loadRoster, playerFiles, reloadMyPlayers, sheet } from "./play/players.js";
 import { showLoading } from "./ui/loading-bar.js";
 import { celebrateBuzzerBeater, pixelFx, timingWindow, zoneCenter } from "./play/react.js";
@@ -58,6 +59,8 @@ function press() {
     if (performance.now() - state.overAt < 900) return;
     startGame();
   }
+  // the court still shut in its box: this is START (play/fold.js)
+  if (state.phase === "playing" && waiting()) return openBox();
   if (!canShoot() || player.moving) return;
 
   if (player.anim === "idle") {
@@ -200,8 +203,10 @@ async function boot() {
       document.fonts?.load('48px "Press Start 2P"').catch(() => {}),
     ]);
     art.ballSprites = makeBallSprites(ballLook()); // their ball style from the shop
+    warmRollFrames(art.ballSprites); // its frames for every way it can fly, before a game needs them
   } catch (err) {
     tapToPlay.textContent = "Oops! The game could not load. Try refreshing the page.";
+    tapToPlay.closest(".title-screen")?.classList.add("off-wall"); // shown as it is, not on the gym's wall
     console.error(err);
     return;
   }
@@ -213,7 +218,7 @@ async function boot() {
   new ResizeObserver(resize).observe(stage);
   state.mode = load("orson-hoops-mode", "timed");
   // A new ball style (bought here or on another device) shows from the next shot.
-  onProgress(() => (art.ballSprites = makeBallSprites(ballLook())));
+  onProgress(() => warmRollFrames((art.ballSprites = makeBallSprites(ballLook()))));
   // Players made on their other devices (saved progress) join the picker.
   onSave(() => reloadMyPlayers().then(refreshPicker));
   onSave(() => dressInTeam()); // the team chosen on another device (screens/team.js)
