@@ -1,5 +1,5 @@
 {
-  "note": "Limits for `node tools/dev/verify.mjs perf`: frame work in ms at 4x slower CPU on a 390x844 phone screen, sizes in KB gzipped, first-load KB in the first 6 s. Seeded from the numbers on 2026-11-13 plus headroom; lower them as things get faster, never raise them without saying why. The goal (not checked yet) is play p95 under 12 ms. Raised on 2026-11-15 for the new gym and city menus (Luke accepted it): the menu-sign CSS in the shared styles.css on every page, the game's new JS, and /players/ (it imports content/courts.js). Only sizes that went over were raised, to today's plus 10%. firstLoad is left as it was: its measurement reads about 1 KB, which is wrong, so it mustn't set the budget until it's fixed.",
+  "note": "Limits for `node tools/dev/verify.mjs perf`: frame work in ms at 4x slower CPU on a 390x844 phone screen, sizes in KB gzipped, first-load KB in the first 6 s. Seeded from the numbers on 2026-11-13 plus headroom; lower them as things get faster, never raise them without saying why. The goal (not checked yet) is play p95 under 12 ms. Raised on 2026-11-15 for the new gym and city menus (Luke accepted it): the menu-sign CSS in the shared styles.css on every page, the game's new JS, and /players/ (it imports content/courts.js). Only sizes that went over were raised, to today's plus 10%. firstLoad is left as it was: its measurement reads about 1 KB, which is wrong, so it mustn't set the budget until it's fixed. Raised on 2026-11-15 for the keyboard (Luke accepted it): ui/keys.js loads with the site bar on every page, so / , /ideas/ and /404.html's JS went to today's plus 10%.",
   "frames": {
     "play": {
       "p50": 8.7,
@@ -18,7 +18,7 @@
   "builderStep": 2433,
   "size": {
     "/": {
-      "js": 3.9,
+      "js": 5.1,
       "css": 12.1
     },
     "/games/shootaround/": {
@@ -30,7 +30,7 @@
       "css": 17.4
     },
     "/ideas/": {
-      "js": 6.5,
+      "js": 8.0,
       "css": 13.5
     },
     "/lab/": {
@@ -38,7 +38,7 @@
       "css": 1
     },
     "/404.html": {
-      "js": 5.2,
+      "js": 6.1,
       "css": 12.1
     }
   },
