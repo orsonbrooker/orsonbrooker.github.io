@@ -107,14 +107,17 @@
       <!-- Game select. -->
       <div class="screen panel-screen" id="mode-screen" hidden>
         <div class="panel select-panel" data-keys="grid">
-          <div class="select-head">
-            <button class="screen-back" data-keys-back id="mode-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
-            <h2>Choose a game</h2>
-          </div>
-          <!-- Once they've chosen a player: who they play as, and their team (screens/menus.js showWho). -->
-          <div class="mode-who" id="mode-who" hidden>
-            <button class="mode-player" id="mode-player" type="button"></button>
-            <button class="my-team" id="mode-team" type="button" hidden></button>
+          <!-- the heading and who's playing stay at the top if the sheet scrolls (styles.css .mode-top) -->
+          <div class="mode-top">
+            <div class="select-head">
+              <button class="screen-back" data-keys-back id="mode-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+              <h2>Choose a game</h2>
+            </div>
+            <!-- Once they've chosen a player: who they play as, and their team (screens/menus.js showWho). -->
+            <div class="mode-who" id="mode-who" hidden>
+              <button class="mode-player" id="mode-player" type="button"></button>
+              <button class="my-team" id="mode-team" type="button" hidden></button>
+            </div>
           </div>
           <p class="mode-daily" id="mode-daily"></p>
           <div class="mode-cards" role="group" aria-label="Games">

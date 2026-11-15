@@ -26,6 +26,8 @@ import { showLoading } from "../ui/loading-bar.js";
 // Modes that aren't out yet (modeShown, modes/index.js): their card, leaderboard tab and help go.
 for (const el of document.querySelectorAll("[data-mode], [data-board-mode], [data-help-mode]"))
   if (!modeShown(el.dataset.mode ?? el.dataset.boardMode ?? el.dataset.helpMode)) el.remove();
+// how many cards are left: the most Choose a game's rows can shrink to, before the sheet scrolls (styles.css)
+document.querySelector(".mode-cards")?.style.setProperty("--cards", document.querySelectorAll(".mode-card").length);
 
 // Each game's card and leaderboard tab gets its picture (a constant SVG), and How to play gets its pictures.
 for (const card of document.querySelectorAll(".mode-card[data-mode]")) card.insertAdjacentHTML("afterbegin", modeArt(card.dataset.mode));

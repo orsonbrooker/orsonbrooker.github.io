@@ -12,6 +12,8 @@ export const stage = $("stage");
 // The whole page around the court: it takes presses too, and carries the phase for the CSS.
 export const page = $("game-page");
 export const screens = { pause: $("pause-screen"), menu: $("menu-screen"), title: $("title-screen"), select: $("select-screen"), modes: $("mode-screen"), turn: $("turn-screen"), over: $("over-screen"), help: $("help-screen"), board: $("board-screen"), shop: $("shop-screen") };
+// Choose a game keeps its heading and who's playing at the top; they get a backdrop once the cards scroll under them.
+screens.modes.addEventListener("scroll", () => screens.modes.classList.toggle("scrolled", screens.modes.scrollTop > 0), { passive: true });
 export const tapToPlay = $("tap-to-play");
 export const charPick = $("char-pick");
 
@@ -34,7 +36,16 @@ export function showScreen(name) {
   const was = openScreen();
   const sheet = !!name && name !== "title";
   if (sheet && (!was || was === "title")) opener = document.activeElement?.matches(":focus-visible") ? document.activeElement : null;
-  for (const [key, el] of Object.entries(screens)) el.hidden = key !== name;
+  for (const [key, el] of Object.entries(screens)) {
+    const opening = key === name && el.hidden;
+    el.hidden = key !== name;
+    // a sheet that wasn't showing opens at its top: browsers keep where a hidden one was scrolled to, and it
+    // can only be scrolled once it shows
+    if (opening) {
+      el.scrollTop = 0;
+      el.classList.remove("scrolled");
+    }
+  }
   page.dataset.phase = state.phase;
   // A screen covers the corner buttons: keep the keyboard out of them too.
   for (const corner of page.querySelectorAll(".corner")) {
