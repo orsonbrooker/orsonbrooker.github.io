@@ -2,6 +2,8 @@
 // player's number and team name on the jersey the way the builder's players get theirs. Used by the
 // game and the art test (?artlab).
 
+import { runNow, runSliced } from "./slices.js";
+
 const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
 
 // Five tones from one colour (outline, dark, shadow, mid, light), the same as ramp() in tools/art3d/pixelize.py.
@@ -33,7 +35,10 @@ export function ramp(colour) {
 // layer FINE times finer than the art (`kit.fine`, for a smaller sheet's twin), drawn over the frame.
 // Load the font first.
 const slotsCache = new WeakMap(); // image -> { meta, slots }
-export function paletteSwap(img, meta, colours, kit) {
+export const paletteSwap = (img, meta, colours, kit) => runNow(paletteSwapSteps(img, meta, colours, kit));
+/** paletteSwap a slice at a time (players/slices.js), so a big sheet doesn't freeze the page. */
+export const paletteSwapSliced = (img, meta, colours, kit, wanted) => runSliced(paletteSwapSteps(img, meta, colours, kit), wanted);
+function* paletteSwapSteps(img, meta, colours, kit) {
   const c = Object.assign(document.createElement("canvas"), { width: img.width, height: img.height });
   const g = c.getContext("2d", { willReadFrequently: true });
   g.drawImage(img, 0, 0);
@@ -50,6 +55,7 @@ export function paletteSwap(img, meta, colours, kit) {
   if (!slots) {
     slots = new Int16Array(c.width * c.height).fill(-1);
     for (let i = 0; i < d.length; i += 4) {
+      if (!(i & 0x3ffff)) yield;
       if (!d[i + 3]) continue;
       const slot = slotOf.get((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]);
       if (slot !== undefined) slots[i / 4] = slot;
@@ -57,6 +63,7 @@ export function paletteSwap(img, meta, colours, kit) {
     slotsCache.set(img, { meta, slots });
   }
   for (let p = 0; p < slots.length; p++) {
+    if (!(p & 0xffff)) yield;
     const slot = slots[p];
     if (slot < 0) continue;
     const rgb = pal[slot];
@@ -66,7 +73,7 @@ export function paletteSwap(img, meta, colours, kit) {
   }
   g.putImageData(data, 0, 0);
   if (kit && meta.palette.jersey && meta.palette.team) {
-    if (meta.faces) c.printLayers = faceLayers(meta, slots, c.width, pal, kit);
+    if (meta.faces) c.printLayers = yield* faceLayersSteps(meta, slots, c.width, pal, kit);
     else if (meta.prints) c.printLayers = printLayers(meta, slots, c.width, pal, kit);
   }
   return c;
@@ -310,7 +317,7 @@ function homography(from, to) {
 // "faces"). The text is set flat on a card in the game's pixel font, then every fine pixel inside
 // the face looks up its spot on the card through the face's perspective. Ink lands only on the
 // main patch of jersey, one shade darker than the jersey under it.
-function faceLayers(meta, slots, sheetW, pal, kit) {
+function* faceLayersSteps(meta, slots, sheetW, pal, kit) {
   const fine = kit.fine ?? FINE;
   const jerseyTone = new Map(meta.palette.jersey.map((s, t) => [s, t]));
   const ink = inkFor(meta, pal);
@@ -351,6 +358,7 @@ function faceLayers(meta, slots, sheetW, pal, kit) {
   }
   const out = new Map();
   for (const [key, [rows, ...corners]] of Object.entries(meta.faces)) {
+    yield;
     const f = frames.get(key);
     if (!f) continue;
     const [fx, fy, fw, fh] = f;

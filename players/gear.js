@@ -12,6 +12,7 @@
 // moved to match, ready for stretchSheet() (height and build).
 
 import GEAR from "../content/gear.json";
+import { runNow, runSliced } from "./slices.js";
 
 export { GEAR };
 // drawn bottom first: a hoodie under wristbands, a hat over goggles' strap
@@ -242,7 +243,10 @@ function paint(layer, piece, tints, d, w, h, px, py) {
  * ImageData, at the sheet's places); worn: from loadGear(); colours: the player's (each item takes the
  * ones its entry names). Returns the same shape, repacked, with the prints drawn in.
  */
-export function wearGear({ meta, img, prints, regions }, worn, colours) {
+export const wearGear = (sheet, worn, colours) => runNow(wearGearSteps(sheet, worn, colours));
+/** wearGear a slice at a time (players/slices.js), so dressing a big sheet doesn't freeze the page. */
+export const wearGearSliced = (sheet, worn, colours, wanted) => runSliced(wearGearSteps(sheet, worn, colours), wanted);
+function* wearGearSteps({ meta, img, prints, regions }, worn, colours) {
   if (!worn.length) return { meta, img, prints, regions };
   const tints = worn.map((layer) => tintsOf(layer, colours));
   const regionCanvas = Object.assign(document.createElement("canvas"), { width: regions.width, height: regions.height });
@@ -288,6 +292,7 @@ export function wearGear({ meta, img, prints, regions }, worn, colours) {
     for (let i = 0; i < worn.length; i++) if (pieces[i] && !under(i)) paint(worn[i], pieces[i], tints[i], data.data, fw, fh, pieces[i][4] - left, pieces[i][5] - top);
     g.putImageData(data, 0, 0);
     made.set(key, { canvas: c, x, y, w, h, left, top, fw, fh });
+    yield;
   }
 
   let px = 0, py = 0, shelf = 0;
@@ -314,6 +319,7 @@ export function wearGear({ meta, img, prints, regions }, worn, colours) {
     gr.drawImage(regionCanvas, m.x, m.y, m.w, m.h, ax - m.left, ay - m.top, m.w, m.h);
     const ball = meta.balls?.[`${m.x},${m.y}`];
     if (ball) balls[`${ax},${ay}`] = [ball[0] - m.left, ball[1] - m.top, ball[2]];
+    yield;
   }
   const frames = {};
   for (const [anim, list] of Object.entries(meta.frames))
@@ -322,10 +328,17 @@ export function wearGear({ meta, img, prints, regions }, worn, colours) {
       const m = made.get(key);
       return [...at.get(key), m.fw, m.fh, f[4] + m.left, f[5] + m.top];
     });
+  // the region map read back a band of rows at a time (all at once is a long freeze on a phone)
+  const regionsOut = new ImageData(W, H);
+  const band = Math.max(1, Math.floor((1 << 17) / W));
+  for (let r = 0; r < H; r += band) {
+    regionsOut.data.set(gr.getImageData(0, r, W, Math.min(band, H - r)).data, r * W * 4);
+    yield;
+  }
   return {
     meta: { ...meta, frames, balls, printsFrom: undefined, numbers: undefined },
     img: sheet,
     prints: null,
-    regions: gr.getImageData(0, 0, W, H),
+    regions: regionsOut,
   };
 }

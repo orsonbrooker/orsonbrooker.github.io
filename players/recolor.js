@@ -14,7 +14,8 @@
 // and the ball pass in front of it.
 
 import { Progress, loadImage } from "../engine/download.js";
-import { shadeRanks, shadeSamples, shadeTable, lightness } from "./shades.js";
+import { shadeRanks, shadeRanksSteps, shadeSamples, shadeTable, lightness } from "./shades.js";
+import { runNow, runSliced } from "./slices.js";
 
 const REGIONS = { 1: "skin", 2: "hair", 3: "jersey", 4: "team", 5: "shoes" };
 const HAIR = 2;
@@ -119,7 +120,7 @@ export function loadBase(full, root = "/", size = null, progress = null) {
     // The pixel font is needed before numbers can be printed.
     const font = document.fonts?.load('16px "Press Start 2P"').catch(() => {});
     const loading = Promise.all([loadImage(root + base.atlas, mine), loadImage(root + base.regions, mine), fetch(root + base.meta).then((r) => r.json()), font]).then(
-      ([atlas, regions, meta]) => ({ ...base, atlasImg: atlas, regionsData: pixels(regions), meta }),
+      async ([atlas, regions, meta]) => ({ ...base, atlasImg: atlas, regionsData: await runSliced(pixelsSteps(regions)), meta }),
     );
     loaded.set(key, loading);
     loading.catch(() => loaded.delete(key)).finally(() => mine.finish());
@@ -176,16 +177,29 @@ function cropped(px, width, [x, y, w, h]) {
   return out;
 }
 
-function pixels(img, rect = [0, 0, img.width, img.height]) {
+const BAND = 1 << 17; // pixels read back at a time: a whole sheet at once is a long freeze on a phone
+
+const pixels = (img, rect) => runNow(pixelsSteps(img, rect));
+/** An image's pixels as ImageData, read a band at a time without freezing the page. */
+export const pixelsSliced = (img, rect) => runSliced(pixelsSteps(img, rect));
+// An image's pixels (or a rectangle's), read a band of rows at a time.
+function* pixelsSteps(img, rect = [0, 0, img.width, img.height]) {
   const [x, y, w, h] = rect;
+  const out = new ImageData(w, h);
+  const band = Math.max(1, Math.min(h, Math.floor(BAND / Math.max(1, w))));
   const c = document.createElement("canvas");
   c.width = w;
-  c.height = h;
+  c.height = band;
   const g = c.getContext("2d", { willReadFrequently: true });
-  g.drawImage(img, x, y, w, h, 0, 0, w, h);
-  const data = g.getImageData(0, 0, w, h);
+  for (let r = 0; r < h; r += band) {
+    const n = Math.min(band, h - r);
+    g.clearRect(0, 0, w, band);
+    g.drawImage(img, x, y + r, w, n, 0, 0, w, n);
+    out.data.set(g.getImageData(0, 0, w, n).data, r * w * 4);
+    if (r + band < h) yield;
+  }
   c.width = c.height = 0; // let it go now: iPhones cap a page's canvas memory, and a canvas past the cap stays blank
-  return data;
+  return out;
 }
 
 const hex = (s) => [1, 3, 5].map((i) => parseInt(s.slice(i, i + 2), 16));
@@ -196,15 +210,15 @@ const luma = (r, g, b) => 0.299 * r + 0.587 * g + 0.114 * b;
 // every frame spreads its own hair over the whole ramp. A frame showing little hair leans on the
 // whole sheet's ranks, so a few pixels don't get stretched.
 const rankCache = new Map();
-function hairRanks(loadedBase) {
+function* hairRanksSteps(loadedBase) {
   const { atlasImg, regionsData, meta } = loadedBase;
   const key = atlasImg.sourceUrl || atlasImg.src || atlasImg;
   if (!rankCache.has(key)) {
     const W = regionsData.width;
     const reg = regionsData.data;
-    const px = keptPixels(loadedBase) ?? pixels(atlasImg, [0, 0, W, regionsData.height]).data;
+    const px = keptPixels(loadedBase) ?? (yield* pixelsSteps(atlasImg, [0, 0, W, regionsData.height])).data;
     const isHair = (i) => (reg[i * 4] === HAIR ? HAIR : 0);
-    const sheet = shadeRanks([{ px, region: isHair }])[HAIR];
+    const sheet = (yield* shadeRanksSteps([{ px, region: isHair }]))[HAIR];
     const rects = new Map();
     for (const list of Object.values(meta.frames ?? {})) for (const f of list) rects.set(`${f[0]},${f[1]},${f[2]},${f[3]}`, f.slice(0, 4));
     const frames = [];
@@ -214,6 +228,7 @@ function hairRanks(loadedBase) {
       for (let y = 0; y < fh; y++) part.set(px.subarray(((fy + y) * W + fx) * 4, ((fy + y) * W + fx + fw) * 4), y * fw * 4);
       const rank = shadeRanks([{ px: part, region: (i) => isHair((fy + Math.floor(i / fw)) * W + fx + (i % fw)) }])[HAIR];
       if (rank) frames.push({ rect: [fx, fy, fw, fh], rank });
+      yield;
     }
     const counts = frames.map((f) => f.rank.count).sort((a, b) => a - b);
     const lean = 0.25 * (counts[counts.length >> 1] ?? 0);
@@ -229,7 +244,7 @@ function hairRanks(loadedBase) {
 // Which team-colour pixels are the shorts (1) rather than the jersey's trim (0): those more than
 // TRIM_REACH pixels from any jersey pixel. Worked out once per sheet, like the hair's ranks.
 const shortsCache = new Map();
-function shortsMask(loadedBase) {
+function* shortsMaskSteps(loadedBase) {
   const { atlasImg, regionsData, meta } = loadedBase;
   // (a smaller copy of a sheet reaches as far on the body: fewer pixels)
   const reach = meta?.fullRes && meta.res ? Math.max(1, Math.round((TRIM_REACH * meta.res) / meta.fullRes)) : TRIM_REACH;
@@ -237,7 +252,8 @@ function shortsMask(loadedBase) {
   if (!shortsCache.has(key)) {
     const { data: reg, width: w, height: h } = regionsData;
     const mask = new Uint8Array(w * h);
-    for (let y = 0; y < h; y++)
+    for (let y = 0; y < h; y++) {
+      yield;
       for (let x = 0; x < w; x++) {
         if (reg[(y * w + x) * 4] !== TEAM) continue;
         let near = false;
@@ -254,6 +270,7 @@ function shortsMask(loadedBase) {
         }
         if (!near) mask[y * w + x] = 1;
       }
+    }
     shortsCache.set(key, mask);
   }
   return shortsCache.get(key);
@@ -284,17 +301,21 @@ let kept = null;
 // The kept sheet's own pixels, if it's this base's (so reading them again from the image, which is slow on a
 // phone, isn't needed), else null.
 const keptPixels = (loadedBase) => (kept?.base === loadedBase ? kept.src : null);
-function keptFor(loadedBase, W, H) {
+function* keptForSteps(loadedBase, W, H) {
   if (kept?.base === loadedBase) return kept;
   kept = null; // (let the last body's go first)
-  const src = pixels(loadedBase.atlasImg, [0, 0, W, H]).data;
+  const src = (yield* pixelsSteps(loadedBase.atlasImg, [0, 0, W, H])).data;
   const reg = loadedBase.regionsData.data;
   const counts = new Uint32Array(256);
-  for (let p = 0, n = W * H; p < n; p++) if (src[p * 4 + 3] && reg[p * 4]) counts[reg[p * 4]]++;
+  for (let p = 0, n = W * H; p < n; p++) {
+    if (!(p & 0xffff)) yield;
+    if (src[p * 4 + 3] && reg[p * 4]) counts[reg[p * 4]]++;
+  }
   const lists = {};
   for (const id of Object.keys(REGIONS)) lists[id] = new Uint32Array(counts[id]);
   const fill = new Uint32Array(256);
   for (let p = 0, n = W * H; p < n; p++) {
+    if (!(p & 0xffff)) yield;
     const id = reg[p * 4];
     if (src[p * 4 + 3] && lists[id]) lists[id][fill[id]++] = p;
   }
@@ -303,16 +324,19 @@ function keptFor(loadedBase, W, H) {
 }
 
 // Returns a canvas of the base's sprite sheet (or one rectangle of it) in the given colours. `keep`: the
-// builder's preview, recoloured again and again (see keptFor); only for the whole sheet.
-export function recolor(loadedBase, colours, rect, { keep = false } = {}) {
+// builder's preview, recoloured again and again (see keptFor); only for the whole sheet. recolorSliced is
+// the same a slice at a time (players/slices.js), for a whole sheet without freezing the page.
+export const recolor = (loadedBase, colours, rect, opts) => runNow(recolorSteps(loadedBase, colours, rect, opts));
+export const recolorSliced = (loadedBase, colours, rect, opts = {}) => runSliced(recolorSteps(loadedBase, colours, rect, opts), opts.wanted);
+function* recolorSteps(loadedBase, colours, rect, { keep = false } = {}) {
   const full = [0, 0, loadedBase.atlasImg.width, loadedBase.atlasImg.height];
   const [x, y, w, h] = rect ?? full;
   const regionPx = loadedBase.regionsData.data;
   const atlasW = loadedBase.regionsData.width;
   const whole = keep && !rect && w === atlasW && h === loadedBase.regionsData.height;
-  const k = whole ? keptFor(loadedBase, w, h) : null;
+  const k = whole ? yield* keptForSteps(loadedBase, w, h) : null;
   const own = !k && keptPixels(loadedBase); // the builder's sheet, already read: a rectangle of it is copied
-  const src = k ? new ImageData(w, h) : own ? cropped(own, full[2], [x, y, w, h]) : pixels(loadedBase.atlasImg, [x, y, w, h]);
+  const src = k ? new ImageData(w, h) : own ? cropped(own, full[2], [x, y, w, h]) : yield* pixelsSteps(loadedBase.atlasImg, [x, y, w, h]);
   const plans = {};
   for (const [id, name] of Object.entries(REGIONS)) {
     const target = colours[name];
@@ -321,7 +345,7 @@ export function recolor(loadedBase, colours, rect, { keep = false } = {}) {
     // (a kid from video stores some parts in another colour than their own, e.g. keyed hair: `meta.art`)
     const own = loadedBase.meta.art?.[name] ?? loadedBase.colours[name];
     if (!target || !ref || target.toLowerCase() === own) continue;
-    const hair = +id === HAIR && hairRanks(loadedBase);
+    const hair = +id === HAIR && (yield* hairRanksSteps(loadedBase));
     if (hair) {
       const samples = shadeSamples(target);
       plans[id] = { table: shadeTable(hair.sheet, samples) };
@@ -337,7 +361,7 @@ export function recolor(loadedBase, colours, rect, { keep = false } = {}) {
   const teamRef = loadedBase.meta.regions.team;
   const shortsTarget = colours.shorts && colours.shorts.toLowerCase() !== (colours.team ?? "").toLowerCase() ? colours.shorts : null;
   const shortsPlan = shortsTarget && teamRef && { t: hex(shortsTarget), refL: Math.max(1, luma(...teamRef)), dark: luma(...teamRef) < 70 };
-  const shorts = shortsPlan && shortsMask(loadedBase);
+  const shorts = shortsPlan && (yield* shortsMaskSteps(loadedBase));
   const hasNumber = colours.number !== undefined && colours.number !== "";
   const printing = hasNumber || colours.teamName !== "";
   if (k) {
@@ -347,17 +371,23 @@ export function recolor(loadedBase, colours, rect, { keep = false } = {}) {
     want[TEAM] += `|${shortsPlan ? shortsTarget.toLowerCase() : ""}`;
     want[JERSEY] += `|${JSON.stringify(printing ? [colours.number, colours.teamName, colours.jersey, colours.team] : null)}`;
     const d = src.data;
-    d.set(k.out ? k.out.data : k.src); // the last result: only the regions painted for something else are redone
+    // the last result (only the regions painted for something else are redone), copied a band at a time
+    const last = k.out ? k.out.data : k.src;
+    for (let at = 0; at < last.length; at += BAND * 4) {
+      d.set(last.subarray(at, at + BAND * 4), at);
+      yield;
+    }
     const s32 = new Uint32Array(k.src.buffer), d32 = new Uint32Array(d.buffer);
     for (const id of Object.keys(REGIONS)) {
       if (k.out && k.painted[id] === want[id]) continue;
       const list = k.lists[id];
       for (let n = 0; n < list.length; n++) d32[list[n]] = s32[list[n]]; // back to the sheet's own
+      yield;
       const plan = plans[id];
       let done = null;
       if (+id === HAIR && plan?.frames) {
         done = new Uint8Array(w * h);
-        for (const { box, table } of plan.frames)
+        for (const { box, table } of plan.frames) {
           for (let py = box[1]; py < box[3]; py++)
             for (let px = box[0]; px < box[2]; px++) {
               const p = py * w + px;
@@ -365,8 +395,11 @@ export function recolor(loadedBase, colours, rect, { keep = false } = {}) {
               paintPixel(d, p * 4, { table });
               done[p] = 1;
             }
+          yield;
+        }
       }
       for (let n = 0; n < list.length; n++) {
+        if (!(n & 0xffff)) yield;
         const p = list[n];
         const pl = shorts && +id === TEAM && shorts[p] ? shortsPlan : plan;
         if (pl && !done?.[p]) paintPixel(d, p * 4, pl);
@@ -374,21 +407,19 @@ export function recolor(loadedBase, colours, rect, { keep = false } = {}) {
       if (+id === JERSEY && printing) {
         const jerseyRef = Math.max(1, luma(...(loadedBase.meta.regions.jersey ?? [200, 200, 200])));
         const S = k.src;
-        printNumber(loadedBase, colours, [x, y, w, h], d, (p) => (S[p * 4 + 3] ? luma(S[p * 4], S[p * 4 + 1], S[p * 4 + 2]) / jerseyRef : 0), regionPx, atlasW);
+        yield* printNumberSteps(loadedBase, colours, [x, y, w, h], d, (p) => (S[p * 4 + 3] ? luma(S[p * 4], S[p * 4 + 1], S[p * 4 + 2]) / jerseyRef : 0), regionPx, atlasW);
       }
     }
     k.painted = want;
     k.out = src;
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    canvas.getContext("2d").putImageData(src, 0, 0);
+    const canvas = yield* canvasOfSteps(src);
     canvas.pixels = src; // (shared with k.out: only ever read)
     return canvas;
   }
   const d = src.data;
   const done = plans[HAIR]?.frames && new Uint8Array(w * h); // hair already in its frame's shades
   for (const { box, table } of plans[HAIR]?.frames ?? []) {
+    yield;
     for (let py = box[1]; py < box[3]; py++) {
       for (let px = box[0]; px < box[2]; px++) {
         const i = (py * w + px) * 4;
@@ -404,6 +435,7 @@ export function recolor(loadedBase, colours, rect, { keep = false } = {}) {
   const shade = new Float32Array(w * h); // each jersey pixel's light/shade, for printing the number
   const jerseyRef = Math.max(1, luma(...(loadedBase.meta.regions.jersey ?? [200, 200, 200])));
   for (let py = 0; py < h; py++) {
+    if (!(py & 15)) yield;
     for (let px = 0; px < w; px++) {
       const i = (py * w + px) * 4;
       if (!d[i + 3]) continue;
@@ -414,19 +446,31 @@ export function recolor(loadedBase, colours, rect, { keep = false } = {}) {
       paintPixel(d, i, plan);
     }
   }
-  if (printing) printNumber(loadedBase, colours, [x, y, w, h], d, (p) => shade[p], regionPx, atlasW);
-  const canvas = document.createElement("canvas");
-  canvas.width = w;
-  canvas.height = h;
-  canvas.getContext("2d").putImageData(src, 0, 0);
+  if (printing) yield* printNumberSteps(loadedBase, colours, [x, y, w, h], d, (p) => shade[p], regionPx, atlasW);
+  const canvas = yield* canvasOfSteps(src);
   // its pixels, for gear (players/gear.js) to work on without reading them back from the GPU
   canvas.pixels = src;
   return canvas;
 }
 
+// A canvas of `data`, put in a band of rows at a time.
+function* canvasOfSteps(data) {
+  const { width: w, height: h } = data;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const g = canvas.getContext("2d");
+  const band = Math.max(1, Math.min(h, Math.floor(BAND / Math.max(1, w))));
+  for (let r = 0; r < h; r += band) {
+    g.putImageData(data, 0, 0, 0, r, w, Math.min(band, h - r));
+    if (r + band < h) yield;
+  }
+  return canvas;
+}
+
 // Prints the number on the back (and the team name plus number on the front) in the team colour,
 // or black/white if that wouldn't show up on the jersey. Only jersey pixels get ink.
-function printNumber(loadedBase, colours, [x, y, w, h], d, shadeAt, regionPx, atlasW) {
+function* printNumberSteps(loadedBase, colours, [x, y, w, h], d, shadeAt, regionPx, atlasW) {
   const jersey = hex(colours.jersey ?? loadedBase.colours.jersey);
   let ink = hex(colours.team ?? loadedBase.colours.team);
   if (Math.abs(luma(...ink) - luma(...jersey)) < 60) ink = luma(...jersey) > 128 ? [32, 30, 36] : [242, 242, 239];
@@ -464,16 +508,24 @@ function printNumber(loadedBase, colours, [x, y, w, h], d, shadeAt, regionPx, at
     }
     g.restore();
   }
-  const mask = g.getImageData(0, 0, w, h).data;
-  for (let p = 0; p < w * h; p++) {
-    if (mask[p * 4 + 3] < 128) continue;
-    const px = p % w;
-    const py = (p - px) / w;
-    if (regionPx[((py + y) * atlasW + px + x) * 4] !== JERSEY) continue;
-    const k = Math.min(1.15, shadeAt(p));
-    const i = p * 4;
-    for (let ch = 0; ch < 3; ch++) d[i + ch] = Math.min(255, ink[ch] * k);
+  // read back a band of rows at a time (a whole sheet at once is a long freeze on a phone)
+  const band = Math.max(1, Math.min(h, Math.floor(BAND / Math.max(1, w))));
+  for (let r = 0; r < h; r += band) {
+    const n = Math.min(band, h - r);
+    const mask = g.getImageData(0, r, w, n).data;
+    for (let q = 0; q < w * n; q++) {
+      if (mask[q * 4 + 3] < 128) continue;
+      const p = r * w + q;
+      const px = p % w;
+      const py = (p - px) / w;
+      if (regionPx[((py + y) * atlasW + px + x) * 4] !== JERSEY) continue;
+      const k = Math.min(1.15, shadeAt(p));
+      const i = p * 4;
+      for (let ch = 0; ch < 3; ch++) d[i + ch] = Math.min(255, ink[ch] * k);
+    }
+    yield;
   }
+  stamp.width = stamp.height = 0;
 }
 
 // ---------- Players saved on this device ----------

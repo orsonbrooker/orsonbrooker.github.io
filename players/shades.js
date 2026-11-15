@@ -12,6 +12,8 @@
 // cooler in the shadows and warmer in the highlights. A lookup table per region swaps each pixel's
 // lightness for its shade, so recolouring stays one table read per pixel.
 
+import { runNow } from "./slices.js";
+
 // How much of a region each shade covers, darkest first: the chosen colour (the fourth) the most,
 // a deep shadow and a highlight the least. A pixel between two shades' middles is blended.
 const SHARES = [0.08, 0.14, 0.22, 0.3, 0.18, 0.08];
@@ -39,10 +41,13 @@ export const lightness = (r, g, b) => (77 * r + 150 * g + 29 * b) >> 8;
 // For each region id, the place of each lightness 0..255 among that region's pixels, 0..1.
 // `sources` are { px: RGBA bytes, region: (pixel index) => region id }; pixels that are clear
 // or in no region don't count.
-export function shadeRanks(sources) {
+export const shadeRanks = (sources) => runNow(shadeRanksSteps(sources));
+/** shadeRanks as steps (players/slices.js), for a whole sheet's worth of pixels. */
+export function* shadeRanksSteps(sources) {
   const counts = new Map();
   for (const { px, region } of sources) {
     for (let i = 0, n = px.length >> 2; i < n; i++) {
+      if (!(i & 0xffff)) yield;
       if (!px[i * 4 + 3]) continue;
       const id = region(i);
       if (!id) continue;

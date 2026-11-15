@@ -5,6 +5,7 @@
 // the region map, moved with the stretch), since the stretched sheet has no region map of its own.
 
 import { regionFeet } from "../engine/draw.js";
+import { runNow, runSliced } from "./slices.js";
 
 // How far each goes at 1 (or -1): a share of the height, and of the jersey's width.
 const HEIGHT_STEP = 0.06;
@@ -109,7 +110,10 @@ export function stretchFrame(src, [sx, sy], regions, [x, y, w, h, ox], build = {
   };
 }
 
-export function stretchSheet({ meta, img, prints }, regions, build = {}) {
+export const stretchSheet = (sheet, regions, build) => runNow(stretchSheetSteps(sheet, regions, build));
+/** stretchSheet a slice at a time (players/slices.js), so stretching every frame doesn't freeze the page. */
+export const stretchSheetSliced = (sheet, regions, build) => runSliced(stretchSheetSteps(sheet, regions, build));
+function* stretchSheetSteps({ meta, img, prints }, regions, build = {}) {
   const height = Math.max(-1, Math.min(1, +build.height || 0));
   const bulk = Math.max(-1, Math.min(1, +build.bulk || 0));
   if (!height && !bulk) return { meta, img, prints };
@@ -121,6 +125,7 @@ export function stretchSheet({ meta, img, prints }, regions, build = {}) {
   for (const [key, f] of rects) {
     const [x, y] = f;
     made.set(key, stretchFrame(img, [x, y], regions, f, { height, bulk }, { print: prints?.get(`${x},${y}`), ball: meta.balls?.[`${x},${y}`] }));
+    yield;
   }
 
   // packed in shelves on a new sheet
@@ -138,7 +143,10 @@ export function stretchSheet({ meta, img, prints }, regions, build = {}) {
   }
   const sheet = Object.assign(document.createElement("canvas"), { width: W, height: py + shelf + 1 });
   const gs = sheet.getContext("2d");
-  for (const [key, m] of made) gs.drawImage(m.canvas, ...at.get(key));
+  for (const [key, m] of made) {
+    gs.drawImage(m.canvas, ...at.get(key));
+    m.canvas.width = m.canvas.height = 0; // (iPhones cap a page's canvas memory)
+  }
 
   const balls = {};
   const feet = {};
