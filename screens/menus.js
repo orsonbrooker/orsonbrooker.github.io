@@ -7,7 +7,7 @@ import { attributesFor, skillWords } from "../content/attributes.js";
 import { IN_APP } from "../api.js";
 import { load, save } from "../engine/storage.js";
 import { modeShown } from "../modes/index.js";
-import { characters, loadingProgress, setFace, useCharacter } from "../play/players.js";
+import { characters, faceUrl, loadingProgress, onRedressed, setFace, useCharacter } from "../play/players.js";
 import { startGame } from "../play/round.js";
 import { updateHud } from "../play/scene.js";
 import { mode, modes, setPhase, state } from "../play/state.js";
@@ -162,6 +162,21 @@ export async function selectCharacter(id) {
   await useCharacter(id);
   if (state.phase === "select") renderPicker();
 }
+
+// A new team (chosen here, or on another device): the players on show wear its kit straight away. Their new
+// faces are drawn first (one frame each), so the cards don't flash their plain bodies in between.
+let redressing = 0;
+onRedressed(async () => {
+  const ticket = ++redressing;
+  if (state.phase === "select") await Promise.all(characters.list.map((c) => faceUrl(c).catch(() => {})));
+  if (ticket !== redressing) return;
+  if (state.phase === "select") {
+    // (with the keyboard on a card, it stays on that card)
+    const at = [...charPick.querySelectorAll("button, a")].indexOf(document.activeElement);
+    renderPicker();
+    if (at >= 0) charPick.querySelectorAll("button, a")[at]?.focus({ preventScroll: true });
+  } else if (state.phase === "modes") showWho();
+});
 
 /** The picker again if it's open (the list of players changed). */
 export function refreshPicker() {

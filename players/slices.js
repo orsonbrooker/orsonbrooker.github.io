@@ -12,8 +12,8 @@ export function runNow(steps) {
   return r.value;
 }
 
-// The page's turn: input, drawing and timers run before the work carries on.
-const breather = () => (globalThis.scheduler?.yield ? globalThis.scheduler.yield() : new Promise((resolve) => setTimeout(resolve, 0)));
+/** The page's turn: input, drawing and timers run before the work carries on. */
+export const breather = () => (globalThis.scheduler?.yield ? globalThis.scheduler.yield() : new Promise((resolve) => setTimeout(resolve, 0)));
 
 /** Thrown by runSliced when the work stopped being wanted (a newer one replaced it). */
 export class Stale extends Error {

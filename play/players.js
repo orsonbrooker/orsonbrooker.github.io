@@ -17,7 +17,8 @@ import { ANIM_FPS, JUMP_APEX, JUMP_FRAME_TIME, player } from "../play/state.js";
 import { buildPlayer, loadHeads } from "../players/layered.js";
 import { paletteSwapSliced } from "../players/pixelkit.js";
 import { kitOf, loadBuilt, loadTwin, partsOf, twinPrints } from "../players/built.js";
-import { DEFAULT_TEAM, gameScale, loadBase, loadBases, loadStill, myPlayers, pickSize, pixelsSliced, recolor, recolorSliced, sized, thumbnail, useDrawnKids } from "../players/recolor.js";
+import { breather } from "../players/slices.js";
+import { DEFAULT_TEAM, gameScale, loadBase, loadBases, loadStill, myPlayers, pickSize, pixelsSliced, recolor, recolorSliced, sized, stillOf, thumbnail, useDrawnKids } from "../players/recolor.js";
 
 // Kids from video and their gear aren't out until their flags are on (shared/flags.js): until then
 // Curly and Buns play with their drawn bodies.
@@ -198,8 +199,8 @@ export async function loadRoster() {
 /**
  * Orson and the approved builder players wear the team the device chose (players/community.js myTeam,
  * while the teams flag is on), since that's the team their games count for: its home kit and its name on
- * the jersey. Before one's chosen, Orson is drawn as he is (KINGS) and an approved player in the kit they
- * were sent in. Called when the roster loads and whenever the team changes; whoever is playing is drawn
+ * the jersey (KINGS too). Before one's chosen, Orson is drawn as he is and an approved player in the kit
+ * they were sent in. Called when the roster loads and whenever the team changes; whoever is playing is drawn
  * again in the new kit. (Not Orson with ?jersey= and the like, which try other colours on him.)
  */
 export async function dressInTeam() {
@@ -208,7 +209,7 @@ export async function dressInTeam() {
   const redraw = new Set();
   const orson = characters.list.find((c) => c.id === "orson");
   if (orson && !orson.tryingColours) {
-    const colours = wear && kit.name !== DEFAULT_TEAM ? wear : undefined;
+    const colours = wear ?? undefined; // (KINGS too: its home kit, like everyone else in it)
     if (JSON.stringify(colours) !== JSON.stringify(orson.colours)) {
       orson.colours = colours;
       redraw.add("orson");
@@ -222,8 +223,13 @@ export async function dressInTeam() {
     redraw.add(p.id);
   }
   for (const key of [...characters.loaded.keys()]) if (redraw.has(key.split("@")[0])) characters.loaded.delete(key);
+  if (redraw.size) for (const f of redressed) f();
   if (redraw.has(sheet?.id)) await useCharacter(sheet.id, { remember: false });
 }
+
+const redressed = new Set();
+/** Calls `f` whenever dressInTeam changes what players wear (the picker draws their faces again). */
+export const onRedressed = (f) => redressed.add(f);
 
 // Players made on this device (or on another of theirs, with saved progress), as picker entries.
 // A body whose head has been made for the layered players moves like Orson (players/layered.js);
@@ -294,72 +300,68 @@ async function loadBuiltPlayers() {
 
 // ---------- Faces ----------
 
-// A player's face for the picker and the leaderboard.
-// Builder players' faces, drawn once each, so redrawing a list doesn't flash the plain body. Only the
-// face's own frame is recoloured (thumbnail), never the whole sheet.
-const faces = new Map(); // base + colours -> data URL
-const facing = new Map(); // base + colours -> the face being drawn
-export function setFace(img, c) {
-  if (!c.base) {
-    img.src = c.thumb;
-    if (c.colours && !c.tryingColours) dressedFace(img, c); // Orson in the device's team (dressInTeam)
-    return;
-  }
-  const key = c.base + JSON.stringify(c.colours);
-  if (faces.has(key)) {
-    img.src = faces.get(key);
-    return;
-  }
-  img.src = c.thumb;
-  // Show their own colours once their base body has loaded.
+// A player's face for the picker and the leaderboard: the top of their first standing frame (players/recolor.js
+// thumbnail), in the colours they wear. Drawn once each, so redrawing a list doesn't flash the plain body, and
+// only that one frame is recoloured, never the whole sheet.
+// A face never has the number or team name on it: whether the crop reaches the chest depends on the body, so
+// it would show on some players and not others.
+const unprinted = (colours) => ({ ...colours, number: "", teamName: "" });
+const faces = new Map(); // what the face is of -> data URL
+const facing = new Map(); // the same keys: the face being drawn
+// (a builder player by body and colours; Orson by the colours he wears (dressInTeam), cut from his sheet like
+// theirs, since his own picture, `thumb`, has his team name on it; with ?jersey= and the like, his picture)
+const dressed = (c) => c.id === "orson" && !c.tryingColours;
+const faceKey = (c) => (c.base ? c.base + JSON.stringify(unprinted(c.colours)) : dressed(c) ? `${c.id}@${c.atlas}` + JSON.stringify(unprinted(c.colours)) : null);
+
+/** A player's face (a data URL, or their own picture), drawn once. */
+export function faceUrl(c) {
+  const key = faceKey(c);
+  if (!key) return Promise.resolve(c.thumb);
+  if (faces.has(key)) return Promise.resolve(faces.get(key));
   if (!facing.has(key)) {
-    const p = loadBases()
-      .then((list) => {
-        const base = list.find((b) => b.id === c.base);
-        // (the size the game would use; a drawn body's face needs only its first frame read: loadStill)
-        const size = pickSize(base, gameScale(stageWidth()));
-        return base.card ? loadBase(base, "/", size) : loadStill(base, "/", size);
-      })
-      .then((loaded) => {
-        faces.set(key, thumbnail(loaded, c.colours).toDataURL());
+    const p = stillFor(c)
+      .then(async (still) => {
+        await breather(); // one face at a time: a list of them never freezes the page
+        faces.set(key, thumbnail(still, unprinted(c.base ? c.colours : orsonParts(c))).toDataURL());
         return faces.get(key);
-      });
-    p.catch(() => facing.delete(key));
+      })
+      .finally(() => facing.delete(key));
     facing.set(key, p);
   }
-  facing
-    .get(key)
-    .then((url) => (img.src = url))
-    .catch(() => {});
+  return facing.get(key);
 }
 
-// Orson's face in the team's kit he wears: the top of his first standing frame, as builder players' faces are
-// cut (players/recolor.js thumbnail), from his sheet in that kit.
-function dressedFace(img, c) {
-  const key = c.id + JSON.stringify(c.colours);
-  img.dataset.face = key;
+/** Shows a player's face in `img`: their plain picture until it's drawn. */
+export function setFace(img, c) {
+  const key = faceKey(c);
+  img.dataset.face = key ?? "";
+  if (!key || !faces.has(key)) img.src = c.thumb;
+  if (!key) return;
   if (faces.has(key)) return void (img.src = faces.get(key));
-  if (!facing.has(key)) {
-    const p = loadCharacter(c.id, sizeFor(c)).then(({ meta, img: sheetImg }) => {
-      const [x, y, w, h] = meta.frames.idle[0];
-      const headH = Math.round(h * 0.45);
-      const side = Math.max(w, headH);
-      const canvas = Object.assign(document.createElement("canvas"), { width: 96, height: 96 });
-      const k = 96 / side;
-      canvas.getContext("2d").drawImage(sheetImg, x, y, w, headH, ((side - w) / 2) * k, (side - headH) * k, w * k, headH * k);
-      faces.set(key, canvas.toDataURL());
-      return faces.get(key);
-    });
-    p.catch(() => facing.delete(key));
-    facing.set(key, p);
-  }
-  facing
-    .get(key)
+  faceUrl(c)
     .then((url) => {
       if (img.dataset.face === key) img.src = url;
     })
     .catch(() => {});
 }
+
+// What a face is drawn from: a body's first standing frame and its colour map, at the size the game would use.
+// (a drawn body's face needs only that frame read: loadStill; a kid from video's card is cut from its sheet)
+async function stillFor(c) {
+  if (c.base) {
+    const base = (await loadBases()).find((b) => b.id === c.base);
+    const size = pickSize(base, gameScale(stageWidth()));
+    return base.card ? loadBase(base, "/", size) : loadStill(base, "/", size);
+  }
+  // Orson: his sheet's frame and colour map, the way his sheet is recoloured for a team (withKit)
+  const { meta: metaUrl, atlas } = sized(c, sizeFor(c));
+  const meta = await fetch(metaUrl).then((r) => r.json());
+  if (!meta.regionsFile) throw new Error("no colour map"); // (his older art: no team's kit, so his own picture)
+  const [atlasImg, regionsImg] = await Promise.all([loadImage(atlas, new Progress()), loadImage(meta.regionsFile, new Progress())]);
+  return stillOf({ atlasImg, regionsImg, meta, colours: meta.colours });
+}
+// (Orson in a team's kit has shorts of their own colour, as in withKit)
+const orsonParts = (c) => ({ ...partsOf(c.colours), ...(c.colours?.shorts ? { shorts: c.colours.shorts } : {}) });
 
 // How a player looks on the leaderboard, which shows everyone's games: not in this device's team (dressInTeam),
 // which is only who this device plays for. Orson as he's drawn; an approved player in the kit they were sent in.

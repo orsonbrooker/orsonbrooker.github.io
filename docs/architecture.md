@@ -371,8 +371,11 @@ Terms used across the code:
   a scored game as Orson or someone else's approved player, it chooses the team those games count for
   (`screens/team.js`, kept as `orson-hoops-my-team`; the Team buttons on Choose your player and Choose a game
   change it). Orson and approved players wear it (`dressInTeam` in `play/players.js`: its home kit, shorts
-  included, and its name on the jersey; an approved player wears the kit they were sent in until one's chosen;
-  only Orson's art from video can be recoloured, so with the older art he stays in KINGS). It travels with
+  included, and its name on the jersey, KINGS as well; an approved player wears the kit they were sent in until one's chosen;
+  only Orson's art from video can be recoloured, so with the older art he keeps his drawn kit). Their faces on
+  Choose your player are drawn again in the new kit as soon as it changes (`onRedressed`); a face is one
+  frame's head and shoulders and never shows the number or team name, while the leaderboard's faces show the
+  kit each player was sent in (`boardLook`). It travels with
   saved progress (`team` in `shared/save.js`, the latest choice wins). Its own players' teams are picked only
   in the builder: a new one starts in the device's team, else in no team (plain grey, no name) and can't be
   saved until one's picked; saving marks it `teamPicked`. A player saved in KINGS before teams came out
