@@ -358,12 +358,15 @@ async function firstLoad(port, base) {
   return out;
 }
 
+// Every long task's length (ms), from the first moment of a page: window.__long.
+const LONG_TASKS = `window.__long = []; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__long.push(Math.round(e.duration)); }).observe({ type: "longtask", buffered: true }); } catch {}`;
+
 async function perf() {
   const srv = await site();
   const chrome = await launchChrome({ port: option("--port") });
   const out = dirFor("perf");
   const vp = { width: 390, height: 844, scale: 3, mobile: true };
-  const today = { play: null, builder: null, builderChange: null, builderStep: null, size: null, firstLoad: null };
+  const today = { play: null, builder: null, builderChange: null, builderStep: null, builderSwitch: null, builderColour: null, doneToPlayable: null, size: null, firstLoad: null };
   try {
     // 20 s of Time attack as Orson, phone, 4x slower CPU
     const tab = await openTab(chrome.port);
@@ -403,6 +406,52 @@ async function perf() {
     await b.screenshot(join(out, "builder.png"));
     await b.close();
 
+    // Switching bodies, a colour change, and Done to playable (phone, 4x slower CPU): how long until it's
+    // shown (the builder's "builder-painted" mark, the game's "player-ready"), and the longest the page froze
+    // (its longest task) on the way: for Done, on the builder until it leaves and then on the game.
+    const k = await openTab(chrome.port);
+    await k.send("Page.bringToFront");
+    await k.send("Page.addScriptToEvaluateOnNewDocument", { source: LONG_TASKS });
+    await k.viewport(vp.width, vp.height, vp);
+    await k.goto(`${srv.base}/players/`, 9000);
+    await k.throttle(4);
+    const timed = async (step, mark, ms = 9000) => {
+      const t0 = await k.run(`window.__long.length = 0; performance.clearMarks(${JSON.stringify(mark)}); ${step} return performance.now();`);
+      await wait(ms);
+      const r = await k.run(`const m = performance.getEntriesByName(${JSON.stringify(mark)})[0]; return { at: m ? Math.round(m.startTime) : null, longest: Math.max(0, ...window.__long) };`);
+      return { time: r.at === null ? null : r.at - Math.round(t0), longest: r.longest };
+    };
+    const worst = (list) => ({ time: Math.max(...list.map((r) => r.time ?? 99999)), longest: Math.max(...list.map((r) => r.longest)) });
+    const switches = [];
+    for (const body of ["Curly", "Buzz", "Buns", "Spiky"]) switches.push(await timed(`document.querySelector('.character-card[aria-label="${body}"]')?.click();`, "builder-painted"));
+    today.builderSwitch = worst(switches);
+    const colours = [];
+    for (let i = 0; i < 3; i++) colours.push(await timed(`[...document.querySelectorAll("#look-swatches .swatch")].find((x) => x.getAttribute("aria-pressed") !== "true")?.click();`, "builder-painted", 4000));
+    today.builderColour = worst(colours);
+    // Done with Curly (a team picked, a name typed): to the game, until their player is in
+    await k.run(`document.querySelector('.character-card[aria-label="Curly"]')?.click(); return 1;`);
+    await wait(9000);
+    await k.run(`document.getElementById("tab-team").click(); return 1;`);
+    await wait(1500);
+    await k.run(`document.querySelector(".team-pick")?.click(); document.getElementById("done-open").click(); return 1;`);
+    await wait(1500);
+    await k.run(`const n = document.getElementById("name"); n.value = "Testy"; n.dispatchEvent(new Event("input", { bubbles: true })); return 1;`);
+    await wait(2000);
+    const t0 = Date.now();
+    await k.run(`window.__long.length = 0; document.getElementById("play").click(); return 1;`);
+    // (the builder's long tasks are read while it's still open: the game page starts a list of its own)
+    let ready = null, builderLong = 0;
+    for (let i = 0; i < 120 && ready === null; i++) {
+      await wait(250);
+      const r = await k.run(`return { game: location.pathname.startsWith("/games"), ready: performance.getEntriesByName("player-ready").length > 0, longest: Math.max(0, ...window.__long) }`).catch(() => null);
+      if (r && !r.game) builderLong = Math.max(builderLong, r.longest);
+      if (r?.game && r.ready) ready = 1;
+    }
+    const doneLong = Math.max(builderLong, await k.run(`return Math.max(0, ...window.__long)`).catch(() => 0));
+    today.doneToPlayable = { time: ready ? Date.now() - t0 : null, longest: doneLong };
+    await k.throttle(1);
+    await k.close();
+
     today.size = bundleSizes();
     today.firstLoad = await firstLoad(chrome.port, srv.base);
   } finally { chrome.stop(); srv.stop(); }
@@ -423,6 +472,12 @@ async function perf() {
       `work per frame (ms, 4x slower CPU): p50 ${got.work.p50}, p95 ${got.work.p95}, worst ${got.work.worst} over ${got.work.frames} frames; ` +
       `${got.longGaps} gaps over 50 ms, longest ${got.worstGap} ms. Budget: p50 ${max.p50}, p95 ${max.p95}, worst ${max.worst}, gaps ${max.longGaps}` +
       (bad.length ? `\nover budget: ${bad.join(", ")}` : ""), [join(out, `${where}.png`)]);
+  }
+  for (const [name, what] of [["builderSwitch", "switching bodies (Curly, Buzz, Buns, Spiky)"], ["builderColour", "a colour change"], ["doneToPlayable", "Done to playable, with Curly"]]) {
+    const got = today[name], max = budget[name] ?? {};
+    const bad = [over(got.time ?? Infinity, max.time) && "time", over(got.longest, max.longest) && "longest freeze"].filter(Boolean);
+    record(`${what}`, !bad.length || flag("--keep"),
+      `(4x slower CPU) ${got.time === null ? "never shown" : `shown after ${got.time} ms`} (budget ${max.time}); longest freeze ${got.longest} ms (budget ${max.longest})` + (bad.length ? `\nover budget: ${bad.join(", ")}` : ""));
   }
   record("builder changes", (!over(today.builderChange, budget.builderChange) && !over(today.builderStep, budget.builderStep)) || flag("--keep"),
     `longest freeze (4x slower CPU) after one colour change: ${today.builderChange} ms (budget ${budget.builderChange}); after one height step: ${today.builderStep} ms (budget ${budget.builderStep})`);
@@ -447,6 +502,10 @@ function seedBudget(t) {
     frames: { play: frames(t.play), builder: frames(t.builder) },
     builderChange: Math.ceil(t.builderChange * 1.5),
     builderStep: Math.ceil(t.builderStep * 1.5),
+    // time to shown, and the longest freeze: nothing over about 100 ms
+    builderSwitch: { time: Math.ceil(t.builderSwitch.time * 1.5), longest: 120 },
+    builderColour: { time: Math.ceil(t.builderColour.time * 1.5), longest: 120 },
+    doneToPlayable: { time: Math.ceil(t.doneToPlayable.time * 1.5), longest: 250 },
     size: Object.fromEntries(Object.entries(t.size).map(([p, s]) => [p, { js: up(s.js, 1.1, 1), css: up(s.css, 1.1, 1) }])),
     firstLoad: Object.fromEntries(Object.entries(t.firstLoad).map(([p, s]) => [p, { all: Math.ceil(Math.max(s.all * 1.1, s.all + 20)), images: Math.ceil(Math.max(s.images * 1.1, s.images + 20)) }])),
   };

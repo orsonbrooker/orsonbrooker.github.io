@@ -188,7 +188,7 @@ async function boot() {
   try {
     await loadRoster();
     playerReady = selectCharacter(characters.selected);
-    playerReady.catch((err) => console.error(err));
+    playerReady.then(() => performance.mark("player-ready")).catch((err) => console.error(err)); // (timed by verify perf)
     // a loading bar under the title while their player comes in
     showLoading(tapToPlay.parentElement, loadingProgress(characters.selected), playerReady, "Loading your player");
     await Promise.all([
