@@ -88,25 +88,25 @@
 
       <!-- Player select. -->
       <div class="screen panel-screen" id="select-screen" hidden>
-        <div class="panel select-panel">
+        <div class="panel select-panel" data-keys="grid">
           <div class="select-head">
-            <button class="screen-back" id="select-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+            <button class="screen-back" data-keys-back id="select-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
             <h2 id="select-title">Choose your player</h2>
           </div>
           <button class="my-team" id="my-team" type="button" hidden></button>
           <p class="team-note" id="team-note" hidden></p>
           <div class="char-pick" id="char-pick" role="group" aria-label="Players"></div>
           <div class="team-go" id="team-go-row" hidden>
-            <button class="primary" id="team-go" type="button"><span data-icon="play"></span>Start</button>
+            <button class="primary" id="team-go" type="button" data-keys-default><span data-icon="play"></span>Start</button>
           </div>
         </div>
       </div>
 
       <!-- Game select. -->
       <div class="screen panel-screen" id="mode-screen" hidden>
-        <div class="panel select-panel">
+        <div class="panel select-panel" data-keys="grid">
           <div class="select-head">
-            <button class="screen-back" id="mode-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+            <button class="screen-back" data-keys-back id="mode-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
             <h2>Choose a game</h2>
           </div>
           <!-- Once they've chosen a player: who they play as, and their team (screens/menus.js showWho). -->
@@ -152,9 +152,9 @@
 
       <!-- Between turns in a pass and play game (HORSE): pass the device on. -->
       <div class="screen panel-screen" id="turn-screen" hidden>
-        <div class="panel turn-panel">
+        <div class="panel turn-panel" data-keys="grid">
           <div class="select-head">
-            <button class="screen-back" id="turn-quit" type="button" aria-label="Stop this game"><span data-icon="close"></span></button>
+            <button class="screen-back" data-keys-back id="turn-quit" type="button" aria-label="Stop this game"><span data-icon="close"></span></button>
             <h2 id="turn-title">Pass it on!</h2>
           </div>
           <p class="turn-news" id="turn-news" aria-live="polite"></p>
@@ -165,15 +165,15 @@
           <div class="spot-map" id="spot-map" role="group" aria-label="Spots to shoot from"></div>
           <p class="turn-spot" id="turn-spot"></p>
           <ul class="horse-letters" id="turn-letters" aria-label="Letters so far"></ul>
-          <button class="primary turn-go" id="turn-go" type="button"><span data-icon="play"></span>I'm ready!</button>
+          <button class="primary turn-go" id="turn-go" type="button" data-keys-default><span data-icon="play"></span>I'm ready!</button>
         </div>
       </div>
 
       <!-- Game over. -->
       <div class="screen panel-screen" id="over-screen" hidden>
-        <div class="panel over-panel">
+        <div class="panel over-panel" data-keys="grid">
           <div class="select-head">
-            <button class="screen-back" id="over-close" type="button" aria-label="Close"><span data-icon="close"></span></button>
+            <button class="screen-back" data-keys-back id="over-close" type="button" aria-label="Close"><span data-icon="close"></span></button>
             <h2 id="over-title">Time's up!</h2>
           </div>
           <!-- the score, as a big lit sign (styles.css .over-score) -->
@@ -185,7 +185,7 @@
           <p class="over-daily" id="over-daily"></p>
           <div class="over-board" id="over-board" hidden></div>
           <div class="over-actions">
-            <button class="primary" id="again" type="button"><span data-icon="again"></span>Play again</button>
+            <button class="primary" id="again" type="button" data-keys-default><span data-icon="again"></span>Play again</button>
             <button id="replay" type="button" hidden><span data-icon="play"></span>Replay</button>
             <button id="change-mode" type="button"><span data-icon="trophy"></span>Change game</button>
             <button id="change-player" type="button"><span data-icon="players"></span>Change player</button>
@@ -196,9 +196,9 @@
 
       <!-- Leaderboard. -->
       <div class="screen panel-screen" id="board-screen" hidden>
-        <div class="panel board-panel">
+        <div class="panel board-panel" data-keys="grid">
           <div class="select-head">
-            <button class="screen-back" id="board-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+            <button class="screen-back" data-keys-back id="board-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
             <h2>Leaderboard</h2>
           </div>
           <div class="board-tabs board-modes" role="tablist" aria-label="Game mode">
@@ -222,9 +222,9 @@
 
       <!-- Shop: ball styles bought with coins, and bringing them to another device. -->
       <div class="screen panel-screen" id="shop-screen" hidden>
-        <div class="panel select-panel shop-panel">
+        <div class="panel select-panel shop-panel" data-keys="grid">
           <div class="select-head">
-            <button class="screen-back" id="shop-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+            <button class="screen-back" data-keys-back id="shop-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
             <h2>Shop</h2>
             <p class="coin-count" id="shop-coins"></p>
           </div>
@@ -259,9 +259,9 @@
 
       <!-- How to play. -->
       <div class="screen panel-screen" id="help-screen" hidden>
-        <div class="panel help-panel">
+        <div class="panel help-panel" data-keys="grid">
           <div class="select-head">
-            <button class="screen-back" id="help-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
+            <button class="screen-back" data-keys-back id="help-back" type="button" aria-label="Back"><span data-icon="back"></span></button>
             <h2>How to play</h2>
           </div>
           <!-- The three steps as numbered signs with pictures, the fire levels, then a card for each game
@@ -285,19 +285,19 @@
             <p data-art="free"><strong>Free play</strong><span>No clock and no score. Move with the arrow keys or WASD (on a phone or tablet, the joystick) and shoot from anywhere. Get close to the hoop for a slam dunk! Tap pause (or press Escape) to stop.</span></p>
           </div>
           <p class="help-extra">Watch for a gold <strong>money ball</strong> (double points) and the rare <strong>rainbow ball</strong> (5 points)! After a game, tap <strong>Replay</strong> to watch your best shot again in slow motion.</p>
-          <button class="primary" id="help-close" type="button">Got it</button>
+          <button class="primary" id="help-close" type="button" data-keys-default>Got it</button>
         </div>
       </div>
 
       <!-- Paused mid-game: carry on, start the same game again, or stop it. -->
       <div class="screen panel-screen" id="pause-screen" hidden>
-        <div class="panel menu-panel">
+        <div class="panel menu-panel" data-keys="grid">
           <div class="select-head">
-            <button class="screen-back" id="pause-close" type="button" aria-label="Keep playing"><span data-icon="close"></span></button>
+            <button class="screen-back" data-keys-back id="pause-close" type="button" aria-label="Keep playing"><span data-icon="close"></span></button>
             <h2>Paused</h2>
           </div>
           <div class="menu-list">
-            <button class="primary" type="button" id="pause-resume"><span data-icon="play"></span>Keep playing</button>
+            <button class="primary" type="button" id="pause-resume" data-keys-default><span data-icon="play"></span>Keep playing</button>
             <button type="button" id="pause-restart"><span data-icon="again"></span>Start again</button>
             <button type="button" id="pause-quit"><span data-icon="home"></span>Quit this game</button>
             <div class="menu-pair">
@@ -310,13 +310,13 @@
 
       <!-- The menu: the game first, then (not in the iOS app) the rest of the website. -->
       <div class="screen panel-screen" id="menu-screen" hidden>
-        <div class="panel menu-panel">
+        <div class="panel menu-panel" data-keys="grid">
           <div class="select-head">
-            <button class="screen-back" id="menu-close" type="button" aria-label="Close the menu"><span data-icon="close"></span></button>
+            <button class="screen-back" data-keys-back id="menu-close" type="button" aria-label="Close the menu"><span data-icon="close"></span></button>
             <h2>Menu</h2>
           </div>
           <nav class="menu-list" aria-label="Game">
-            <button class="primary" type="button" data-menu="play"><span data-icon="play"></span>Play</button>
+            <button class="primary" type="button" data-menu="play" data-keys-default><span data-icon="play"></span>Play</button>
             <button type="button" data-menu="board"><span data-icon="trophy"></span>Leaderboard</button>
             <button type="button" data-menu="shop"><span data-icon="shop"></span>Shop</button>
             <button type="button" data-menu="help"><span data-icon="help"></span>How to play</button>

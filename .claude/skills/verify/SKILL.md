@@ -18,7 +18,7 @@ you looked at.
 
 | You changed | Run | Pass means |
 |---|---|---|
-| Any page, CSS, a screen, a menu | `pages` | No script errors, no sideways scroll, nothing to tap under 44px at phone (390x844) and iPad (820x1180), on every page and the game's title, choose-a-game and choose-a-player screens. Desktop is shot but not failed on size. |
+| Any page, CSS, a screen, a menu | `pages`, and `keys` | No script errors, no sideways scroll, nothing to tap under 44px at phone (390x844) and iPad (820x1180), on every page and the game's title, choose-a-game and choose-a-player screens. Desktop is shot but not failed on size. `keys` (desktop size; `--size phone` for another): every control on each screen in `KEY_SCREENS` is reached with Tab and the arrow keys, shows the yellow highlight and is pressed with Enter (and Space); sliders move; dialogs take focus, keep it, close on Escape and give it back. A new screen goes in `KEY_SCREENS`. |
 | Game code (`play/`, `modes/`, `engine/`, `shared/rules.js`) | `play [timed,survival,around,threes]` | Each game reaches game over, the server accepts it and turns down a made-up copy, no errors; the game-over screen passes the tap check. Needs the local Worker on 8787. |
 | Anything per frame, players' loading, the builder, bundles, images | `perf` | Frame work (p50, p95, worst, gaps over 50 ms) in 20 s of play and the builder preview at 4x slower CPU, one colour change and one height step in the builder, gzipped JS/CSS per page and first-load bytes, all within `perf-budget.json`. |
 | A player's or body's art (`assets/characters/…`) | `art <orson\|curly\|buns\|spiky\|…>` | See below. |

@@ -5,6 +5,7 @@
 //   node tools/dev/verify.mjs perf                  frame times (play + builder preview, 4x slower CPU), sizes
 //   node tools/dev/verify.mjs art <player|body>     contact sheets and checks of a player's art
 //   node tools/dev/verify.mjs serve                 builds and serves dist/ to phones; prints the links
+//   node tools/dev/verify.mjs keys [screens]        every control on the site's screens and the game's sheets, by keyboard alone
 //
 // Options: --out DIR (default .verify/<branch>/), --port N (attach to a headless Chrome already running on
 // that debug port; otherwise it starts its own), --url BASE (use a server already running instead of
@@ -23,12 +24,13 @@ import { describe, freePort, launchChrome, openTab, wait } from "./cdp.mjs";
 import { PAGES, pageProblems, realProblems } from "./check_pages.mjs";
 import { HELPERS, playGame } from "./play.mjs";
 import { checkPrints, printReport } from "./check_prints.mjs";
+import { checkGame, checkScreen, checkTouch, key } from "./keyboard.mjs";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(name);
 const option = (name) => { const i = args.indexOf(name); return i >= 0 ? args[i + 1] : undefined; };
-const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && ["--out", "--port", "--url", "--base", "--serve-port"].includes(args[i - 1])));
+const positional = args.filter((a, i) => !a.startsWith("--") && !(i > 0 && ["--out", "--port", "--url", "--base", "--serve-port", "--size"].includes(args[i - 1])));
 const [command, ...rest] = positional;
 // each art target keeps its own checks in the summary
 const group = command === "art" && rest[0] ? `art ${rest[0]}` : command;
@@ -480,9 +482,95 @@ async function serve() {
   return { port, pid: proc.pid, links };
 }
 
+// ---------- keys ----------
+
+// The ideas board needs the Worker; these stand in for it, so the board has cards and votes.
+const FAKE_IDEAS = `(() => {
+  const real = window.fetch;
+  const ok = (body) => Promise.resolve(new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } }));
+  window.fetch = (u, o) => {
+    const url = String(u);
+    if (url.endsWith("/api/config")) return ok({ apps: [{ slug: "new-game", name: "New games" }, { slug: "basketball", name: "Shootaround" }, { slug: "website", name: "The website" }] });
+    if (url.endsWith("/api/ideas")) return ok({ ideas: [
+      { id: 1, app: "basketball", status: "idea", title: "Moni as a player", votes: 9 },
+      { id: 2, app: "new-game", status: "idea", title: "A city to explore", votes: 2, credit: "Zoom" },
+      { id: 3, app: "basketball", status: "planned", title: "New courts", votes: 5 },
+      { id: 4, app: "basketball", status: "done", title: "Fire at 3 in a row", votes: 12 },
+    ], voted: [2] });
+    return real(u, o);
+  };
+})();`;
+const click = (sel) => `document.querySelector(${JSON.stringify(sel)})?.click();`;
+
+// Each screen: its page and how to get to it (what a kid would tap first; the check itself is all keys).
+const KEY_SCREENS = {
+  home: { path: "/" },
+  lost: { path: "/404.html" },
+  ideas: { path: "/ideas/" },
+  "builder-character": { path: "/players/" },
+  // a new character, so the sliders can move
+  "builder-body": { path: "/players/", steps: [click(".character-card:nth-child(2)"), click("#tab-body")] },
+  "builder-team": { path: "/players/", steps: [click("#tab-team")] },
+  "builder-team-editor": { path: "/players/", steps: [click("#tab-team"), click(".make-team")] },
+  "builder-gear": { path: "/players/", steps: [click("#tab-gear")] },
+  // Done, with a team picked so it opens its sheet
+  "builder-done": { path: "/players/", steps: [click("#tab-team"), click(".team-pick"), click("#tab-character")] },
+  "choose-player": { path: "/games/shootaround/?flags=teams", keys: [" ", "Enter"] },
+  "horse-turn": {
+    path: "/games/shootaround/",
+    keys: [" "],
+    steps: [click('[data-mode="horse"]'), click("#char-pick .card:nth-child(1)"), click("#char-pick .card:nth-child(2)"), click("#team-go")],
+  },
+};
+
+async function keys() {
+  const srv = await site();
+  const chrome = await launchChrome({ port: option("--port") });
+  const out = dirFor("keys");
+  const vp = SIZES[option("--size") ?? "desktop"];
+  const only = rest[0]?.split(",");
+  try {
+    for (const [name, screen] of Object.entries(KEY_SCREENS)) {
+      if (only && !only.includes(name)) continue;
+      const tab = await openTab(chrome.port);
+      await tab.viewport(vp.width, vp.height, vp);
+      await tab.send("Page.addScriptToEvaluateOnNewDocument", { source: FAKE_IDEAS });
+      const open = async () => {
+        await tab.goto(srv.base + screen.path, 3500);
+        for (const k of screen.keys ?? []) { await key(tab, k); await wait(900); }
+        for (const step of screen.steps ?? []) { await tab.run(step); await wait(900); }
+      };
+      const file = join(out, `${name}.png`);
+      const res = await checkScreen(tab, open);
+      await open();
+      await tab.screenshot(file);
+      const errs = realProblems(pageProblems(tab));
+      if (errs.length) res.problems.push("errors:\n  " + errs.map(describe).join("\n  "));
+      const notes = [...res.problems, res.dialogs.length ? `dialogs opened and checked from: ${res.dialogs.join(", ")}` : ""].filter(Boolean);
+      record(`${name}: ${res.reached} of ${res.total} reached`, res.ok && !errs.length, notes.join("\n"), [file]);
+      await tab.close();
+    }
+    // the game's own sheets, walked through in order
+    if (!only || only.includes("game")) {
+      const tab = await openTab(chrome.port);
+      // as a first visit: the screens above chose a player, which would skip Choose your player
+      await tab.goto(`${srv.base}/404.html`, 1000);
+      await tab.run(`localStorage.clear(); sessionStorage.clear();`);
+      await checkGame(tab, srv.base, record, out);
+      await tab.close();
+    }
+    // touch: opening the same menus with taps, nothing looks chosen
+    if (!only || only.includes("touch")) {
+      const tab = await openTab(chrome.port);
+      await checkTouch(tab, srv.base, record, out);
+      await tab.close();
+    }
+  } finally { chrome.stop(); srv.stop(); }
+}
+
 // ---------- main ----------
 
-const COMMANDS = { pages, play, perf, art, serve };
+const COMMANDS = { pages, play, perf, art, serve, keys };
 if (!COMMANDS[command]) {
   console.log(readFileSync(import.meta.filename, "utf8").split("\n").filter((l) => l.startsWith("//")).map((l) => l.slice(3)).join("\n"));
   process.exit(command ? 1 : 0);

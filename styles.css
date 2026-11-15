@@ -37,6 +37,18 @@ body {
   image-rendering: pixelated;
 }
 
+/* What the keyboard is on: always the yellow highlight (signs draw it as a yellow edge and glow; anything
+   else gets this ring), lifted a little so it stands out from a picked one, which is yellow too.
+   The arrow keys and focus are ui/keys.js. */
+:where(a, button, input, select, textarea, summary, canvas, [tabindex]):focus-visible {
+  outline: 3px solid var(--pick);
+  outline-offset: 2px;
+}
+
+:where(.swatch, .character-card, .ball-card, .card, .tile, .fb-card button, .team-choice, .team-pick):focus-visible {
+  translate: 0 -3px;
+}
+
 /* The bar across the top of every page (ui/nav.js). */
 .site-nav {
   display: flex;
@@ -618,12 +630,12 @@ body:has(#mode-screen:not([hidden])) .corner {
   transform: perspective(700px) rotateX(10deg) rotateY(-16deg) scale(1.03) translateY(0);
 }
 
-/* One highlight, and only one: the focused card (Choose a game focuses their last game when it opens, and the
-   arrow keys and Tab move it), or their last game while nothing is focused. It tips back like a sign turned to
-   face you, lifts, glows yellow and gets a bouncing arrow; the rest dim a little. */
-.mode-card:focus,
-.mode-cards:not(:has(.mode-card:focus)) .mode-card[aria-pressed="true"],
-.mode-card:hover {
+/* One highlight, and only for the keyboard (ui/keys.js marks the page data-input="keys" while it's in use): the
+   card with keyboard focus, or their last game until something has it. It tips back like a sign turned to face
+   you, lifts, glows yellow and gets a bouncing arrow; the rest dim a little. With touch or a mouse no card looks
+   chosen; a mouse pointing at one lifts it the same way. */
+:root[data-input="keys"] .mode-card:focus-visible,
+:root[data-input="keys"] .mode-cards:not(:has(:focus-visible)) .mode-card[aria-pressed="true"] {
   z-index: 1;
   border-color: #ffe066;
   outline: none;
@@ -633,18 +645,31 @@ body:has(#mode-screen:not([hidden])) .corner {
     inset 0 0 18px rgba(255, 224, 102, 0.35), 10px 12px 0 3px rgba(24, 8, 38, 0.8);
 }
 
-.mode-card:focus strong,
-.mode-cards:not(:has(.mode-card:focus)) .mode-card[aria-pressed="true"] strong,
-.mode-card:hover strong {
+@media (hover: hover) {
+  :root:not([data-input="keys"]) .mode-card:hover {
+    z-index: 1;
+    border-color: #ffe066;
+    transform: perspective(700px) rotateX(10deg) rotateY(-16deg) scale(1.07) translateY(-4px);
+    box-shadow: 0 0 0 3px #2b1622, 0 0 0 7px rgba(255, 224, 102, 0.35), 0 0 28px rgba(255, 224, 102, 0.85),
+      inset 0 0 18px rgba(255, 224, 102, 0.35), 10px 12px 0 3px rgba(24, 8, 38, 0.8);
+  }
+  :root:not([data-input="keys"]) .mode-card:hover strong {
+    color: #ffe066;
+  }
+}
+
+.mode-card:focus-visible {
+  outline: none; /* the highlight above is its focus */
+}
+
+:root[data-input="keys"] .mode-card:focus-visible strong,
+:root[data-input="keys"] .mode-cards:not(:has(:focus-visible)) .mode-card[aria-pressed="true"] strong {
   color: #ffe066;
 }
 
 /* the others step back */
-.mode-cards:has(.mode-card:focus,
-.mode-card:hover) .mode-card:not(:focus,
-:hover),
-.mode-cards:not(:has(.mode-card:focus,
-.mode-card:hover)) .mode-card:not([aria-pressed="true"]) {
+:root[data-input="keys"] .mode-cards:has(:focus-visible) .mode-card:not(:focus-visible),
+:root[data-input="keys"] .mode-cards:not(:has(:focus-visible)) .mode-card:not([aria-pressed="true"]) {
   filter: brightness(0.72) saturate(0.8);
 }
 
@@ -664,8 +689,8 @@ body:has(#mode-screen:not([hidden])) .corner {
   pointer-events: none;
 }
 
-.mode-card:focus::after,
-.mode-cards:not(:has(.mode-card:focus)) .mode-card[aria-pressed="true"]::after {
+:root[data-input="keys"] .mode-card:focus-visible::after,
+:root[data-input="keys"] .mode-cards:not(:has(:focus-visible)) .mode-card[aria-pressed="true"]::after {
   opacity: 1;
   animation: point-down 0.7s steps(2) infinite;
 }
@@ -3506,4 +3531,20 @@ body:has(.panel-screen:not([hidden])) .corner {
   .panel button:active {
     transform: none;
   }
+}
+
+/* The keyboard's focus in the game: the signs above draw it as their own yellow border, anything else gets the
+   yellow ring (near the top of this file), and START, a picture, a yellow edge round it. */
+.box-start:focus-visible {
+  outline: none;
+}
+
+:root[data-input="keys"] .box-start:focus-visible .arcade-art {
+  filter: drop-shadow(3px 0 0 var(--pick)) drop-shadow(-3px 0 0 var(--pick)) drop-shadow(0 3px 0 var(--pick))
+    drop-shadow(0 -3px 0 var(--pick));
+}
+
+.panel .over-actions #got-idea:focus-visible {
+  border-color: var(--pick);
+  box-shadow: 0 0 0 3px var(--ink-line), 0 0 0 7px rgba(255, 224, 102, 0.35), 0 0 22px rgba(255, 224, 102, 0.8);
 }

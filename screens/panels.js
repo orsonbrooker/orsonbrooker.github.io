@@ -4,7 +4,7 @@ import { flagOn } from "../flags.js";
 import { renderBoard, renderTeams } from "../leaderboard.js";
 import { boardBody, boardFace } from "../play/players.js";
 import { state } from "../play/state.js";
-import { $, openScreen, screens, showScreen, stage } from "../screens/base.js";
+import { $, backToGame, openScreen, screens, showScreen, stage } from "../screens/base.js";
 import { MODES } from "../shared/rules.js";
 
 // ---------- Leaderboard ----------
@@ -31,7 +31,7 @@ export function openBoard(range = "week", mode = boardMode ?? state.mode) {
 const boardRange = () => screens.board.querySelector('[data-range][aria-selected="true"]')?.dataset.range ?? "week";
 export function closeBoard() {
   showScreen(boardReturn === "board" ? "title" : boardReturn);
-  stage.focus({ preventScroll: true });
+  backToGame();
 }
 export const toggleBoard = () => (screens.board.hidden ? openBoard() : closeBoard());
 export function wireBoardTabs() {
@@ -52,10 +52,9 @@ let helpReturn = null;
 function openHelp() {
   helpReturn = openScreen();
   showScreen("help");
-  $("help-close").focus({ preventScroll: true });
 }
 export function closeHelp() {
   showScreen(helpReturn);
-  stage.focus({ preventScroll: true });
+  backToGame();
 }
 export const toggleHelp = () => (screens.help.hidden ? openHelp() : closeHelp());

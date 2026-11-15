@@ -17,6 +17,7 @@ import { addPopup, confettiBurst, pixelFx } from "../play/react.js";
 import { ANIM_FPS, player, setAnim, setPhase, state } from "../play/state.js";
 import { howTo, showScreen } from "../screens/base.js";
 import { ballPoints } from "../shared/rules.js";
+import { usingKeys } from "../ui/keys.js";
 
 const REPLAY_SPEED = 0.4; // game speed during a replay
 const HOLD_AFTER = 1.6; // seconds to stay on the court after the shot is decided
@@ -187,7 +188,7 @@ export function endReplay() {
   setPhase("over");
   state.overAt = performance.now();
   showScreen("over");
-  document.getElementById("replay")?.focus({ preventScroll: true });
+  if (usingKeys()) document.getElementById("replay")?.focus({ preventScroll: true }); // the keyboard goes back to Replay
 }
 
 // ?debug (window.game.checkReplays): flies every recorded shot again, straight through, and says

@@ -5,7 +5,7 @@
 import { sound } from "../audio.js";
 import { startGame } from "../play/round.js";
 import { state } from "../play/state.js";
-import { $, screens, showScreen, stage } from "../screens/base.js";
+import { $, backToGame, screens, showScreen, stage } from "../screens/base.js";
 import { showTitle } from "../screens/menus.js";
 
 export function openPause() {
@@ -13,14 +13,13 @@ export function openPause() {
   state.paused = true; // game.js stops stepping the game
   state.pressed = false; // a hold in progress is let go of without shooting
   showScreen("pause");
-  $("pause-resume").focus({ preventScroll: true });
 }
 
 export function resumeGame() {
   if (!state.paused) return;
   state.paused = false;
   showScreen(null);
-  stage.focus({ preventScroll: true });
+  backToGame();
 }
 
 function restartGame() {

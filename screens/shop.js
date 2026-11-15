@@ -3,7 +3,7 @@
 
 import { BALL_FRAMES, BALL_PX, makeBallFrames } from "../engine/draw.js";
 import { buyBall, hasProgress, joinWithCode, onProgress, owns, pairCode, progress, refreshProgress, useBall } from "../progress.js";
-import { $, openScreen, screens, showScreen, stage } from "../screens/base.js";
+import { $, backToGame, openScreen, screens, showScreen, stage } from "../screens/base.js";
 import { BALL_STYLES } from "../shared/shop.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
@@ -155,13 +155,12 @@ export function openShop() {
   render();
   showScreen("shop");
   startSpin();
-  $("shop-back").focus({ preventScroll: true });
   refreshProgress(); // another device may have spent or earned some
 }
 export function closeShop() {
   clearInterval(spin);
   showScreen(shopReturn === "shop" ? "title" : shopReturn);
-  stage.focus({ preventScroll: true });
+  backToGame();
 }
 export const toggleShop = () => (screens.shop.hidden ? openShop() : closeShop());
 

@@ -19,6 +19,7 @@ import { flagOn } from "../flags.js";
 import { myTeam, myTeamKit } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
+import { usingKeys } from "../ui/keys.js";
 import { modeArt } from "../ui/mode-art.js";
 import { showLoading } from "../ui/loading-bar.js";
 
@@ -73,11 +74,7 @@ export function openModes() {
     const best = m.bestKey ? load(m.bestKey, 0) : 0;
     label.textContent = m.passAndPlay ? `${m.passAndPlay.min} to ${m.passAndPlay.max} players` : best ? `Your best: ${m.formatBest(best)}` : "No best yet";
   }
-  showScreen("modes");
-  // Focus their last game, but only once Space is let go, or letting go would pick it.
-  const focus = () => screens.modes.querySelector('[aria-pressed="true"]')?.focus({ preventScroll: true });
-  if (state.pressed) window.addEventListener("keyup", () => setTimeout(focus), { once: true });
-  else focus();
+  showScreen("modes"); // with the keyboard, focus starts on their last game (screens/base.js)
 }
 
 // Pick a player. `thenPlay`: true starts the game once they've picked, "modes" goes back to Choose a
@@ -95,8 +92,7 @@ export function openSelect(thenPlay = false) {
   showMyTeam();
   charPick.classList.toggle("team", !!team);
   renderPicker();
-  showScreen("select");
-  (charPick.querySelector('[aria-pressed="true"]') ?? charPick.querySelector("button"))?.focus({ preventScroll: true });
+  showScreen("select"); // with the keyboard, focus starts on their player (screens/base.js)
 }
 
 // A game was chosen: straight in as their player once they've chosen one (asking for a team first if
@@ -269,7 +265,7 @@ function toggleTeam(id) {
   const focused = document.activeElement;
   const index = [...charPick.querySelectorAll(".card")].indexOf(focused);
   renderPicker();
-  charPick.querySelectorAll(".card")[index]?.focus({ preventScroll: true });
+  if (usingKeys()) charPick.querySelectorAll(".card")[index]?.focus({ preventScroll: true }); // the keyboard stays put
 }
 
 function showTeam() {

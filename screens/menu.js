@@ -3,7 +3,7 @@
 // Opens over whichever screen is showing and goes back to it, like help.
 
 import { IN_APP } from "../api.js";
-import { $, openScreen, screens, showScreen, stage } from "../screens/base.js";
+import { $, backToGame, openScreen, screens, showScreen, stage } from "../screens/base.js";
 import { openModes, showTitle } from "../screens/menus.js";
 import { openBoard, toggleHelp } from "../screens/panels.js";
 import { openShop } from "../screens/shop.js";
@@ -13,12 +13,11 @@ if (IN_APP) for (const el of screens.menu.querySelectorAll("[data-site-links]"))
 let menuReturn = null;
 export function openMenu() {
   menuReturn = openScreen();
-  showScreen("menu");
-  screens.menu.querySelector('[data-menu="play"]').focus({ preventScroll: true });
+  showScreen("menu"); // with the keyboard, focus starts on Play (its data-keys-default)
 }
 export function closeMenu() {
   showScreen(menuReturn === "menu" ? "title" : menuReturn);
-  stage.focus({ preventScroll: true });
+  backToGame();
 }
 
 // Each item closes the menu first, so the screen it opens goes back to where they were.

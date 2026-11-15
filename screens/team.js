@@ -66,6 +66,7 @@ export function chooseTeam(note = "") {
   return new Promise((resolve) => {
     const now = myTeam();
     const dialog = el("dialog", { className: "confirm-dialog team-dialog" });
+    dialog.dataset.keys = "grid"; // the arrow keys move between the teams (ui/keys.js)
     const pick = (t) => {
       setMyTeam(t);
       dialog.close();
@@ -91,8 +92,10 @@ export function chooseTeam(note = "") {
       el("div", { className: "team-choices" }, ...joined.map((t) => row(t, true)), ...TEAMS.map((t) => row(t, false))),
       ...(IN_APP ? [] : [el("a", { className: "team-make", href: "/players/", textContent: "Make a team, or join a friend's with a code, in Make your player." })]),
     );
+    // a team has to be chosen the first time (Escape does nothing); changing it can be left
+    if (!myTeam()) dialog.dataset.keysRequired = "";
     dialog.addEventListener("cancel", (e) => {
-      if (!myTeam()) e.preventDefault(); // a team has to be chosen; changing it can be left
+      if (!myTeam()) e.preventDefault();
     });
     dialog.addEventListener("close", async () => {
       dialog.remove();

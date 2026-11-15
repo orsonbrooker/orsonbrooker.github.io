@@ -25,7 +25,7 @@ import { bestShot, checkReplays, endReplay, startReplay } from "./play/replay.js
 import { canDunk, checkDecided, shoot, startDunk, startGame, step, stepBall } from "./play/round.js";
 import { art, render, resize, updateHud } from "./play/scene.js";
 import { DEBUG, PHASES, canShoot, mode, player, setAnim, setSeed, state, steer } from "./play/state.js";
-import { $, charPick, page, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
+import { $, page, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
 import { changeMyTeam, changePlayer, changeTeamFromModes, openModes, openSelect, pickMode, refreshPicker, selectBack, selectCharacter, showTitle, startTeam } from "./screens/menus.js";
 import { checkTeams } from "./screens/team.js";
 import { setGameVersion } from "./screens/over.js";
@@ -175,12 +175,6 @@ listenForInput({
     steer.keys = { x, y };
     return state.phase === "playing" && !!mode().freeMove;
   },
-  // Choosing a game or a player: the arrow keys move between the cards.
-  cards: () =>
-    state.phase === "modes" && !screens.modes.hidden ? screens.modes.querySelector(".mode-cards")
-    : state.phase === "select" && !screens.select.hidden ? charPick
-    : state.phase === "turn" && !screens.turn.hidden ? $("spot-map") // HORSE: the spots on the turn screen
-    : null,
 });
 
 // ---------- Boot ----------

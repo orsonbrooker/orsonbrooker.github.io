@@ -1,7 +1,9 @@
 // Input: one button. Space, a tap or a mouse press anywhere on the game area presses it, letting go
-// releases it. Escape backs out of a screen, and the arrow keys move between cards. In free play the
+// releases it. Escape backs out of a screen (the arrow keys on screens are ui/keys.js). In free play the
 // arrow keys and WASD steer the player instead. (The on-screen joystick and shoot button for touch
 // screens are in play/controls.js.)
+
+import "../ui/keys.js"; // the arrow keys on the game's sheets, the same as every page
 
 // Typing in a form (like the ideas box) shouldn't make Orson shoot.
 const typing = (e) => e.target instanceof Element && e.target.closest("input, textarea, select, button, dialog");
@@ -15,49 +17,15 @@ const STEER_KEYS = {
   ArrowRight: [1, 0], KeyD: [1, 0],
 };
 
-// Arrow keys move between the cards in `area` (choosing a game or a player): to the nearest card
-// that way, so it works however the cards wrap. Enter or Space picks the one in focus.
-function arrowMove(key, area) {
-  if (document.querySelector("dialog[open]")) return false;
-  if (!area) return false;
-  const cards = [...area.querySelectorAll(".mode-card, .card")];
-  const current = cards.includes(document.activeElement) ? document.activeElement : null;
-  if (!current) {
-    (area.querySelector('[aria-pressed="true"]') ?? cards[0])?.focus({ preventScroll: true });
-    return true;
-  }
-  const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[key];
-  const centre = (el) => {
-    const r = el.getBoundingClientRect();
-    return [r.left + r.width / 2, r.top + r.height / 2];
-  };
-  const [cx, cy] = centre(current);
-  let best = null;
-  let bestScore = Infinity;
-  for (const card of cards) {
-    if (card === current) continue;
-    const [x, y] = centre(card);
-    const along = (x - cx) * dir[0] + (y - cy) * dir[1];
-    if (along < 4) continue; // not that way
-    const across = Math.abs((x - cx) * dir[1] + (y - cy) * dir[0]);
-    const score = along + across * 3; // prefer cards in line over ones off to the side
-    if (score < bestScore) [best, bestScore] = [card, score];
-  }
-  best?.focus({ preventScroll: true });
-  best?.scrollIntoView({ block: "nearest" });
-  return true;
-}
-
 // Listens for the button and the keys:
 //   pad       the element that takes presses (the whole game area, so a thumb can hold below the court)
 //   stage     gets focus back after a press, so Space keeps working
 //   press(), release()
 //   setInput(how)  how they're playing: "keyboard", "mouse" or "touch"
 //   escape()       Escape pressed with no dialog open
-//   cards()        the element whose cards the arrow keys move between right now, or null
 //   steer(x, y)    the steering keys held now, as a direction on screen (x right, y down, length 0
 //                  or 1); returns whether steering is on (free play), so the arrow keys don't scroll
-export function listenForInput({ pad, stage, press, release, setInput, escape, cards, steer }) {
+export function listenForInput({ pad, stage, press, release, setInput, escape, steer }) {
   const held = new Set();
   function steerKeys() {
     let x = 0;
@@ -75,10 +43,7 @@ export function listenForInput({ pad, stage, press, release, setInput, escape, c
       escape();
       return;
     }
-    if (e.key.startsWith("Arrow") && arrowMove(e.key, cards())) {
-      e.preventDefault();
-      return;
-    }
+    if (e.defaultPrevented) return; // an arrow key that moved focus on a sheet (ui/keys.js)
     if (STEER_KEYS[e.code] && !typing(e) && !e.metaKey && !e.ctrlKey && !e.altKey) {
       held.add(e.code);
       if (steerKeys()) {

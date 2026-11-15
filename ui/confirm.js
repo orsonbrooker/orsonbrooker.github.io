@@ -15,7 +15,7 @@ export function confirmDialog(question, { yes = "Okay", no = "Cancel", detail = 
       <form method="dialog">
         <p class="confirm-question"></p>
         ${detail ? '<p class="confirm-detail"></p>' : ""}
-        <div class="confirm-actions">
+        <div class="confirm-actions" data-keys="row">
           ${no === null ? "" : `<button value="no" type="submit">${no}</button>`}
           <button value="yes" type="submit" class="primary">${yesIcon ? icon(yesIcon) : ""}<span>${yes}</span></button>
         </div>

@@ -34,7 +34,6 @@ export function showTurn(view) {
   renderMap(view.spots, view.canPick);
   renderLetters(view.standings);
   showScreen("turn");
-  $("turn-go").focus({ preventScroll: true });
 }
 
 function renderMap(spots, canPick) {

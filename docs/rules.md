@@ -7,7 +7,7 @@ new row, and a row marked **nothing yet** is the next thing to automate.
 Enforcers:
 - `check`: `npm run check` (`tools/dev/check.mjs`), the build, Worker tests, types and house-rule greps.
 - test: a test in `worker/test/`, run by `npm --prefix worker test` (and by `check`).
-- `verify`: `npm run verify <pages|play|perf|art>`, screenshots and numbers in `.verify/<branch>/`.
+- `verify`: `npm run verify <pages|play|perf|art|keys>`, screenshots and numbers in `.verify/<branch>/`.
 - `review`: the `review` skill, a fresh reviewer using `docs/coding-standards.md`.
 - `ready`: the `ready` skill a worker runs before handing a branch over.
 - `iso_eval`: `tools/pixelart/iso_eval.py`, scoring isometric art (courts, props) against `docs/art/isometric.md`;
@@ -31,6 +31,7 @@ Enforcers:
 | Rude-word filter on anything typed; nicknames, not real names | `review` |
 | Art is looked at: every move and side, on green and clashing colours, beside the reference | `verify art`, `review` |
 | Phone first: no sideways scroll, big enough tap targets, uses the height | `verify pages` |
+| Every control works by keyboard: reached with Tab and the arrow keys, pressed with Enter (and Space), the yellow highlight on what's focused, dialogs keep focus, close on Escape and give it back; screens opt in with `data-keys` (`ui/keys.js`), no key code of their own | `verify keys` (`tools/dev/keyboard.mjs`) |
 | Smooth on a phone: no frame-time or size regressions | `verify perf` |
 | "Done" means tested, with a link to try it | `ready` (`verify serve`) |
 | Branch is up to date with `test-all` before hand-off | `ready`, session-start hook (`tools/dev/behind.sh`) |

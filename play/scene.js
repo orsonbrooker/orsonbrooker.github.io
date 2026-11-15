@@ -14,6 +14,7 @@ import { drawReplay, replayGreen } from "../play/replay.js";
 import { DEBUG, JUMP_APEX, JUMP_FRAME_TIME, hints, mode, player, state } from "../play/state.js";
 import { howTo, stage, tapToPlay } from "../screens/base.js";
 import { NORMAL } from "../shared/rules.js";
+import { usingKeys } from "../ui/keys.js";
 
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
@@ -403,6 +404,9 @@ function placeStart() {
   startButton.hidden = !on;
   startButton.disabled = !waiting();
   if (startWasWaiting && !waiting()) startDownUntil = performance.now() + 180;
+  // the keyboard: START takes focus while it waits (Enter or Space presses it), and gives it back to the game after
+  if (on && waiting() && !startWasWaiting && usingKeys() && !document.querySelector(".panel-screen:not([hidden])")) startButton.focus({ preventScroll: true });
+  if (!(on && waiting()) && document.activeElement === startButton) stage.focus({ preventScroll: true });
   startWasWaiting = on && waiting();
   if (!on) {
     startPlaced = null;
