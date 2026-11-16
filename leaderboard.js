@@ -66,19 +66,29 @@ const unreachable = (err) => (offline(err) ? NEEDS_INTERNET : UNREACHABLE);
 
 let config;
 let turnstileLoading;
+/** The robot check's script and site key, loaded once (and tried again after a failure): { turnstile, sitekey }. */
+export function loadTurnstile() {
+  if (!config) {
+    config = fetch(`${API}/config`).then((r) => (r.ok ? r.json() : Promise.reject(new Error("offline"))));
+    config.catch(() => (config = undefined));
+  }
+  if (!turnstileLoading) {
+    turnstileLoading = new Promise((resolve, reject) => {
+      const s = Object.assign(document.createElement("script"), { src: "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit", async: true });
+      s.onload = () => resolve(window.turnstile);
+      s.onerror = () => (s.remove(), reject(new Error("offline")));
+      document.head.append(s);
+    });
+    turnstileLoading.catch(() => (turnstileLoading = undefined));
+  }
+  return Promise.all([config, turnstileLoading]).then(([cfg, turnstile]) => ({ turnstile, sitekey: cfg.turnstileSiteKey }));
+}
 function robotCheck(into) {
-  config ??= fetch(`${API}/config`).then((r) => (r.ok ? r.json() : Promise.reject(new Error("offline"))));
-  turnstileLoading ??= new Promise((resolve, reject) => {
-    const s = Object.assign(document.createElement("script"), { src: "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit", async: true });
-    s.onload = () => resolve(window.turnstile);
-    s.onerror = reject;
-    document.head.append(s);
-  });
-  return Promise.all([config, turnstileLoading]).then(
-    ([cfg, turnstile]) =>
+  return loadTurnstile().then(
+    ({ turnstile, sitekey }) =>
       new Promise((resolve) => {
         turnstile.render(into, {
-          sitekey: cfg.turnstileSiteKey,
+          sitekey,
           callback: resolve,
           "expired-callback": () => turnstile.reset(into),
         });

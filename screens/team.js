@@ -4,14 +4,16 @@
 // the builder, the one place to change them: the Team button on Choose a game opens it on that player's
 // Team tab, and so does the question before a scored game as a player with no team picked (a new one,
 // or one saved in KINGS only because every player used to start there). Also: telling them when a
-// community team they were on has gone.
+// community team they were on has gone, and making teams kept only on this device real teams.
 
 import { IN_APP } from "../api.js";
+import { loadTurnstile } from "../leaderboard.js";
 import { dressInTeam, reloadMyPlayers } from "../play/players.js";
 import { myPlayers, saveMyPlayer, teamPicked } from "../players/recolor.js";
 import { kitColours } from "../players/teams.js";
-import { goneTeams, keptTeam, keptTeams, myTeam, myTeamKit, setMyTeam } from "../players/community.js";
-import { isOfficialTeam, TEAMS } from "../shared/teams.js";
+import { goneTeams, keptTeam, keptTeams, myTeam, myTeamKit, refreshTeams, setMyTeam } from "../players/community.js";
+import { draftName, makeDraft, waitingDrafts } from "../players/drafts.js";
+import { TEAMS } from "../shared/teams.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
 
@@ -37,15 +39,197 @@ export function editTeam(player) {
   location.assign(`/players/?edit=${encodeURIComponent(player.id)}&tab=team&back=modes`);
 }
 
-/** Before a scored game as their own player with no team picked: off to pick one in the builder. */
+/**
+ * Before a scored game as their own player with no team picked: off to pick one in the builder. A team
+ * kept only on this device is made a real team right here instead, after a robot check (unless the server
+ * wouldn't make it: then it's off to the builder to change it). Resolves true when the game can start.
+ */
 export async function askPlayerTeam(player) {
-  // A team kept only on this device (made before community teams) counts for nothing until the builder
-  // makes it a real team, which it does by itself once it opens.
   const name = player.colours?.teamName;
-  const onlyHere = !!name && !isOfficialTeam(name);
-  const detail = onlyHere ? `${name} is only on this device, so its games don't count yet. Open it to make it a real team.` : "Every player plays for a team. Their games count for it on Top teams.";
-  const go = await confirmDialog(onlyHere ? `Make ${name} a team` : `Pick ${player.name}'s team`, { yes: onlyHere ? "Open it" : "Pick a team", yesIcon: "players", no: "Not now", detail });
+  if (!draftName(name)) {
+    const go = await confirmDialog(`Pick ${player.name}'s team`, { yes: "Pick a team", yesIcon: "players", no: "Not now", detail: "Every player plays for a team. Their games count for it on Top teams." });
+    if (go) editTeam(player);
+    return false;
+  }
+  asked = true; // the background doesn't start (or go on) once the question's asked: it'd make the team twice
+  await background?.stop(); // a robot check waiting in the background gives way to this one
+  if (await madeYet(player)) return true;
+  const draft = waitingDrafts().find((t) => t.name === name);
+  if (draft && !refused.has(name) && !IN_APP) {
+    const made = await makeHere(draft);
+    if (made !== false) return made && madeYet(player);
+  }
+  const why = refused.get(name);
+  const detail = why ? `${name} isn't a team yet: ${why}` : `${name} is only on this device, so its games don't count yet. Open it to make it a real team.`;
+  const go = await confirmDialog(`Make ${name} a team`, { yes: "Open it", yesIcon: "players", no: "Not now", detail });
   if (go) editTeam(player);
+  return false;
+}
+
+// ---------- Teams kept only on this device ----------
+
+// Drafts (players/drafts.js) count for nothing until they're real teams. Once a visit the game makes them
+// real teams in the background, one per robot check token, so a kid's next game counts without them doing
+// anything. A check that wants a tap is left for the question before a scored game (askPlayerTeam).
+const refused = new Map(); // draft name → why the server wouldn't make it (a name it refused, 3 teams made)
+let background = null; // { stop } while the background check runs
+let asked = false; // the question before a scored game took over (askPlayerTeam)
+
+const madeYet = async (player) => {
+  const now = myPlayers().find((p) => p.id === player.id);
+  if (!teamPicked(now) || !now.colours?.teamId) return false;
+  await reloadMyPlayers(); // the game's copy of the player wears the new team
+  return true;
+};
+
+// Makes one draft a team; a refusal is kept (and said where it's asked), being offline isn't.
+async function makeOne(draft, token) {
+  try {
+    await makeDraft(draft, token);
+    return true;
+  } catch (err) {
+    if (!(err instanceof TypeError)) refused.set(draft.name, err.message || "That didn't work.");
+    return false;
+  }
+}
+
+/** Once a visit, in the background: drafts become private community teams. Resolves true if any did. */
+export async function makeDraftsLater() {
+  if (IN_APP || background || asked || !waitingDrafts().length) return false;
+  let cancelled = false;
+  const mine = (background = { stop: async () => void (cancelled = true) });
+  const { teams, most, offline } = await refreshTeams();
+  if (offline || cancelled || asked) return (background = null), false;
+  if (teams.filter((t) => t.maker).length >= most) {
+    for (const t of waitingDrafts()) refused.set(t.name, `You've made ${most} teams on this device. Pick one of them, or join a friend's team.`);
+    return (background = null), false;
+  }
+  let made = false;
+  try {
+    const { turnstile, sitekey } = await loadTurnstile();
+    if (cancelled || asked) throw new Error("stopped"); // a question before a game took over meanwhile
+    const slot = el("div", { className: "team-robot" });
+    document.body.append(slot);
+    let posting = null;
+    let finish;
+    const done = new Promise((resolve) => (finish = resolve));
+    const next = () => waitingDrafts().find((t) => !refused.has(t.name));
+    const id = turnstile.render(slot, {
+      sitekey,
+      theme: "dark",
+      appearance: "interaction-only", // nothing shows unless it wants a tap, and then it stops (below)
+      callback: async (token) => {
+        const draft = next();
+        if (!draft) return finish();
+        posting = makeOne(draft, token);
+        made = (await posting) || made;
+        posting = null;
+        if (next()) turnstile.reset(id);
+        else finish();
+      },
+      "before-interactive-callback": () => finish(),
+      "error-callback": () => finish(),
+      "expired-callback": () => turnstile.reset(id),
+      "timeout-callback": () => finish(),
+    });
+    const stopped = done.then(() => {
+      turnstile.remove(id);
+      slot.remove();
+    });
+    // askPlayerTeam: stop waiting for tokens, but let a team being made finish first (or it'd be made twice)
+    mine.stop = async () => {
+      await posting;
+      finish();
+      await stopped;
+    };
+    setTimeout(finish, 60_000); // it shouldn't take this long
+    await stopped;
+  } catch {
+    // Offline, or the robot check couldn't load: the question before a scored game says what to do.
+  }
+  background = null;
+  if (made) await reloadMyPlayers();
+  return made;
+}
+
+/**
+ * Asks to make a draft a real team, with the robot check in the question. Resolves true once it's made,
+ * null for Not now, and false if it couldn't be made (the server refused it, or the check didn't load).
+ */
+function makeHere(draft) {
+  return new Promise((resolve) => {
+    let result = null;
+    let token = "";
+    let widget;
+    const dialog = el("dialog", { className: "confirm-dialog" });
+    const check = el("div", { className: "team-robot-here" });
+    const message = el("p", { className: "confirm-detail team-robot-message", role: "status" });
+    const make = el("button", { type: "button", className: "primary", disabled: true }, el("span", { textContent: "Make it a team" }));
+    make.insertAdjacentHTML("afterbegin", icon("players"));
+    const later = el("button", { type: "button", textContent: "Not now" });
+    dialog.append(
+      el("p", { className: "confirm-question", textContent: `Make ${draft.name} a team` }), // a kid typed it: text only
+      el("p", { className: "confirm-detail", textContent: `${draft.name} is only on this device, so its games don't count yet. Make it a real team, and friends can join it with its code.` }),
+      check,
+      message,
+      el("div", { className: "confirm-actions" }, later, make),
+    );
+    dialog.querySelector(".confirm-actions").dataset.keys = "row"; // the arrow keys move between the buttons
+    const close = (r) => {
+      result = r;
+      dialog.close();
+    };
+    later.addEventListener("click", () => close(null));
+    dialog.addEventListener("click", (e) => e.target === dialog && !make.dataset.busy && close(null));
+    dialog.addEventListener("cancel", (e) => make.dataset.busy && e.preventDefault());
+    make.addEventListener("click", async () => {
+      if (!token || make.dataset.busy) return;
+      make.dataset.busy = "1";
+      make.disabled = later.disabled = true;
+      message.textContent = "Making your team...";
+      try {
+        await makeDraft(draft, token);
+        return close(true);
+      } catch (err) {
+        if (!(err instanceof TypeError)) {
+          refused.set(draft.name, err.message || "That didn't work.");
+          return close(false);
+        }
+        message.textContent = "That didn't work. Check the internet and try again.";
+        token = "";
+        window.turnstile?.reset(widget);
+      } finally {
+        delete make.dataset.busy;
+        later.disabled = false;
+      }
+    });
+    dialog.addEventListener("close", () => {
+      if (widget !== undefined) window.turnstile?.remove(widget);
+      dialog.remove();
+      resolve(result);
+    });
+    document.body.append(dialog);
+    dialog.showModal();
+    later.focus(); // the safe choice is the default
+    loadTurnstile()
+      .then(({ turnstile, sitekey }) => {
+        if (!dialog.open) return;
+        widget = turnstile.render(check, {
+          sitekey,
+          theme: "dark",
+          callback: (t) => {
+            token = t;
+            make.disabled = false;
+          },
+          "expired-callback": () => {
+            token = "";
+            make.disabled = true;
+            turnstile.reset(widget);
+          },
+        });
+      })
+      .catch(() => close(false));
+  });
 }
 
 /**

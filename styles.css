@@ -2795,6 +2795,26 @@ a.tile-go:active {
   outline: none;
 }
 
+/* The robot check that makes teams kept only on a device real teams (screens/team.js): in the background
+   it shows nothing (it stops if it wants a tap); in the question before a game, it sits above the buttons. */
+.team-robot {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.team-robot-here {
+  display: flex;
+  justify-content: center;
+  min-height: 65px;
+  margin: 8px 0;
+}
+
+.team-robot-message:empty {
+  display: none;
+}
+
 .team-why,
 .team-make {
   margin: 0 0 12px;

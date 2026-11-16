@@ -28,7 +28,8 @@ import { NORMAL } from "../shared/rules.js";
 import { DEFAULT_TEAM, loadBase, loadBases, loadStill, myPlayers, PALETTES, PARTS, pickSize, recolor, recolorSliced, saveMyPlayer, teamPicked, useDrawnKids } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
 import { isOfficialTeam } from "../shared/teams.js";
-import { changeTeam, joinTeam, keptTeam, keptTeams, leaveTeam, listedTeams, makeTeam, myTeam, refreshTeams, setMyTeam } from "../players/community.js";
+import { changeTeam, joinTeam, keptTeam, keptTeams, leaveTeam, listedTeams, myTeam, refreshTeams, setMyTeam } from "../players/community.js";
+import { makeDraft } from "../players/drafts.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { loadingBar } from "../ui/loading-bar.js";
 import { Progress } from "../engine/download.js";
@@ -914,15 +915,11 @@ const makeable = (t) => !!t.name && !isOfficialTeam(t.name) && !failedDrafts.has
  * device wearing it (by its name: drafts have no id) wears the new team, so their games count for it.
  */
 async function makeFromDraft(draft, token, name = draft.name) {
-  const made = await makeTeam({ name, home: draft.home, away: draft.away, turnstileToken: token });
+  const made = await makeDraft(draft, token, name); // players/drafts.js, shared with the game
   mine = mine.filter((t) => t !== draft);
   if (draft === linkTeam) linkTeam = null;
   saveMyTeams(mine);
   community = keptTeams();
-  for (const p of myPlayers()) {
-    if (p.colours?.teamId || p.colours?.teamName !== draft.name) continue;
-    saveMyPlayer({ ...p, teamPicked: true, colours: { ...p.colours, teamName: made.name, teamId: made.key } });
-  }
   if (team === draft) wearTeam(made, kit);
   return made;
 }

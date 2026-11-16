@@ -103,8 +103,8 @@ export async function pickMode(id) {
   if (!choseBefore() || mode().passAndPlay) return openSelect(true);
   const c = characters.list.find((p) => p.id === characters.selected);
   if (needsTeam(c, mode())) {
-    if (c.mine) return askPlayerTeam(c); // their own player's team is picked in the builder
-    if (!(await chooseTeam())) return;
+    // their own player's team is picked in the builder (a team only on this device is made one here)
+    if (c.mine ? !(await askPlayerTeam(c)) : !(await chooseTeam())) return;
   }
   stage.focus({ preventScroll: true }); // so Space plays rather than pressing the card again
   startGame();
@@ -218,7 +218,10 @@ function renderPicker() {
         stage.focus({ preventScroll: true }); // so Space plays rather than pressing this card again
         if (ask && c.mine) {
           openModes();
-          return askPlayerTeam(c);
+          if (!(await askPlayerTeam(c))) return;
+          stage.focus({ preventScroll: true });
+          startGame();
+          return;
         }
         if (selectThenPlay === true) startGame();
         else if (selectThenPlay === "modes") openModes();

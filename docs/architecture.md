@@ -370,11 +370,18 @@ Terms used across the code:
   device (`orson-hoops-my-teams`, `players/teams.js`), and a team being made is one until Done. They count
   for nothing on Top teams (the server only knows official and community teams), so a player wearing one
   counts as not picked (`teamPicked`). Done on a new team makes it a private community team (and shows its
-  code), unless the device has made 3 already (then Done keeps it as a draft). Any other draft becomes one by itself when the builder opens: once the robot check in the Team tab
-  gives a token, `makeDrafts` makes the next draft with it (one per token), and every saved player wearing it
-  (matched by name) wears the new team. A draft named like an official team already counts for that team
-  and stays; one the server refuses (an unfriendly name, the 3-team limit) stays, with why, and the game
-  asks before its next scored game ("Make BULLS a team"), which opens the builder on it.
+  code), unless the device has made 3 already (then Done keeps it as a draft). Any other draft becomes one
+  by itself (`players/drafts.js`: `waitingDrafts`, `makeDraft`, shared by the builder and the game), one per
+  robot check token, and every saved player wearing it (matched by name) wears the new team:
+  - in the builder, once the robot check in the Team tab gives a token (`makeDrafts`);
+  - in the game, in the background once a visit (`makeDraftsLater` in `screens/team.js`, after
+    `checkTeams`): an invisible robot check (`appearance: "interaction-only"`) that stops if it wants a tap.
+    The first game isn't held up. If a scored game needs the team before then, the question before it
+    ("Make BULLS a team") has the robot check in it and makes the team, then the game starts.
+
+  A draft named like an official team already counts for that team and stays. One the server refuses (an
+  unfriendly name, the 3-team limit) stays, with why, and the question before a scored game opens the
+  builder on it instead. Not in the iOS app (no builder there, and the robot check is untested in it).
 - **Choosing a team:** no team is ever picked for a kid. The first time a device plays
   a scored game as Orson or someone else's approved player, it chooses the team those games count for
   (`screens/team.js`, kept as `orson-hoops-my-team`; the Team buttons on Choose your player and Choose a game

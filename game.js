@@ -27,7 +27,7 @@ import { art, render, resize, updateHud } from "./play/scene.js";
 import { DEBUG, PHASES, canShoot, mode, player, setAnim, setSeed, state, steer } from "./play/state.js";
 import { $, page, screens, setUpSoundButtons, stage, tapToPlay } from "./screens/base.js";
 import { changeMyTeam, changePlayer, changeTeamFromModes, openModes, openSelect, pickMode, refreshPicker, selectBack, selectCharacter, showTitle, startTeam } from "./screens/menus.js";
-import { checkTeams } from "./screens/team.js";
+import { checkTeams, makeDraftsLater } from "./screens/team.js";
 import { setGameVersion } from "./screens/over.js";
 import { closeBoard, closeHelp, openBoard, toggleBoard, toggleHelp, wireBoardTabs } from "./screens/panels.js";
 import { closeMenu, wireMenu } from "./screens/menu.js";
@@ -218,7 +218,12 @@ async function boot() {
   onSave(() => dressInTeam()); // the team chosen on another device (screens/team.js)
   refreshProgress();
   showTitle();
-  checkTeams().then(refreshPicker); // a community team they were on may have gone (screens/team.js)
+  // A community team they were on may have gone, and teams kept only on this device become real teams
+  // (in the background, after a robot check: screens/team.js).
+  checkTeams()
+    .then(refreshPicker)
+    .then(makeDraftsLater)
+    .then((made) => made && refreshPicker());
   if (location.hash === "#leaderboard") openBoard("week");
   if (location.hash === "#modes") {
     openModes(); // back from the builder's Team tab (screens/team.js editTeam)
