@@ -11,7 +11,7 @@
 //          POST /api/games          a signed start token for a new game of Shootaround     scores.ts
 //          GET  /api/scores         the leaderboard (?range=week or all, ?mode=timed, survival or around)
 //          GET  /api/scores/:id     one game's card
-//          GET  /api/teams          Top teams (?range=, ?mode=), while the teams flag is on  teams.ts
+//          GET  /api/teams          Top teams (?range=, ?mode=)  teams.ts
 //          GET  /api/teams/list     listed community teams (for the builder)
 //          GET  /api/teams/:key/players  an official or listed team's players
 //          POST /api/teams          make a community team (private, joined with a code)

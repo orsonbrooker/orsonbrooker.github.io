@@ -197,14 +197,14 @@ export async function loadRoster() {
 }
 
 /**
- * Orson and the approved builder players wear the team the device chose (players/community.js myTeam,
- * while the teams flag is on), since that's the team their games count for: its home kit and its name on
+ * Orson and the approved builder players wear the team the device chose (players/community.js myTeam),
+ * since that's the team their games count for: its home kit and its name on
  * the jersey (KINGS too). Before one's chosen, Orson is drawn as he is and an approved player in the kit
  * they were sent in. Called when the roster loads and whenever the team changes; whoever is playing is drawn
  * again in the new kit. (Not Orson with ?jersey= and the like, which try other colours on him.)
  */
 export async function dressInTeam() {
-  const kit = flagOn("teams") ? myTeamKit() : null;
+  const kit = myTeamKit();
   const wear = kit && { jersey: kit.home.jersey, team: kit.home.trim, shorts: kit.home.shorts, teamName: kit.name };
   const redraw = new Set();
   const orson = characters.list.find((c) => c.id === "orson");

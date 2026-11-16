@@ -27,6 +27,7 @@ import { stretchedReleases, stretchFrame } from "../players/stretch.js";
 import { NORMAL } from "../shared/rules.js";
 import { DEFAULT_TEAM, loadBase, loadBases, loadStill, myPlayers, PALETTES, PARTS, pickSize, recolor, recolorSliced, saveMyPlayer, teamPicked, useDrawnKids } from "../players/recolor.js";
 import { KIT_PARTS, kitColours, myTeams, newTeam, saveMyTeams, TEAMS } from "../players/teams.js";
+import { isOfficialTeam } from "../shared/teams.js";
 import { changeTeam, joinTeam, keptTeam, keptTeams, leaveTeam, listedTeams, makeTeam, myTeam, refreshTeams, setMyTeam } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { loadingBar } from "../ui/loading-bar.js";
@@ -617,27 +618,25 @@ function setupSize() {
 }
 
 // ---------- Teams ----------
-// The official teams (shared/teams.js) and, with the `teams` flag, community teams (players/community.js):
-// made by kids, joined with a code (or from the list once Luke has OKed showing one to everyone). Without
-// the flag, "your teams" are kept on this device only, as before. A device's own teams that aren't real
-// community teams yet ("drafts") can be made into one.
+// The official teams (shared/teams.js) and community teams (players/community.js): made by kids, joined
+// with a code (or from the list once Luke has OKed showing one to everyone). A team a kid makes is a
+// private community team as soon as they tap Done. Teams kept only on this device ("drafts": made before
+// community teams, or left before Done) count for nothing on Top teams, so each is made into a private
+// community team by itself once the robot check passes (makeDrafts), and its players wear that.
 
-const COMMUNITY = flagOn("teams");
-let mine = myTeams(); // teams kept on this device (drafts, with the flag on)
-// Kept even with the flag off, so a player on a community team keeps wearing it (and switching the flag
-// back on finds them still on it).
+let mine = myTeams(); // drafts: teams kept only on this device, waiting to be made into community teams
 let community = keptTeams(); // community teams this device is on or made
 let listed = []; // community teams shown to everyone
 let mostTeams = 3;
-let team; // the team being played for (NO_TEAM until they pick one, while the flag is on)
-// No team yet (teams flag on): a new player, unless the device chose a team in the game, and a player saved
-// in KINGS only because every player used to start there. Plain grey with no name, until the kid picks one;
-// a player can't be saved without one. (With the flag off, a new player starts in KINGS, as before.)
+let team; // the team being played for (NO_TEAM until they pick one)
+// No team yet: a new player, unless the device chose a team in the game, and a player saved in KINGS only
+// because every player used to start there. Plain grey with no name, until the kid picks one; a player
+// can't be saved without one.
 const GREY = { jersey: "#8c8f99", shorts: "#8c8f99", trim: "#f2f2ef" };
 const NO_TEAM = { id: "none", name: "", home: GREY, away: GREY };
 const noTeam = () => team === NO_TEAM;
-// Where a team goes when it's gone (left, hidden, deleted): back to no team, or KINGS with the flag off.
-const noTeamOr = () => (COMMUNITY ? NO_TEAM : TEAMS[0]);
+// Where a team goes when it's gone (left, hidden, deleted): back to no team.
+const noTeamOr = () => NO_TEAM;
 let kit = "home";
 let editing = false;
 let linkTeam = null; // a look from a link (the admin page's "open in builder"), kept only if edited
@@ -722,6 +721,7 @@ function paintTeams() {
   );
   $("team-list").hidden = editing;
   $("team-editor").hidden = !editing;
+  teamCheckBox.hidden = true; // shown again below if it's needed (teamCheck)
   if (editing) return paintEditor();
   const list = $("team-list");
   const make = button({ className: "make-team" });
@@ -740,11 +740,6 @@ function paintTeams() {
   const drafts = [...mine, ...(linkTeam ? [linkTeam] : [])];
   const section = (title, ...rows) => el("section", { className: "team-list" }, el("p", { className: "pane-title" }, title), ...rows);
   const official = section("Teams", ...TEAMS.map((t) => teamRow(t)));
-  if (!COMMUNITY) {
-    const worn = isCommunity(team) ? [teamRow(team)] : [];
-    list.replaceChildren(...(drafts.length || worn.length ? [section("Your teams", ...worn, ...drafts.map((t) => teamRow(t)))] : []), official, section("New team", make));
-    return;
-  }
   const on = community.filter((t) => t.member !== false);
   const yours = [];
   for (const t of on) {
@@ -756,7 +751,13 @@ function paintTeams() {
     }
   }
   for (const t of drafts) yours.push(teamRow(t));
-  if (drafts.length) yours.push(el("p", { className: "fb-hint team-hint", textContent: "Teams with Edit but no badge are only on this device. Edit one and tap Share team so friends can join." }));
+  // Drafts are made into real teams by themselves once the robot check passes (makeDrafts).
+  if (mine.some(makeable)) {
+    const text = madeAll() ? `Teams with no badge are only on this device, so their games don't count. ${FULL}` : "Teams with no badge are only on this device, so their games don't count yet. They become real teams once the robot check is done.";
+    yours.push(el("p", { className: "fb-hint team-hint", textContent: text }));
+    if (!madeAll()) teamCheck();
+    makeDrafts(); // a token that came while busy or editing (it does nothing without one)
+  }
 
   const open = listed.filter((t) => !on.some((o) => o.key === t.key));
   const openRows = open.map((t) => {
@@ -793,8 +794,8 @@ function paintTeams() {
   );
 }
 
-// The editor: name and kit colours. For a draft with the flag on, Share team; for a community team
-// its maker made, its code and showing it to everyone too.
+// The editor: name and kit colours. For a new team (a draft), the robot check, and Done makes it a private
+// community team; for a community team its maker made, its code and showing it to everyone too.
 function paintEditor() {
   const box = $("kit-colours");
   const label = kit === "home" ? "Home" : "Away";
@@ -815,15 +816,11 @@ function paintEditor() {
   $("team-delete").hidden = isCommunity(team);
   $("team-done").innerHTML = icon("check");
   $("team-done").append(isCommunity(team) ? "Save" : "Done");
-  if (!COMMUNITY) return extra.replaceChildren();
   if (!isCommunity(team)) {
-    const real = button({ className: "fb-button fb-primary make-real", id: "team-make" }, "Share team");
-    real.addEventListener("click", () => makeReal(real));
-    const full = community.filter((t) => t.maker).length >= mostTeams;
     extra.replaceChildren(
-      el("p", { className: "fb-hint", textContent: full ? `You've made ${mostTeams} teams on this device. Join a friend's team instead?` : "Make it a team so friends can join it with a code. Make up a name: not your school or club." }),
-      ...(full ? [] : [teamCheck(), real]),
+      el("p", { className: "fb-hint", textContent: madeAll() ? FULL : "Friends can join your team with its code. Make up a name: not your school or club." }),
     );
+    if (!madeAll()) teamCheck();
     return;
   }
   // Their own community team.
@@ -853,8 +850,8 @@ function paintEditor() {
     // Only this device can show it (the server keeps no copy), so a lost device would lose it.
     el("p", { className: "fb-hint", textContent: "Only this device can show the code, so write it down somewhere safe. Play on more than one device? Join them in the game's Shop (Playing on another device?) so they share your team." }),
     el("div", { className: "code-box" }, el("span", { className: "mini-label" }, "Who can join"), el("span", { className: "team-state", textContent: STATE[team.listing] ?? STATE.private }), ...(team.listing === "refused" ? [] : [show])),
-    teamCheck(),
   );
+  teamCheck();
 }
 
 // ---------- Talking to the server about teams ----------
@@ -867,14 +864,20 @@ const useTeamToken = () => {
   if (teamWidget !== undefined) window.turnstile?.reset(teamWidget);
   return t;
 };
-// The robot check for making, renaming or showing a team: one widget, moved into the editor.
-const teamCheckBox = el("div", { className: "fb-check", id: "team-check" });
+// The robot check for making, renaming or showing a team: one widget, always in the same place under the
+// Team tab's list and editor (moving it would reload it and lose its token), shown while it's needed.
+const teamCheckBox = $("team-check");
 function teamCheck() {
+  teamCheckBox.hidden = false;
   if (teamWidget === undefined) {
     teamWidget = null;
     loadTurnstile()
       .then(({ turnstile, sitekey }) => {
-        teamWidget = turnstile.render(teamCheckBox, { sitekey, theme: "dark", callback: (t) => (teamToken = t), "expired-callback": () => (teamToken = "") });
+        const callback = (t) => {
+          teamToken = t;
+          makeDrafts(); // a draft waiting to be made into a team takes it (not while one's being edited)
+        };
+        teamWidget = turnstile.render(teamCheckBox, { sitekey, theme: "dark", callback, "expired-callback": () => (teamToken = "") });
       })
       .catch(() => (teamWidget = undefined));
   }
@@ -899,22 +902,68 @@ async function runTeam(btn, work, done = "") {
   }
 }
 
-function makeReal(btn) {
+// A draft named like one of the game's teams (SHARKS in other colours) already counts for that team, and the
+// server won't make another team with its name, so it stays a draft. Any other draft counts for nothing.
+const failedDrafts = new Set(); // drafts the server wouldn't make this visit (a name it refused, too many)
+const madeAll = () => community.filter((t) => t.maker).length >= mostTeams;
+const FULL = `You've made ${mostTeams} teams on this device. Pick one of them, or join a friend's team.`;
+const makeable = (t) => !!t.name && !isOfficialTeam(t.name) && !failedDrafts.has(t);
+
+/**
+ * Makes a draft a private community team with this robot check token, and every player saved on this
+ * device wearing it (by its name: drafts have no id) wears the new team, so their games count for it.
+ */
+async function makeFromDraft(draft, token, name = draft.name) {
+  const made = await makeTeam({ name, home: draft.home, away: draft.away, turnstileToken: token });
+  mine = mine.filter((t) => t !== draft);
+  if (draft === linkTeam) linkTeam = null;
+  saveMyTeams(mine);
+  community = keptTeams();
+  for (const p of myPlayers()) {
+    if (p.colours?.teamId || p.colours?.teamName !== draft.name) continue;
+    saveMyPlayer({ ...p, teamPicked: true, colours: { ...p.colours, teamName: made.name, teamId: made.key } });
+  }
+  if (team === draft) wearTeam(made, kit);
+  return made;
+}
+
+/** Done on a new team: it's made a private community team (and stays in the editor, showing its code). */
+async function makeReal() {
   const name = teamInput.value.trim();
-  if (!name) return sayTeam("Give your team a name.", { error: true });
-  if (!teamToken) return sayTeam("Please finish the robot check first.", { error: true });
-  runTeam(
-    btn,
+  if (!name) return sayTeam("Give your team a name.", { error: true }), false;
+  if (madeAll()) return sayTeam(FULL, { error: true }), false;
+  if (!teamToken) return sayTeam("Please finish the robot check first.", { error: true }), false;
+  let ok = false;
+  await runTeam(
+    null,
     async () => {
-      const draft = team;
-      const made = await makeTeam({ name, home: draft.home, away: draft.away, turnstileToken: useTeamToken() });
-      mine = mine.filter((t) => t !== draft);
-      if (draft === linkTeam) linkTeam = null;
-      saveMyTeams(mine);
-      community = keptTeams();
-      wearTeam(made, kit); // and stays in the editor, showing the code
+      await makeFromDraft(team, useTeamToken(), name);
+      ok = true;
     },
     "Your team is ready! Share its code with friends.",
+  );
+  return ok;
+}
+
+/**
+ * Teams kept only on this device become private community teams by themselves, one per robot check token
+ * (the widget gives a new one after each), so their players' games count on Top teams. One the server won't
+ * make (a name it refuses, or too many teams) stays a draft, with why, until they change it.
+ */
+async function makeDrafts() {
+  const draft = mine.find(makeable);
+  if (!draft || editing || teamBusy || !teamToken || madeAll()) return;
+  await runTeam(
+    null,
+    async () => {
+      try {
+        await makeFromDraft(draft, useTeamToken());
+      } catch (err) {
+        failedDrafts.add(draft);
+        throw new Error(`${draft.name} isn't a team yet: ${err.message || "that didn't work."}`);
+      }
+    },
+    `${draft.name} is a real team now. Friends can join it with its code.`,
   );
 }
 
@@ -963,7 +1012,6 @@ async function leave_(t) {
 }
 
 async function loadCommunity() {
-  if (!COMMUNITY) return;
   const [{ teams, most }, open] = await Promise.all([refreshTeams(), listedTeams()]);
   community = teams;
   mostTeams = most;
@@ -996,9 +1044,14 @@ function setupTeams() {
   $("team-done").addEventListener("click", async () => {
     if (!teamInput.value.trim()) teamInput.value = team.name;
     if (isCommunity(team) && !(await saveCommunity())) return;
+    // A new team is made a private community team, so its games count, and the editor stays open on its
+    // code (Done again closes it). One named like the game's own teams already counts for that team (the
+    // server wouldn't make it). With 3 made already it can't be one, so it's kept as a draft (the list says why).
+    if (!isCommunity(team) && !isOfficialTeam(teamInput.value.trim()) && !madeAll()) return makeReal();
     editing = false;
     keepMine();
     paintTeams();
+    makeDrafts(); // any other drafts waiting for the editor to close
   });
   $("team-delete").addEventListener("click", () => {
     mine = mine.filter((t) => t !== team);
@@ -1447,7 +1500,7 @@ function prepareSoon(wait = 1200) {
 const look = () => ({
   base: current.id,
   colours: { ...colours, teamName: colours.teamName ?? DEFAULT_TEAM },
-  ...(COMMUNITY ? { teamPicked: true } : {}), // the kid chose it (needTeam makes sure); the game won't ask
+  teamPicked: true, // the kid chose it (needTeam makes sure); the game won't ask
   build: current.video ? { ...build } : undefined,
   gear: current.video && flagOn("gear") && Object.keys(gear).length ? { ...gear } : undefined,
 });
@@ -1459,12 +1512,22 @@ function stillLoading() {
   return true;
 }
 
-// While the teams flag is on, every player plays for a team the kid picked: none is picked for them.
+// Every player plays for a team the kid picked: none is picked for them. A team only on this device
+// counts for nothing, so it has to become a real team first (makeDrafts, or Done in its editor).
 function needTeam() {
-  if (!COMMUNITY || !noTeam()) return false;
+  const draft = !noTeam() && !isCommunity(team) && team !== linkTeam && mine.includes(team) && !isOfficialTeam(team.name);
+  if (!noTeam() && !draft) return false;
   closeDone();
   showTab("team");
-  sayTeam("Pick a team for your player first.", { error: true });
+  // A draft the server wouldn't make (its name, or 3 teams made already) won't be made by the robot check.
+  const why = !draft
+    ? ""
+    : madeAll()
+      ? `${team.name} isn't a real team yet, and you've made ${mostTeams} teams on this device. Pick another team.`
+      : failedDrafts.has(team)
+        ? `${team.name} isn't a real team yet. Change its name with Edit, or pick another team.`
+        : `${team.name} isn't a real team yet. Finish the robot check, or pick another team.`;
+  sayTeam(draft ? why : "Pick a team for your player first.", { error: true });
   return true;
 }
 
@@ -1588,13 +1651,21 @@ async function setup() {
     if (known && !same(known.home)) startKit = "away";
   } else {
     // A new player starts in the team the device chose in the game (players/community.js myTeam), else
-    // (flag on) in no team, to pick.
-    const chosen = !teamName && COMMUNITY ? myTeam() : null;
+    // in no team, to pick.
+    const chosen = !teamName ? myTeam() : null;
     const theirs = chosen && (chosen.key ? community.find((t) => t.key === chosen.key && t.member !== false) : TEAMS.find((t) => t.name === chosen.name));
     team = theirs ?? [...mine, ...TEAMS].find((t) => t.name === teamName) ?? noTeamOr();
   }
+  // Their own player wearing a team kept only on this device (made before community teams): it's a draft,
+  // made into a real team by itself (makeDrafts). If the kit differs from the draft's, it's still that team.
+  if (ownPlayer && linkTeam && !isOfficialTeam(linkTeam.name)) {
+    const same = mine.find((t) => t.name === linkTeam.name);
+    if (same) team = same;
+    else saveMyTeams((mine = [...mine, linkTeam]));
+    linkTeam = null;
+  }
   // A player saved in KINGS only because it was where every player started picks a team now.
-  if (COMMUNITY && ownPlayer && !teamPicked(ownPlayer) && !linkTeam) {
+  if (ownPlayer && !teamPicked(ownPlayer) && team !== linkTeam && !mine.includes(team)) {
     team = NO_TEAM;
     startKit = "home";
   }

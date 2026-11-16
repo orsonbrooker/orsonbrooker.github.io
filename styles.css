@@ -2012,7 +2012,7 @@ a.tile-go:active {
   margin: 8px 0 0;
 }
 
-/* Players or Top teams (while the teams flag is on). */
+/* Players or Top teams. */
 .board-kinds button {
   display: flex;
   align-items: center;

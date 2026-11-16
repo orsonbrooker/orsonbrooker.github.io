@@ -352,7 +352,7 @@ export async function checkGame(tab, base, record, out) {
   await key(tab, "Enter");
   await wait(800);
   if (await isOpen("select-screen")) await report("choose your player", [...backProblems, ...(await sheet(tab, "#select-screen", ".card"))]);
-  // START: pick a player for real (the first time, with the teams flag on, a team picker comes up first: it's
+  // START: pick a player for real (the first time, a team picker comes up first: it's
   // checked too, then its first team picked), then START has focus and Enter opens the gym
   await focusOn("#char-pick .card");
   await key(tab, "Enter");

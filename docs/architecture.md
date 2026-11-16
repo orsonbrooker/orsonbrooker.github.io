@@ -250,8 +250,8 @@ Terms used across the code:
 - **Builder** (`players/`): four tabs under a preview that stays on screen: *Character* (skin and hair
   colour, with every body below as a card in those colours and size, so kids compare them before picking),
   *Body* (height and build, for kids made from video), *Team* (`players/teams.js`: the teams everyone has,
-  Kings first, or your own, kept on the device as `orson-hoops-my-teams`; each has a home and an away kit of
-  jersey, shorts and trim; plus the player's number. With the `teams` flag: community teams too, below) and *Gear* (shoe colour, and the shop's ball styles
+  Kings first, and community teams, below; each has a home and an away kit of jersey, shorts and trim; plus
+  the player's number) and *Gear* (shoe colour, and the shop's ball styles
   through `progress.js`: owned ones are picked straight away, others are tried on in a kid from video's hands
   with Buy or Cancel covering the gear). *Done* opens a sheet with
   the nickname and "Play now" (nothing is sent, so no robot check); under it, "Send to Orson" opens the step that sends them to Orson, and only then loads Turnstile. The cards load every body in the background. Own players have an edit pencil in the game's picker:
@@ -349,8 +349,7 @@ Terms used across the code:
   other's codes at once), nothing moves and the device is asked to get a new code (409), so no coins or
   devices end up in a progress that's gone.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
-- **Teams** (`worker/src/teams.ts`, `players/community.js`, flag `teams`; every route is refused while it's
-  off). Two kinds: the six official teams (`TEAMS` in `shared/teams.js`) and **community teams** kids make in
+- **Teams** (`worker/src/teams.ts`, `players/community.js`; out for everyone, no longer behind a flag). Two kinds: the six official teams (`TEAMS` in `shared/teams.js`) and **community teams** kids make in
   the builder (`community_teams`), clearly marked "Made by players". A community team is private from the
   start: friends join with an 8-character code shared in person (only a keyed hash is stored, so the maker's
   device keeps the code; a new code stops the old one), and there's no way to send one in the game. The maker
@@ -367,7 +366,16 @@ Terms used across the code:
   progress). If one has gone, its players go into the device's team (else KINGS) and they're told; a
   renamed or re-kitted team's players take its new name and kit (`checkTeams` in `screens/team.js`).
   Leaving in the builder moves the device's saved players off the team straight away.
-- **Choosing a team:** no team is ever picked for a kid (while the flag is on). The first time a device plays
+- **Teams only on a device ("drafts"):** before community teams, the builder kept a kid's own teams on the
+  device (`orson-hoops-my-teams`, `players/teams.js`), and a team being made is one until Done. They count
+  for nothing on Top teams (the server only knows official and community teams), so a player wearing one
+  counts as not picked (`teamPicked`). Done on a new team makes it a private community team (and shows its
+  code), unless the device has made 3 already (then Done keeps it as a draft). Any other draft becomes one by itself when the builder opens: once the robot check in the Team tab
+  gives a token, `makeDrafts` makes the next draft with it (one per token), and every saved player wearing it
+  (matched by name) wears the new team. A draft named like an official team already counts for that team
+  and stays; one the server refuses (an unfriendly name, the 3-team limit) stays, with why, and the game
+  asks before its next scored game ("Make BULLS a team"), which opens the builder on it.
+- **Choosing a team:** no team is ever picked for a kid. The first time a device plays
   a scored game as Orson or someone else's approved player, it chooses the team those games count for
   (`screens/team.js`, kept as `orson-hoops-my-team`; the Team buttons on Choose your player and Choose a game
   change it). Orson and approved players wear it (`dressInTeam` in `play/players.js`: its home kit, shorts
@@ -388,7 +396,7 @@ Terms used across the code:
 - **Top teams:** per mode, this week and all time (`GET /api/teams`, edge-cached and cleared with the mode's
   board). The team is saved with each game when it's sent (`scores.team`) and never moves: the team the kid
   chose (their own player's, or the device's for anyone else), a community team only if the device is on
-  it; none while the flag is off, so games count from switching it on. A team's score is its 3 best devices
+  it; games count from `FEATURE_FROM.teams`, when Top teams went live. A team's score is its 3 best devices
   added up (`TEAM_COUNTS`), each device once at its best game for that team, so a big team can't win by
   numbers and one kid can't fill all 3; in Around the World the 3 best times add up and teams with all 3 come
   first. It shows official and listed teams (never a blocked name), from shown games played from
@@ -398,7 +406,7 @@ Terms used across the code:
   player's face; tapping one lists the team's players with the 3 that count marked: nicknames only for
   players already on that players' board (others are a face and a score; a private team's members see each
   other's), each with the report flag. In the game a Players / Teams
-  switch on the leaderboard (`renderTeams` in `leaderboard.js`) appears with the flag.
+  switch on the leaderboard (`renderTeams` in `leaderboard.js`).
 
 ## Courts
 

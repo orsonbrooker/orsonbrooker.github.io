@@ -16,6 +16,7 @@
 import { Progress, loadImage } from "../engine/download.js";
 import { shadeRanks, shadeRanksSteps, shadeSamples, shadeTable, lightness } from "./shades.js";
 import { runNow, runSliced } from "./slices.js";
+import { teamCounts } from "../shared/teams.js";
 
 const REGIONS = { 1: "skin", 2: "hair", 3: "jersey", 4: "team", 5: "shoes" };
 const HAIR = 2;
@@ -564,11 +565,13 @@ export function setGonePlayers(list) {
 }
 
 /**
- * Whether a kid picked the team of a player made on a device: in the builder since teams came out
- * (teamPicked), a community team, or any team but KINGS (where every player used to start, so KINGS
- * alone doesn't say they chose it). The game asks for one before a scored game until they have.
+ * Whether a kid picked a team that counts on Top teams for a player made on a device: a community team,
+ * or one of the game's teams, picked in the builder since teams came out (teamPicked) or any but KINGS
+ * (where every player used to start, so KINGS alone doesn't say they chose it). A team kept only on the
+ * device counts for nothing, so it isn't picked: the builder makes it a real team (makeDrafts). The game
+ * asks for one before a scored game until they have.
  */
-export const teamPicked = (p) => !!(p?.teamPicked || p?.colours?.teamId || (p?.colours?.teamName && p.colours.teamName !== DEFAULT_TEAM));
+export const teamPicked = (p) => teamCounts(p?.colours, !!p?.teamPicked);
 
 export function myPlayers() {
   try {

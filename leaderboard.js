@@ -414,7 +414,7 @@ function drawBoard(list, note, range, mode, scores, faceFor, bodyFor) {
 
 // ---------- Top teams ----------
 
-// The Top teams board (only while the `teams` flag is on): each team's 3 best players add up, each
+// The Top teams board: each team's 3 best players add up, each
 // device once (worked out by the server, worker/src/teams.ts). It shows the official teams and community
 // teams Luke has OKed showing to everyone; a private team this device is on gets a "Your team" row with
 // where it would be, just here. A row: rank, the top player's face, the team's name (community teams

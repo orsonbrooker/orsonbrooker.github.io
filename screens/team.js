@@ -1,4 +1,4 @@
-// Choosing a team (while the `teams` flag is on). No team is ever picked for a kid. The first time a
+// Choosing a team. No team is ever picked for a kid. The first time a
 // device plays as Orson or someone else's approved player, it picks the team its games count for on Top
 // teams (players/community.js myTeam); the Team buttons change it. Its own players' teams are picked in
 // the builder, the one place to change them: the Team button on Choose a game opens it on that player's
@@ -7,12 +7,11 @@
 // community team they were on has gone.
 
 import { IN_APP } from "../api.js";
-import { flagOn } from "../flags.js";
 import { dressInTeam, reloadMyPlayers } from "../play/players.js";
 import { myPlayers, saveMyPlayer, teamPicked } from "../players/recolor.js";
 import { kitColours } from "../players/teams.js";
 import { goneTeams, keptTeam, keptTeams, myTeam, myTeamKit, setMyTeam } from "../players/community.js";
-import { TEAMS } from "../shared/teams.js";
+import { isOfficialTeam, TEAMS } from "../shared/teams.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
 
@@ -30,7 +29,7 @@ export const swatch = (kit) => el("span", { className: "team-kit" }, ...["jersey
 // (The iOS app has no builder, so a player of theirs from saved progress isn't asked there: until a team's
 // picked on the website, its games count for none.)
 export const needsTeam = (player, gameMode) =>
-  flagOn("teams") && !gameMode.passAndPlay && !!gameMode.bestKey && (player?.mine ? !IN_APP && !teamPicked(player) : !myTeam());
+  !gameMode.passAndPlay && !!gameMode.bestKey && (player?.mine ? !IN_APP && !teamPicked(player) : !myTeam());
 
 /** The builder, on this own player's Team tab; saving there comes back to Choose a game. */
 export function editTeam(player) {
@@ -40,7 +39,12 @@ export function editTeam(player) {
 
 /** Before a scored game as their own player with no team picked: off to pick one in the builder. */
 export async function askPlayerTeam(player) {
-  const go = await confirmDialog(`Pick ${player.name}'s team`, { yes: "Pick a team", yesIcon: "players", no: "Not now", detail: "Every player plays for a team. Their games count for it on Top teams." });
+  // A team kept only on this device (made before community teams) counts for nothing until the builder
+  // makes it a real team, which it does by itself once it opens.
+  const name = player.colours?.teamName;
+  const onlyHere = !!name && !isOfficialTeam(name);
+  const detail = onlyHere ? `${name} is only on this device, so its games don't count yet. Open it to make it a real team.` : "Every player plays for a team. Their games count for it on Top teams.";
+  const go = await confirmDialog(onlyHere ? `Make ${name} a team` : `Pick ${player.name}'s team`, { yes: onlyHere ? "Open it" : "Pick a team", yesIcon: "players", no: "Not now", detail });
   if (go) editTeam(player);
 }
 
@@ -54,7 +58,7 @@ export function teamOf(player) {
     const kit = myTeamKit();
     return kit && { name: kit.name, kit: kit.home };
   }
-  if (flagOn("teams") && !teamPicked(player)) return null;
+  if (!teamPicked(player)) return null;
   const c = player.colours ?? {};
   const official = TEAMS.find((t) => t.name === c.teamName);
   const kit = c.jersey && c.shorts && c.team ? { jersey: c.jersey, shorts: c.shorts, trim: c.team } : (official?.home ?? null);
@@ -116,7 +120,6 @@ export function chooseTeam(note = "") {
  * friendly) shows its new name and kit on its players here too, not only once the builder opens them.
  */
 export async function checkTeams() {
-  if (!flagOn("teams")) return;
   const gone = await goneTeams(myPlayers().map((p) => ({ key: p.colours?.teamId, name: p.colours?.teamName })));
   const keys = new Set(gone.map((t) => t.key));
   if (keys.has(myTeam()?.key)) setMyTeam(null);

@@ -1,6 +1,5 @@
 // The help and leaderboard panels, which open over whichever screen is showing and go back to it.
 
-import { flagOn } from "../flags.js";
 import { renderBoard, renderTeams } from "../leaderboard.js";
 import { boardBody, boardFace } from "../play/players.js";
 import { state } from "../play/state.js";
@@ -11,7 +10,7 @@ import { MODES } from "../shared/rules.js";
 
 let boardReturn = null;
 // The leaderboard opens on the mode they're playing; its tabs switch mode and week or all time, and
-// (while the `teams` flag is on) between players and Top teams.
+// between players and Top teams.
 let boardMode = null;
 let boardKind = "players";
 export function openBoard(range = "week", mode = boardMode ?? state.mode) {
@@ -35,8 +34,6 @@ export function closeBoard() {
 }
 export const toggleBoard = () => (screens.board.hidden ? openBoard() : closeBoard());
 export function wireBoardTabs() {
-  const kinds = screens.board.querySelector(".board-kinds");
-  if (!flagOn("teams")) kinds?.remove();
   for (const tab of screens.board.querySelectorAll("[data-board-kind]"))
     tab.addEventListener("click", () => {
       boardKind = tab.dataset.boardKind;

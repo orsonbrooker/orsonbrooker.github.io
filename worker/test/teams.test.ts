@@ -1,11 +1,10 @@
 // Teams (worker/src/teams.ts): making community teams, codes, joining and leaving, which team a game is
-// saved for, how a team's score adds up, which teams show (and to whom), the admin's changes, pairing,
-// and the `teams` flag.
+// saved for, how a team's score adds up, which teams show (and to whom), the admin's changes and pairing.
 // Run: npm --prefix worker test
 import { beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import type { DatabaseSync } from "node:sqlite";
-import { teamNameOf } from "../../shared/teams.js";
+import { teamCounts, teamNameOf } from "../../shared/teams.js";
 import { cacheKey } from "../src/cache.ts";
 import { forgetFlags } from "../src/flags.ts";
 import { HttpError } from "../src/http.ts";
@@ -34,10 +33,8 @@ const WHITE = { jersey: "#f2f2ef", shorts: "#3fa65c", trim: "#3fa65c" };
 type Out = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 type Failed = Error & { status?: number };
 
-function setup(flag = true) {
-	const { env, db } = fakeEnv();
-	if (flag) db.prepare("INSERT INTO flags (key, enabled) VALUES ('teams', 1)").run();
-	return { env, db };
+function setup() {
+	return fakeEnv();
 }
 
 let ips = 0;
@@ -79,14 +76,16 @@ test("team names are tidied like the builder's", () => {
 	assert.equal(teamNameOf(null), "");
 });
 
-test("every teams route is refused while the flag is off", async () => {
-	const { env } = setup(false);
-	await rejects(call(env, "GET", "/api/teams?mode=timed"), 400);
-	await rejects(call(env, "GET", "/api/teams/list"), 400);
-	await rejects(call(env, "GET", "/api/teams/KINGS/players"), 400);
-	await rejects(make(env, A, "HOOPERS"), 400);
-	await rejects(join(env, A, "ABCD-EFGH"), 400);
-	await rejects(call(env, "POST", "/api/teams/mine", { device: A }), 400);
+test("which teams count on Top teams, so the game needn't ask: community, or an official one the kid picked", () => {
+	assert.equal(teamCounts({ teamId: "c4", teamName: "HOOPERS" }), true); // a community team
+	assert.equal(teamCounts({ teamName: "SHARKS" }), true); // an official team (not where everyone started)
+	assert.equal(teamCounts({ teamName: "KINGS" }), false); // where every player used to start
+	assert.equal(teamCounts({ teamName: "KINGS" }, true), true); // picked in the builder
+	// A team kept only on the device counts for nothing (the server doesn't know it), even if picked: the
+	// builder makes it a real team, and the game asks until then.
+	assert.equal(teamCounts({ teamName: "BULLS" }, true), false);
+	assert.equal(teamCounts({ teamName: "" }, true), false);
+	assert.equal(teamCounts(undefined), false);
 });
 
 test("making a team: private, the maker is on it, and the code joins it", async () => {
@@ -166,7 +165,7 @@ test("leaving a team, and a hidden team is gone for its members", async () => {
 	assert.deepEqual(names(await mine(env, B)), ["HOOPERS"]);
 });
 
-test("which team a game is saved for: the team the kid chose, whoever they play as; members only; nothing while the flag is off", async () => {
+test("which team a game is saved for: the team the kid chose, whoever they play as; members only", async () => {
 	const { env, db } = setup();
 	const hA = await boardOf(env, A);
 	const hB = await boardOf(env, B);
@@ -183,10 +182,6 @@ test("which team a game is saved for: the team the kid chose, whoever they play 
 	assert.equal(await teamForScore(env, "HOOPERS", made.team.key, hB), made.team.key);
 	await editTeam(env, made.team.id, { action: "hide" }, "http://localhost");
 	assert.equal(await teamForScore(env, "HOOPERS", made.team.key, hB), null);
-	// With the flag off, no game gets a team: they count from when it's switched on.
-	db.prepare("UPDATE flags SET enabled = 0 WHERE key = 'teams'").run();
-	forgetFlags();
-	assert.equal(await teamForScore(env, "SHARKS", undefined, hA), null);
 });
 
 test("a sent game is saved with its team", async () => {

@@ -1,5 +1,5 @@
 // The way into a game: the title screen, then choose a game (each card shows its best), then choose a
-// player (and, the first time as Orson with the teams flag on, a team: screens/team.js), then it starts.
+// player (and, the first time as Orson, a team: screens/team.js), then it starts.
 // Once they've chosen a player, choosing a game starts it straight away as that player; the Choose a
 // game screen shows who they play as and their team, to change either. HORSE always picks its players.
 
@@ -15,7 +15,6 @@ import { removeMyPlayer } from "../players/recolor.js";
 import { $, charPick, howTo, screens, showScreen, stage, tapToPlay } from "../screens/base.js";
 import { showDaily } from "../screens/over.js";
 import { askPlayerTeam, chooseTeam, editTeam, needsTeam, swatch, teamOf } from "../screens/team.js";
-import { flagOn } from "../flags.js";
 import { myTeam, myTeamKit } from "../players/community.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { icon } from "../ui/icons.js";
@@ -125,7 +124,6 @@ function showWho() {
   // Their own player's team, or (Orson and approved players) the device's.
   const t = teamOf(c);
   const teamButton = $("mode-team");
-  teamButton.hidden = !flagOn("teams");
   dressTeamButton(teamButton, t?.kit);
   const none = c.mine ? "Pick a team" : "Choose your team";
   teamButton.append(Object.assign(document.createElement("span"), { textContent: t?.name || none })); // may be a kid's: text only
@@ -260,7 +258,7 @@ function renderPicker() {
 // The device's team (Top teams), under Choose your player: tap to change it. Not for pass and play.
 function showMyTeam() {
   const button = $("my-team");
-  button.hidden = !flagOn("teams") || !!team;
+  button.hidden = !!team;
   if (button.hidden) return;
   const t = myTeam();
   dressTeamButton(button);

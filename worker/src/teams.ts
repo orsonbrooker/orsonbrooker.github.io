@@ -1,6 +1,6 @@
 // Teams: the six official teams (shared/teams.js) and community teams kids make in the player builder,
-// and Top teams, a leaderboard of teams per game mode, this week and all time. All of it is behind the
-// `teams` flag (shared/flags.js): while it's off every route here is refused.
+// and Top teams, a leaderboard of teams per game mode, this week and all time. (It was behind a `teams`
+// flag until it was out for everyone.)
 //
 // Community teams (community_teams, migration 0024) are private from the start: friends join with an
 // 8-character code, shared in person (there's no way to send one in the game). Only a keyed hash of the
@@ -12,7 +12,7 @@
 // never changes: switching teams never moves old games. It's the team the kid chose, whoever they play
 // as: their own player's team, or the team the device picked the first time it played (Orson and
 // approved players have no team of their own). A community team only counts a game from a device that's
-// on it (team_members). While the flag is off no game gets a team, so games count from switching it on.
+// on it (team_members). Games count from FEATURE_FROM.teams, when Top teams went live.
 //
 // A team's score is its TEAM_COUNTS (3) best devices added up, each at its best game for that team in
 // that mode, so a team can't win just by having lots of players, and one kid can't fill all 3 places.
@@ -25,7 +25,6 @@ import { lowWins, modeOf } from "../../shared/rules.js";
 import type { Mode } from "../../shared/rules.js";
 import { TEAMS, TEAM_COUNTS, teamNameOf } from "../../shared/teams.js";
 import { forget, rankKey } from "./cache.ts";
-import { readFlags, requireFlag } from "./flags.ts";
 import { HttpError } from "./http.ts";
 import { newCode, tidyCode } from "./progress.ts";
 import { boardNames, boardOf, featureFrom } from "./scores.ts";
@@ -125,10 +124,9 @@ async function listableName(env: Env, name: string, id: number): Promise<boolean
  * The team a game counts for, saved with it (an official name or "c<id>"), or null. `sent` is the team
  * the kid chose (an official name) and `sentId` its community team, if any: their own player's team, or
  * the device's team when they play as Orson or someone else's approved player. A community team counts
- * only if this device is on it; anything else, and anything while the `teams` flag is off, is no team.
+ * only if this device is on it; anything else is no team.
  */
 export async function teamForScore(env: Env, sent: unknown, sentId: unknown, board: string): Promise<string | null> {
-	if (!(await readFlags(env)).teams) return null;
 	const id = idOf(clean(sentId, 12));
 	if (id !== null && (await isMember(env, board, id))) return keyOf(id);
 	const name = teamNameOf(sent);
@@ -261,14 +259,12 @@ const rangeOf = (get: (k: string) => unknown) => ({ mode: modeOf(get("mode")), w
 
 /** GET /api/teams?mode=&range=week|all: { teams }. */
 export async function teamBoard(env: Env, url: URL): Promise<Response> {
-	await requireFlag(env, "teams");
 	const { mode, week } = rangeOf((k) => url.searchParams.get(k));
 	return json({ teams: await teamRows(env, mode, week, url.origin) }, 200, 30);
 }
 
 /** GET /api/teams/list: listed community teams, for the builder (name, kits, how many devices are on it). */
 export async function listedTeams(env: Env): Promise<Response> {
-	await requireFlag(env, "teams");
 	const rows = await env.DB.prepare(
 		`SELECT t.id, t.name, t.home, t.away, t.owner, t.listing, t.status, (SELECT COUNT(*) FROM team_members m WHERE m.team_id = t.id) AS members
 		 FROM community_teams t WHERE t.listing = 'listed' AND t.status = 'ok' ORDER BY members DESC, t.name LIMIT 100`,
@@ -288,7 +284,6 @@ export const teamKeyOf = (raw: string) => {
 
 /** GET /api/teams/:key/players?mode=&range=: an official or listed team's players. */
 export async function teamPlayers(env: Env, rawKey: string, url: URL): Promise<Response> {
-	await requireFlag(env, "teams");
 	const key = teamKeyOf(rawKey);
 	const id = key ? idOf(key) : null;
 	if (!key) throw new HttpError(404, "No such team.");
@@ -304,7 +299,6 @@ export async function teamPlayers(env: Env, rawKey: string, url: URL): Promise<R
 
 /** POST /api/teams/mine { device }: the teams this device made and is on. Not cached. */
 export async function myTeams(request: Request, env: Env): Promise<Response> {
-	await requireFlag(env, "teams");
 	const body = await readJson(request);
 	await rateLimit(request, env, "teams-read", READS_PER_DAY, "That's a lot for one day! Try again tomorrow.");
 	const board = await boardFrom(env, body);
@@ -323,7 +317,6 @@ export async function myTeams(request: Request, env: Env): Promise<Response> {
  * be among the shown ones, just for its members.
  */
 export async function teamStanding(request: Request, env: Env): Promise<Response> {
-	await requireFlag(env, "teams");
 	const body = await readJson(request);
 	await rateLimit(request, env, "teams-read", READS_PER_DAY, "That's a lot for one day! Try again tomorrow.");
 	const board = await boardFrom(env, body);
@@ -347,7 +340,6 @@ export async function teamStanding(request: Request, env: Env): Promise<Response
 
 /** POST /api/teams { device, name, home, away, turnstileToken }: a new private team, with this device on it. */
 export async function makeTeam(request: Request, env: Env): Promise<Response> {
-	await requireFlag(env, "teams");
 	const body = await readJson(request);
 	const name = await teamName(env, body.name);
 	const [home, away] = [kitOf(body.home), kitOf(body.away)];
@@ -381,7 +373,6 @@ async function triedToday(request: Request, env: Env, bucket: string): Promise<n
  * or a listed team (anyone can find and join those).
  */
 export async function joinTeam(request: Request, env: Env): Promise<Response> {
-	await requireFlag(env, "teams");
 	const body = await readJson(request);
 	// Only wrong codes count towards the guessing limit, so a class joining together isn't stopped.
 	if (body.code !== undefined && (await triedToday(request, env, "team-guess")) >= WRONG_CODES_PER_DAY) throw new HttpError(429, TOO_MANY_TRIES);
@@ -409,7 +400,6 @@ export async function joinTeam(request: Request, env: Env): Promise<Response> {
 
 /** POST /api/teams/leave { device, id }: this device leaves a team (its players wear an official one). */
 export async function leaveTeam(request: Request, env: Env): Promise<Response> {
-	await requireFlag(env, "teams");
 	const body = await readJson(request);
 	await rateLimit(request, env, "team-leave", LEAVES_PER_DAY, "That's a lot for one day! Try again tomorrow.");
 	const board = await boardFrom(env, body);
@@ -424,7 +414,6 @@ export async function leaveTeam(request: Request, env: Env): Promise<Response> {
  *   name: { name } (a listed team goes back to waiting for Luke's OK)
  */
 export async function changeTeam(request: Request, env: Env, id: number, origin: string): Promise<Response> {
-	await requireFlag(env, "teams");
 	const body = await readJson(request);
 	await rateLimit(request, env, "team-change", CHANGES_PER_DAY, "That's a lot of changes for one day! Try again tomorrow.");
 	const board = await boardFrom(env, body);

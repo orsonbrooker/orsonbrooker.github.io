@@ -19,6 +19,20 @@ export const TEAMS = Object.freeze([
 /** The game's own team: Orson's, and anyone's who didn't pick one. */
 export const DEFAULT_TEAM = "KINGS";
 
+/** Whether `name` is one of the game's own teams. @param {unknown} name */
+export const isOfficialTeam = (name) => TEAMS.some((t) => t.name === name);
+
+/**
+ * Whether a player's team counts on Top teams, so the game doesn't need to ask for one: a community team
+ * (`teamId`), or one of the game's teams the kid picked (`picked`, saved by the builder since teams came
+ * out) or any of them but KINGS (where every player used to start, so KINGS alone doesn't say they chose
+ * it). A team kept only on the device (any other name) counts for nothing: the server doesn't know it.
+ * @param {{ teamId?: string, teamName?: string } | undefined} colours
+ * @param {boolean} [picked]
+ */
+export const teamCounts = (colours, picked = false) =>
+  !!colours?.teamId || (isOfficialTeam(colours?.teamName) && (picked || colours?.teamName !== DEFAULT_TEAM));
+
 /** How many of a team's best players add up to its score on the Top teams board. */
 export const TEAM_COUNTS = 3;
 

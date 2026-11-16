@@ -1,4 +1,4 @@
-// Community teams (behind the `teams` flag): teams kids make, apart from the six official ones. Private
+// Community teams: teams kids make, apart from the six official ones. Private
 // from the start: friends join with a code, shared in person. The maker can ask for a team to be shown
 // to everyone (Luke OKs the name). The server is worker/src/teams.ts.
 //

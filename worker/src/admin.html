@@ -793,7 +793,7 @@
 
 			// ---------- Teams ----------
 
-			// Community teams kids made (the teams flag). Private ones work straight away after the word filter;
+			// Community teams kids made. Private ones work straight away after the word filter;
 			// listing one for everyone needs Luke's OK on its name. Hiding one takes it off every board, and
 			// its members go back to an official team.
 			const LISTING = { private: "Private (code only)", asked: "Wants to be listed", listed: "Listed for everyone", refused: "Name not OKed: private" };
@@ -834,7 +834,7 @@
 				const box = document.getElementById("teams");
 				const teams = data.teams ?? [];
 				box.replaceChildren();
-				if (!teams.length) return box.append(el("div", { className: "empty", innerHTML: "No community teams yet.<br>Kids make them in the player builder (teams flag)." }));
+				if (!teams.length) return box.append(el("div", { className: "empty", innerHTML: "No community teams yet.<br>Kids make them in the player builder." }));
 				box.append(el("h2", { textContent: `Community teams (${teams.length})` }));
 				for (const [key, title, list, open] of [
 					["asked", "Wants to be listed", teams.filter((t) => t.status === "ok" && t.listing === "asked"), true],

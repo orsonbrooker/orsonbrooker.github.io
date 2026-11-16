@@ -607,7 +607,7 @@ const KEY_SCREENS = {
   "builder-gear": { path: "/players/", steps: [click("#tab-gear")] },
   // Done, with a team picked so it opens its sheet
   "builder-done": { path: "/players/", steps: [click("#tab-team"), click(".team-pick"), click("#tab-character")] },
-  "choose-player": { path: "/games/shootaround/?flags=teams", keys: [" ", "Enter"] },
+  "choose-player": { path: "/games/shootaround/", keys: [" ", "Enter"] },
   "horse-turn": {
     path: "/games/shootaround/",
     keys: [" "],
