@@ -1,6 +1,6 @@
-// Community teams: teams kids make, apart from the six official ones. Private
-// from the start: friends join with a code, shared in person. The maker can ask for a team to be shown
-// to everyone (Luke OKs the name). The server is worker/src/teams.ts.
+// Community teams: teams kids make, apart from the six official ones. Friends
+// join with a code, shared in person; the maker can ask for anyone to be able to join without one (Luke
+// OKs it). Every community team is on Top teams. The server is worker/src/teams.ts.
 //
 // This device keeps the teams it's on (and, for teams it made, their codes: the server only keeps a
 // hash) so the builder and the game work offline. Which of its players wears which team is kept with
@@ -67,7 +67,7 @@ export async function refreshTeams() {
   }
 }
 
-/** Listed community teams anyone can join: [{ id, key, name, home, away, members }]. */
+/** Community teams anyone can join without a code: [{ id, key, name, home, away, members }]. */
 export async function listedTeams() {
   try {
     const res = await fetch(`${API}/teams/list`);
@@ -101,7 +101,7 @@ export async function changeTeam(team, action, extra = {}) {
   return remember(now, code);
 }
 
-/** A team's rank and players, for a device on it (a private team's rank is just for its members). */
+/** A team's rank (below the top 10 too) and players, asked by a device on it. */
 export const teamStanding = (key, mode, range) => post("/players", { key, mode, range });
 
 // ---------- The device's team ----------

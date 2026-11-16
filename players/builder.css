@@ -1318,9 +1318,19 @@
   color: var(--pick);
 }
 
-.team-state {
-  flex: 1;
-  min-width: 160px;
+/* Who can join: "Code to join" or "Anyone can join", side by side, the one it is now lit. */
+.team-who {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.team-who .fb-button {
+  min-height: 48px;
+}
+
+.team-who .fb-button:disabled {
+  opacity: 0.45;
 }
 
 .code-box .fb-button {

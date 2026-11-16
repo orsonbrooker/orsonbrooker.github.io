@@ -11,7 +11,7 @@ import { confirmDialog } from "./ui/confirm.js";
 import { API } from "./api.js";
 import { offline } from "./offline.js";
 import { lowWins } from "./shared/rules.js";
-import { keptTeams, teamStanding } from "./players/community.js";
+import { keptTeams, refreshTeams, teamStanding } from "./players/community.js";
 
 const NICKNAME = "orson-hoops-nickname";
 const NICKNAME_AT = "orson-hoops-nickname-at"; // when it was typed: the latest wins across their devices
@@ -311,21 +311,22 @@ function boardRow(row, rank, faceFor, mode) {
   return li;
 }
 
-// A small flag on someone else's row, to tell Orson's team if their name isn't friendly.
-function reportButton(row) {
+// A small flag on someone else's row, to tell Orson's team if their name isn't friendly. A player's row
+// reports its game (worker/src/scores.ts); a community team's row on Top teams, the team (teams.ts).
+function reportButton(row, team = false) {
   const button = el("button", { type: "button", className: "lb-report" });
-  button.setAttribute("aria-label", "Report this name");
+  button.setAttribute("aria-label", team ? "Report this team name" : "Report this name");
   button.innerHTML = icon("flag");
   button.addEventListener("click", async () => {
-    const yes = await confirmDialog("Report this name?", { yes: "Report", yesIcon: "flag", detail: "Tell Orson's team if a name isn't friendly." });
+    const yes = await confirmDialog(team ? "Report this team name?" : "Report this name?", { yes: "Report", yesIcon: "flag", detail: "Tell Orson's team if a name isn't friendly." });
     if (!yes) return;
     let sent = false;
     let problem = "";
     try {
-      const res = await fetch(`${API}/reports`, {
+      const res = await fetch(team ? `${API}/teams/report` : `${API}/reports`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Device": deviceId() },
-        body: JSON.stringify({ scoreId: row.id }),
+        body: JSON.stringify(team ? { key: row.key, device: deviceId() } : { scoreId: row.id }),
       });
       sent = res.ok;
       if (!sent) problem = (await res.json().catch(() => ({}))).error ?? "";
@@ -425,10 +426,12 @@ function drawBoard(list, note, range, mode, scores, faceFor, bodyFor) {
 // ---------- Top teams ----------
 
 // The Top teams board: each team's 3 best players add up, each
-// device once (worked out by the server, worker/src/teams.ts). It shows the official teams and community
-// teams Luke has OKed showing to everyone; a private team this device is on gets a "Your team" row with
-// where it would be, just here. A row: rank, the top player's face, the team's name (community teams
-// marked "Made by players"), and the total. Tapping one opens its players, the 3 that count marked.
+// device once (worked out by the server, worker/src/teams.ts). It shows the 10 best teams, official and
+// made by players; a team this device is on that's further down gets a "Your team" row with its place.
+// A row: rank, the top player's face, the team's name (community teams marked "Made by players", and a
+// small number on a second team with the same name), and the total. Someone else's community team has
+// the report flag. Tapping a row opens its players, the 3 that count marked.
+let ownTeamsFresh = null;
 export async function renderTeams(list, note, range, mode, faceFor) {
   const key = `teams ${mode} ${range}`;
   showing = key;
@@ -438,11 +441,15 @@ export async function renderTeams(list, note, range, mode, faceFor) {
     list.replaceChildren();
     note.textContent = "Loading…";
   }
+  // The teams this device is on, fresh once a visit (one made or joined on a paired device, or in the
+  // builder in another tab), so its own teams never get the report flag and their "Your team" rows show.
+  ownTeamsFresh ??= refreshTeams();
   let teams;
   try {
     const res = await fetch(`${API}/teams?range=${range}&mode=${mode}`);
     if (!res.ok) throw new Error();
     teams = (await res.json()).teams;
+    await ownTeamsFresh; // offline, it falls back to the kept ones
   } catch (err) {
     if (showing === key && !seen.has(key)) {
       list.replaceChildren();
@@ -450,7 +457,7 @@ export async function renderTeams(list, note, range, mode, faceFor) {
     }
     return;
   }
-  // Their own private teams, where they'd be (asked only for teams not already on the board).
+  // Their own teams further down, and where (asked only for teams not already on the board).
   const own = [];
   for (const t of keptTeams().filter((k) => k.member !== false && !teams.some((s) => s.key === k.key))) {
     try {
@@ -466,6 +473,10 @@ export async function renderTeams(list, note, range, mode, faceFor) {
   if (!before || JSON.stringify(before) !== JSON.stringify([teams, own])) draw(teams, own);
 }
 
+// A second (or third…) community team with the same name gets a small number, so they don't look like one.
+const sameNameTag = (team) => (team.tag ? [el("span", { className: "lb-team-tag", textContent: String(team.tag), title: `The ${ordinal(team.tag)} team called ${team.name}` })] : []);
+const ordinal = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+
 const madeByPlayers = () => {
   const b = el("span", { className: "lb-badge", title: "Made by players" });
   b.innerHTML = icon("players");
@@ -477,7 +488,7 @@ function teamRowParts(team, faceFor, mode) {
   const img = el("img", { alt: "", width: 40, height: 40 });
   faceFor(team.top, img);
   const name = el("span", { className: "lb-name lb-team-name" });
-  name.append(el("span", { className: "lb-team-text", textContent: team.name })); // may be typed by a kid: text only
+  name.append(el("span", { className: "lb-team-text", textContent: team.name }), ...sameNameTag(team)); // may be typed by a kid: text only
   if (team.kind === "community") name.append(madeByPlayers());
   return [el("span", { className: "lb-rank", textContent: team.rank }), img, name, el("span", { className: "lb-points", textContent: scoreText(mode, team.score) })];
 }
@@ -492,11 +503,12 @@ function drawTeams(list, note, range, mode, teams, own, faceFor) {
     button.append(...teamRowParts(team, faceFor, mode));
     button.addEventListener("click", () => showTeamCard(team, range, mode, faceFor));
     li.append(button);
+    if (team.kind === "community" && !mine.has(team.key)) li.append(reportButton(team, true));
     return li;
   };
   list.replaceChildren(...teams.map((t) => row(t)));
   for (const t of own) {
-    list.append(el("li", { className: "lb-team-gap", textContent: "Your team (only you can see this)" }));
+    list.append(el("li", { className: "lb-team-gap", textContent: "Your team" }));
     list.append(row(t, " lb-own"));
   }
 }
@@ -508,10 +520,10 @@ function showTeamCard(team, range, mode, faceFor) {
   const head = el("div", { className: "lb-team-head" });
   const where = { survival: " in sudden death", around: " around the world", threes: " in the 3-point contest" }[mode] ?? "";
   const title = el("h2");
-  title.append(el("span", { textContent: team.name })); // text only
+  title.append(el("span", { textContent: team.name }), ...sameNameTag(team)); // text only
   if (team.kind === "community") title.append(madeByPlayers());
   head.append(
-    el("p", { className: "lb-card-rank", textContent: `#${team.rank} ${range === "week" ? "this week" : "all time"}${where}${team.mine ? " (only you can see this)" : ""}` }),
+    el("p", { className: "lb-card-rank", textContent: `#${team.rank} ${range === "week" ? "this week" : "all time"}${where}` }),
     title,
     el("p", { className: "lb-score", textContent: `${scoreText(mode, team.score)} ${lowWins(mode) ? "seconds" : "points"}` }),
   );
@@ -522,12 +534,13 @@ function showTeamCard(team, range, mode, faceFor) {
   row.append(close);
   form.append(head, hint, list, row);
   dialog.append(form);
-  // A private team's players come only to its members; official and listed teams from the cached GET.
-  const asked = team.mine ? teamStanding(team.key, mode, range) : fetch(`${API}/teams/${encodeURIComponent(team.key)}/players?range=${range}&mode=${mode}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error())));
+  // A team this device is on asks with the device (a code-to-join team's members see every teammate's
+  // name); any other team comes from the cached GET.
+  const asked = keptTeams().some((k) => k.key === team.key && k.member !== false) ? teamStanding(team.key, mode, range) : fetch(`${API}/teams/${encodeURIComponent(team.key)}/players?range=${range}&mode=${mode}`).then((r) => (r.ok ? r.json() : Promise.reject(new Error())));
   asked
     .then(({ players }) => {
       hint.textContent = lowWins(mode) ? "The 3 best times add up." : "The 3 best players add up.";
-      // Names show only for players already on the players' board (or teammates on a private team):
+      // Names show only for players already on the players' board (or teammates on a code-to-join team):
       // the rest are a face and a score. Someone else's name has the report flag, as on the board.
       const mine = new Set(load(MY_SCORES, []));
       list.replaceChildren(

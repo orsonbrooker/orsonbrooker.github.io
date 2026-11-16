@@ -123,6 +123,8 @@ erDiagram
   ideas ||--o{ submissions : "approved or merged into"
   players ||..o{ scores : "played as (by id)"
   scores ||--o{ reports : "name reported"
+  community_teams ||--o{ team_reports : "name reported"
+  community_teams ||--o| blocked_team_names : "name blocked when hidden"
   progress ||--|{ progress_devices : "kept on"
   progress ||--o{ progress_games : "earned coins in"
   progress ||--o{ progress_items : "owns"
@@ -192,7 +194,7 @@ erDiagram
     text home_away "kit JSON: jersey, shorts, trim"
     text owner "the maker's board (like scores.device)"
     text code_hash "join code, keyed hash only"
-    text listing "private, asked, listed, refused"
+    text listing "private (code to join), asked, listed (anyone can join), refused"
     text status "ok, hidden"
   }
   team_members {
@@ -204,10 +206,19 @@ erDiagram
     text ip_hash PK "hashed IP and day: one report each"
     int cleared "admin has acted on it"
   }
+  team_reports {
+    int team_id PK "the community team reported"
+    text ip_hash PK "hashed IP and day: one report each"
+    int cleared "admin has acted on it"
+  }
   blocked_names {
     text squashed PK "the name as the filter compares it"
     text name "as typed"
     int score_id "the hidden game it came from"
+  }
+  blocked_team_names {
+    text name PK "a hidden reported team's exact name"
+    int team_id "the hidden team"
   }
   progress {
     int id PK
@@ -350,18 +361,33 @@ Terms used across the code:
   devices end up in a progress that's gone.
 - **Feature launch dates:** `FEATURE_FROM` in the Worker. Stats for a feature only show for games played after it.
 - **Teams** (`worker/src/teams.ts`, `players/community.js`; out for everyone, no longer behind a flag). Two kinds: the six official teams (`TEAMS` in `shared/teams.js`) and **community teams** kids make in
-  the builder (`community_teams`), clearly marked "Made by players". A community team is private from the
-  start: friends join with an 8-character code shared in person (only a keyed hash is stored, so the maker's
-  device keeps the code; a new code stops the old one), and there's no way to send one in the game. The maker
-  can ask to show it to everyone: Luke OKs the name in the admin inbox ("Teams to list"), and listed names are
-  unique among listed and official teams. A device (its board, so paired devices count as one, and pairing
+  the builder (`community_teams`), clearly marked "Made by players". Every community team that isn't hidden is
+  on Top teams. Friends join with an 8-character code shared in person (only a keyed hash is stored, so the
+  maker's device keeps the code; a new code stops the old one), and there's no way to send one in the game.
+  The maker can ask for anyone to be able to join without the code ("Who can join": Code to join / Anyone can
+  join): Luke OKs it in the admin inbox ("Anyone can join?"), since it's who can walk in; those teams
+  (`listing = 'listed'`) are in the builder's "Anyone can join" list, and their names are unique among listed
+  and official teams. A new or renamed team can't take a name any team already has (official, or a
+  community team that isn't hidden; any case): "There's already a team called GOATS. Try a different name."
+  A device-only team with a taken name stays on the device until it's renamed. Teams that shared a name before
+  that rule keep it: on Top teams a later one gets a small number (`tag`, 2, 3…, by when it was made among
+  teams that aren't hidden). A device (its board, so paired devices count as one, and pairing
   moves its teams like its scores) makes at most 3, with Turnstile; a team can't take an official team's
   name. Codes look like `T-ABCD-EFGH`, never like a pairing code; only a hash is kept, so only the maker's
   device can show one (Luke can make a new one in admin). Per-IP daily limits fit a class on one school
   Wi-Fi: 20 teams made, 100 joins, and only wrong codes count towards the 15 that stop guessing. Joining
   means wearing the team's kit and name (`colours.teamId` on the player, kept on the device); a device is on
-  a team in `team_members`. Luke can list, refuse a name, unlist, rename, hide a team or make it a new code
-  (Teams section); a hidden one is gone everywhere. The game asks `POST /api/teams/mine` once a visit when
+  a team in `team_members`. Luke can let anyone join, refuse a name, go back to code to join, rename, hide a
+  team or make it a new code (Teams section); a hidden one is gone everywhere.
+- **Team names are public without Luke's OK first,** so they pass the rude-word filter when typed (and a
+  blocked name never shows), and anyone can tap the flag on someone else's community team row on Top teams:
+  `POST /api/teams/report` with `{ key, device }`, one `team_reports` row per team per hashed IP (and day),
+  ignored from a device on that team, sharing the 30-a-day report limit with players' names. Reported teams go
+  to the top of the admin inbox ("Reported team names") and the weekly ntfy count until Luke hides the team,
+  renames it or presses "Looks fine" (`name-ok`), which clear its reports. Hiding a reported team blocks that
+  exact name for new and renamed teams (`blocked_team_names`); unlike a player's blocked name it isn't matched
+  inside other names, and another team that already had it stays until it's reported too. Show again unblocks it.
+  The game asks for the device's own teams once a visit when Top teams opens, so its own rows never get the flag. The game asks `POST /api/teams/mine` once a visit when
   the device is on a community team (or a player wears one the device doesn't know yet, from saved
   progress). If one has gone, its players go into the device's team (else KINGS) and they're told; a
   renamed or re-kitted team's players take its new name and kit (`checkTeams` in `screens/team.js`).
@@ -369,7 +395,7 @@ Terms used across the code:
 - **Teams only on a device ("drafts"):** before community teams, the builder kept a kid's own teams on the
   device (`orson-hoops-my-teams`, `players/teams.js`), and a team being made is one until Done. They count
   for nothing on Top teams (the server only knows official and community teams), so a player wearing one
-  counts as not picked (`teamPicked`). Done on a new team makes it a private community team (and shows its
+  counts as not picked (`teamPicked`). Done on a new team makes it a code-to-join community team (and shows its
   code), unless the device has made 3 already (then Done keeps it as a draft). Any other draft becomes one
   by itself (`players/drafts.js`: `waitingDrafts`, `makeDraft`, shared by the builder and the game), one per
   robot check token, and every saved player wearing it (matched by name) wears the new team:
@@ -406,13 +432,14 @@ Terms used across the code:
   it; games count from `FEATURE_FROM.teams`, when Top teams went live. A team's score is its 3 best devices
   added up (`TEAM_COUNTS`), each device once at its best game for that team, so a big team can't win by
   numbers and one kid can't fill all 3; in Around the World the 3 best times add up and teams with all 3 come
-  first. It shows official and listed teams (never a blocked name), from shown games played from
-  `FEATURE_FROM.teams`; a private team's members get a "Your team" row with where it would be
-  (`POST /api/teams/players`, just for them; the counting behind it is kept 30 s in the edge cache under
-  `/api/teams-rank`, which no request is answered from, and cleared with the board). Rows show the top
+  first. It shows the 10 best teams, official and community (never a hidden team or a blocked name), from
+  shown games played from `FEATURE_FROM.teams` (every team's, code-to-join ones too, so changing who can join
+  never changes which games count); a team the device is on that's further down gets a "Your
+  team" row with its place (`POST /api/teams/players`; the counting behind it is kept 30 s in the edge cache
+  under `/api/teams-rank`, which no request is answered from, and cleared with the board). Rows show the top
   player's face; tapping one lists the team's players with the 3 that count marked: nicknames only for
-  players already on that players' board (others are a face and a score; a private team's members see each
-  other's), each with the report flag. In the game a Players / Teams
+  players already on that players' board (others are a face and a score; a code-to-join team's members see
+  each other's), each with the report flag. In the game a Players / Teams
   switch on the leaderboard (`renderTeams` in `leaderboard.js`).
 
 ## Courts

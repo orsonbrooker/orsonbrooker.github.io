@@ -2039,6 +2039,19 @@ a.tile-go:active {
   overflow-wrap: anywhere;
 }
 
+/* A second team with the same name: a small number after it. */
+.lb-team-tag {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.6em;
+  padding: 1px 4px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 0.85em;
+  line-height: 1.2;
+  opacity: 0.75;
+}
+
 .lb-badge {
   display: inline-flex;
   align-items: center;

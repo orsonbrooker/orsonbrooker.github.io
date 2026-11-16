@@ -93,7 +93,7 @@ export async function admin(request: Request, env: Env, url: URL): Promise<Respo
 		]);
 		// The weekly digest (digest.ts), if there's one not marked seen: one item at the top of the inbox.
 		const digest = await openDigest(env);
-		// Community teams (teams.ts): ones waiting to be listed are inbox items, all of them are in Teams.
+		// Community teams (teams.ts): reported ones and ones asking for anyone to join are inbox items, all of them are in Teams.
 		const teams = await adminTeams(env);
 		return json(
 			{ submissions: submissions.results, ideas: ideas.results, apps: apps.results, players: players.results, scores: scores.results, blocked: blocked.results, words: words.results, digest, teams },

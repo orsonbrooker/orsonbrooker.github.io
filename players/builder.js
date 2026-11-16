@@ -620,14 +620,14 @@ function setupSize() {
 
 // ---------- Teams ----------
 // The official teams (shared/teams.js) and community teams (players/community.js): made by kids, joined
-// with a code (or from the list once Luke has OKed showing one to everyone). A team a kid makes is a
-// private community team as soon as they tap Done. Teams kept only on this device ("drafts": made before
-// community teams, or left before Done) count for nothing on Top teams, so each is made into a private
+// with a code (or from the list once Luke has OKed anyone joining one). Every community team is on Top
+// teams. A team a kid makes is a code-to-join community team as soon as they tap Done. Teams kept only on this device ("drafts": made before
+// community teams, or left before Done) count for nothing on Top teams, so each is made into a code-to-join
 // community team by itself once the robot check passes (makeDrafts), and its players wear that.
 
 let mine = myTeams(); // drafts: teams kept only on this device, waiting to be made into community teams
 let community = keptTeams(); // community teams this device is on or made
-let listed = []; // community teams shown to everyone
+let listed = []; // community teams anyone can join
 let mostTeams = 3;
 let team; // the team being played for (NO_TEAM until they pick one)
 // No team yet: a new player, unless the device chose a team in the game, and a player saved in KINGS only
@@ -788,15 +788,15 @@ function paintTeams() {
   });
   list.replaceChildren(
     ...(yours.length ? [section("Your teams", ...yours)] : []),
-    ...(openRows.length ? [section("Teams made by players", ...openRows)] : []),
+    ...(openRows.length ? [section("Anyone can join", ...openRows)] : []),
     official,
     section("New team", make),
     section("Join a team", joinForm),
   );
 }
 
-// The editor: name and kit colours. For a new team (a draft), the robot check, and Done makes it a private
-// community team; for a community team its maker made, its code and showing it to everyone too.
+// The editor: name and kit colours. For a new team (a draft), the robot check, and Done makes it a
+// code-to-join community team; for a community team its maker made, its code and who can join too.
 function paintEditor() {
   const box = $("kit-colours");
   const label = kit === "home" ? "Home" : "Away";
@@ -819,7 +819,7 @@ function paintEditor() {
   $("team-done").append(isCommunity(team) ? "Save" : "Done");
   if (!isCommunity(team)) {
     extra.replaceChildren(
-      el("p", { className: "fb-hint", textContent: madeAll() ? FULL : "Friends can join your team with its code. Make up a name: not your school or club." }),
+      el("p", { className: "fb-hint", textContent: madeAll() ? FULL : "Friends join with its code, and its name shows on Top teams. Make up a name: not your school or club." }),
     );
     if (!madeAll()) teamCheck();
     return;
@@ -830,27 +830,33 @@ function paintEditor() {
   fresh.addEventListener("click", () =>
     runTeam(fresh, async () => Object.assign(team, await changeTeam(team, "code")), team.code ? "New code made. The old one won't work any more." : ""),
   );
-  const STATE = {
-    private: "Only friends with the code can join.",
-    asked: "Waiting for Luke to OK the name.",
-    listed: "Everyone can find and join it.",
-    refused: "Try a different name to show it to everyone.",
+  // Who can join: two choices, the one it is now pressed. Every team is on Top teams either way; Luke
+  // OKs anyone joining (it's who can walk in), so "Anyone can join" waits for him first.
+  const open = team.listing === "listed" || team.listing === "asked";
+  const NOTE = {
+    asked: "Waiting for Luke's OK. Until then, friends join with the code.",
+    refused: "Try a different name so anyone can join.",
   };
-  const show = button({ className: "fb-button" }, team.listing === "listed" || team.listing === "asked" ? "Code only" : "Show everyone");
-  show.addEventListener("click", () => {
-    const listing = team.listing === "listed" || team.listing === "asked";
-    if (!listing && !teamToken) return sayTeam("Please finish the robot check first.", { error: true });
-    runTeam(show, async () => {
-      Object.assign(team, await changeTeam(team, listing ? "unlist" : "list", listing ? {} : { turnstileToken: useTeamToken() }));
-      paintTeams();
+  const choice = (label, on, action) => {
+    const b = button({ className: `fb-button${on ? " fb-primary" : ""}`, ariaPressed: String(on) }, label);
+    b.disabled = action === "list" && team.listing === "refused";
+    b.addEventListener("click", () => {
+      if (on) return;
+      if (action === "list" && !teamToken) return sayTeam("Please finish the robot check first.", { error: true });
+      runTeam(b, async () => {
+        Object.assign(team, await changeTeam(team, action, action === "list" ? { turnstileToken: useTeamToken() } : {}));
+        paintTeams();
+      });
     });
-  });
+    return b;
+  };
+  const who = el("div", { className: "team-who" }, choice("Code to join", !open, "unlist"), choice("Anyone can join", open, "list"));
   extra.replaceChildren(
     el("div", { className: "code-box" }, el("span", { className: "mini-label" }, "Team code"), codeText, fresh),
     el("p", { className: "fb-hint", textContent: "Share the code in person with friends. They type it in Join a team." }),
     // Only this device can show it (the server keeps no copy), so a lost device would lose it.
     el("p", { className: "fb-hint", textContent: "Only this device can show the code, so write it down somewhere safe. Play on more than one device? Join them in the game's Shop (Playing on another device?) so they share your team." }),
-    el("div", { className: "code-box" }, el("span", { className: "mini-label" }, "Who can join"), el("span", { className: "team-state", textContent: STATE[team.listing] ?? STATE.private }), ...(team.listing === "refused" ? [] : [show])),
+    el("div", { className: "field" }, el("span", { className: "mini-label" }, "Who can join"), who, ...(NOTE[team.listing] ? [el("p", { className: "fb-hint", textContent: NOTE[team.listing] })] : [])),
   );
   teamCheck();
 }
