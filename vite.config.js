@@ -5,7 +5,7 @@
 import { execSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { defineConfig } from "vite";
 
 const ROOT = import.meta.dirname;
@@ -27,17 +27,31 @@ const STATIC = [
   "favicon.ico",
   "site.webmanifest",
   "games/shootaround/manifest.webmanifest",
-  // The admin page (served by the Worker) imports it to draw players exactly as the game does. Its only
-  // imports are shades.js beside it and engine/download.js, so the plain files work; the site's pages
-  // use their own bundled copy.
-  "players/recolor.js",
-  "players/shades.js",
-  "engine/download.js",
+  // The admin page (served by the Worker) imports players/recolor.js to draw players exactly as the game
+  // does, so it and every module it imports are copied as plain files (moduleFiles below); the site's
+  // pages use their own bundled copy.
+  ...moduleFiles("players/recolor.js"),
   "robots.txt",
   "sitemap.xml",
   "CNAME",
   ".nojekyll",
 ];
+
+// A module and every module it imports (relative imports only), as paths from the repo root, so a new
+// import in players/recolor.js reaches the admin page without anyone having to list it here.
+function moduleFiles(entry) {
+  const found = new Set();
+  const visit = (path) => {
+    if (found.has(path)) return;
+    found.add(path);
+    const code = readFileSync(resolve(ROOT, path), "utf8");
+    for (const [, from, bare] of code.matchAll(/^\s*(?:import|export)\b[^"'`]*?\bfrom\s*["'](\.{1,2}\/[^"']+)["']|^\s*import\s*["'](\.{1,2}\/[^"']+)["']/gm)) {
+      visit(relative(ROOT, resolve(ROOT, dirname(path), from ?? bare)));
+    }
+  };
+  visit(entry);
+  return [...found];
+}
 
 // Changes each page before Vite reads it:
 // - on pages with <base href="/"> (the game), makes their relative addresses start at the root, since

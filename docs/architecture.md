@@ -79,7 +79,8 @@ flowchart LR
   and the admin page on the same domain as the site, so there's no cross-site setup in production. The admin
   page has one address per section (`/admin` is the inbox, then `/admin/ideas`, `/admin/players`,
   `/admin/scores`, `/admin/words`, `/admin/stats`, `/admin/flags`), all the same page behind the same sign-in check. It draws players front and back with
-  the site's own `players/recolor.js`, which the build copies to a fixed address for it.
+  the site's own `players/recolor.js`, which the build copies to a fixed address for it, with every module it
+  imports (`moduleFiles()` in `vite.config.js` follows the imports, so a new one can't break the admin pictures).
 - **Edge cache** (`worker/src/cache.ts`): public answers that are the same for everyone (the boards, score
   cards, approved players, config, feature flags, the ideas list without a device) are kept in Cloudflare's cache for 30-60 s,
   keyed by the URL with only the parameters the handler reads. A new score or an admin change clears what it
