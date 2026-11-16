@@ -130,7 +130,7 @@ $("change-player").addEventListener("click", () => openSelect());
 $("replay").addEventListener("click", startReplay);
 $("team-go").addEventListener("click", startTeam);
 $("turn-quit").addEventListener("click", async () => {
-  if (await confirmDialog("Stop this game?", { yes: "Stop", no: "Keep playing", detail: "Nobody wins this one." })) showTitle();
+  if (await confirmDialog("Quit this game?", { yes: "Quit", no: "Keep playing", detail: "Nobody wins this one." })) showTitle();
 });
 $("got-idea").addEventListener("click", () => window.dispatchEvent(new CustomEvent("feedback:open", { detail: { app: "basketball" } })));
 $("help-button").addEventListener("click", toggleHelp);

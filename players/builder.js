@@ -4,7 +4,7 @@
 //   Body:      height and build (kids made from video).
 //   Team:      a team from the list or one of your own, its home or away kit, and your number.
 //   Gear:      what a kid from video wears (one item per slot), shoe colour and the ball.
-// Done opens a sheet with the nickname and "Play as them now"; under it, a step to send them to Orson.
+// Done opens a sheet with the nickname and "Play now"; under it, a step to send them to Orson.
 // Players wait for approval in /admin before they show up in the game's player picker.
 //
 // Open with ?base=curly&skin=c98c5f&hair=26222a&jersey=d63a3a&team=2b2b2f&shoes=f2f2ef&number=7&teamName=KINGS&name=Ace
@@ -756,7 +756,7 @@ function paintTeams() {
     }
   }
   for (const t of drafts) yours.push(teamRow(t));
-  if (drafts.length) yours.push(el("p", { className: "fb-hint team-hint", textContent: "Teams with Edit but no badge are only on this device. Edit one and tap Make it a team so friends can join." }));
+  if (drafts.length) yours.push(el("p", { className: "fb-hint team-hint", textContent: "Teams with Edit but no badge are only on this device. Edit one and tap Share team so friends can join." }));
 
   const open = listed.filter((t) => !on.some((o) => o.key === t.key));
   const openRows = open.map((t) => {
@@ -793,7 +793,7 @@ function paintTeams() {
   );
 }
 
-// The editor: name and kit colours. For a draft with the flag on, Make it a team; for a community team
+// The editor: name and kit colours. For a draft with the flag on, Share team; for a community team
 // its maker made, its code and showing it to everyone too.
 function paintEditor() {
   const box = $("kit-colours");
@@ -817,7 +817,7 @@ function paintEditor() {
   $("team-done").append(isCommunity(team) ? "Save" : "Done");
   if (!COMMUNITY) return extra.replaceChildren();
   if (!isCommunity(team)) {
-    const real = button({ className: "fb-button fb-primary make-real", id: "team-make" }, "Make it a team");
+    const real = button({ className: "fb-button fb-primary make-real", id: "team-make" }, "Share team");
     real.addEventListener("click", () => makeReal(real));
     const full = community.filter((t) => t.maker).length >= mostTeams;
     extra.replaceChildren(
@@ -828,7 +828,7 @@ function paintEditor() {
   }
   // Their own community team.
   const codeText = el("b", { className: "team-code", textContent: team.code ?? "T-••••-••••" });
-  const fresh = button({ className: "fb-button" }, team.code ? "New code" : "Show a code");
+  const fresh = button({ className: "fb-button" }, team.code ? "New code" : "Show code");
   fresh.addEventListener("click", () =>
     runTeam(fresh, async () => Object.assign(team, await changeTeam(team, "code")), team.code ? "New code made. The old one won't work any more." : ""),
   );
@@ -838,7 +838,7 @@ function paintEditor() {
     listed: "Everyone can find and join it.",
     refused: "Try a different name to show it to everyone.",
   };
-  const show = button({ className: "fb-button" }, team.listing === "listed" || team.listing === "asked" ? "Only with the code" : "Show it to everyone");
+  const show = button({ className: "fb-button" }, team.listing === "listed" || team.listing === "asked" ? "Code only" : "Show everyone");
   show.addEventListener("click", () => {
     const listing = team.listing === "listed" || team.listing === "asked";
     if (!listing && !teamToken) return sayTeam("Please finish the robot check first.", { error: true });
@@ -1478,7 +1478,7 @@ function needName() {
 
 // Play straight away: save to this device and jump into the game as them.
 const playLabel = play.lastChild.textContent;
-// (back from the game, a phone shows this page as it was left: Play ready again, not still "Getting them ready")
+// (back from the game, a phone shows this page as it was left: Play ready again, not still "Getting ready")
 addEventListener("pageshow", (e) => {
   if (!e.persisted) return;
   play.disabled = false;
@@ -1490,7 +1490,7 @@ play.addEventListener("click", async () => {
   // the game's sheet for them, made now if it isn't already (a slice at a time: the page stays live)
   clearTimeout(prepareTimer);
   play.disabled = true;
-  play.lastChild.textContent = "Getting them ready…";
+  play.lastChild.textContent = "Getting ready…";
   await preparing; // (one for an earlier look finishes first: they're made one at a time)
   await prepareBuilt(look()).catch(() => {});
   try {

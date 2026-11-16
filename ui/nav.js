@@ -3,7 +3,7 @@
 //   <nav class="site-nav" data-site-nav></nav>              (first thing in <body>)
 //   <script type="module" src="/ui/nav.js"></script>
 //
-// Pages that go with the game also get a "Back to the game" link at the top of their content:
+// Pages that go with the game also get a "Back to game" link at the top of their content:
 //   <a class="back-link" data-back-link href="/games/shootaround/"></a>
 
 import { IN_APP } from "../api.js";
@@ -36,7 +36,7 @@ for (const nav of document.querySelectorAll("[data-site-nav]")) {
 }
 
 for (const link of document.querySelectorAll("[data-back-link]")) {
-  link.innerHTML = `${icon("back")}<span>Back to the game</span>`;
+  link.innerHTML = `${icon("back")}<span>Back to game</span>`;
 }
 
 fillIcons();

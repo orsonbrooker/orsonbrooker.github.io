@@ -7,7 +7,7 @@ feedback/widget.js	innerHTML: voteLabel(idea.votes),
 feedback/widget.js	isTop ? el("span", { className: "fb-chip fb-top-chip", innerHTML: `${icon("trophy")}<span>Top pick</span>` }) : null,
 feedback/widget.js	idea.credit ? el("p", { className: "fb-credit", innerHTML: icon("star") }, el("span", { textContent: `Idea from ${idea.credit}` })) : null,
 feedback/widget.js	button.innerHTML = voteLabel(idea.votes);
-leaderboard.js	send.innerHTML = `${icon("trophy")}<span>Put it on the leaderboard</span>`;
+leaderboard.js	send.innerHTML = `${icon("trophy")}<span>Post score</span>`;
 leaderboard.js	dialog.innerHTML = `
 leaderboard.js	.catch(() => (stats.innerHTML = '<p class="fb-hint">The stats can\'t be loaded right now.</p>'));
 players/builder.js	if (owns(style.id)) tag.innerHTML = `${icon("check")}${using ? "Using" : "Yours"}`;
@@ -22,4 +22,4 @@ ui/confirm.js	dialog.innerHTML = `
 ui/form.js	message.innerHTML = error && text ? icon("close") : "";
 ui/icons.js	for (const el of root.querySelectorAll("[data-icon]")) el.innerHTML = icon(el.dataset.icon);
 ui/nav.js	nav.innerHTML = `
-ui/nav.js	link.innerHTML = `${icon("back")}<span>Back to the game</span>`;
+ui/nav.js	link.innerHTML = `${icon("back")}<span>Back to game</span>`;

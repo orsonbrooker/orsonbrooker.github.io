@@ -372,7 +372,7 @@ export async function checkGame(tab, base, record, out) {
   if (await tab.run("return !document.querySelector('.box-start').hidden && !document.querySelector('.box-start').disabled")) startProblems.push("Enter on START didn't open the gym");
   await report("START", startProblems);
 
-  // pause: Escape in a game; focus on Keep playing
+  // pause: Escape in a game; focus on Resume
   await key(tab, "Escape");
   await wait(500);
   if (!(await isOpen("pause-screen"))) await report("pause", ["Escape in a game didn't pause it"]);
@@ -381,7 +381,7 @@ export async function checkGame(tab, base, record, out) {
     await focusOn("#pause-resume");
     await key(tab, "Enter");
     await wait(400);
-    if (await isOpen("pause-screen")) problems.push("Enter on Keep playing didn't carry on");
+    if (await isOpen("pause-screen")) problems.push("Enter on Resume didn't carry on");
     await report("pause", problems);
   }
 

@@ -180,7 +180,7 @@ export function showRoundResult(box, round) {
     const check = el("div", { className: "fb-check" });
     const message = el("p", { className: "fb-message", role: "status" });
     const send = el("button", { type: "button", className: "post-score" });
-    send.innerHTML = `${icon("trophy")}<span>Put it on the leaderboard</span>`;
+    send.innerHTML = `${icon("trophy")}<span>Post score</span>`;
     box.replaceChildren(el("h3", { textContent: "Leaderboard this week" }), where, list, hint, check, message, send);
 
     // Their own row, kept between updates so typing isn't interrupted.
