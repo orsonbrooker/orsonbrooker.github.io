@@ -383,7 +383,7 @@
 				if (names.length) box.append(el("h2", { textContent: `Reported names (${names.length})` }), ...names.map(scoreRow));
 				if (teamNames.length) box.append(el("h2", { textContent: `Reported team names (${teamNames.length})` }), el("p", { className: "meta", textContent: "Every team is on Top teams. Hiding a reported team blocks that exact name for new teams (Show again unblocks it)." }), el("div", { className: "teams" }, ...teamNames.map(teamCard)));
 				if (requests.length) box.append(el("h2", { textContent: `Player requests (${requests.length})` }), el("div", { className: "tiles" }, ...requests.map(playerTile)));
-				if (asked.length) box.append(el("h2", { textContent: `Anyone can join? (${asked.length})` }), el("p", { className: "meta", textContent: "A kid asked for anyone to be able to join their team without the code. It's on Top teams already; check the name isn't a real school, club or person." }), el("div", { className: "teams" }, ...asked.map(teamCard)));
+				if (asked.length) box.append(el("h2", { textContent: `Anyone can join? (${asked.length})` }), el("p", { className: "meta", textContent: "A kid asked for anyone to be able to join their team without the code. It's on Top teams already; check the name isn't a real school, club or person." }), el("div", { className: "teams" }, ...asked.map((t) => teamCard(t, { joinRequest: true }))));
 				if (data.submissions.length) {
 					box.append(el("h2", { textContent: `New ideas (${data.submissions.length})` }));
 					for (const [key, title, items] of ideaGroups()) box.append(group(`inbox ${key}`, title, items.length, true, ...items.map(submissionCard)));
@@ -802,7 +802,9 @@
 			// takes it off every board, and its members go back to an official team.
 			const LISTING = { private: "Code to join", asked: "Asked: anyone can join", listed: "Anyone can join", refused: "Name not OKed: code to join" };
 			const kitSwatch = (k) => el("span", { className: "kit" }, ...["jersey", "shorts", "trim"].map((p) => el("span", { style: `background:${k?.[p] ?? "#000"}` })));
-			function teamCard(t) {
+			// On the inbox's "Anyone can join?" card (joinRequest), turning it down only keeps it code-to-join (it
+			// stays on Top teams and the maker can ask again): no "Hide team" there, which takes it off every board.
+			function teamCard(t, { joinRequest = false } = {}) {
 				const act = (action, extra, done) => run(() => api(`teams/${t.id}`, { action, ...extra }), done);
 				const name = el("input", { type: "text", value: t.name, maxLength: 10 });
 				const code = el("b", { className: "team-new-code" });
@@ -820,9 +822,12 @@
 						t.status === "ok" && t.listing === "asked" ? el("button", { type: "button", className: "primary", textContent: "Anyone can join", onclick: act("list", {}, "Anyone can join") }) : null,
 						t.status === "ok" && t.listing === "asked" ? el("button", { type: "button", textContent: "Not this name", onclick: act("refuse", {}, "Code to join") }) : null,
 						t.status === "ok" && t.listing === "listed" ? el("button", { type: "button", textContent: "Code to join", onclick: act("unlist", {}, "Code to join") }) : null,
-						t.status === "ok"
-							? el("button", { type: "button", className: "danger", textContent: "Hide team", onclick: act("hide", {}, "Hidden") })
-							: el("button", { type: "button", textContent: "Show again", onclick: act("show", {}, "Shown again") }),
+						joinRequest ? el("button", { type: "button", textContent: "Keep code to join", onclick: act("unlist", {}, "Kept code to join") }) : null,
+						joinRequest
+							? null
+							: t.status === "ok"
+								? el("button", { type: "button", className: "danger", textContent: "Hide team", onclick: act("hide", {}, "Hidden") })
+								: el("button", { type: "button", textContent: "Show again", onclick: act("show", {}, "Shown again") }),
 					),
 					el("div", { className: "row" }, name, el("button", { type: "button", textContent: "Rename", onclick: () => act("rename", { name: name.value }, "Renamed")() })),
 					// For a maker whose device lost the code (only their device keeps it): a new one to give them in person.

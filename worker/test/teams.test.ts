@@ -278,6 +278,19 @@ test("every community team is on Top teams; listing only means anyone can join w
 	await rejects(call(env, "GET", `/api/teams/${secret.team.key}/players`), 404);
 });
 
+test("the inbox's Keep code to join turns down an ask: still on Top teams, out of the inbox, and the maker can ask again", async () => {
+	const { env, db } = setup();
+	const goats = await make(env, A, "GOATS");
+	addScore(db, { device: await boardOf(env, A), player: "me1", score: 40, team: goats.team.key });
+	await call(env, "POST", `/api/teams/${goats.team.id}`, { device: A, action: "list", turnstileToken: "ok" });
+	assert.equal((await adminTeams(env)).find((t) => t.name === "GOATS")?.listing, "asked");
+	await editTeam(env, goats.team.id, { action: "unlist" }, "http://localhost");
+	const after = (await adminTeams(env)).find((t) => t.name === "GOATS");
+	assert.deepEqual([after?.listing, after?.status], ["private", "ok"]);
+	assert.deepEqual(names(await teamRows(env, "timed", true)), ["GOATS"]);
+	assert.equal((await call(env, "POST", `/api/teams/${goats.team.id}`, { device: A, action: "list", turnstileToken: "ok" })).team.listing, "asked");
+});
+
 test("a new or renamed team can't take a name another team has (any case); old duplicates keep a number on Top teams", async () => {
 	const { env, db } = setup();
 	const first = await make(env, A, "GOATS");

@@ -379,7 +379,9 @@ Terms used across the code:
   Wi-Fi: 20 teams made, 100 joins, and only wrong codes count towards the 15 that stop guessing. Joining
   means wearing the team's kit and name (`colours.teamId` on the player, kept on the device); a device is on
   a team in `team_members`. Luke can let anyone join, refuse a name, go back to code to join, rename, hide a
-  team or make it a new code (Teams section); a hidden one is gone everywhere.
+  team or make it a new code (Teams section); a hidden one is gone everywhere. The inbox's "Anyone can join?"
+  card has no Hide: its other choices are "Keep code to join" (`unlist`, back to private, still on Top teams,
+  and the maker can ask again) and "Not this name" (`refuse`: a new name before asking again).
 - **Team names are public without Luke's OK first,** so they pass the rude-word filter when typed (and a
   blocked name never shows), and anyone can tap the flag on someone else's community team row on Top teams:
   `POST /api/teams/report` with `{ key, device }`, one `team_reports` row per team per hashed IP (and day),
